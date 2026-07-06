@@ -27,6 +27,10 @@ import {
 
 const { check, counts } = createChecker();
 
+async function flushStreamTurn() {
+	await new Promise((resolve) => setImmediate(resolve));
+}
+
 async function startControlledJob(commands, cwd, { exitCode = 0 } = {}) {
 	const script = path.join(cwd, `job-${Math.random().toString(16).slice(2)}.cjs`);
 	const started = path.join(cwd, `started-${Math.random().toString(16).slice(2)}`);
@@ -680,8 +684,10 @@ async function cancelSignalsVerifiedOrphan(url) {
 		stdio: "ignore",
 	});
 	child.unref();
-	await new Promise((r) => setTimeout(r, 200));
-	const startId = readStartId(child.pid);
+	const startId = await waitFor("orphan child start identity", async () => {
+		const id = readStartId(child.pid);
+		return typeof id === "string" && id.length > 0 ? id : false;
+	});
 	check(
 		"cancel-orphan: captured a live start identity for the child",
 		typeof startId === "string" && startId.length > 0,
@@ -1121,10 +1127,9 @@ async function backpressurePausesSource(url) {
 	});
 	pipe(source, [slow]);
 	source.write(Buffer.from("a".repeat(4096)));
-	await new Promise((r) => setTimeout(r, 30));
 	check("backpressure: source pauses while sink is full", source.isPaused() === true, `isPaused=${source.isPaused()}`);
 	release();
-	await new Promise((r) => setTimeout(r, 30));
+	await flushStreamTurn();
 	check(
 		"backpressure: source resumes after sink drains",
 		source.isPaused() === false,
@@ -1150,7 +1155,6 @@ async function backpressureRecoversWhenSinkDies(url) {
 	});
 	pipe(source, [slow]);
 	source.write(Buffer.from("a".repeat(4096)));
-	await new Promise((r) => setTimeout(r, 30));
 	check(
 		"backpressure-death: source pauses while sink is full",
 		source.isPaused() === true,
@@ -1160,7 +1164,7 @@ async function backpressureRecoversWhenSinkDies(url) {
 	// El sink muere sin drenar nunca. La fuente debe reanudar en vez de quedar pausada para
 	// siempre (lo que bloquearía al child y dejaría el job trabado en running).
 	slow.destroy();
-	await new Promise((r) => setTimeout(r, 30));
+	await flushStreamTurn();
 	check(
 		"backpressure-death: source resumes after the sink dies (no permanent freeze)",
 		source.isPaused() === false,
@@ -1188,7 +1192,6 @@ async function writeCapStopsAndMarksLog(url) {
 	source.write(Buffer.from("a".repeat(8))); // bajo cap
 	source.write(Buffer.from("b".repeat(8))); // cruza el cap -> parcial + marcador
 	source.write(Buffer.from("c".repeat(8))); // descartado por completo tras llegar al cap
-	await new Promise((r) => setTimeout(r, 30));
 
 	const text = Buffer.concat(chunks).toString("utf8");
 	const payload = text.replace(/\n?\[log topado en 10 bytes\]\n?/g, ""); // quita marcador (contiene 'c')
@@ -1281,10 +1284,16 @@ async function finalizeRejectionIsContained(url) {
 	const bad2 = await makeBadRuntime("safe");
 	const ret = safeFinalize(bad2, 0, null);
 	check("finalize: safeFinalize returns void (does not throw synchronously)", ret === undefined);
-	await new Promise((r) => setTimeout(r, 75));
-	process.off("unhandledRejection", onUnhandled);
+	let events = "";
+	try {
+		events = await waitFor("finalize-error event", async () => {
+			const body = await fs.readFile(path.join(bad2.runDir, "events.jsonl"), "utf8").catch(() => "");
+			return /finalize-error/.test(body) ? body : false;
+		});
+	} finally {
+		process.off("unhandledRejection", onUnhandled);
+	}
 	check("finalize: safeFinalize produces no unhandled rejection", rejections.length === 0, String(rejections.length));
-	const events = await fs.readFile(path.join(bad2.runDir, "events.jsonl"), "utf8").catch(() => "");
 	check("finalize: safeFinalize records a finalize-error event", /finalize-error/.test(events), events.slice(0, 200));
 }
 
