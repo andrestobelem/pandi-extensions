@@ -39,6 +39,10 @@ export function tokenize(input: string): string[] {
 	return tokens;
 }
 
+function isHelpCommand(token: string): boolean {
+	return token === "help" || token === "-h" || token === "--help";
+}
+
 function parsePruneCommand(rest: string[]): ParsedCommand {
 	const dryRun = rest.some((t) => t === "--dry-run" || t === "-n");
 	return { action: "prune", dryRun };
@@ -112,7 +116,7 @@ export function parseCommand(input: string): ParsedCommand {
 	if (tokens.length === 0) return { action: "list" };
 
 	const head = tokens[0].toLowerCase();
-	if (head === "help" || head === "-h" || head === "--help") return { action: "help" };
+	if (isHelpCommand(head)) return { action: "help" };
 	if (head === "list" || head === "ls") return { action: "list" };
 
 	if (head === "prune") return parsePruneCommand(tokens.slice(1));
