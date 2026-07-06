@@ -70,7 +70,7 @@ import type {
 	ToolCallEventResult,
 } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import { renderPlanApprovalOverlay } from "./approval-view.js";
+import { isCurrentPlanApproval, presentPlanForApproval } from "./approval-handshake.js";
 import { parsePlanCommandIntent } from "./command-intent.js";
 import { buildPlanDashboardMarkdown, renderPlanDashboardOverlay } from "./dashboard.js";
 import {
@@ -408,25 +408,6 @@ async function handlePlanCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
 // Punto de entrada de la extensión
 // ---------------------------------------------------------------------------
 
-/**
- * Presenta el plan para la aprobación explícita del humano y devuelve su decisión.
- *
- * Prefiere el OVERLAY Markdown de estilo mdview (headings/lists/code renderizados + scroll + inline
- * approve/reject) cuando la sesión puede mostrar un componente personalizado; si no, degrada al diálogo
- * ctx.ui.confirm simple. Un fallo del overlay también degrada a confirm, así que la aprobación nunca se pierde.
- * El llamador ya estableció hasUI + un confirm usable (guardia no-UI de submit_plan).
- */
-async function presentPlanForApproval(ctx: ExtensionContext, planText: string, planId: string): Promise<boolean> {
-	if (ctx.hasUI && typeof ctx.ui.custom === "function") {
-		try {
-			return await renderPlanApprovalOverlay(ctx, planText, planId);
-		} catch {
-			// Cae al diálogo confirm de abajo — un overlay roto no debe perder la aprobación.
-		}
-	}
-	return await ctx.ui.confirm("Approve this plan?", planText);
-}
-
 export default function planExtension(pi: ExtensionAPI): void {
 	// La tool de artefacto del plan (≈ ExitPlanMode). La ÚNICA forma de presentar un plan + salir del modo.
 	pi.registerTool({
@@ -533,7 +514,7 @@ export default function planExtension(pi: ExtensionAPI): void {
 
 			const approved = await presentPlanForApproval(ctx, planText, plan.planId);
 			const livePlan = currentPlan();
-			if (livePlan?.planId !== plan.planId || livePlan.submissions !== submission) {
+			if (!isCurrentPlanApproval(livePlan, plan.planId, submission)) {
 				return {
 					content: [
 						{
