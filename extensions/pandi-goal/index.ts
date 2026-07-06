@@ -595,6 +595,10 @@ function formatStatus(goal: GoalState): string {
 	return `${goal.goalId} [${goal.gstatus}]${phase} iter ${goal.iteration}/${goal.maxIterations}${eta}${reason} — ${goal.objective}`;
 }
 
+function formatGoalStatusList(goals: GoalState[]): string {
+	return goals.map(formatStatus).join("\n");
+}
+
 async function handleGoalCommand(pi: ExtensionAPI, args: string, ctx: ExtensionContext): Promise<void> {
 	const trimmed = args.trim();
 	const firstSpace = trimmed.indexOf(" ");
@@ -632,7 +636,7 @@ async function handleGoalCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
 			notify(ctx, "No hay goals.", "info");
 			return;
 		}
-		notify(ctx, all.map(formatStatus).join("\n"), "info");
+		notify(ctx, formatGoalStatusList(all), "info");
 		return;
 	}
 
