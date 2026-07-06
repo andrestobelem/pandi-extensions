@@ -158,11 +158,12 @@ export type { ContextBar, ContextBarLevel } from "./context-bar.js";
 // el bundle siga exportando renderContextBar (la suite de integración lo importa).
 export { renderContextBar, resolveCommandValue };
 
-// Nivel de la barra del footer -> token de tema. Los estados urgentes (sobre el umbral / compactando) usan
-// `error` para leerse como alerta; `accent` se confundía demasiado fácil con selección/logo.
+// Nivel de la barra del footer -> token de tema. La barra arranca en verde (`success`) mientras
+// el uso está bajo; los estados urgentes (sobre el umbral / compactando) usan `error` para leerse
+// como alerta; `accent` se confundía demasiado fácil con selección/logo.
 // Se exporta para que la suite de integración pueda pinear el mapeo.
-export const BAR_LEVEL_COLOR: Record<ContextBarLevel, "muted" | "warning" | "error"> = {
-	idle: "muted",
+export const BAR_LEVEL_COLOR: Record<ContextBarLevel, "success" | "warning" | "error"> = {
+	idle: "success",
 	near: "warning",
 	over: "error",
 	compacting: "error",

@@ -9,7 +9,7 @@
 const BAR_FILLED = "\u25B0";
 const BAR_EMPTY = "\u25B1";
 const BAR_WIDTH = 8;
-// Por debajo de esta fracción del umbral la barra está calma (muted); en ese valor o por encima
+// Por debajo de esta fracción del umbral la barra está calma (verde/success); en ese valor o por encima
 // la barra le avisa al usuario que la auto-compactación se está acercando.
 const NEAR_RATIO = 0.6;
 
