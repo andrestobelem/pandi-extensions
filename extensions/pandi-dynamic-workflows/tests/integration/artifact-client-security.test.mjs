@@ -1,16 +1,16 @@
 /**
- * artifact-client-security — pins issue #33: the pre-launch preview client
- * (.claude/scripts/lib/artifact-client.js) must escape ALL FIVE HTML metacharacters
- * (& < > " ') and must never let a quote-bearing URL break out of the
- * href="..." attribute that linkify() builds.
+ * artifact-client-security — pinea issue #33: el cliente de preview pre-launch
+ * (.claude/scripts/lib/artifact-client.js) debe escapar LOS CINCO metacaracteres HTML
+ * (& < > " ') y nunca debe dejar que una URL con comillas escape del atributo
+ * href="..." que construye linkify().
  *
- * artifact-client.js is a browser-only script (top-level `document.getElementById`
- * calls), so it cannot be imported/bundled directly in Node. Per the
- * self-contained-extension rule this file is NOT touched/imported at runtime by any
- * extension — this suite only READS it as text, extracts the PURE string
- * transforms plus `mdToHtml`, and evaluates them in an isolated `new Function`
- * sandbox. No esbuild/DOM needed: the tiny marked/sanitizer fakes below pin the
- * escaping contract without executing browser APIs.
+ * artifact-client.js es un script solo-browser (llamadas top-level a `document.getElementById`),
+ * así que no puede importarse/bundlearse directamente en Node. Según la regla
+ * self-contained-extension este archivo NO se toca/importa en runtime por ninguna
+ * extensión — esta suite solo lo LEE como texto, extrae los transforms de string PUROS
+ * más `mdToHtml`, y los evalúa en un sandbox `new Function` aislado.
+ * No hace falta esbuild/DOM: los fakes mínimos de marked/sanitizer de abajo pinean el
+ * contrato de escaping sin ejecutar APIs browser.
  */
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -25,10 +25,10 @@ const CLIENT_PATH = path.join(REPO_ROOT, ".claude", "scripts", "lib", "artifact-
 const { check, counts } = createChecker();
 
 /**
- * Extract the `esc` and `linkify` definitions from the real source file and evaluate
- * them in a fresh sandbox (no `document`, no other globals). Both are single-line
- * statements in the shipped file; `linkify` closes over `esc` via the shared
- * function-body scope, exactly as it does in the browser.
+ * Extrae las definiciones de `esc` y `linkify` desde el archivo source real y las evalúa
+ * en un sandbox fresco (sin `document`, sin otros globals). Ambas son statements de una línea
+ * en el archivo shipeado; `linkify` cierra sobre `esc` vía el scope compartido del
+ * function-body, exactamente como lo hace en el browser.
  */
 function loadPureFunctions(source) {
 	const escLine = /^const esc=.*;$/m.exec(source);
@@ -64,28 +64,28 @@ function main() {
 	const source = fs.readFileSync(CLIENT_PATH, "utf8");
 	const { esc, escapeMarkdownHtml, linkify, mdToHtml } = loadPureFunctions(source);
 
-	// 1) The escaper must cover all five metacharacters, in one pass — the 3-char
-	// variant (only & < >) is the root cause of the attribute breakout below.
+	// 1) El escaper debe cubrir los cinco metacaracteres, en una pasada — la variante de 3 chars
+	// (solo & < >) es la causa raíz del breakout de atributo de abajo.
 	check("esc escapes & < > \" '", esc(`&<>"'`) === "&amp;&lt;&gt;&quot;&#39;", JSON.stringify(esc(`&<>"'`)));
 
-	// 2) Hostile fixture: a quote-bearing http(s) URL with no internal whitespace (so
-	// linkify's own `[^\s)]+` URL-matching regex still finds it), which is a live
-	// attribute-breakout regardless of it. linkify() wraps it in `(<a href="$1" ...)`.
+	// 2) Fixture hostil: una URL http(s) con comillas y sin whitespace interno (así
+	// la regex propia de linkify `[^\s)]+` para matchear URL todavía la encuentra), que es un
+	// attribute-breakout vivo de todos modos. linkify() la envuelve en `(<a href="$1" ...)`.
 	const HOSTILE_URL = 'http://evil.com"onmouseover=alert(1)';
 	const out = linkify(`(${HOSTILE_URL})`);
 	const hrefMatch = /href="(.*)" target="_blank"/.exec(out);
 	check("linkify still emits an href for the hostile URL", !!hrefMatch, out);
 	const hrefValue = hrefMatch ? hrefMatch[1] : "";
 
-	// The core pin: the emitted href attribute value must contain NO raw quote — a raw
-	// `"` there closes the attribute early and lets the rest of the URL be parsed as
-	// new (attacker-controlled) attributes on the <a> tag (e.g. `onmouseover=...`).
+	// El pin central: el valor del atributo href emitido NO debe contener comillas raw — una
+	// `"` raw ahí cierra el atributo antes de tiempo y deja que el resto de la URL se parseé como
+	// atributos nuevos (controlados por atacante) en el tag <a> (p. ej. `onmouseover=...`).
 	check('emitted href contains no raw "', !hrefValue.includes('"'), JSON.stringify(hrefValue));
 	check("no live onmouseover= attribute breaks out of href", !/"\s*onmouseover=/.test(out), out);
 	check("no javascript: href is ever emitted", !/href\s*=\s*"javascript:/i.test(out));
 
-	// 3) Issue #60: artifact markdown must escape raw HTML outside code, but must not
-	// pre-escape code spans/blocks before marked's own code renderer escapes them.
+	// 3) Issue #60: artifact markdown debe escapar HTML raw fuera de código, pero no debe
+	// pre-escapar spans/blocks de código antes de que el renderer de código propio de marked los escape.
 	const fencedCode = "```\nPromise<string>\n```";
 	const inlineCode = "`Promise<string>`";
 	check(
@@ -111,7 +111,7 @@ function main() {
 		renderedCode,
 	);
 
-	// 4) Regression guard: a clean URL still linkifies unchanged.
+	// 4) Guardia de regresión: una URL limpia todavía se linkifica sin cambios.
 	const cleanOut = linkify("(http://good.example/path)");
 	check("clean URL still linkified as-is", cleanOut.includes('href="http://good.example/path"'), cleanOut);
 
