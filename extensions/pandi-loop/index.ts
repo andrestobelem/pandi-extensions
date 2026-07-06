@@ -92,6 +92,7 @@ import { capExceeded } from "./caps.js";
 import { parseLoopCommandIntent, parseLoopStartArgs } from "./command-intent.js";
 import { destructiveReason } from "./gate.js";
 import { formatInterval } from "./interval.js";
+import { resolveLoop } from "./loop-resolve.js";
 import { notify } from "./notify.js";
 import { makeLoopIterationPrompt } from "./prompt.js";
 import { collectLatestByKey } from "./session-state.js";
@@ -104,6 +105,7 @@ import {
 	type LoopState,
 	type LoopStatus,
 	positiveOr,
+	shouldRehydrateLoopForSession,
 	snapshot,
 } from "./state.js";
 import { formatStatus } from "./status.js";
@@ -218,6 +220,15 @@ function refreshLoopStatus(ctx: ExtensionContext): void {
  * dispara sin esperar una escritura sidecar ATOMIC que cubre un crash duro donde
  * el JSONL podría perder el último append.
  */
+function currentOwnerSessionId(ctx: ExtensionContext): string | undefined {
+	try {
+		const id = ctx.sessionManager?.getSessionId?.();
+		return typeof id === "string" && id.trim() ? id : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
 function persist(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): void {
 	loop.updatedAt = new Date().toISOString();
 	const snap = snapshot(loop);
@@ -514,7 +525,14 @@ function startLoop(pi: ExtensionAPI, ctx: ExtensionContext, task: string): Activ
 	}
 
 	const loopId = crypto.randomBytes(4).toString("hex");
-	const loop = createActiveLoop({ loopId, task: taskText, intervalMs, now: Date.now(), ultracode });
+	const loop = createActiveLoop({
+		loopId,
+		task: taskText,
+		intervalMs,
+		now: Date.now(),
+		ultracode,
+		ownerSessionId: currentOwnerSessionId(ctx),
+	});
 	activeLoops.set(loopId, loop);
 	persist(pi, ctx, loop);
 
@@ -580,7 +598,15 @@ async function startAutonomousLoop(
 	}
 
 	const loopId = crypto.randomBytes(4).toString("hex");
-	const loop = createActiveLoop({ loopId, task: objective, intervalMs, now: Date.now(), autonomous: true, ultracode });
+	const loop = createActiveLoop({
+		loopId,
+		task: objective,
+		intervalMs,
+		now: Date.now(),
+		autonomous: true,
+		ultracode,
+		ownerSessionId: currentOwnerSessionId(ctx),
+	});
 	activeLoops.set(loopId, loop);
 	persist(pi, ctx, loop);
 
@@ -588,35 +614,6 @@ async function startAutonomousLoop(
 	const modeLabel = loop.mode === "fixed" ? ` (cada ${formatInterval(Math.round((intervalMs ?? 0) / 1000))})` : "";
 	notify(ctx, `Loop autónomo ${loopId} iniciado${modeLabel}: ${objective}`, "info");
 	return loop;
-}
-
-/**
- * Resuelve un loop por id, por candidato único o vía ui.select. `statuses` filtra
- * qué loops son elegibles (p. ej. ["running"] para stop, ["running","paused"] para
- * mostrar status). Por default, solo running (preserva el comportamiento P0 stop/schedule).
- */
-async function resolveLoop(
-	ctx: ExtensionContext,
-	idOrUndef: string | undefined,
-	statuses: LoopStatus[] = ["running"],
-): Promise<ActiveLoop | undefined> {
-	if (idOrUndef) {
-		const loop = activeLoops.get(idOrUndef);
-		return loop && statuses.includes(loop.status) ? loop : undefined;
-	}
-	const candidates = [...activeLoops.values()].filter((l) => statuses.includes(l.status));
-	if (candidates.length === 0) return undefined;
-	if (candidates.length === 1) return candidates[0];
-	if (ctx.hasUI) {
-		const choice = await ctx.ui.select(
-			"¿Qué loop?",
-			candidates.map((l) => `${l.loopId} — ${l.task}`),
-		);
-		if (!choice) return undefined;
-		const id = choice.split(" ")[0];
-		return activeLoops.get(id);
-	}
-	return undefined;
 }
 
 function stopLoop(
@@ -741,11 +738,14 @@ async function rehydrate(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void>
 	// para una transición que llegó a state.json pero no al JSONL de sesión.
 	const resolved = new Map<string, LoopState>();
 	const sidecarLoopIds = await discoverSidecarLoopIds(ctx);
+	const ownerSessionId = currentOwnerSessionId(ctx);
 	for (const loopId of new Set([...latestJsonl.keys(), ...sidecarLoopIds])) {
 		const jsonlState = latestJsonl.get(loopId);
 		const sidecar = await readSidecar(ctx, loopId);
 		const winner = newerState(jsonlState, sidecar);
-		if (winner) resolved.set(loopId, winner);
+		if (winner && shouldRehydrateLoopForSession(winner, ownerSessionId, latestJsonl.has(loopId))) {
+			resolved.set(loopId, winner);
+		}
 	}
 
 	for (const state of resolved.values()) {
@@ -936,7 +936,7 @@ async function handleLoopCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
 	const intent = parseLoopCommandIntent(args);
 
 	if (intent.kind === "stop") {
-		const loop = await resolveLoop(ctx, intent.rest || undefined, ["running", "paused"]);
+		const loop = await resolveLoop(ctx, activeLoops, intent.rest || undefined, ["running", "paused"]);
 		if (!loop) {
 			notify(
 				ctx,
@@ -951,7 +951,7 @@ async function handleLoopCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
 	}
 
 	if (intent.kind === "pause") {
-		const loop = await resolveLoop(ctx, intent.rest || undefined, ["running"]);
+		const loop = await resolveLoop(ctx, activeLoops, intent.rest || undefined, ["running"]);
 		if (!loop) {
 			notify(
 				ctx,
@@ -966,7 +966,7 @@ async function handleLoopCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
 	}
 
 	if (intent.kind === "resume") {
-		const loop = await resolveLoop(ctx, intent.rest || undefined, ["paused"]);
+		const loop = await resolveLoop(ctx, activeLoops, intent.rest || undefined, ["paused"]);
 		if (!loop) {
 			notify(
 				ctx,
