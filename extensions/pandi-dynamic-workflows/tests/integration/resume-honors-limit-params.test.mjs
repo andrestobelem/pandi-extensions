@@ -1,22 +1,22 @@
 #!/usr/bin/env node
 /**
- * Regression: action=resume must honor explicit limit params.
+ * Regresión: action=resume debe honrar params explícitos de límites.
  *
- * Found live during the Farley review (2026-07-03): a failed run was resumed
- * with maxAgents=150, but the resumed run executed with maxAgents=64
- * (DEFAULT_MAX_AGENTS) and died at the same wall again. Cause: the resume
- * handler never forwarded params.concurrency/maxAgents/timeoutMs/agentTimeoutMs
- * — resumeWorkflow rebuilt limits from input.json alone, silently ignoring the
- * knobs the tool schema advertises. (The start branch already merges
+ * Encontrado en vivo durante la review Farley (2026-07-03): un run fallido se reanudó
+ * con maxAgents=150, pero el run reanudado ejecutó con maxAgents=64
+ * (DEFAULT_MAX_AGENTS) y murió en la misma pared otra vez. Causa: el handler de resume
+ * nunca forwardeaba params.concurrency/maxAgents/timeoutMs/agentTimeoutMs
+ * — resumeWorkflow reconstruía límites solo desde input.json, ignorando en silencio los
+ * knobs que publicita el schema de la tool. (La rama start ya mergea
  * {...limitParamsFromInput(input), ...params}.)
  *
- * Contract pinned here:
- *   - resume with explicit maxAgents/concurrency runs with those limits.
- *   - resume WITHOUT explicit params keeps the input.json-derived limits
- *     (existing precedence preserved).
+ * Contrato fijado acá:
+ *   - resume con maxAgents/concurrency explícitos ejecuta con esos límites.
+ *   - resume SIN params explícitos conserva los límites derivados de input.json
+ *     (precedencia existente preservada).
  *
- * The probe workflow fails until ready.txt exists, then returns the limits it
- * actually ran with — so the resumed execution reports its own budget.
+ * El workflow probe falla hasta que exista ready.txt, luego devuelve los límites con los que
+ * efectivamente corrió — así la ejecución reanudada reporta su propio presupuesto.
  */
 
 import * as fs from "node:fs/promises";
@@ -119,7 +119,7 @@ async function main() {
 	const run = (params) =>
 		tool.execute(`tc-${Math.random().toString(36).slice(2)}`, params, new AbortController().signal, undefined, ctx);
 
-	// --- explicit params on resume win ------------------------------------------
+	// --- params explícitos en resume ganan --------------------------------------
 	const a = await seedFailedRun(run, project, "lima", {});
 	check("seed a: failed as designed", a.seeded.ok === false, a.seeded.ok ? "unexpected ok" : "");
 	check("seed a: run dir exists", !!a.runId);
@@ -130,7 +130,7 @@ async function main() {
 	check("resume honors explicit maxAgents=33", outA?.maxAgents === 33, JSON.stringify(outA));
 	check("resume honors explicit concurrency=2", outA?.concurrency === 2, JSON.stringify(outA));
 
-	// --- without explicit params, input.json-derived limits win ------------------
+	// --- sin params explícitos, ganan los límites derivados de input.json --------
 	await fs.rm(path.join(project, "ready.txt"), { force: true });
 	const b = await seedFailedRun(run, project, "limb", { maxAgents: 21 });
 	check("seed b: failed as designed", b.seeded.ok === false);
