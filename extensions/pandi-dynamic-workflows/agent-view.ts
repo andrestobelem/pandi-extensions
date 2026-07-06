@@ -64,6 +64,14 @@ function formatSettingTable(rows: [string, string][]): string {
 	].join("\n");
 }
 
+function agentStateIcon(state: AgentMonitorModel["state"]): string {
+	if (state === "completed") return "✅";
+	if (state === "running") return "▶️";
+	if (state === "cached") return "♻️";
+	if (state === "failed") return "❌";
+	return "?";
+}
+
 // The agent detail document split into the base sub-tab views (Card / Prompt / Output) plus
 // the legacy single-document concatenation (`full`, used by print mode and non-TUI paths).
 export interface AgentViewParts {
@@ -114,16 +122,7 @@ export async function buildAgentViewParts(run: WorkflowRunRecord, agent: AgentMo
 		: agent.promptAvailable
 			? "Prompt artifact exists, but the prompt section could not be parsed."
 			: "Prompt not available for this run/agent.";
-	const stateIcon =
-		agent.state === "completed"
-			? "✅"
-			: agent.state === "running"
-				? "▶️"
-				: agent.state === "cached"
-					? "♻️"
-					: agent.state === "failed"
-						? "❌"
-						: "?";
+	const stateIcon = agentStateIcon(agent.state);
 	const phase = formatAgentPhase(agent);
 	const outputText =
 		modelOutput !== undefined
