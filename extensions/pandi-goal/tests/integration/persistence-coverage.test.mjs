@@ -114,12 +114,22 @@ function makeGoal(overrides = {}) {
 
 // Sondea el filesystem (o cualquier predicate) hasta true o hasta agotar turnos de I/O/check.
 // No duerme por tiempo de pared: persist() dispara promesas de fs, no timers de producción.
-async function flush(predicate, tries = 200) {
+async function flush(predicate, tries = 2000) {
 	for (let i = 0; i < tries; i++) {
 		await new Promise((r) => setImmediate(r));
 		if (predicate?.()) return true;
 	}
 	return predicate ? predicate() : true;
+}
+
+async function waitForNoTmpFiles(dir, tries = 2000) {
+	let entries = [];
+	for (let i = 0; i < tries; i++) {
+		await new Promise((r) => setImmediate(r));
+		entries = await fs.readdir(dir);
+		if (!entries.some((f) => f.endsWith(".tmp"))) return entries;
+	}
+	return entries;
 }
 
 // ===========================================================================
@@ -331,9 +341,10 @@ async function sidecarTempCleanupOnRenameFailure(mod) {
 	clearTimeout(goal.timer);
 	mod.persist(pi, ctx, goal);
 	check("persist() still appended despite the doomed rename", entries.length === 1, `n=${entries.length}`);
-	// Permitir que se complete la cadena write+failed-rename+cleanup.
-	await flush(() => false, 40);
-	const entriesInDir = await fs.readdir(dir);
+	// Permitir que se complete la cadena write+failed-rename+cleanup. En CI Linux el
+	// rename fallido puede tardar más turnos de I/O que en macOS, así que esperamos la
+	// condición observable en vez de contar un número chico de setImmediate().
+	const entriesInDir = await waitForNoTmpFiles(dir);
 	const tmpLeftovers = entriesInDir.filter((f) => f.endsWith(".tmp"));
 	check(
 		"writeSidecar() removes the temp file when rename fails (no orphaned *.tmp)",
