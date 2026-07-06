@@ -21,6 +21,8 @@ import { formatElapsedMs } from "./presentation.js";
 import { formatRunView, pickAndOpenRunArtifact } from "./run-view.js";
 import type { AgentMonitorModel, WorkflowRunRecord } from "./types.js";
 
+type ParsedPiStdout = ReturnType<typeof parsePiJsonModeOutput>;
+
 export function resolveAgentArtifactPath(run: WorkflowRunRecord, agent: AgentMonitorModel): string | undefined {
 	if (!agent.artifactPath) return undefined;
 	// artifactPath se origina en events.jsonl no confiable; conténlo dentro de runDir
@@ -108,6 +110,18 @@ async function readLiveStreamIfSectionMissing(
 	return fs.readFile(streamPath, "utf8").catch(() => "");
 }
 
+function formatStdoutNote(
+	stdoutForParsing: string,
+	parsedStdout: ParsedPiStdout | undefined,
+	artifactStdout: string | undefined,
+): string | undefined {
+	if (!stdoutForParsing) return undefined;
+	const source = artifactStdout ? "Raw" : "Live";
+	if (parsedStdout?.ok)
+		return `${source} stdout is a Pi JSON event stream; parsed assistant output is shown above and raw stdout is omitted.`;
+	return `${source} stdout could not be parsed as Pi JSON (${parsedStdout?.warning ?? "unknown reason"}); see the artifact/live stream path if you need the raw stream.`;
+}
+
 // The agent detail document split into the base sub-tab views (Card / Prompt / Output) plus
 // the legacy single-document concatenation (`full`, used by print mode and non-TUI paths).
 export interface AgentViewParts {
@@ -144,11 +158,7 @@ export async function buildAgentViewParts(run: WorkflowRunRecord, agent: AgentMo
 			? parsePiJsonModeOutputLenient(liveStdout)
 			: undefined;
 	const modelOutput = agent.output !== undefined ? agent.output : parsedStdout?.ok ? parsedStdout.output : undefined;
-	const stdoutNote = stdoutForParsing
-		? parsedStdout?.ok
-			? `${stdout ? "Raw" : "Live"} stdout is a Pi JSON event stream; parsed assistant output is shown above and raw stdout is omitted.`
-			: `${stdout ? "Raw" : "Live"} stdout could not be parsed as Pi JSON (${parsedStdout?.warning ?? "unknown reason"}); see the artifact/live stream path if you need the raw stream.`
-		: undefined;
+	const stdoutNote = formatStdoutNote(stdoutForParsing, parsedStdout, stdout);
 	const promptFromEvent = agent.promptCopy || undefined;
 	const promptSource = promptFromEvent ?? prompt;
 	const promptText = promptSource
