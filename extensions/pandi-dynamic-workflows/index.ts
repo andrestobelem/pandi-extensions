@@ -29,12 +29,7 @@ export { settleWithinTimeout } from "./run-lifecycle.js";
 import {
 	clearUltracodeContractGateStatus,
 	clearUltracodeStatus,
-	dynamicWorkflowToolAvailable,
 	ensureDynamicWorkflowToolActive,
-	extractUltracodeTask,
-	isGeneratedUltracodePrompt,
-	makeAlwaysOnUltracodeSystemPrompt,
-	makeUltracodePrompt,
 	setUltracodeContractGateStatus,
 	setUltracodeStatus,
 } from "./ultracode.js";
@@ -51,6 +46,7 @@ export {
 	unregisterActiveRun,
 } from "./run-registry.js";
 
+import { registerUltracodeInputEvents } from "./ultracode-input-events.js";
 import { registerUltracodeToggleCommands } from "./ultracode-toggle-commands.js";
 import { registerWorkflowRoutingCommands } from "./workflow-routing-commands.js";
 import { registerWorkflowShellCommands } from "./workflow-shell-commands.js";
@@ -160,30 +156,9 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 			ultracodeAlwaysOn = enabled;
 		},
 	});
-
-	pi.on("input", (event) => {
-		if (event.source === "extension") return;
-		const task = extractUltracodeTask(event.text);
-		if (!task) return;
-		ensureDynamicWorkflowToolActive(pi);
-		return {
-			action: "transform" as const,
-			text: makeUltracodePrompt(task, "ultracode", ultracodeContractGateEnabled),
-			images: event.images,
-		};
-	});
-
-	pi.on("before_agent_start", async (event) => {
-		if (!ultracodeAlwaysOn) return;
-		if (isGeneratedUltracodePrompt(event.prompt)) return;
-		if (
-			!dynamicWorkflowToolAvailable(event.systemPromptOptions.selectedTools) &&
-			!ensureDynamicWorkflowToolActive(pi)
-		)
-			return;
-		return {
-			systemPrompt: `${event.systemPrompt}\n\n${makeAlwaysOnUltracodeSystemPrompt(ultracodeContractGateEnabled)}`,
-		};
+	registerUltracodeInputEvents(pi, {
+		getAlwaysOn: () => ultracodeAlwaysOn,
+		getContractGateEnabled: () => ultracodeContractGateEnabled,
 	});
 
 	pi.on("session_start", async (event, ctx) => {
