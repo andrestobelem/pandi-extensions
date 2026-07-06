@@ -47,6 +47,10 @@ function isListCommand(token: string): boolean {
 	return token === "list" || token === "ls";
 }
 
+function isRemoveCommand(token: string): boolean {
+	return token === "remove" || token === "rm";
+}
+
 function parsePruneCommand(rest: string[]): ParsedCommand {
 	const dryRun = rest.some((t) => t === "--dry-run" || t === "-n");
 	return { action: "prune", dryRun };
@@ -129,7 +133,7 @@ export function parseCommand(input: string): ParsedCommand {
 
 	if (head === "add" || head === "open") return parseAddOrOpenCommand(head, tokens.slice(1));
 
-	if (head === "remove" || head === "rm") return parseRemoveCommand(tokens.slice(1));
+	if (isRemoveCommand(head)) return parseRemoveCommand(tokens.slice(1));
 
 	return { action: "help", error: `Subcomando desconocido: "${tokens[0]}"` };
 }
