@@ -62,9 +62,12 @@ function borderLabel(pi: ExtensionAPI): string | undefined {
 	return safeName(pi) || undefined;
 }
 
+function errorMessage(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
+}
+
 function formatRenameFailure(error: unknown): string {
-	const message = error instanceof Error ? error.message : String(error);
-	return `No se pudo renombrar la sesión: ${message}`;
+	return `No se pudo renombrar la sesión: ${errorMessage(error)}`;
 }
 
 /** Convierte un nombre en slug y lo aplica vía pi.setSessionName, reportando éxito/falla. */
