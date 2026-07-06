@@ -153,7 +153,11 @@ async function scenarioFaceUnit(url) {
 	check("colorizeFace paints ░ as a solid block with the face tone", painted.includes(`${faceAnsi}█`));
 	check("colorizeFace keeps spaces transparent", painted.includes(" "));
 	check("colorizeFace resets color after ink", painted.includes("\x1b[0m"));
-	check("colorizeFace leaves no raw ░ / █ source ink in the output", !painted.includes("░"));
+	check(
+		"colorizeFace leaves no uncolored panda ink in the output",
+		uncoloredPandaInk(painted, [faceAnsi, patchAnsi]).length === 0,
+		JSON.stringify(uncoloredPandaInk(painted, [faceAnsi, patchAnsi])),
+	);
 
 	// --- parseFgRgb / luminance -----------------------------------------------------
 	check("parseFgRgb reads a truecolor fg escape", deepEq(parseFgRgb("\x1b[38;2;10;20;30m"), [10, 20, 30]));
@@ -229,6 +233,17 @@ function argmax(rgb) {
 	let best = 0;
 	for (let i = 1; i < rgb.length; i++) if (rgb[i] > rgb[best]) best = i;
 	return best;
+}
+
+function uncoloredPandaInk(text, allowedPrefixes) {
+	const leaks = [];
+	for (let i = 0; i < text.length; i++) {
+		const ch = text[i];
+		if (ch !== "█" && ch !== "░") continue;
+		const colored = ch === "█" && allowedPrefixes.some((prefix) => text.slice(i - prefix.length, i) === prefix);
+		if (!colored) leaks.push(`${ch}@${i}`);
+	}
+	return leaks;
 }
 
 async function main() {
