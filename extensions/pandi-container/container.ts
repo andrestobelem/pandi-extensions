@@ -174,7 +174,8 @@ export function describeMachine(m: MachineEntry): string {
 
 export function formatMachineList(entries: MachineEntry[]): string {
 	if (entries.length === 0) return "No hay máquinas de contenedor.";
-	return entries.map(describeMachine).join("\n");
+	const lines = entries.map(describeMachine);
+	return lines.join("\n");
 }
 
 // --------------------------------------------------------------------------
