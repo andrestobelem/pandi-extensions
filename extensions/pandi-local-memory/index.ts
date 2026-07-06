@@ -6,15 +6,15 @@ import { composeInjectedMemory, INDEX_FILE, normalizeNote, slugifyTopic, upsertM
 import { indexPathOf, legacyPathOf, memoryDirOf, safeRead } from "./paths.js";
 
 /** Construye un resultado de la herramienta `remember` con un solo bloque de texto y detalles arbitrarios. */
-function result(text: string, details: Record<string, unknown>) {
+function toolResult(text: string, details: Record<string, unknown>) {
 	return {
 		content: [{ type: "text" as const, text }],
 		details,
 	};
 }
 /** Construye un resultado fallido de `remember`: `isError` + `remembered: false` y cualquier detalle extra. */
-function errorResult(text: string, details?: Record<string, unknown>) {
-	return result(text, { isError: true, remembered: false, ...details });
+function toolError(text: string, details?: Record<string, unknown>) {
+	return toolResult(text, { isError: true, remembered: false, ...details });
 }
 
 export default function localMemoryExtension(pi: ExtensionAPI): void {
@@ -49,7 +49,7 @@ export default function localMemoryExtension(pi: ExtensionAPI): void {
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const note = normalizeNote(params.note);
 			if (!note) {
-				return errorResult("Nada para recordar: la nota quedó vacía después de recortar espacios.");
+				return toolError("Nada para recordar: la nota quedó vacía después de recortar espacios.");
 			}
 
 			const memoryDir = memoryDirOf(ctx.cwd);
@@ -64,7 +64,7 @@ export default function localMemoryExtension(pi: ExtensionAPI): void {
 			if (rawTopic) {
 				const slug = slugifyTopic(rawTopic);
 				if (!slug) {
-					return errorResult(
+					return toolError(
 						`Topic inválido "${params.topic}": no se pudo derivar un nombre de archivo seguro — usá letras, números o guiones.`,
 					);
 				}
@@ -84,7 +84,7 @@ export default function localMemoryExtension(pi: ExtensionAPI): void {
 					existing = readFileSync(legacyPath, "utf8");
 				}
 			} catch {
-				return errorResult(
+				return toolError(
 					`No se pudo leer la memoria existente en ${targetPath}; no se escribió nada — verificá que el archivo exista y sea legible, y reintentá.`,
 					{
 						path: targetPath,
@@ -95,7 +95,7 @@ export default function localMemoryExtension(pi: ExtensionAPI): void {
 			const date = new Date().toISOString().slice(0, 10);
 			const { content, added } = upsertMemoryNote(existing, note, date);
 			if (!added) {
-				return result(`Ya está en memoria (no-op): "${note}"`, {
+				return toolResult(`Ya está en memoria (no-op): "${note}"`, {
 					remembered: false,
 					duplicate: true,
 					path: targetPath,
@@ -105,11 +105,11 @@ export default function localMemoryExtension(pi: ExtensionAPI): void {
 				mkdirSync(memoryDir, { recursive: true });
 				writeFileSync(targetPath, content, "utf8");
 			} catch (err) {
-				return errorResult(`No se pudo escribir la memoria en ${targetPath}: ${(err as Error).message}`, {
+				return toolError(`No se pudo escribir la memoria en ${targetPath}: ${(err as Error).message}`, {
 					path: targetPath,
 				});
 			}
-			return result(`Recordado (guardado en ${targetLabel}): "${note}"`, {
+			return toolResult(`Recordado (guardado en ${targetLabel}): "${note}"`, {
 				remembered: true,
 				path: targetPath,
 				topic: rawTopic ? targetLabel : null,
