@@ -26,6 +26,17 @@ const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 
 const { check, counts } = createChecker();
 
+function requireFunction(label, value) {
+	check(label, typeof value === "function", `typeof=${typeof value}`);
+	return typeof value === "function" ? value : undefined;
+}
+
+function requireObject(label, value) {
+	const ok = value !== null && typeof value === "object";
+	check(label, ok, `typeof=${typeof value}`);
+	return ok ? value : undefined;
+}
+
 const DEFAULT_FAST_SUMMARY_RESPONSE = {
 	role: "assistant",
 	content: [{ type: "text", text: "## Goal\nResumen rápido\n\n## Next Steps\n1. Seguir" }],
@@ -333,13 +344,8 @@ async function claudeDefaultThresholdRemainsThirtyFive(url) {
 // módulo bundleado directamente; no instancia la extensión.
 async function parseThresholdEdgeCases(url) {
 	const mod = await loadModule(url);
-	const parseThreshold = mod.parseThreshold;
-	check(
-		"parseThreshold: exported as a function",
-		typeof parseThreshold === "function",
-		`typeof=${typeof parseThreshold}`,
-	);
-	if (typeof parseThreshold !== "function") return;
+	const parseThreshold = requireFunction("parseThreshold: exported as a function", mod.parseThreshold);
+	if (!parseThreshold) return;
 
 	const cases = [
 		["50", 50],
@@ -364,13 +370,8 @@ async function parseThresholdEdgeCases(url) {
 // Cobertura pura para renderContextBar (export nombrado): relleno, etiqueta y `level`.
 async function renderContextBarCases(url) {
 	const mod = await loadModule(url);
-	const renderContextBar = mod.renderContextBar;
-	check(
-		"renderContextBar: exported as a function",
-		typeof renderContextBar === "function",
-		`typeof=${typeof renderContextBar}`,
-	);
-	if (typeof renderContextBar !== "function") return;
+	const renderContextBar = requireFunction("renderContextBar: exported as a function", mod.renderContextBar);
+	if (!renderContextBar) return;
 
 	const unknown = renderContextBar({ percent: null, thresholdPercent: 30 });
 	check("renderContextBar: null usage renders nothing", unknown === null, `got ${JSON.stringify(unknown)}`);
@@ -406,13 +407,8 @@ async function renderContextBarCases(url) {
 
 async function parseBarSettingCases(url) {
 	const mod = await loadModule(url);
-	const parseBarSetting = mod.parseBarSetting;
-	check(
-		"parseBarSetting: exported as a function",
-		typeof parseBarSetting === "function",
-		`typeof=${typeof parseBarSetting}`,
-	);
-	if (typeof parseBarSetting !== "function") return;
+	const parseBarSetting = requireFunction("parseBarSetting: exported as a function", mod.parseBarSetting);
+	if (!parseBarSetting) return;
 	const cases = [
 		["on", true],
 		["ON", true],
@@ -541,10 +537,13 @@ async function defaultThresholdContract(url) {
 async function argumentCompletions(url) {
 	const { commands } = await loadExtension(url);
 	const cmd = commands.get("auto-compact");
-	check("autocomplete: getArgumentCompletions is provided", typeof cmd?.getArgumentCompletions === "function");
-	if (typeof cmd?.getArgumentCompletions !== "function") return;
+	const getArgumentCompletions = requireFunction(
+		"autocomplete: getArgumentCompletions is provided",
+		cmd?.getArgumentCompletions,
+	);
+	if (!getArgumentCompletions) return;
 
-	const all = (await cmd.getArgumentCompletions("")) ?? [];
+	const all = (await getArgumentCompletions("")) ?? [];
 	const values = all.map((i) => i.value);
 	check(
 		"autocomplete: empty prefix lists the core subcommands",
@@ -561,28 +560,28 @@ async function argumentCompletions(url) {
 		`got ${JSON.stringify(values)}`,
 	);
 
-	const bar = (await cmd.getArgumentCompletions("bar")) ?? [];
+	const bar = (await getArgumentCompletions("bar")) ?? [];
 	check(
 		"autocomplete: 'bar' prefix surfaces bar on/off",
 		bar.some((i) => i.value === "bar on") && bar.some((i) => i.value === "bar off"),
 		`got ${JSON.stringify(bar.map((i) => i.value))}`,
 	);
 
-	const summary = (await cmd.getArgumentCompletions("summary")) ?? [];
+	const summary = (await getArgumentCompletions("summary")) ?? [];
 	check(
 		"autocomplete: 'summary' prefix surfaces summary on/off",
 		summary.some((i) => i.value === "summary on") && summary.some((i) => i.value === "summary off"),
 		`got ${JSON.stringify(summary.map((i) => i.value))}`,
 	);
 
-	const off = (await cmd.getArgumentCompletions("of")) ?? [];
+	const off = (await getArgumentCompletions("of")) ?? [];
 	check(
 		"autocomplete: 'of' prefix filters to off",
 		off.length > 0 && off.every((i) => i.value.startsWith("of")) && off.some((i) => i.value === "off"),
 		`got ${JSON.stringify(off.map((i) => i.value))}`,
 	);
 
-	const none = await cmd.getArgumentCompletions("zzz");
+	const none = await getArgumentCompletions("zzz");
 	check(
 		"autocomplete: an unknown prefix returns null (no spurious matches)",
 		none === null,
@@ -1086,9 +1085,8 @@ async function clearFailSafeOnMalformed(url) {
 async function contextHookGatedByToggle(url) {
 	const { handlers, commands } = await loadExtension(url);
 	const env = makeEnv();
-	const ctxHandler = handlers.get("context");
-	check("context: handler is registered", typeof ctxHandler === "function");
-	if (typeof ctxHandler !== "function") return;
+	const ctxHandler = requireFunction("context: handler is registered", handlers.get("context"));
+	if (!ctxHandler) return;
 	// El keepRecent predeterminado es 3, así que necesitamos >3 tool results para que el más viejo pueda limpiarse.
 	const event = {
 		type: "context",
@@ -1117,8 +1115,7 @@ async function contextHookGatedByToggle(url) {
 // (que se comparte con selección/logo y no comunica peligro).
 async function barLevelColorCases(url) {
 	const mod = await loadModule(url);
-	const map = mod.BAR_LEVEL_COLOR;
-	check("BAR_LEVEL_COLOR: exported", map && typeof map === "object", `typeof=${typeof map}`);
+	const map = requireObject("BAR_LEVEL_COLOR: exported", mod.BAR_LEVEL_COLOR);
 	if (!map) return;
 	check("BAR_LEVEL_COLOR: idle → success (green)", map.idle === "success", `got ${map.idle}`);
 	check("BAR_LEVEL_COLOR: near → warning", map.near === "warning", `got ${map.near}`);
