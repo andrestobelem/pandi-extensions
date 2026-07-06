@@ -36,6 +36,7 @@
 		"typecheck": "tsc -p tsconfig.json",
 		"check": "biome check .",
 		"check:fix": "biome check --write .",
+		"check:staged": "npm run -s test:fast",
 		"lint": "biome lint .",
 		"lint:fix": "biome lint --write .",
 		"format": "biome format --write .",
@@ -69,6 +70,7 @@
 		"setup:gondolin": "node scripts/setup-gondolin.mjs",
 		"test:unit": "node --test \"scripts/test/unit/*.test.mjs\"",
 		"test:integration": "node scripts/test/run-all.mjs",
+		"test:fast": "npm run typecheck && npm run check && npm run lint:md && npm run sync:check:all && npm run test:unit",
 		"test": "npm run typecheck && npm run check && npm run lint:md && npm run sync:docs:html:check && npm run sync:personas:check && npm run test:unit && npm run test:integration"
 	},
 	"pi": {

@@ -1,9 +1,9 @@
 #!/bin/sh
 # Versioned pre-commit gate for pandi-extensions (issue #7).
 #
-# Runs the FAST subset of `npm test` (< 4s total): typecheck + biome +
-# markdownlint + repo-local sync/parity checks. Integration suites stay out on
-# purpose (up to 120s each) — CI runs the full gate.
+# Runs the canonical FAST subset of `npm test` via `npm run test:fast`:
+# typecheck + biome + markdownlint + repo-local sync/parity checks + unit tests.
+# Integration suites stay out on purpose (up to 120s each) — CI runs the full gate.
 #
 # Installed via `git config core.hooksPath scripts/git-hooks`, automated by the
 # `prepare` npm script (scripts/install-git-hooks.mjs) on every `npm install`.
@@ -19,7 +19,4 @@ fail() {
 	exit 1
 }
 
-npm run --silent typecheck || fail "typecheck (tsc)"
-npm run --silent check || fail "biome check ."
-npm run --silent lint:md || fail "markdownlint-cli2"
-npm run --silent sync:check:all || fail "sync:check:all"
+npm run --silent test:fast || fail "test:fast"
