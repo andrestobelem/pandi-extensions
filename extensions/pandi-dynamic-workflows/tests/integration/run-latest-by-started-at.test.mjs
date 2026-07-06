@@ -1,20 +1,20 @@
 #!/usr/bin/env node
 /**
- * Regression: "latest" must resolve by startedAt, not directory mtime.
+ * Regresión: "latest" debe resolver por startedAt, no por mtime del directorio.
  *
- * Farley review 2026-07-03, finding #2 (High): getRunDirs sorts run dirs by
- * mtimeMs, and listRuns/resolveRun inherit that order. status.json is rewritten
- * on every log()/resume/status refresh, so ANY write in an OLD run dir bumps its
- * mtime above newer runs — and `latest` is the default target for resume, view,
- * cancel and delete. Cleanup (run-state.ts) already orders by startedAt; the
- * default resolution must agree with it.
+ * Review Farley 2026-07-03, hallazgo #2 (High): getRunDirs ordena run dirs por
+ * mtimeMs, y listRuns/resolveRun heredan ese orden. status.json se reescribe en cada
+ * refresh de log()/resume/status, así que CUALQUIER escritura en un run dir VIEJO sube
+ * su mtime por encima de runs más nuevos — y `latest` es el target default para resume,
+ * view, cancel y delete. Cleanup (run-state.ts) ya ordena por startedAt; la resolución
+ * default debe coincidir.
  *
- * Contract pinned here (run-view.ts):
- *   - listRuns returns runs ordered by startedAt (newest first) even when an
- *     older run dir has a newer mtime.
- *   - resolveRun(ctx, undefined) — "latest" — returns the newest startedAt.
- *   - Records with missing/unparseable startedAt sort after dated ones and do
- *     not crash the listing.
+ * Contrato fijado acá (run-view.ts):
+ *   - listRuns devuelve runs ordenados por startedAt (newest first) incluso cuando un
+ *     run dir viejo tiene mtime más nuevo.
+ *   - resolveRun(ctx, undefined) — "latest" — devuelve el startedAt más nuevo.
+ *   - Records con startedAt faltante/no parseable ordenan después de los fechados y no
+ *     crashean el listado.
  */
 
 import * as fs from "node:fs/promises";
@@ -71,8 +71,8 @@ async function main() {
 	const runsRoot = path.join(project, ".pi", "workflows", "runs");
 	const ctx = { cwd: project, isProjectTrusted: () => true };
 
-	// OLD run created… then B (newer startedAt)… then A's status.json rewritten,
-	// giving the OLD dir the NEWEST mtime (what any log/status refresh does).
+	// Run VIEJO creado… luego B (startedAt más nuevo)… luego se reescribe status.json de A,
+	// dando al dir VIEJO el mtime MÁS NUEVO (lo que hace cualquier refresh de log/status).
 	const dirA = await makeRun(runsRoot, "2026-07-01T00-00-00-000Z-old-run", "2026-07-01T00:00:00.000Z");
 	await makeRun(runsRoot, "2026-07-02T00-00-00-000Z-new-run", "2026-07-02T00:00:00.000Z");
 	await new Promise((r) => setTimeout(r, 20));
@@ -92,7 +92,7 @@ async function main() {
 	const latest = await resolveRun(ctx, undefined);
 	check("latest = newest startedAt", latest.runId === "2026-07-02T00-00-00-000Z-new-run", latest.runId);
 
-	// Missing startedAt: sorts after dated runs, no crash.
+	// startedAt faltante: ordena después de runs fechados, sin crash.
 	await makeRun(runsRoot, "1999-no-started-at", undefined);
 	const withUndated = await listRuns(ctx);
 	check("undated run listed without crashing", withUndated.length === 3);
