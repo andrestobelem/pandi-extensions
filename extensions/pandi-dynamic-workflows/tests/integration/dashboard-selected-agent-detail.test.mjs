@@ -1,21 +1,21 @@
 #!/usr/bin/env node
 /**
- * Behavioral contract test for the shared "Selected agent" detail block.
+ * Test de contrato conductual para el bloque de detail compartido "Selected agent".
  *
- * The Monitor tab (renderMonitorAgents) and the Agents tab (renderAgents) both render a
- * "Selected agent" detail section for the focused agent. That section used to be a
- * near-identical copy in each method; it is now produced by one private helper
- * (renderSelectedAgentDetail), parameterized by the only intended differences:
+ * El tab Monitor (renderMonitorAgents) y el tab Agents (renderAgents) renderizan una
+ * sección de detail "Selected agent" para el agente enfocado. Esa sección antes era una
+ * copia casi idéntica en cada método; ahora la produce un helper privado
+ * (renderSelectedAgentDetail), parametrizado por las únicas diferencias intencionales:
  *
- *   - Agents prepends a workflow/run/parallel header; Monitor does not.
- *   - Agents appends a "• schema …" suffix on the `state:` line; Monitor does not.
- *   - prompt preview / output use compactInline width 260 (Agents) vs 220 (Monitor).
+ *   - Agents antepone un header workflow/run/parallel; Monitor no.
+ *   - Agents agrega un sufijo "• schema …" en la línea `state:`; Monitor no.
+ *   - prompt preview / output usan compactInline width 260 (Agents) vs 220 (Monitor).
  *
- * This test pins the OBSERVABLE contract that previously had no coverage: for an
- * equivalent agent, every NON-differing detail line (agent/phase/prompt/tools/skills/
- * extensions/keys) is byte-identical across both tabs, while the three intended
- * differences are preserved. It guards against the two copies silently diverging
- * (e.g. a future edit touching only one tab's field formatting).
+ * Este test fija el contrato OBSERVABLE que antes no tenía cobertura: para un agente
+ * equivalente, cada línea de detail SIN diferencias (agent/phase/prompt/tools/skills/
+ * extensions/keys) es byte-identical entre ambos tabs, mientras se preservan las tres
+ * diferencias intencionales. Protege contra divergencias silenciosas entre las dos copias
+ * (p. ej. una edición futura que toque solo el formato de campos de un tab).
  */
 
 import * as path from "node:path";
@@ -28,7 +28,7 @@ const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 const { check, counts } = createChecker();
 
 const theme = { fg: (_c, v) => v, bg: (_c, v) => v, bold: (v) => v };
-const WIDTH = 10000; // wide enough that truncateToWidth never trims; only compactInline does
+const WIDTH = 10000; // suficientemente ancho para que truncateToWidth no recorte; solo compactInline lo hace
 
 function makeAgent() {
 	return {
@@ -52,8 +52,8 @@ function makeAgent() {
 		phaseLabel: "scout phase",
 		phaseIndex: 1,
 		phaseTotal: 3,
-		// Longer than both compactInline widths (220 and 260) so the width
-		// difference is observable in the rendered preview/output lines.
+		// Más largo que ambos widths de compactInline (220 y 260) para que la diferencia
+		// de width sea observable en las líneas renderizadas de preview/output.
 		promptPreview: "P".repeat(400),
 		output: "O".repeat(400),
 	};
@@ -104,7 +104,7 @@ function makeMonitorModel(run, agent) {
 	};
 }
 
-/** Lines after the "Selected agent" header, as a label→line map for `label:` rows. */
+/** Líneas después del header "Selected agent", como mapa label→line para filas `label:`. */
 function detailFields(lines) {
 	const idx = lines.findIndex((l) => l.trim() === "Selected agent");
 	if (idx < 0) return {};
@@ -146,7 +146,7 @@ async function main() {
 	const monitorFields = detailFields(build("monitor").render(WIDTH));
 	const agentsFields = detailFields(build("agents").render(WIDTH));
 
-	// Both tabs render a Selected agent detail at all.
+	// Ambos tabs renderizan algún detail de Selected agent.
 	check(
 		"Monitor renders agent detail line",
 		typeof monitorFields.agent === "string",
@@ -158,7 +158,7 @@ async function main() {
 		JSON.stringify(agentsFields.agent),
 	);
 
-	// 1) Shared, byte-identical lines across both tabs (the whole point of the helper).
+	// 1) Líneas compartidas, byte-identical entre ambos tabs (el objetivo central del helper).
 	for (const label of ["agent", "phase", "prompt", "tools", "skills", "extensions", "keys"]) {
 		check(
 			`"${label}:" line is byte-identical across Monitor and Agents`,
@@ -167,7 +167,7 @@ async function main() {
 		);
 	}
 
-	// 2) Intended difference A: Agents has a workflow/run/parallel header; Monitor doesn't.
+	// 2) Diferencia intencional A: Agents tiene header workflow/run/parallel; Monitor no.
 	check(
 		"Agents detail carries workflow/run/parallel header",
 		!!agentsFields.workflow && !!agentsFields.run && !!agentsFields.parallel,
@@ -179,7 +179,7 @@ async function main() {
 		`${monitorFields.workflow} | ${monitorFields.run} | ${monitorFields.parallel}`,
 	);
 
-	// 3) Intended difference B: only Agents puts the schema suffix on the state line.
+	// 3) Diferencia intencional B: solo Agents pone el sufijo schema en la línea state.
 	check(
 		"Agents state line includes the schema suffix",
 		typeof agentsFields.state === "string" && agentsFields.state.includes("• schema ok"),
@@ -198,7 +198,7 @@ async function main() {
 		`monitor=${JSON.stringify(monitorFields.state)} agents=${JSON.stringify(agentsFields.state)}`,
 	);
 
-	// 4) Intended difference C: compactInline width 220 (Monitor) vs 260 (Agents).
+	// 4) Diferencia intencional C: compactInline width 220 (Monitor) vs 260 (Agents).
 	for (const label of ["prompt preview", "output"]) {
 		const m = monitorFields[label];
 		const a = agentsFields[label];
