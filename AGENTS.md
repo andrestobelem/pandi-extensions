@@ -76,6 +76,7 @@ Este repo puede estar instalado globalmente apuntando al mismo checkout de traba
 
 - Usá `didactic-docs-style` para documentación: apertura en 30 segundos, disclosure progresivo, tablas/diagramas para decisiones, ejemplos mínimos y exactitud verificable.
 - Usá `pandi-prose-style` para ajustar tono por superficie. En docs/READMEs/AGENTS el tono Pandi es visible pero liviano; en prompts, errores y código es cero o casi cero según la matriz.
+- Comentarios de código: explicá intención, contrato, invariantes o límites de responsabilidad; no narres lo obvio ni línea por línea. Preferí comentarios breves en español que digan qué se preserva o por qué existe la abstracción.
 - `docs/html/` es generado: regeneralo con `npm run sync:docs:html`; no lo edites a mano.
 - `CLAUDE.md` también es generado desde `AGENTS.md`: no lo edites a mano salvo que estés probando el guard de parity.
 
