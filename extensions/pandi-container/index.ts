@@ -228,11 +228,19 @@ async function runCommand(ctx: ExtensionContext, input: string): Promise<void> {
 // Adaptador del resultado de la tool
 // --------------------------------------------------------------------------
 
-function toToolResult(result: HandlerResult) {
+function toolResult(text: string, details: Record<string, unknown> = {}) {
 	return {
-		content: [{ type: "text" as const, text: result.text }],
-		details: result.details,
+		content: [{ type: "text" as const, text }],
+		details,
 	};
+}
+
+function toolError(text: string, details: Record<string, unknown> = {}) {
+	return toolResult(text, { isError: true, ...details });
+}
+
+function toToolResult(result: HandlerResult) {
+	return toolResult(result.text, result.details);
 }
 
 // --------------------------------------------------------------------------
@@ -310,10 +318,7 @@ export default function containerExtension(pi: ExtensionAPI): void {
 		executionMode: "sequential",
 		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
 			if (!isSupportedPlatform()) {
-				return {
-					content: [{ type: "text" as const, text: PLATFORM_MSG }],
-					details: { isError: true, action: params.action },
-				};
+				return toolError(PLATFORM_MSG, { action: params.action });
 			}
 			const opts = { cwd: ctx.cwd, signal: signal ?? undefined };
 			switch (params.action) {
@@ -360,10 +365,7 @@ export default function containerExtension(pi: ExtensionAPI): void {
 						await runRemove(runContainer, { name: params.name ?? "", force: params.force }, opts),
 					);
 				default:
-					return {
-						content: [{ type: "text" as const, text: `Acción desconocida: ${params.action}` }],
-						details: { isError: true },
-					};
+					return toolError(`Acción desconocida: ${params.action}`);
 			}
 		},
 	});
