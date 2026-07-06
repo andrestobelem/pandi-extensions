@@ -97,6 +97,10 @@ function formatAddOrOpenUsage(action: "add" | "open"): string {
 		: "Uso: /worktree add [-b <branch>] <path> [<commit-ish>]";
 }
 
+function formatInvalidBranchNameError(branch: string | undefined): string {
+	return `Nombre de rama inválido "${branch ?? ""}" — sin espacios, caracteres de control ni puntos o barras iniciales/finales.`;
+}
+
 function parseAddOrOpenCommand(action: "add" | "open", rest: string[]): ParsedCommand {
 	const positionals: string[] = [];
 	let newBranch: string | undefined;
@@ -130,7 +134,7 @@ function parseAddOrOpenCommand(action: "add" | "open", rest: string[]): ParsedCo
 	if (newBranch !== undefined && !isValidBranchName(newBranch)) {
 		return {
 			action,
-			error: `Nombre de rama inválido "${newBranch ?? ""}" — sin espacios, caracteres de control ni puntos o barras iniciales/finales.`,
+			error: formatInvalidBranchNameError(newBranch),
 		};
 	}
 	return { action, path: pathArg, newBranch, commitish, force, detach, copyIgnored, copyUntracked };
