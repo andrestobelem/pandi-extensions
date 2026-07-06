@@ -90,7 +90,9 @@ import {
 } from "./lifecycle.js";
 import { notify } from "./notify.js";
 import { writeAndOpenPlanHtmlArtifact } from "./plan-html.js";
-import { makeImplementPrompt, makePlanningPrompt, type PlanFlags } from "./prompts.js";
+import type { PlanFlags } from "./posture.js";
+import { forceInteractiveApprovalPosture } from "./posture.js";
+import { makeImplementPrompt, makePlanningPrompt } from "./prompts.js";
 import { findActivePlan, findLastPlan, hasActivePlan, overlayRuntimePlans, restoreActivePlans } from "./registry.js";
 import { collectLatestByKey } from "./session-state.js";
 import type { PlanState } from "./state.js";
@@ -622,12 +624,12 @@ export default function planExtension(pi: ExtensionAPI): void {
 		}),
 		executionMode: "sequential",
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-			const flags = resolvePlanFlags(params);
+			const resolvedFlags = resolvePlanFlags(params);
 			// CONSISTENCY: nonInteractive (plan-only) only makes sense where approval CANNOT run.
 			// In tui/rpc the human approval handshake is available, so force it off there — otherwise
 			// a stray param or an exported PI_PLAN_NONINTERACTIVE would silently bypass approval and
 			// never implement. This keeps plan-only confined to print/json (e.g. workflow subagents).
-			if (canApproveInMode(ctx)) flags.nonInteractive = false;
+			const flags = canApproveInMode(ctx) ? forceInteractiveApprovalPosture(resolvedFlags) : resolvedFlags;
 			// Mode gate (HARD RULE): interactive sessions can always enter. A non-interactive session
 			// (print/json) can enter ONLY in plan-only mode (nonInteractive) — there the plan is the
 			// deliverable and nothing is approved or implemented, so no handshake is needed.

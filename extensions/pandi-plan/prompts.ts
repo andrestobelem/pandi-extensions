@@ -12,30 +12,16 @@
  * "./prompts.js".
  */
 
-/**
- * Banderas de postura opcionales que sintonizan el wording de planificación/implementación. Todas
- * por defecto son false (la postura interactiva, sin-ultracode preservada verbatim):
- *
- * - nonInteractive: sesión solo-plan (print/json o un subagente de workflow). No hay
- *   aprobación humana ni implementación; el entregable es el PLAN. El
- *   gate de solo lectura se mantiene armado durante toda la sesión, así que la mutación se mantiene bloqueada.
- * - ultracode: indicale al planificador que se apoye en dynamic workflows para INVESTIGAR/DISEÑAR
- *   el plan (inspecciona el catálogo de solo lectura ahora; propone pasos run/start).
- * - ultracodeSteps: indicale al planificador/implementador que ejecute los PASOS del plan vía
- *   dynamic workflows cuando esté justificado (exhaustividad, confianza, escala).
- */
-export interface PlanFlags {
-	nonInteractive?: boolean;
-	ultracode?: boolean;
-	ultracodeSteps?: boolean;
-}
+import type { PlanPosture } from "./posture.js";
+
+export type { PlanFlags, PlanPosture } from "./posture.js";
 
 function renderPlanningPrompt(lines: string[]): string {
 	return lines.join("\n");
 }
 
 /** La instrucción de planificación inyectada cuando /plan entra al modo. */
-export function makePlanningPrompt(plan: { planId: string; task: string } & PlanFlags): string {
+export function makePlanningPrompt(plan: { planId: string; task: string } & PlanPosture): string {
 	const lines: string[] = [];
 	lines.push(`Ahora estás en MODO PLAN (plan ${plan.planId}). Esta es una postura de planificación de SOLO LECTURA.`);
 	lines.push("");

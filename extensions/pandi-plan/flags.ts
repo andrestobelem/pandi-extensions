@@ -12,7 +12,7 @@
  * setSessionFlagDefault.
  */
 
-import type { PlanFlags } from "./prompts.js";
+import type { PlanFlags } from "./posture.js";
 
 /** Claves de los toggles de postura ultracode por defecto de sesión. */
 type SessionFlagKey = "ultracode" | "ultracodeSteps";
