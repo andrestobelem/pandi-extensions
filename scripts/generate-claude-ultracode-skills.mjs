@@ -29,57 +29,60 @@ const SRC = join(REPO, ".pi", "skills", "ultracode");
 const OUT_DIR = join(REPO, ".claude", "skills");
 
 // Nombres de skill emitidos desde la única fuente canónica.
-const TARGETS = ["ultracode", "dynamic-workflows"];
+export const TARGETS = ["ultracode", "dynamic-workflows"];
 
-const checkOnly = process.argv.includes("--check");
+export function parseCheckOnly(args = process.argv.slice(2)) {
+	return args.includes("--check");
+}
 
 // Transformación mínima pi->claude para SKILL.md: renombra solo el `name:` del frontmatter y el H1.
 // Para el target "ultracode" esto es la identidad (el nombre y el heading ya son `ultracode`).
-function transformSkill(src, targetName) {
+export function transformSkill(src, targetName) {
 	return src.replace(/^name: ultracode$/m, `name: ${targetName}`).replace(/^# ultracode$/m, `# ${targetName}`);
 }
 
+export function targetRoots(targets = TARGETS, outDir = OUT_DIR) {
+	return targets.map((target) => ({ target, outRoot: join(outDir, target) }));
+}
+
 // Construye el conjunto completo de archivos esperados (path relativo -> contenido) para un target.
-async function expectedFilesFor(targetName) {
+export async function expectedFilesFor(targetName, src = SRC) {
 	const files = new Map();
 	// SKILL.md (transformado).
-	const skill = await readFile(join(SRC, "SKILL.md"), "utf8");
+	const skill = await readFile(join(src, "SKILL.md"), "utf8");
 	files.set("SKILL.md", transformSkill(skill, targetName));
 	// árbol reference/ (verbatim).
-	const refRel = await listFilesRec(join(SRC, "reference"));
+	const refRel = await listFilesRec(join(src, "reference"));
 	for (const rel of refRel) {
-		const content = await readFile(join(SRC, "reference", rel), "utf8");
+		const content = await readFile(join(src, "reference", rel), "utf8");
 		files.set(join("reference", rel), content);
 	}
 	return files;
 }
 
-let drift = 0;
-let wrote = 0;
-for (const target of TARGETS) {
-	const outRoot = join(OUT_DIR, target);
-	const expected = await expectedFilesFor(target);
-
-	if (checkOnly) {
-		// ¿Los archivos esperados están presentes y son byte-idénticos?
-		for (const [rel, want] of expected) {
-			const have = await readMaybe(join(outRoot, rel));
-			if (have !== want) {
-				console.error(`[gen-claude-ultracode] ✗ drift: ${target}/${rel}`);
-				drift++;
-			}
+async function checkGeneratedTree(expected, outRoot, target, error) {
+	let drift = 0;
+	// ¿Los archivos esperados están presentes y son byte-idénticos?
+	for (const [rel, want] of expected) {
+		const have = await readMaybe(join(outRoot, rel));
+		if (have !== want) {
+			error(`[gen-claude-ultracode] ✗ drift: ${target}/${rel}`);
+			drift++;
 		}
-		// ¿No hay archivos stale que el generador no emitiría?
-		const actual = await listFilesRec(outRoot);
-		for (const rel of actual) {
-			if (!expected.has(rel)) {
-				console.error(`[gen-claude-ultracode] ✗ stale (not generated): ${target}/${rel}`);
-				drift++;
-			}
-		}
-		continue;
 	}
+	// ¿No hay archivos stale que el generador no emitiría?
+	const actual = await listFilesRec(outRoot);
+	for (const rel of actual) {
+		if (!expected.has(rel)) {
+			error(`[gen-claude-ultracode] ✗ stale (not generated): ${target}/${rel}`);
+			drift++;
+		}
+	}
+	return drift;
+}
 
+async function writeGeneratedTree(expected, outRoot) {
+	let wrote = 0;
 	// Modo escritura: reescribe el target en limpio para que no queden archivos stale.
 	await rm(outRoot, { recursive: true, force: true });
 	for (const [rel, content] of expected) {
@@ -88,17 +91,49 @@ for (const target of TARGETS) {
 		await writeFile(dst, content);
 		wrote++;
 	}
-	console.log(`[gen-claude-ultracode] wrote ${target} (${expected.size} files)`);
+	return wrote;
 }
 
-if (checkOnly) {
-	if (drift > 0) {
-		console.error(
-			`[gen-claude-ultracode] ${drift} file(s) out of sync — run: node scripts/generate-claude-ultracode-skills.mjs`,
-		);
-		process.exit(1);
+export async function syncClaudeUltracodeSkills({
+	checkOnly = false,
+	targets = TARGETS,
+	src = SRC,
+	outDir = OUT_DIR,
+	log = console.log,
+	error = console.error,
+} = {}) {
+	let drift = 0;
+	let wrote = 0;
+	for (const { target, outRoot } of targetRoots(targets, outDir)) {
+		const expected = await expectedFilesFor(target, src);
+
+		if (checkOnly) {
+			drift += await checkGeneratedTree(expected, outRoot, target, error);
+			continue;
+		}
+
+		const written = await writeGeneratedTree(expected, outRoot);
+		wrote += written;
+		log(`[gen-claude-ultracode] wrote ${target} (${expected.size} files)`);
 	}
-	console.log(`[gen-claude-ultracode] ✅ both Claude skills in sync with .pi/skills/ultracode.`);
-} else {
-	console.log(`[gen-claude-ultracode] ✅ generated ${TARGETS.length} skill(s) (${wrote} files written).`);
+
+	if (checkOnly) {
+		if (drift > 0) {
+			error(
+				`[gen-claude-ultracode] ${drift} file(s) out of sync — run: node scripts/generate-claude-ultracode-skills.mjs`,
+			);
+			return { drift, wrote, total: targets.length, ok: false };
+		}
+		log("[gen-claude-ultracode] ✅ both Claude skills in sync with .pi/skills/ultracode.");
+	} else {
+		log(`[gen-claude-ultracode] ✅ generated ${targets.length} skill(s) (${wrote} files written).`);
+	}
+	return { drift, wrote, total: targets.length, ok: true };
 }
+
+async function main(args = process.argv.slice(2)) {
+	const result = await syncClaudeUltracodeSkills({ checkOnly: parseCheckOnly(args) });
+	if (!result.ok) process.exit(1);
+}
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) await main();
