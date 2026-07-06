@@ -87,9 +87,12 @@ function updateEffortStatus(pi: ExtensionAPI, ctx: ExtensionContext, level = saf
 	ctx.ui.setStatus(EFFORT_STATUS_KEY, formatEffortStatus(ctx, level));
 }
 
+function errorMessage(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
+}
+
 function formatSetEffortFailure(level: ThinkingLevel, error: unknown): string {
-	const message = error instanceof Error ? error.message : String(error);
-	return `No se pudo configurar el esfuerzo ${level}: ${message}`;
+	return `No se pudo configurar el esfuerzo ${level}: ${errorMessage(error)}`;
 }
 
 function setThinkingEffort(
