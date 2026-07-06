@@ -546,45 +546,33 @@ function dropQueuedWakes(loopId: string): void {
 	}
 }
 
-/**
- * Pausa un loop (P1): limpia el timer, conserva todo el estado y setea status "paused".
- * Registra el delay restante para que resume (dynamic) rearme con lo que quedaba.
- * NO reinyecta. NO-OP si el loop no está running.
- */
+/** Pausa sin reinyectar; guarda el remanente para poder reanudar la cadencia dynamic. */
 function pauseLoop(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): boolean {
 	if (loop.status !== "running") return false;
 	clearLoopTimer(loop);
-	// Preservar el delay restante como offset relativo para que resume pueda restaurarlo
-	// incluso tras persist/rehydrate (rederivamos nextFireAt desde esto en resume).
+	// Offset relativo para que resume restaure la espera que quedaba en este proceso.
 	loop.pausedRemainingMs = loop.nextFireAt === null ? null : Math.max(0, loop.nextFireAt - Date.now());
 	loop.status = "paused";
 	loop.autopilot = false;
-	// Descartar cualquier wake pendiente para que un loop paused nunca reinyecte desde la cola.
+	// Paused no debe reinyectar desde la cola.
 	dropQueuedWakes(loop.loopId);
 	persist(pi, ctx, loop);
 	refreshLoopStatus(ctx);
 	return true;
 }
 
-/**
- * Reanuda un loop paused (P1): status vuelve a "running" y rearma. Los loops dynamic usan
- * el delay restante capturado al pausar (fallback: cadencia de seguridad si se desconoce);
- * los loops fixed rearma por su período propio. NO-OP si el loop no está paused.
- */
+/** Reanuda y rearma: fixed usa su período; dynamic recupera el remanente disponible. */
 function resumeLoop(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): boolean {
 	if (loop.status !== "paused") return false;
 	loop.status = "running";
 	if (loop.mode === "fixed") {
-		// Fixed: anclar el próximo fire absoluto en now + period (sin deriva desde resume).
+		// Desde resume, fixed arranca una nueva serie anclada en now.
 		loop.nextFireAt = Date.now();
 		rearmFixed(pi, ctx, loop);
 		return true;
 	}
-	// Preferir el remanente capturado al pausar (pause/resume en el mismo proceso). Si
-	// ya no está (p. ej. el loop fue pausado, persistido y rehidratado tras un reload:
-	// pausedRemainingMs es transitorio y NO persistido), usar como fallback el nextFireAt
-	// absoluto persistido, que SÍ sobrevive un reload (refleja lo que rehydrate hace con
-	// loops running). Solo cuando ninguno existe usamos la cadencia de seguridad.
+	// pausedRemainingMs es transitorio; tras reload, usar nextFireAt persistido. Si tampoco
+	// existe, caer a la cadencia de seguridad.
 	const remaining =
 		loop.pausedRemainingMs != null
 			? loop.pausedRemainingMs
@@ -646,14 +634,8 @@ async function rehydrate(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void>
 		if (state.status !== "running" && state.status !== "stale" && state.status !== "paused") continue;
 		// Timer todavía vivo en este proceso → no rearmar (sin double-fire).
 		if (activeLoops.has(state.loopId)) continue;
-		// Gate de re-entry AUTÓNOMO (seguridad P2): un loop autónomo actúa sin humano en
-		// el turno, así que su start requirió trust + confirm explícito. Esa garantía debe
-		// sostenerse en CADA re-entry, no solo en el start interactivo; si no, un loop
-		// autónomo confirmado una vez seguiría disparando sin supervisión tras reloads aunque
-		// el proyecto deje de ser trusted. Si el proyecto ya no es trusted, retirarlo
-		// (terminal "stopped") en vez de rearmarlo. (Un proyecto trusted todavía lo rehidrata;
-		// no repreguntamos confirm en rehydrate porque no hay usuario interactivo en
-		// session_start, y trust es el gate crítico para acción sin supervisión.)
+		// Revalidar trust en cada re-entry: un objetivo autónomo no debe sobrevivir si el
+		// proyecto perdió confianza desde la confirmación original.
 		if (state.autonomous && !ctx.isProjectTrusted()) {
 			const retired: ActiveLoop = {
 				...state,
@@ -676,13 +658,13 @@ async function rehydrate(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void>
 		const recoverPaused = state.status === "paused";
 		const loop: ActiveLoop = {
 			...state,
-			// Compatibilidad hacia atrás para snapshots pre-P1 a los que les faltan los campos nuevos.
+			// Defaults para snapshots antiguos sin campos de modo/caps.
 			mode: state.mode ?? "dynamic",
 			maxIterations: positiveOr(Math.trunc(state.maxIterations), DEFAULT_MAX_ITERATIONS),
 			maxWallClockMs: positiveOr(state.maxWallClockMs, DEFAULT_MAX_WALL_CLOCK_MS),
 			contextPercentCap: Math.min(positiveOr(state.contextPercentCap, DEFAULT_CONTEXT_PERCENT_CAP), 100),
 			updatedAt: state.updatedAt ?? new Date().toISOString(),
-			// Normalizar un snapshot "stale" recuperado de vuelta a "running"; dejar "paused" como está.
+			// stale vuelve a running; paused conserva su estado idle.
 			status: recoverPaused ? "paused" : "running",
 			timer: null,
 			controller: new AbortController(),
@@ -706,8 +688,7 @@ async function rehydrate(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void>
 		loop.timer = setTimeout(() => fireWake(pi, ctx, loop), remaining);
 	}
 	refreshLoopStatus(ctx);
-	// Barrido de respaldo: un loop que quedó colgado durante el downtime (más allá del deadline duro)
-	// se force-stoppea acá en vez de rearmarse hacia otra iteración zombie.
+	// Barrido final: no rearmar loops que ya son zombies tras el downtime.
 	watchdogSweep(pi, ctx);
 }
 
