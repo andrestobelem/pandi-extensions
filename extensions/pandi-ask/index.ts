@@ -17,6 +17,7 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
+import { jsonResult, NO_UI_MESSAGE, textResult } from "./tool-results.js";
 
 const ChoiceParams = Type.Object({
 	question: Type.String({ description: "La pregunta o prompt que se muestra arriba de las opciones." }),
@@ -30,16 +31,7 @@ const ConfirmParams = Type.Object({
 	message: Type.Optional(Type.String({ description: "Línea secundaria opcional con más detalle." })),
 });
 
-const NO_UI_MESSAGE =
-	"Error: la UI interactiva no está disponible (modo no interactivo). Preguntale al usuario en texto plano.";
-
-function textResult(text: string, details: unknown) {
-	return { content: [{ type: "text" as const, text }], details };
-}
-
-function jsonResult(payload: unknown, details: unknown) {
-	return textResult(JSON.stringify(payload), details);
-}
+export { jsonResult, NO_UI_MESSAGE, textResult } from "./tool-results.js";
 
 export default function askExtension(pi: ExtensionAPI) {
 	registerChoiceTool(pi);
