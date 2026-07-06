@@ -62,13 +62,17 @@ export interface TscCommand {
 	kind: "env" | "local" | "npx";
 }
 
+function hasFilePath(filePath: string): boolean {
+	return Boolean(filePath);
+}
+
 /**
  * Un archivo fuente TypeScript que nos importa: .ts/.tsx/.mts/.cts, pero NO un
  * archivo de declaración .d.ts (editar un .d.ts es raro y volver a chequearlo
  * agrega ruido).
  */
 export function isTsFile(filePath: string): boolean {
-	if (!filePath) return false;
+	if (!hasFilePath(filePath)) return false;
 	const lower = filePath.toLowerCase();
 	if (lower.endsWith(".d.ts")) return false;
 	return /\.(ts|tsx|mts|cts)$/.test(lower);
