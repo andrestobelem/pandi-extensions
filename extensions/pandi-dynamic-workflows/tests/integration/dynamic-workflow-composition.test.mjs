@@ -1,15 +1,15 @@
 /**
- * Durable behavioral integration test for ctx.workflow() composition in extensions/pandi-dynamic-workflows/index.ts.
+ * Test de integración conductual durable para composición ctx.workflow() en extensions/pandi-dynamic-workflows/index.ts.
  *
- * This pins the observable runtime contract for sub-workflows:
- *   - ctx.workflow(name, input) returns the child workflow output inside the same run.
- *   - The child shares runId/runDir/limits and emits workflow start/end events.
- *   - Depth is capped at 1 (a sub-workflow cannot call another sub-workflow).
- *   - The agent budget is shared across parent + child.
- *   - Resume cache keys are namespaced by sub-workflow code, so changing the child code
- *     re-executes child cached calls without re-running unchanged parent calls.
+ * Esto pinea el contrato runtime observable para sub-workflows:
+ *   - ctx.workflow(name, input) devuelve el output del child workflow dentro del mismo run.
+ *   - El child comparte runId/runDir/limits y emite eventos workflow start/end.
+ *   - Depth está capado en 1 (un sub-workflow no puede llamar otro sub-workflow).
+ *   - El budget de agentes se comparte entre parent + child.
+ *   - Las keys de resume cache tienen namespace por código de sub-workflow, así cambiar el código del child
+ *     reejecuta llamadas cacheadas del child sin re-correr llamadas sin cambios del parent.
  *
- * Run it:
+ * Ejecutalo:
  *   node extensions/pandi-dynamic-workflows/tests/integration/dynamic-workflow-composition.test.mjs
  */
 
@@ -26,8 +26,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 const SCAFFOLDS_DIR = path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "scaffolds");
 
-// Read the full scaffold source set straight from disk — the exact set pattern-scaffolds.ts
-// serves at runtime (replaces the deleted gen-scaffolds.mjs readSources()).
+// Leé el set completo de fuentes de scaffolds directo desde disco: el set exacto que pattern-scaffolds.ts
+// sirve en runtime (reemplaza el readSources() del gen-scaffolds.mjs eliminado).
 function readSources() {
 	const map = {};
 	for (const file of readdirSync(SCAFFOLDS_DIR)) {
@@ -699,8 +699,8 @@ module.exports = async function workflow(ctx) {
 	);
 }
 
-// F4: a child that ignores SIGTERM must be escalated to SIGKILL so the process runners can't
-// hang forever (and, for the streaming runner, never release the agent semaphore).
+// F4: un child que ignora SIGTERM debe escalarse a SIGKILL para que los process runners no puedan
+// colgarse para siempre (y, en el runner streaming, nunca liberar el semáforo de agentes).
 const SIGTERM_IGNORING_CHILD =
 	"process.on('SIGTERM', () => {}); const t = setInterval(() => {}, 1e9); setTimeout(() => { clearInterval(t); process.exit(0); }, 30000);";
 
@@ -750,8 +750,8 @@ async function scenarioStreamingSigkillEscalation(url) {
 		check("runStreamingAgentProcess: reports killed", result.killed === true, JSON.stringify(result));
 }
 
-// F27: settleWithinTimeout must clear its timeout timer so a fast-settling promise (e.g. all
-// active runs aborting quickly at session shutdown) cannot keep the event loop alive ~3s.
+// F27: settleWithinTimeout debe limpiar su timer de timeout para que una promise que settlea rápido (p. ej. todos los
+// runs activos abortando rápido al shutdown de sesión) no pueda mantener vivo el event loop ~3s.
 async function scenarioShutdownTimerNoLeak(url) {
 	const mod = await import(`${url}?st=${instance++}`);
 	check(
@@ -760,8 +760,8 @@ async function scenarioShutdownTimerNoLeak(url) {
 		typeof mod.settleWithinTimeout,
 	);
 	if (typeof mod.settleWithinTimeout !== "function") return;
-	// Real exit-timing check in a fresh process: with a fast promise vs a 3s timeout, the child
-	// must exit promptly. A leaked (uncleared) timer would hold the loop ~3s.
+	// Check real de exit-timing en un proceso fresco: con una promise rápida vs un timeout de 3s, el child
+	// debe salir pronto. Un timer filtrado (sin limpiar) retendría el loop ~3s.
 	const childScript = `import(${JSON.stringify(url)}).then(async (m) => { await m.settleWithinTimeout(Promise.resolve("x"), 3000); process.stdout.write("SETTLED"); });`;
 	const start = Date.now();
 	const r = spawnSync(process.execPath, ["--input-type=module", "-e", childScript], {
@@ -776,8 +776,8 @@ async function scenarioShutdownTimerNoLeak(url) {
 	);
 }
 
-// F42: the per-file append mutex map must not grow unboundedly; entries are purged once no
-// writer is using a path, without breaking mutual exclusion for concurrent writers.
+// F42: el map de mutex de append por archivo no debe crecer sin límite; las entradas se purgan cuando ningún
+// writer usa un path, sin romper exclusión mutua para writers concurrentes.
 async function scenarioAppendMutexPurge(url) {
 	const mod = await import(`${url}?am=${instance++}`);
 	check("append: appendJsonLine exported", typeof mod.appendJsonLine === "function", typeof mod.appendJsonLine);
@@ -822,8 +822,8 @@ async function scenarioAppendMutexPurge(url) {
 	}
 }
 
-// F49: extractUltracodeTask must accept a `:`/`-` separator with or without a following space
-// (e.g. `ultracode:do X`), not only a whitespace separator.
+// F49: extractUltracodeTask debe aceptar un separador `:`/`-` con o sin espacio posterior
+// (p. ej. `ultracode:do X`), no solo un separador de whitespace.
 async function scenarioUltracodeTaskParsing(url) {
 	const mod = await import(`${url}?uc=${instance++}`);
 	check(
@@ -860,8 +860,8 @@ async function scenarioUltracodeTaskParsing(url) {
 	);
 }
 
-// F43: peak-parallel estimation must not overcount when one agent ends at the exact instant
-// another starts (a +1/-1 tie at the same timestamp must process the -1 first).
+// F43: la estimación peak-parallel no debe sobrecontar cuando un agente termina en el instante exacto
+// en que otro empieza (un empate +1/-1 en el mismo timestamp debe procesar primero el -1).
 async function scenarioPeakParallelTieAccuracy(url) {
 	const mod = await import(`${url}?pk=${instance++}`);
 	check(
@@ -903,8 +903,8 @@ async function scenarioPeakParallelTieAccuracy(url) {
 	check("peak: genuinely overlapping agents count as 2", est(overlapping) === 2, String(est(overlapping)));
 }
 
-// F14: run resolution must prefer an EXACT id match over a substring match on a different run
-// (otherwise `/workflow delete abc` could delete a run "abc123" instead of "abc").
+// F14: la resolución de run debe preferir un match EXACTO de id sobre un match de substring en otro run
+// (si no, `/workflow delete abc` podría borrar un run "abc123" en vez de "abc").
 async function scenarioResolveRunExactMatchFirst(url) {
 	const mod = await import(`${url}?rk=${instance++}`);
 	check("resolve: selectRunByKey is exported", typeof mod.selectRunByKey === "function", typeof mod.selectRunByKey);
@@ -940,8 +940,8 @@ async function scenarioResolveRunExactMatchFirst(url) {
 	check("resolve: no match returns undefined", sel(runs, "zzz", (r) => r.runId) === undefined);
 }
 
-// pattern-scaffolds.ts imports its catalog/pattern-format siblings, so esbuild --bundle
-// pulls the whole pattern module graph into one bundle we can import in-process.
+// pattern-scaffolds.ts importa sus siblings catalog/pattern-format, así que esbuild --bundle
+// arrastra todo el graph de módulos de pattern a un bundle que podemos importar in-process.
 async function buildScaffolds() {
 	const outDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-dwf-scaffolds-"));
 	const src = path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "pattern-scaffolds.ts");
@@ -953,13 +953,13 @@ async function buildScaffolds() {
 		{ cwd: REPO_ROOT, encoding: "utf8" },
 	);
 	if (r.status !== 0) throw new Error(`esbuild pattern-scaffolds failed: ${r.stderr || r.stdout}`);
-	// The bundled module reads scaffolds/*.js relative to its own import.meta.url (= outDir),
-	// so copy the sources beside the bundle. Production (unbundled) reads them in place.
+	// El módulo bundleado lee scaffolds/*.js relativo a su propio import.meta.url (= outDir),
+	// así que copiá las fuentes junto al bundle. Producción (sin bundle) las lee in place.
 	await fs.cp(SCAFFOLDS_DIR, path.join(outDir, "scaffolds"), { recursive: true });
 	return pathToFileURL(out).href;
 }
 
-// Find an embedded scaffold by content (robust to pattern-key renames).
+// Encontrá un scaffold embebido por contenido (robusto ante renombres de pattern-key).
 async function findScaffold(mod, pred) {
 	for (const pattern of mod.WORKFLOW_PATTERN_CATALOG ?? []) {
 		let code;
@@ -973,14 +973,14 @@ async function findScaffold(mod, pred) {
 	return undefined;
 }
 
-// The REAL transformWorkflowCode (from the index.ts bundle), set in main(). Scaffolds are the
-// single-interface form (`export const meta` + injected globals + `export default async function
-// workflow()`), so we MUST compile them through the runtime transform (which lifts meta and
-// rewrites the export) rather than a hand-rolled regex.
+// El transformWorkflowCode REAL (desde el bundle index.ts), seteado en main(). Los scaffolds son la
+// forma single-interface (`export const meta` + globals inyectados + `export default async function
+// workflow()`), así que DEBEMOS compilarlos con el transform runtime (que levanta meta y
+// reescribe el export) en vez de una regex artesanal.
 let __transform;
 
-// Compile a scaffold to its workflow function. No globals are needed at LOAD time — the body only
-// DEFINES the fn; globals are consumed when it RUNS (see runScaffold).
+// Compilá un scaffold a su función workflow. No hacen falta globals en LOAD time: el cuerpo solo
+// DEFINE la fn; los globals se consumen cuando CORRE (ver runScaffold).
 function evalScaffold(code) {
 	const cjs = __transform(code);
 	const m = { exports: {} };
@@ -988,10 +988,10 @@ function evalScaffold(code) {
 	return m.exports;
 }
 
-// Run a scaffold with a bag of injected globals (the single-interface surface). The workflow fn
-// closes over them because we pass them as Function params; `args` carries the input (the script
-// parses it defensively). parallel/pipeline default to real thunk-runners so the agent mock fully
-// drives behavior; scenarios override any global as needed.
+// Corré un scaffold con una bolsa de globals inyectados (la superficie single-interface). La fn workflow
+// los cierra porque los pasamos como params de Function; `args` lleva el input (el script
+// lo parsea defensivamente). parallel/pipeline default a thunk-runners reales para que el mock de agente maneje
+// completamente el comportamiento; los escenarios overridean cualquier global según haga falta.
 async function runScaffold(code, globals = {}) {
 	const cjs = __transform(code);
 	const bag = {
@@ -1020,10 +1020,10 @@ async function runScaffold(code, globals = {}) {
 	return await m.exports();
 }
 
-// The scout-fanout scaffold must never let input.pattern reach a shell. Under the single-interface
-// contract it FENCES the pattern into an agent's discovery prompt (a content-hash delimiter) and
-// runs the work-list through pipeline(...) — there is no shell interpolation at all. Assert that
-// statically (the old eval-and-run path can't observe a shell that no longer exists).
+// El scaffold scout-fanout nunca debe dejar que input.pattern llegue a un shell. Bajo el contrato
+// single-interface, FENCEA el pattern dentro del prompt de discovery de un agente (un delimitador content-hash) y
+// corre la work-list por pipeline(...): no hay interpolación shell en absoluto. Asertá eso
+// estáticamente (la vieja ruta eval-and-run no puede observar un shell que ya no existe).
 async function scenarioScoutScaffoldInjectionSafe(mod) {
 	const scoutCode = await findScaffold(
 		mod,
@@ -1043,15 +1043,15 @@ async function scenarioScoutScaffoldInjectionSafe(mod) {
 	);
 }
 
-// F21: non-numeric counts must fall back to defaults, not NaN -> Array.from({length:NaN}) = empty
-// jury (every finding silently "survives" unreviewed) or slice(0,NaN) = no findings.
+// F21: los counts no numéricos deben caer a defaults, no NaN -> Array.from({length:NaN}) = jury
+// vacío (cada finding "sobrevive" silenciosamente sin review) o slice(0,NaN) = sin findings.
 async function scenarioAdversarialInputCoercion(mod) {
 	const code = await findScaffold(mod, (c) => /skepticsPerFinding/.test(c) && /majorityToKill/.test(c));
 	check("adversarial scaffold: scaffold found", typeof code === "string", String(code).slice(0, 60));
 	if (typeof code !== "string") return;
-	// Single-interface: the global agent() returns the PARSED object for schema calls. node() sets
-	// `label`, so branch on it. parallel (runScaffold default) runs the jury thunks, which call the
-	// skeptic agent and collect its votes.
+	// Single-interface: el global agent() devuelve el objeto PARSEADO para llamadas schema. node() setea
+	// `label`, así que branch sobre eso. parallel (default de runScaffold) corre los thunks de jury, que llaman al
+	// agente skeptic y recolectan sus votos.
 	const agent = async (_p, opts) => {
 		const label = opts?.label ?? opts?.name;
 		if (label === "finder")
@@ -1075,16 +1075,16 @@ async function scenarioAdversarialInputCoercion(mod) {
 	);
 }
 
-// F22: a non-numeric maxEscalations made `escalation >= maxEscalations` always false, so the
-// while(true) loop only stopped on a 'high' verdict -> unbounded spend. It must bound at the
-// default instead.
+// F22: un maxEscalations no numérico hacía que `escalation >= maxEscalations` siempre fuera false, así que el
+// loop while(true) solo frenaba con un veredicto 'high' -> gasto sin límite. Debe acotarse al
+// default en su lugar.
 async function scenarioJudgeEscalateBounded(mod) {
 	const code = await findScaffold(mod, (c) => /maxEscalations/.test(c) && /while \(true\)/.test(c));
 	check("judge-escalate scaffold: scaffold found", typeof code === "string", String(code).slice(0, 60));
 	if (typeof code !== "string") return;
 	let judgeCalls = 0;
 	let totalAgent = 0;
-	// Global agent(): schema judge -> parsed verdict; candidates/synthesis -> text. node() sets label.
+	// agent() global: schema judge -> veredicto parseado; candidates/synthesis -> texto. node() setea label.
 	const agent = async (_p, opts) => {
 		const label = String(opts?.label ?? opts?.name ?? "");
 		totalAgent += 1;
@@ -1108,8 +1108,8 @@ async function scenarioJudgeEscalateBounded(mod) {
 	);
 }
 
-// F21 sibling (reachable via lib-verify-claims): non-numeric skeptics must fall back to the
-// default, not NaN -> Array.from({length:NaN}) empty jury -> every claim dropped unverified.
+// Sibling de F21 (alcanzable vía lib-verify-claims): skeptics no numérico debe caer al
+// default, no NaN -> Array.from({length:NaN}) jury vacío -> cada claim cae sin verificar.
 async function scenarioVerifyClaimsLibSkepticsCoercion(mod) {
 	const code = await findScaffold(
 		mod,
@@ -1118,7 +1118,7 @@ async function scenarioVerifyClaimsLibSkepticsCoercion(mod) {
 	check("verify-claims-lib scaffold: scaffold found", typeof code === "string", String(code).slice(0, 60));
 	if (typeof code !== "string") return;
 	let juryLen = -1;
-	// Each jury thunk calls the skeptic agent (schema VERDICT -> parsed vote) then wraps {name,data}.
+	// Cada thunk de jury llama al agente skeptic (schema VERDICT -> voto parseado) y luego envuelve {name,data}.
 	const agent = async () => ({ refuted: false, confidence: "high", evidence: "x", why: "ok" });
 	const parallel = async (thunks) => {
 		juryLen = thunks.length;
@@ -1141,7 +1141,7 @@ async function scenarioVerifyClaimsLibSkepticsCoercion(mod) {
 	);
 }
 
-// Invariant: every embedded scaffold must be reachable from the catalog (no dead scaffolds).
+// Invariante: cada scaffold embebido debe ser alcanzable desde el catálogo (sin scaffolds muertos).
 async function scenarioNoOrphanedScaffolds(mod) {
 	const orphans = mod.listOrphanedScaffoldKeys();
 	check(
@@ -1151,12 +1151,12 @@ async function scenarioNoOrphanedScaffolds(mod) {
 	);
 }
 
-// Parse-coverage FLOOR: every embedded scaffold reachable from the catalog (plus the
-// WORKFLOW_SCAFFOLD default) must `new Function`-parse and export a workflow function.
-// The targeted scenarios above only exercise ~5 scaffolds along specific runtime paths,
-// so a syntax error in any of the others (e.g. loop-until-dry, tournament, repo-bug-hunt)
-// would ship silently. This raises the floor to syntax coverage for ALL of them, keyed by
-// the catalog so newly added pattern keys are eval'd automatically.
+// PISO de cobertura de parse: cada scaffold embebido alcanzable desde el catálogo (más el
+// default WORKFLOW_SCAFFOLD) debe parsear con `new Function` y exportar una función workflow.
+// Los escenarios targeted de arriba solo ejercitan ~5 scaffolds por rutas runtime específicas,
+// así que un error de sintaxis en cualquiera de los otros (p. ej. loop-until-dry, tournament, repo-bug-hunt)
+// se shipearía silenciosamente. Esto sube el piso a cobertura de sintaxis para TODOS, keyeado por
+// el catálogo para que pattern keys nuevas se evalúen automáticamente.
 async function scenarioAllScaffoldsParse(mod) {
 	const catalog = mod.WORKFLOW_PATTERN_CATALOG ?? [];
 	check(
@@ -1185,8 +1185,8 @@ async function scenarioAllScaffoldsParse(mod) {
 		`evaled=${evaled}/${catalog.length}`,
 	);
 
-	// Belt-and-suspenders: the default WORKFLOW_SCAFFOLD is served when no pattern is given,
-	// so eval it explicitly even though fan-out-and-synthesize aliases onto it.
+	// Belt-and-suspenders: el default WORKFLOW_SCAFFOLD se sirve cuando no se pasa pattern,
+	// así que evalualo explícitamente aunque fan-out-and-synthesize aliasee hacia él.
 	let defaultOk = false;
 	let defaultDetail = "";
 	try {
@@ -1198,20 +1198,20 @@ async function scenarioAllScaffoldsParse(mod) {
 	check("all scaffolds: WORKFLOW_SCAFFOLD default parses and exports a workflow function", defaultOk, defaultDetail);
 }
 
-// Orphan/parse gate over the FULL scaffold set (every scaffolds/*.js shipped in the package),
-// not just the catalog-reachable ones scenarioAllScaffoldsParse covers. readSources() reads the
-// sources straight from disk (the exact set pattern-scaffolds.ts serves at runtime);
-// buildScaffolds() gives the public runtime resolution. This closes the review's M1/M2: a
-// scaffolds/foo.js added without a catalog entry still ships but is otherwise unparsed/unreachable
-// -- dead or broken code that ships with zero failing gates. Each source must (a) parse + export a
-// workflow function and (b) be reachable from the public catalog (or be the default), so an orphan
-// fails here.
+// Gate de orphan/parse sobre el set COMPLETO de scaffolds (cada scaffolds/*.js shipeado en el paquete),
+// no solo los alcanzables desde el catálogo que cubre scenarioAllScaffoldsParse. readSources() lee las
+// fuentes directo desde disco (el set exacto que pattern-scaffolds.ts sirve en runtime);
+// buildScaffolds() da la resolución runtime pública. Esto cierra M1/M2 de la review: un
+// scaffolds/foo.js agregado sin entrada de catálogo igual shipea pero queda sin parsear/inalcanzable:
+// código muerto o roto que se shipea con cero gates fallidos. Cada fuente debe (a) parsear + exportar una
+// función workflow y (b) ser alcanzable desde el catálogo público (o ser el default), así un orphan
+// falla acá.
 async function scenarioNoOrphanScaffold(mod) {
 	const sources = readSources();
 	const keys = Object.keys(sources);
 	check("orphan guard: scaffold sources discovered", keys.length > 0, `count=${keys.length}`);
 
-	// Packaging invariant: the .js sources must ship (no codegen copy anymore).
+	// Invariante de packaging: las fuentes .js deben shippear (ya no hay copia codegen).
 	const extPkg = JSON.parse(
 		readFileSync(path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "package.json"), "utf8"),
 	);
@@ -1226,20 +1226,20 @@ async function scenarioNoOrphanScaffold(mod) {
 		JSON.stringify(extPkg.files),
 	);
 
-	// Every string the public catalog can serve, plus the no-pattern default scaffold.
+	// Cada string que el catálogo público puede servir, más el scaffold default sin pattern.
 	const reachable = new Set();
 	for (const pattern of mod.WORKFLOW_PATTERN_CATALOG ?? []) {
 		try {
 			reachable.add(await mod.loadWorkflowPatternCode(pattern));
 		} catch {
-			/* parse/resolution failures are asserted by scenarioAllScaffoldsParse */
+			/* los failures de parse/resolution los aserta scenarioAllScaffoldsParse */
 		}
 	}
 	reachable.add(mod.getDefaultScaffold());
 
 	for (const key of keys) {
 		const code = sources[key];
-		// (a) M2: every embedded source parses and exports a workflow function.
+		// (a) M2: cada fuente embebida parsea y exporta una función workflow.
 		let parses = false;
 		let detail = "";
 		try {
@@ -1249,7 +1249,7 @@ async function scenarioNoOrphanScaffold(mod) {
 			detail = err instanceof Error ? err.message : String(err);
 		}
 		check(`orphan guard: scaffold ${key} parses and exports a workflow function`, parses, detail);
-		// (b) M1: every embedded source is reachable from the catalog (no orphan/dead file).
+		// (b) M1: cada fuente embebida es alcanzable desde el catálogo (sin archivo orphan/dead).
 		check(
 			`orphan guard: scaffold ${key} is reachable from the catalog (not orphaned)`,
 			reachable.has(code),
@@ -1277,8 +1277,8 @@ async function main() {
 		await scenarioShutdownTimerNoLeak(url);
 		const scaffoldsUrl = await buildScaffolds();
 		const scaffoldsMod = await import(`${scaffoldsUrl}?i=${instance++}`);
-		// Compile scaffolds through the REAL runtime transform (lifts `export const meta`, rewrites
-		// the export); it lives in the index.ts bundle, not pattern-scaffolds.ts.
+		// Compilá scaffolds con el transform runtime REAL (levanta `export const meta`, reescribe
+		// el export); vive en el bundle index.ts, no en pattern-scaffolds.ts.
 		__transform = (await import(`${url}?i=${instance++}`)).transformWorkflowCode;
 		await scenarioScoutScaffoldInjectionSafe(scaffoldsMod);
 		await scenarioAdversarialInputCoercion(scaffoldsMod);
