@@ -1,6 +1,6 @@
 {
 	"name": "@pandi-coding-agent/pandi-btw",
-	"version": "0.1.3",
+	"version": "0.1.4",
 	"description": "Pi extension that adds a Claude-style /btw command: ask a quick side question about the current conversation, answered with no tools and never added to history.",
 	"license": "MIT",
 	"repository": {

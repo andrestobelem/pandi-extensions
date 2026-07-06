@@ -35,11 +35,11 @@ test("release playbook documents the executable release path", () => {
 	assert.match(md, /`v\$\{root\.version\}`/);
 	assert.deepEqual(commands.slice(0, 3), [
 		"npm test",
-		"node scripts/release-contract.mjs --expect-tag v0.2.0",
+		"node scripts/release-contract.mjs --expect-tag v0.3.0",
 		"node scripts/publish-npm.mjs",
 	]);
-	assert.ok(commands.includes("git tag v0.2.0"));
-	assert.ok(commands.includes("git push origin v0.2.0"));
+	assert.ok(commands.includes("git tag v0.3.0"));
+	assert.ok(commands.includes("git push origin v0.3.0"));
 	assert.match(md, /`node scripts\/publish-npm\.mjs --publish --provenance`/);
 	assert.match(md, /`NPM_TOKEN`/);
 	assert.match(md, /pi-cante/);

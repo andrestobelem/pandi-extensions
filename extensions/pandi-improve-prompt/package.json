@@ -1,6 +1,6 @@
 {
 	"name": "@pandi-coding-agent/pandi-improve-prompt",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "Pi extension that adds a /improve-prompt command: rewrite a rough prompt draft into a clearer, more actionable one, then optionally send it as your next message.",
 	"license": "MIT",
 	"repository": {

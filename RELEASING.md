@@ -8,15 +8,15 @@ La idea base es simple: el root `package.json` versiona la suite completa y cada
 
 ```bash
 npm test
-node scripts/release-contract.mjs --expect-tag v0.2.0
+node scripts/release-contract.mjs --expect-tag v0.3.0
 node scripts/publish-npm.mjs
 ```
 
 Si todo está verde y el dry-run lista solo paquetes `PUBLISH`/`unchanged` sin `BUMP?`, creá el tag de suite y dejá que GitHub Actions publique:
 
 ```bash
-git tag v0.2.0
-git push origin v0.2.0
+git tag v0.3.0
+git push origin v0.3.0
 ```
 
 El workflow `.github/workflows/publish.yml` vuelve a correr `npm test`, valida tag↔root version y ejecuta `node scripts/publish-npm.mjs --publish --provenance`.
@@ -50,7 +50,7 @@ Los peers se mantienen pinneados al piso soportado por el repo:
 2. Validá el contrato de release:
 
    ```bash
-   node scripts/release-contract.mjs --expect-tag v0.2.0
+   node scripts/release-contract.mjs --expect-tag v0.3.0
    ```
 
 3. Revisá npm sin publicar:
