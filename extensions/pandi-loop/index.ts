@@ -62,44 +62,32 @@ const LOOP_STATE_TYPE = "loop-state";
 const LOOP_STATUS_KEY = "loop";
 const LOOP_DIR = "loops";
 const STATE_FILE = "state.json";
-// Tope duro de loops simultáneamente activos (running/paused). Acota la acumulación
-// ilimitada de timers/estado por starts repetidos de /loop: cada loop posee un setTimeout,
-// y sin esto un usuario podría hacer crecer activeLoops sin límite. Los starts nuevos
-// sobre el tope se rechazan; rehydrate de loops ya creados queda exento.
+// Límite de runtime: cada loop activo posee timer, estado mutable y posible sidecar.
+// La rehidratación queda exenta para no perder loops ya creados.
 const MAX_CONCURRENT_LOOPS = 20;
 const MIN_DELAY_SECONDS = 60;
 const MAX_DELAY_SECONDS = 3600;
-// Cadencia de seguridad cuando un turno cerró sin que el modelo llame loop_schedule.
+// Fallback cuando el modelo cierra un turno dinámico sin llamar loop_schedule.
 const SAFETY_NET_DELAY_SECONDS = 1500;
-// GC P2: barre dirs sidecar terminales (done/stopped/failed) más viejos que esto.
-// Los estados vivos (running/paused/stale) NUNCA se barren sin importar su edad.
+// GC solo para sidecars terminales; estados vivos nunca se barren por edad.
 const GC_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 días.
-// Watchdog P2: respaldo ABSOLUTO por encima de maxWallClockMs. Un loop que supere
-// startedAt + esto (p. ej. colgado, caps sin disparar) se force-stoppea (done + cleanup).
-// Es deliberadamente amplio (por encima del deadline por default de 6h) para captar solo zombies.
+// Deadline de respaldo, deliberadamente mayor al wall-clock default, para capturar zombies.
 const WATCHDOG_HARD_DEADLINE_MS = 25 * 60 * 60 * 1000; // 25h.
 
-// Calca activeRuns de dynamic-workflows: fuente de verdad de "qué timers viven AHORA".
+// Fuente de verdad de los loops vivos en este proceso.
 const activeLoops = new Map<string, ActiveLoop>();
 
 // ---------------------------------------------------------------------------
-// Cola FIFO de wakes (P2): serializa turnos autopilot entre N loops
+// Cola FIFO de wakes
 // ---------------------------------------------------------------------------
 
-/**
- * Un wake autopilot pendiente. Cuando varios timers de loops disparan casi al mismo
- * tiempo, cada uno llamaría sendUserMessage y competiría por el turno. Los serializamos:
- * solo se entrega UN wake a la vez, y solo cuando el agente está idle y no hay otro turno
- * autopilot en vuelo. El resto se encola acá, FIFO, y se drena en agent_end.
- */
+/** Wake pendiente de entrega; el estado mutable vive en `activeLoops`. */
 interface PendingWake {
 	loopId: string;
 }
 
-// FIFO a nivel módulo de wakes esperando entrega. Orden = orden de llegada.
 const wakeQueue: PendingWake[] = [];
-// Verdadero desde que se entrega un wake hasta que termina el turno que disparó (agent_end).
-// Mientras sea verdadero, no se entrega otro wake (un turno autopilot a la vez).
+// Mientras haya un turno autopilot en vuelo, ningún otro wake puede abrir turno.
 let autopilotTurnInFlight = false;
 
 function hasRunningAutopilotLoop(): boolean {
@@ -113,12 +101,6 @@ function hasRunningAutopilotLoop(): boolean {
 function inFlightOwnerAlive(): boolean {
 	return hasRunningAutopilotLoop();
 }
-
-// ---------------------------------------------------------------------------
-// Hojas puras extraídas a siblings de profundidad uno:
-//   ./prompt.ts   — makeLoopIterationPrompt
-//   ./interval.ts — parseInterval / formatInterval
-// ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
 // Línea de estado
@@ -145,10 +127,9 @@ function clearLoopStatus(ctx: ExtensionContext): void {
 	if (ctx.hasUI) ctx.ui.setStatus(LOOP_STATUS_KEY, undefined);
 }
 
-/** Refresca el status desde el loop actualmente running o paused, si hay. */
+/** Muestra un loop activo en la barra; running tiene prioridad sobre paused. */
 function refreshLoopStatus(ctx: ExtensionContext): void {
 	if (!ctx.hasUI) return;
-	// Preferir un loop running; usar uno paused como fallback para que el usuario lo siga viendo.
 	for (const loop of activeLoops.values()) {
 		if (loop.status === "running") {
 			setLoopStatus(ctx, loop);
