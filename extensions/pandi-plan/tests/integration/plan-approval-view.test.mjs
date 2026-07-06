@@ -92,23 +92,20 @@ function stripAnsi(value) {
 	return value.replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, "");
 }
 
-async function findFiles(dir, predicate) {
-	const found = [];
-	async function walk(current) {
-		let entries;
-		try {
-			entries = await fs.readdir(current, { withFileTypes: true });
-		} catch {
-			return;
-		}
-		for (const entry of entries) {
-			const full = path.join(current, entry.name);
-			if (entry.isDirectory()) await walk(full);
-			else if (predicate(full)) found.push(full);
-		}
+async function readSessionPlanHtmlArtifacts(cwd, sessionId = "session") {
+	const dir = path.join(cwd, ".pi", "plan-artifacts", sessionId);
+	let entries;
+	try {
+		entries = await fs.readdir(dir, { withFileTypes: true });
+	} catch (err) {
+		check("html: session artifact directory exists", false, `${dir}: ${err?.message ?? err}`);
+		return [];
 	}
-	await walk(dir);
-	return found;
+	check("html: session artifact directory exists", true, dir);
+	return entries
+		.filter((entry) => entry.isFile() && entry.name.endsWith(".html"))
+		.map((entry) => path.join(dir, entry.name))
+		.sort();
 }
 
 // makeCtx variants:
@@ -208,8 +205,12 @@ async function overlayPresentsAndRenders(url) {
 	check("overlay: ctx.ui.custom was used to present the plan", ctx._customCalls.length === 1);
 	check("overlay: confirm was NOT consulted when the overlay is available", ctx._confirmCalls === 0);
 
-	const htmlFiles = await findFiles(path.join(cwd, ".pi", "plan-artifacts"), (file) => file.endsWith(".html"));
-	check("html: writes one plan preview artifact", htmlFiles.length === 1, `got ${JSON.stringify(htmlFiles)}`);
+	const htmlFiles = await readSessionPlanHtmlArtifacts(cwd);
+	check(
+		"html: writes one plan preview artifact in the session artifact directory",
+		htmlFiles.length === 1,
+		`got ${JSON.stringify(htmlFiles)}`,
+	);
 	const html = htmlFiles[0] ? await fs.readFile(htmlFiles[0], "utf8") : "";
 	check("html: rendered artifact contains the plan body", /Do the thing/.test(html), html.slice(0, 200));
 	check("html: rendered artifact uses the Pandi plan kicker", /Pandi plan/.test(html), html.slice(0, 200));
