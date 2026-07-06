@@ -57,6 +57,12 @@ async function buildLiveness() {
 	return url;
 }
 
+function requireFunction(mod, name, label) {
+	const fn = mod[name];
+	check(`${label}: ${name} is exported`, typeof fn === "function", typeof fn);
+	return typeof fn === "function" ? fn : undefined;
+}
+
 // --- ramas de código de error de probeProcessAlive ------------------------------------
 
 function probeMapsErrorCodes(mod) {
@@ -110,8 +116,8 @@ function probeMapsErrorCodes(mod) {
 // --- ramas de plataforma de readProcessStartId ----------------------------------------
 
 function readStartIdLinuxBranch(mod) {
-	const read = mod.readProcessStartId;
-	if (typeof read !== "function") return;
+	const read = requireFunction(mod, "readProcessStartId", "startid-linux");
+	if (!read) return;
 
 	// Un /proc/<pid>/stat realista donde comm contiene espacios Y parens internos, así que el
 	// parser debe cortar después del ÚLTIMO ')'. Los tokens after-comm son desde el campo 3, así
@@ -134,8 +140,8 @@ function readStartIdLinuxBranch(mod) {
 }
 
 function readStartIdDarwinBranch(mod) {
-	const read = mod.readProcessStartId;
-	if (typeof read !== "function") return;
+	const read = requireFunction(mod, "readProcessStartId", "startid-darwin");
+	if (!read) return;
 
 	// status 0 con salida lstart -> ps:<trimmed output>.
 	globalThis.__bgSpawnSync = (cmd, args) => {
@@ -166,8 +172,8 @@ function readStartIdDarwinBranch(mod) {
 }
 
 function readStartIdSwallowsErrors(mod) {
-	const read = mod.readProcessStartId;
-	if (typeof read !== "function") return;
+	const read = requireFunction(mod, "readProcessStartId", "startid-errors");
+	if (!read) return;
 
 	// Linux: readFileSync lanza (p. ej. ENOENT) -> capturado -> undefined.
 	globalThis.__bgReadFileSync = () => {
@@ -189,8 +195,8 @@ function readStartIdSwallowsErrors(mod) {
 }
 
 function readStartIdWin32Branch(mod) {
-	const read = mod.readProcessStartId;
-	if (typeof read !== "function") return;
+	const read = requireFunction(mod, "readProcessStartId", "startid-win32");
+	if (!read) return;
 	// win32 no entra en ninguna rama -> undefined (degradación graceful), sin llamadas a stubs.
 	const result = withPlatform("win32", () => read(4321));
 	check("startid-win32: unsupported platform yields undefined", result === undefined, String(result));
