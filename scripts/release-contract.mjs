@@ -28,7 +28,11 @@ export function loadWorkspacePackages(root) {
 		.filter(({ pkg }) => !pkg.private);
 }
 
-function checkPeerSet(pkg, label) {
+export function isSemverSuiteTag(tag) {
+	return /^v\d+\.\d+\.\d+$/.test(tag);
+}
+
+export function checkPeerSet(pkg, label) {
 	const issues = [];
 	const peers = pkg.peerDependencies || {};
 	for (const [name, range] of Object.entries(peers)) {
@@ -39,18 +43,23 @@ function checkPeerSet(pkg, label) {
 	return issues;
 }
 
-export function checkReleaseContract(root, options = {}) {
+export function checkRootReleaseMetadata(rootPkg, setup, options = {}) {
 	const issues = [];
-	const rootPkg = readJson(join(root, "package.json"));
 	const tag = expectedSuiteTag(rootPkg);
-	const setup = readFileSync(join(root, "docs", "setup.md"), "utf8");
-
-	if (!/^v\d+\.\d+\.\d+$/.test(tag)) issues.push(`root version ${rootPkg.version} does not map to a semver suite tag`);
+	if (!isSemverSuiteTag(tag)) issues.push(`root version ${rootPkg.version} does not map to a semver suite tag`);
 	if (options.expectedTag && options.expectedTag !== tag) {
 		issues.push(`release tag ${options.expectedTag} does not match root package version tag ${tag}`);
 	}
 	if (!setup.includes(`pandi-extensions@${tag}`)) issues.push(`docs/setup.md does not reference ${tag}`);
+	return issues;
+}
 
+export function checkReleaseContract(root, options = {}) {
+	const issues = [];
+	const rootPkg = readJson(join(root, "package.json"));
+	const setup = readFileSync(join(root, "docs", "setup.md"), "utf8");
+
+	issues.push(...checkRootReleaseMetadata(rootPkg, setup, options));
 	issues.push(...checkPeerSet(rootPkg, "root package.json"));
 	for (const { pkg } of loadWorkspacePackages(root)) {
 		issues.push(...checkPeerSet(pkg, pkg.name));
@@ -58,7 +67,7 @@ export function checkReleaseContract(root, options = {}) {
 	return issues;
 }
 
-function parseExpectedTag(args) {
+export function parseExpectedTag(args) {
 	const eq = args.find((a) => a.startsWith("--expect-tag="));
 	if (eq) return eq.slice("--expect-tag=".length);
 	const idx = args.indexOf("--expect-tag");
