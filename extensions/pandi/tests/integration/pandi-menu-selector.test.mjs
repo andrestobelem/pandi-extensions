@@ -49,10 +49,9 @@ async function scenario(url) {
 		const out = await mod.resolvePandiInput("", ctx);
 		check("bare /pandi + UI opens the selector once", selectCalls.length === 1, `calls=${selectCalls.length}`);
 		const items = selectCalls[0]?.items ?? [];
-		const has = (v) => items.some((i) => String(i).toLowerCase().startsWith(v));
 		check(
-			"selector offers status / on / off / art / face",
-			["status", "on", "off", "art", "face"].every(has),
+			"selector offers exactly the exported Pandi action labels",
+			JSON.stringify(items) === JSON.stringify(mod.PANDI_SELECT_ITEMS),
 			JSON.stringify(items),
 		);
 		check("resolves to the chosen subcommand token", out === "off", String(out));
