@@ -363,6 +363,14 @@ export interface HandlerOpts {
 	timeoutMs?: number;
 }
 
+function invalidMachineNameResult(name: unknown, action: string): HandlerResult {
+	return {
+		ok: false,
+		text: `Nombre de máquina inválido "${String(name)}": usá letras, dígitos, ".", "_", o "-", empezando con una letra o dígito (máx. 64 caracteres).`,
+		details: { isError: true, action },
+	};
+}
+
 export async function runStatus(run: RunContainer, opts: HandlerOpts): Promise<HandlerResult> {
 	const status = await run(buildStatusArgs(), opts);
 	if (!status.ok) {
@@ -396,11 +404,7 @@ export async function runCreate(run: RunContainer, params: CreateOptions, opts: 
 		};
 	}
 	if (params.name && !validateMachineName(params.name)) {
-		return {
-			ok: false,
-			text: `Nombre de máquina inválido "${params.name}": usá letras, dígitos, ".", "_", o "-", empezando con una letra o dígito (máx. 64 caracteres).`,
-			details: { isError: true, action: "create" },
-		};
+		return invalidMachineNameResult(params.name, "create");
 	}
 	if (params.tier && isTierName(params.tier) && !(MACHINE_TIER_NAMES as readonly string[]).includes(params.tier)) {
 		const machineTiers = describeTiers(MACHINE_TIER_NAMES);
@@ -461,11 +465,7 @@ export async function runExec(run: RunContainer, params: ExecParams, opts: Handl
 		};
 	}
 	if (params.machine && !validateMachineName(params.machine)) {
-		return {
-			ok: false,
-			text: `Nombre de máquina inválido "${params.machine}": usá letras, dígitos, ".", "_", o "-", empezando con una letra o dígito (máx. 64 caracteres).`,
-			details: { isError: true, action: "run" },
-		};
+		return invalidMachineNameResult(params.machine, "run");
 	}
 	if (params.machine && params.tier) {
 		return {
@@ -505,11 +505,7 @@ export async function runExec(run: RunContainer, params: ExecParams, opts: Handl
 
 export async function runStop(run: RunContainer, params: { name?: string }, opts: HandlerOpts): Promise<HandlerResult> {
 	if (params.name && !validateMachineName(params.name)) {
-		return {
-			ok: false,
-			text: `Nombre de máquina inválido "${params.name}": usá letras, dígitos, ".", "_", o "-", empezando con una letra o dígito (máx. 64 caracteres).`,
-			details: { isError: true, action: "stop" },
-		};
+		return invalidMachineNameResult(params.name, "stop");
 	}
 	const result = await run(buildStopArgs(params), opts);
 	if (!result.ok) {
@@ -528,11 +524,7 @@ export async function runRemove(
 	opts: HandlerOpts,
 ): Promise<HandlerResult> {
 	if (!params.name || !validateMachineName(params.name)) {
-		return {
-			ok: false,
-			text: `Nombre de máquina inválido "${params.name}": usá letras, dígitos, ".", "_", o "-", empezando con una letra o dígito (máx. 64 caracteres).`,
-			details: { isError: true, action: "remove" },
-		};
+		return invalidMachineNameResult(params.name, "remove");
 	}
 	if (!params.force) {
 		return {
