@@ -51,6 +51,11 @@ import {
 	resolveWorktreeTarget,
 	runGit,
 } from "./worktree.js";
+import {
+	ensureWorktreeWriterForCommand,
+	formatWorktreeWriterBlock,
+	registerWorktreeWriterGuard,
+} from "./writer-guard.js";
 
 // --------------------------------------------------------------------------
 // Parseo de argumentos del comando
@@ -688,6 +693,16 @@ async function runCommand(ctx: ExtensionContext, args: string): Promise<void> {
 		parsed = interactive;
 	}
 
+	const writer = await ensureWorktreeWriterForCommand(ctx, {
+		action: parsed.action,
+		command: `/worktree ${args}`.trim(),
+		dryRun: parsed.action === "prune" ? parsed.dryRun : undefined,
+	});
+	if (!writer.allowed) {
+		notify(ctx, formatWorktreeWriterBlock(writer.reason), "warning");
+		return;
+	}
+
 	switch (parsed.action) {
 		case "list":
 			await handleList(ctx, signal);
@@ -726,6 +741,8 @@ function toolError(text: string, details: Record<string, unknown> = {}) {
 }
 
 export default function worktreeExtension(pi: ExtensionAPI): void {
+	registerWorktreeWriterGuard(pi);
+
 	// Los toggles de copia por defecto de la sesión viven en memoria; limpialos en cada límite de sesión
 	// (refleja a pandi-plan reiniciando sus toggles de postura ultracode en session_start).
 	pi.on("session_start", () => {

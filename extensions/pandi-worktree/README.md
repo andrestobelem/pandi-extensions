@@ -29,6 +29,9 @@ pi --no-extensions -e ./extensions/pandi-worktree  # one-off trial, nothing else
 - Optional copying of gitignored (e.g. `node_modules`) and/or untracked files
   into a newly created worktree.
 - A gitignored default home for bare-named worktrees: `.pi/worktrees/<name>`.
+- A single-writer guard: once a Pi session starts mutating a git worktree,
+  another active session in the same worktree is blocked from mutating until the
+  first session exits or its lease goes stale.
 
 ## Commands
 
@@ -82,6 +85,11 @@ Example tool call:
 
 - `git` is always spawned with an argv array — never a shell string — so
   paths and branch names cannot inject shell commands.
+- The single-writer guard stores a heartbeat lease at
+  `.pi/worktree-writer.json` inside the git worktree root. Read-only tools and
+  `git_worktree`/`/worktree open` remain available as an escape hatch; if a
+  session crashes, a stale lease is replaced automatically after a short grace
+  period.
 - `remove` confirms first; if the worktree is dirty or locked, git refuses and
   you get a second, explicit "force removal" confirmation. The tool never
   force-deletes by default: it discards a dirty worktree only with an
