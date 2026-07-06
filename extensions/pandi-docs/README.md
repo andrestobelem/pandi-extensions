@@ -31,16 +31,21 @@ pi --no-extensions -e ./extensions/pandi-docs   # one-off trial, nothing else lo
 
 | Surface | Signature | Notes |
 | --- | --- | --- |
-| `/docs` command | `/docs <in.md> [more.md…] [-o\|--out out.html] [--kicker "Text"] [-h\|--help]` | Output defaults to the input with `.md` swapped for `.html`; `-o`/`--out` is only valid with a single input. |
-| `markdown_to_html` tool | `path`, optional `out`, optional `kicker` | Model-callable counterpart of `/docs` (agents can't type slash commands). |
+| `/docs` command | `/docs <in.md> [more.md…] [-o\|--out out.html] [--kicker "Text"] [--tokens tokens.css] [--css style.css] [-h\|--help]` | Output defaults to the input with `.md` swapped for `.html`; `-o`/`--out` is only valid with a single input. |
+| `markdown_to_html` tool | `path`, optional `out`, `kicker`, `tokens`, `css` | Model-callable counterpart of `/docs` (agents can't type slash commands). |
 | CLI | `node extensions/pandi-docs/scripts/markdown-to-html.mjs in.md -o out.html --kicker "Informe"` | Same converter, usable outside a pi session. |
+| Mirror engine | `node extensions/pandi-docs/scripts/sync-doc-mirrors.mjs --config mirrors.json [--root dir] [--check]` | Manifest-driven md ↔ html mirrors for any repo: write-only-on-change, artifact redeploy reminders, orphan pruning, in-set `.md → .html` link rewriting. Guided by the [sync-doc-mirrors skill](./skills/sync-doc-mirrors/SKILL.md). |
 
-All three surfaces share one implementation (`scripts/markdown-to-html.mjs`);
+The first three surfaces share one implementation (`scripts/markdown-to-html.mjs`);
 `/docs` and `markdown_to_html` add path resolution (`~`, cwd) and writing
-feedback on top of it.
+feedback on top of it. The mirror engine composes the same converter with a
+mirrors manifest (`{source, out?, kicker?, tokens?, css?, artifact?}` entries).
 
-Details on mermaid support, GitHub alerts → callouts, and title/kicker rules
-are in the [pandi-artifact-style skill](./skills/pandi-artifact-style/SKILL.md).
+**Own look per project:** `--tokens`/`tokens` swaps only the color palette
+(keeps the pandi layout); `--css`/`css` replaces the entire stylesheet.
+
+Details on mermaid support, GitHub alerts → labeled callouts, and title/kicker
+rules are in the [pandi-artifact-style skill](./skills/pandi-artifact-style/SKILL.md).
 
 ## Details
 
