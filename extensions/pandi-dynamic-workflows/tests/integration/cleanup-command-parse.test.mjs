@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 /**
- * Contract test for the `/workflow cleanup` argument parser (command-handlers.ts,
+ * Test de contrato para el parser de argumentos de `/workflow cleanup` (command-handlers.ts,
  * parseCleanupArgs).
  *
- * The cleanup command mixes an optional target token (sessions | runs | both) with flags
- * (--keep=N, --all-stale, --dry-run/-n, --yes/-y). This pins the parse so the destructive
- * command can't silently change its defaults: cleanup targets BOTH by default, retains
- * DEFAULT_CLEANUP_KEEP (20) runs, does NOT touch heartbeat-stale sessions, and neither
- * dry-runs nor auto-confirms unless asked.
+ * El comando cleanup mezcla un token target opcional (sessions | runs | both) con flags
+ * (--keep=N, --all-stale, --dry-run/-n, --yes/-y). Esto pinea el parseo para que el comando
+ * destructivo no pueda cambiar silenciosamente sus defaults: cleanup apunta a BOTH por default,
+ * retiene DEFAULT_CLEANUP_KEEP (20) runs, NO toca sesiones heartbeat-stale, y no hace
+ * dry-run ni auto-confirma salvo que se pida.
  *
- * Pure + offline: bundles command-handlers.ts with the standard stubs and calls the
- * exported parser in memory.
+ * Puro + offline: bundlea command-handlers.ts con los stubs estándar y llama el
+ * parser exportado en memoria.
  *
- * Run it:
+ * Corrélo:
  *   node extensions/pandi-dynamic-workflows/tests/integration/cleanup-command-parse.test.mjs
  */
 import * as path from "node:path";
@@ -41,7 +41,7 @@ async function main() {
 	check("exports parseCleanupArgs", typeof parseCleanupArgs === "function", typeof parseCleanupArgs);
 	check("exports DEFAULT_CLEANUP_KEEP=20", DEFAULT_CLEANUP_KEEP === 20, String(DEFAULT_CLEANUP_KEEP));
 
-	// 1) Empty args → safe defaults: both targets, keep=20, no stale, no dry-run, no yes.
+	// 1) Args vacíos → defaults seguros: ambos targets, keep=20, sin stale, sin dry-run, sin yes.
 	{
 		const p = parseCleanupArgs("");
 		check(
@@ -55,7 +55,7 @@ async function main() {
 		);
 	}
 
-	// 2) Target token is recognized and normalized.
+	// 2) El token target se reconoce y normaliza.
 	check("sessions", parseCleanupArgs("sessions").target === "sessions");
 	check("session→sessions", parseCleanupArgs("session").target === "sessions");
 	check("runs", parseCleanupArgs("runs").target === "runs");
@@ -63,13 +63,13 @@ async function main() {
 	check("both explicit", parseCleanupArgs("both").target === "both");
 	check("unknown token → both", parseCleanupArgs("garbage").target === "both");
 
-	// 3) --keep=N overrides the default; clamped to >= 0 integer.
+	// 3) --keep=N sobrescribe el default; clamp a entero >= 0.
 	check("--keep=5", parseCleanupArgs("runs --keep=5").keep === 5);
 	check("--keep=0", parseCleanupArgs("runs --keep=0").keep === 0);
 	check("--keep negative clamps to 0", parseCleanupArgs("runs --keep=-3").keep === 0);
 	check("--keep non-numeric → default", parseCleanupArgs("runs --keep=abc").keep === 20);
 
-	// 4) Boolean flags in any order, with/without target.
+	// 4) Flags booleanas en cualquier orden, con/sin target.
 	{
 		const p = parseCleanupArgs("sessions --all-stale --dry-run -y");
 		check(
@@ -82,7 +82,7 @@ async function main() {
 	check("--yes long form", parseCleanupArgs("--yes").yes === true);
 	check("flags without target keep both", parseCleanupArgs("--dry-run").target === "both");
 
-	// 5) Order independence: flag before target.
+	// 5) Independencia de orden: flag antes de target.
 	{
 		const p = parseCleanupArgs("--keep=3 runs");
 		check("flag-before-target", p.target === "runs" && p.keep === 3, JSON.stringify(p));
