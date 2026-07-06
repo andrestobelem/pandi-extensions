@@ -25,7 +25,6 @@ import {
 	switchToPiSession,
 } from "./dashboard-orchestration.js";
 import { text } from "./format.js";
-import { formatWorkflowPreflightSummary, preflightWorkflowLaunch } from "./index.js";
 import { notify } from "./notify.js";
 import {
 	formatWorkflowPatternCatalog,
@@ -53,6 +52,7 @@ import { formatRunList, formatRunView, listRuns, resolveRun, showRunView } from 
 import type { DynamicWorkflowToolParams, WorkflowLogEntry, WorkflowRunResult, WorkflowRunStatus } from "./types.js";
 import { currentWorkflowDepth, maxWorkflowDepth } from "./workflow-depth.js";
 import { makeWorkflowGraphForContext, showWorkflowGraph } from "./workflow-graph.js";
+import { formatWorkflowPreflightSummary, preflightWorkflowLaunch } from "./workflow-preflight.js";
 import { ensureDir, listWorkflows, parsePatternFlag, resolveWorkflow, WORKFLOW_DRAFT_DIR } from "./workflow-resolve.js";
 import { classifyDynamicWorkflowRequest } from "./workflow-tool-request.js";
 import { transformWorkflowCode } from "./workflow-transform.js";
