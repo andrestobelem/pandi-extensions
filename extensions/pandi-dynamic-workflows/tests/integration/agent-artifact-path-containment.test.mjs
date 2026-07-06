@@ -1,18 +1,18 @@
 /**
- * Security regression test: resolveAgentArtifactPath must contain the artifactPath
- * within run.runDir.
+ * Test de regresión de seguridad: resolveAgentArtifactPath debe contener artifactPath
+ * dentro de run.runDir.
  *
- * artifactPath originates from an untrusted events.jsonl (event-parser copies it
- * verbatim into the agent model). Before the fix, resolveAgentArtifactPath returned
- * absolute paths as-is and path.join'd relatives without any containment check, so a
- * crafted absolute path ("/etc/passwd") or a "../" traversal escaped runDir and reached
- * fs.readFile in formatAgentView — an arbitrary file read. This pins the containment.
+ * artifactPath nace de un events.jsonl no confiable (event-parser lo copia
+ * verbatim al modelo del agente). Antes del fix, resolveAgentArtifactPath devolvía
+ * paths absolutos tal cual y hacía path.join de relativos sin ningún check de contención, así un
+ * path absoluto fabricado ("/etc/passwd") o un traversal "../" escapaba de runDir y llegaba a
+ * fs.readFile en formatAgentView — una lectura arbitraria de archivos. Esto pinea la contención.
  *
- * Self-bootstrapping like the sibling suites: esbuilds agent-view.ts directly (it now
- * exports resolveAgentArtifactPath) with the SDK/tui/typebox aliased to local stubs,
- * then imports the named export. The function is pure (no fs), so no fixtures needed.
+ * Self-bootstrapping como las suites hermanas: esbuild de agent-view.ts directo (ahora
+ * exporta resolveAgentArtifactPath) con SDK/tui/typebox aliased a stubs locales,
+ * luego importa el named export. La función es pura (sin fs), así que no necesita fixtures.
  *
- * Run it:
+ * Corrélo:
  *   node extensions/pandi-dynamic-workflows/tests/integration/agent-artifact-path-containment.test.mjs
  */
 
@@ -51,31 +51,31 @@ function run(mod) {
 		typeof resolveAgentArtifactPath,
 	);
 
-	// Legitimate: a relative artifact inside runDir resolves under runDir.
+	// Legítimo: un artifact relativo dentro de runDir resuelve bajo runDir.
 	check(
 		"keeps a relative artifact inside runDir",
 		resolve("agents/0001-alpha.md") === path.resolve(runDir, "agents/0001-alpha.md"),
 		String(resolve("agents/0001-alpha.md")),
 	);
 
-	// Missing artifactPath -> undefined.
+	// artifactPath ausente -> undefined.
 	check("undefined when no artifactPath", resolve(undefined) === undefined, String(resolve(undefined)));
 
-	// Attack 1: an absolute path that escapes runDir is rejected.
+	// Ataque 1: un path absoluto que escapa de runDir se rechaza.
 	check(
 		"rejects an absolute path outside runDir",
 		resolve("/etc/passwd") === undefined,
 		String(resolve("/etc/passwd")),
 	);
 
-	// Attack 2: a "../" traversal that escapes runDir is rejected.
+	// Ataque 2: un traversal "../" que escapa de runDir se rechaza.
 	check(
 		"rejects a ../ traversal escaping runDir",
 		resolve("../../etc/passwd") === undefined,
 		String(resolve("../../etc/passwd")),
 	);
 
-	// Boundary: a traversal that resolves back inside runDir is still allowed.
+	// Borde: un traversal que resuelve de vuelta dentro de runDir sigue permitido.
 	check(
 		"allows a ../ traversal that stays inside runDir",
 		resolve("agents/../answer.md") === path.resolve(runDir, "answer.md"),
