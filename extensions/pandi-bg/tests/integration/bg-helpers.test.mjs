@@ -26,6 +26,15 @@ const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 
 const { check, counts } = createChecker();
 
+async function whenSymlinkSupported(label, symlinkOk, run) {
+	if (!symlinkOk) {
+		console.log(`SKIP: ${label}: symlink unsupported here`);
+		check(`${label}: skipped because symlink unsupported here`, true);
+		return;
+	}
+	await run();
+}
+
 async function scenarioStorage(url) {
 	const { validJobId, lstatPlainDirectory, lstatPlainDirectoryChain, ensurePlainDirectory } = await loadModule(url);
 
@@ -58,11 +67,9 @@ async function scenarioStorage(url) {
 			"lstatPlainDirectory false for a missing path (ENOENT swallowed)",
 			(await lstatPlainDirectory(missing)) === false,
 		);
-		if (symlinkOk) {
+		await whenSymlinkSupported("lstatPlainDirectory symlink case", symlinkOk, async () => {
 			check("lstatPlainDirectory false for a symlink-to-dir", (await lstatPlainDirectory(symlinkToDir)) === false);
-		} else {
-			check("lstatPlainDirectory symlink case skipped (symlink unsupported here)", true);
-		}
+		});
 
 		// chain: true solo cuando todo componente es un dir real sin symlink bajo base.
 		check(
@@ -83,15 +90,13 @@ async function scenarioStorage(url) {
 			"lstatPlainDirectoryChain false for base === target (empty relative rejected)",
 			(await lstatPlainDirectoryChain(realDir, realDir)) === false,
 		);
-		if (symlinkOk) {
+		await whenSymlinkSupported("lstatPlainDirectoryChain symlink-component case", symlinkOk, async () => {
 			const throughLink = path.join(symlinkToDir, "a");
 			check(
 				"lstatPlainDirectoryChain false when a component is symlinked",
 				(await lstatPlainDirectoryChain(tmp, throughLink)) === false,
 			);
-		} else {
-			check("lstatPlainDirectoryChain symlink-component case skipped", true);
-		}
+		});
 
 		// ensurePlainDirectory: crea, tolera EEXIST, rechaza non-dir / symlink.
 		const fresh = path.join(tmp, "fresh");
@@ -113,7 +118,7 @@ async function scenarioStorage(url) {
 		}
 		check("ensurePlainDirectory refuses an existing regular file", fileThrew === true);
 
-		if (symlinkOk) {
+		await whenSymlinkSupported("ensurePlainDirectory symlink-refusal case", symlinkOk, async () => {
 			let linkThrew = false;
 			try {
 				await ensurePlainDirectory(symlinkToDir);
@@ -121,9 +126,7 @@ async function scenarioStorage(url) {
 				linkThrew = /Se rechaza usar algo que no es un directorio o es un symlink/.test(String(e?.message));
 			}
 			check("ensurePlainDirectory refuses a symlink-to-dir", linkThrew === true);
-		} else {
-			check("ensurePlainDirectory symlink-refusal case skipped", true);
-		}
+		});
 	} finally {
 		await fs.rm(tmp, { recursive: true, force: true });
 	}
