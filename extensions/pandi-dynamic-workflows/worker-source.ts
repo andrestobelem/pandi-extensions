@@ -326,7 +326,7 @@ async function race(thunks, options) {
     let exported = moduleObj.exports;
     if (exported && typeof exported === "object" && typeof exported.default === "function") exported = exported.default;
     if (typeof exported !== "function") {
-      const maybeMain = sandbox.main || sandbox.workflow;
+      const maybeMain = sandbox.main;
       if (typeof maybeMain === "function") exported = maybeMain;
     }
     if (typeof exported !== "function") {
