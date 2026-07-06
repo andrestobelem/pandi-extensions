@@ -1,28 +1,27 @@
 /**
- * Source-inspection pin for #27: workflow-factory's validateCode() import/require
- * regex false-positives on the word "require" inside JSON-schema `required:` keys,
- * so any generated draft that embeds a schema object (e.g. { required: ["x"] })
- * gets rejected with a misleading "uses import/require" error even though it never
- * imports or requires anything.
+ * Pin de inspección de source para #27: el regex import/require de validateCode() en
+ * workflow-factory false-positivea sobre la palabra "require" dentro de keys `required:`
+ * de JSON-schema, así cualquier draft generado que embeba un objeto schema
+ * (p. ej. { required: ["x"] }) se rechaza con un error engañoso "uses import/require"
+ * aunque nunca importe ni requiera nada.
  *
- * This test reads the CANONICAL scaffold (extensions/pandi-dynamic-workflows/scaffolds/
- * workflow-factory.js), extracts the actual RegExp literal used by validateCode()'s
- * import/require check, and exercises it directly against three inputs:
- *   1. a schema string containing `required: [...]` — must NOT match (today it DOES,
- *      because /\b(import|require)\s*\(?/ matches the "require" substring inside
+ * Este test lee el scaffold CANÓNICO (extensions/pandi-dynamic-workflows/scaffolds/
+ * workflow-factory.js), extrae el literal RegExp real usado por el check import/require
+ * de validateCode(), y lo ejercita directamente contra tres inputs:
+ *   1. un string de schema que contiene `required: [...]` — NO debe matchear (hoy SÍ lo hace,
+ *      porque /\b(import|require)\s*\(?/ matchea el substring "require" dentro de
  *      "required").
- *   2. a real `import ... from ...` statement — must still match.
- *   3. a real `require(...)` call — must still match.
+ *   2. un statement real `import ... from ...` — todavía debe matchear.
+ *   3. una llamada real `require(...)` — todavía debe matchear.
  *
- * This pins the scaffold's local validateCode() closure, which is a SEPARATE code
- * path from transformWorkflowCode() in index.ts (that one already uses the correct
- * /^\s*import\s/m and has no require check at all — see write-validates-code.test.mjs
- * and transform-contract.test.mjs, which are unaffected by this bug and untouched
- * here).
+ * Esto pinea el closure local validateCode() del scaffold, que es un code path SEPARADO
+ * de transformWorkflowCode() en index.ts (ese ya usa el /^\s*import\s/m correcto y no
+ * tiene ningún check de require — ver write-validates-code.test.mjs y
+ * transform-contract.test.mjs, que no están afectados por este bug ni se tocan acá).
  *
- * Mutation-free: reads the scaffold source and pattern-matches; never executes it.
+ * Mutation-free: lee el source del scaffold y pattern-matchea; nunca lo ejecuta.
  *
- * Run it:
+ * Ejecutalo:
  *   node extensions/pandi-dynamic-workflows/tests/integration/scaffold-import-require-regex.test.mjs
  */
 import * as fs from "node:fs";
@@ -34,12 +33,12 @@ const { check, counts } = createChecker();
 const SCAFFOLDS_DIR = path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "scaffolds");
 const factorySrc = fs.readFileSync(path.join(SCAFFOLDS_DIR, "workflow-factory.js"), "utf8");
 
-// Extract the validateCode() import/require RegExp literal directly out of the whole
-// source (not a single split("\n") line), so a formatter-driven line-wrap between the
-// `.test(s))` guard and the `problems.push("uses import/require...")` call — as biome's
-// printer does for the pinned regex once it grows past the line-length limit — cannot
-// break this extraction. Anchored on the problem message so a future unrelated edit to
-// validateCode() cannot silently drift this test onto the wrong regex.
+// Extrae el literal RegExp import/require de validateCode() directamente de todo el
+// source (no de una única línea split("\n")), para que un line-wrap del formatter entre el
+// guard `.test(s))` y la llamada `problems.push("uses import/require...")` — como hace el
+// printer de biome para el regex pineado cuando supera el límite de largo de línea — no pueda
+// romper esta extracción. Anclado al mensaje de problema para que una edición futura no relacionada
+// en validateCode() no pueda desplazar silenciosamente este test al regex equivocado.
 const literalMatch = factorySrc.match(
 	/\/((?:\\.|[^/\\])+)\/([a-z]*)\.test\(s\)\)\s*problems\.push\("uses import\/require/,
 );
@@ -50,7 +49,7 @@ check(
 	'no `<regex>.test(s)) ... problems.push("uses import/require"` construct found in workflow-factory.js',
 );
 
-// Reconstruct via `new RegExp(pattern, flags)` from the captured groups — no eval().
+// Reconstruí vía `new RegExp(pattern, flags)` desde los grupos capturados — sin eval().
 const importRequireRegex = literalMatch ? new RegExp(literalMatch[1], literalMatch[2]) : /$^/;
 
 const schemaDraft = "const schema = { type: 'object', required: ['x'], properties: {} };";
