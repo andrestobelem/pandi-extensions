@@ -1,21 +1,14 @@
 /**
- * Modelo de estado de `pandi-loop`.
- *
- * Este módulo separa la forma durable del loop (lo que se persiste/re-hidrata) de
- * los campos runtime-only del engine (timer, AbortController, flags de wake). No conoce
- * ExtensionContext, filesystem ni la registración de comandos/tools.
+ * Modelo de estado de `pandi-loop`: separa snapshots durables de campos runtime-only
+ * como timers, AbortController y flags de wake.
  */
 
 export const DEFAULT_MAX_ITERATIONS = 25;
-export const DEFAULT_MAX_WALL_CLOCK_MS = 6 * 60 * 60 * 1000; // Deadline absoluto por default de 6h.
-export const DEFAULT_CONTEXT_PERCENT_CAP = 90; // Detiene si getContextUsage().percent supera esto.
+export const DEFAULT_MAX_WALL_CLOCK_MS = 6 * 60 * 60 * 1000; // Deadline default de 6h.
+export const DEFAULT_CONTEXT_PERCENT_CAP = 90; // Detiene al superar este % de contexto.
 
-// Trata un tope persistido como válido solo si es un número finito > 0; si no, usa el
-// valor por default. Defiende rehydrate de un sidecar corrupto/manipulado donde `0`/NaN/undefined
-// pasarían por `??` (que solo reemplaza null/undefined) y desactivarían un tope en silencio
-// (maxWallClockMs<=0 anula el deadline; maxIterations ausente hace que `iter >= undefined`
-// sea siempre false y anule el gate de iteraciones). Los call sites ajustan por tope:
-// Math.trunc para el conteo entero y clamp Math.min(.,100) para el tope porcentual.
+// Sanitiza caps persistidos: 0/NaN/undefined podrían desactivar deadlines o iteraciones
+// si pasaran por `??`. Los call sites luego ajustan entero/porcentaje según el cap.
 export const positiveOr = (value: unknown, dflt: number): number =>
 	typeof value === "number" && Number.isFinite(value) && value > 0 ? value : dflt;
 
@@ -38,11 +31,7 @@ export interface LoopState {
 	nextFireAt: number | null;
 	lastReason?: string;
 	status: LoopStatus;
-	/**
-	 * Modo autónomo (P2): true si este loop no tiene tarea de usuario convencional; el
-	 * texto reinyectado es una sentinela generada por la extensión (un objetivo recurrente).
-	 * El start requiere trust + confirm explícito. Persistido para sobrevivir reloads.
-	 */
+	/** Objetivo recurrente sin turno humano; requiere trust + confirm al crearse. */
 	autonomous?: boolean;
 	/** Postura Ultracode: apoya el trabajo en dynamic workflows (solo inyección de prompt). */
 	ultracode?: boolean;
@@ -57,18 +46,11 @@ export interface ActiveLoop extends LoopState {
 	controller: AbortController;
 	/** Verdadero cuando un wake fue (re)armado en el turno actual; se resetea en cada fire. */
 	rearmedThisTurn: boolean;
-	/** Verdadero mientras el turno ACTUAL fue disparado por un wake (fireWake), no por el usuario. */
+	/** Verdadero mientras el turno en vuelo fue disparado por un wake, no por el usuario. */
 	autopilot: boolean;
-	/**
-	 * Transitorio: ms restantes del timer dynamic al pausar, para que resume rearme
-	 * con el remanente. null = "fire immediately" (estaba en límite de iteración). No persistido.
-	 */
+	/** Remanente del timer dynamic al pausar; null = disparar al reanudar. No persistido. */
 	pausedRemainingMs?: number | null;
-	/**
-	 * Transitorio (fixed mode): timestamp absoluto para el que se programó la iteración
-	 * en vuelo. El próximo rearmado es fixedAnchor + period, así la cadencia no deriva
-	 * aunque una iteración tarde. No persistido.
-	 */
+	/** Target absoluto del tick fixed en vuelo; evita deriva al rearmar. No persistido. */
 	fixedAnchor?: number;
 }
 

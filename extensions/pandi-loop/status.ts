@@ -1,15 +1,9 @@
-/**
- * Formateador de línea de estado de pandi-loop (puro). Renderiza un loop único al
- * string de estado de una línea usado por /loop status y la status bar. Extraído de
- * index.ts con el cuerpo verbatim; el único cambio es el tipo del parámetro,
- * desacoplado de LoopState a un LoopStatusInput estructural para que esta hoja no tenga
- * ciclo de vuelta hacia index.ts. Hermano de profundidad uno importado vía "./status.js".
- */
+/** Formateador puro de la línea usada por /loop status y la status bar. */
 
 import { formatInterval } from "./interval.js";
 import { formatEta } from "./time.js";
 
-/** Subconjunto estructural de LoopState que formatStatus lee. Un LoopState completo lo satisface. */
+/** Subconjunto de LoopState que formatStatus necesita. */
 export interface LoopStatusInput {
 	loopId: string;
 	task: string;
