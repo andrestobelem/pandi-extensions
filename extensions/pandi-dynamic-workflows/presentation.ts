@@ -14,7 +14,7 @@
  */
 
 import { stringify } from "./format.js";
-import type { WorkflowDefinition, WorkflowLogEntry } from "./index.js";
+import type { WorkflowDefinition, WorkflowLogEntry } from "./types.js";
 
 export function compactInline(value: unknown, maxChars = 160): string {
 	return stringify(value, maxChars).replace(/\s+/g, " ").trim();

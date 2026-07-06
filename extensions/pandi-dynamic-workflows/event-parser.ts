@@ -6,22 +6,20 @@
  * (readRunEvents). Extraído byte-idéntico desde index.ts bajo la red de caracterización
  * run-events-parsing.test.mjs.
  *
- * Ciclo runtime diferido con index.ts: este módulo importa extractMarkdownSection
- * desde ./index.js, pero solo lo llama DENTRO del cuerpo de readRunEvents (nunca en top level),
- * e index.ts a su vez importa estas funciones y las llama solo dentro de sus propias funciones/
- * métodos TUI. Los tipos son import type (borrados en build).
+ * extractMarkdownSection vive en agent-view.ts y solo se llama DENTRO del cuerpo de readRunEvents.
+ * Los contratos de workflow cruzan desde types.ts como import type (borrados en build).
  */
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { extractMarkdownSection } from "./agent-view.js";
+import { renderSafeInline } from "./render-utils.js";
 import type {
 	AgentMonitorModel,
 	AgentMonitorState,
 	AgentPhaseInfo,
 	SubagentResult,
 	WorkflowLogEntry,
-} from "./index.js";
-import { renderSafeInline } from "./render-utils.js";
+} from "./types.js";
 
 export interface ParsedPhaseEvent {
 	id: number;

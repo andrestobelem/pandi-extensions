@@ -32,12 +32,12 @@ import {
 	summarizeWorkflowGraphChildren,
 	workflowGraphMethodInfo,
 } from "./graph-parse.js";
-import type { WorkflowDefinition } from "./index.js";
 import { EXTENSION_ROOT } from "./index.js";
 import { notify } from "./notify.js";
 import type { ProcessResult } from "./process-spawn.js";
 import { runProcess } from "./process-spawn.js";
 import { padRightVisible } from "./render-utils.js";
+import type { WorkflowDefinition } from "./types.js";
 import { WorkflowGraphComponent } from "./workflow-graph-component.js";
 import { ensureDir, getGraphRoot, resolveWorkflow, slugify } from "./workflow-resolve.js";
 

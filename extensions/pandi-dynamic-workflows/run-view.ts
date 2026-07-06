@@ -19,7 +19,6 @@ import * as path from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { formatAgentPhase, readRunEvents } from "./event-parser.js";
 import { MAX_TOOL_TEXT, stringify } from "./format.js";
-import type { WorkflowRunRecord } from "./index.js";
 import { computeCodeHash } from "./journal.js";
 import { pickViewerForPath, showMarkdown } from "./markdown-view.js";
 import { notify } from "./notify.js";
@@ -37,6 +36,7 @@ import {
 } from "./run-state.js";
 import { showText } from "./run-status-ui.js";
 import { getRunDirs, readRunRecord } from "./run-store.js";
+import type { WorkflowRunRecord } from "./types.js";
 
 export async function listRuns(ctx: ExtensionContext): Promise<WorkflowRunRecord[]> {
 	const runs: WorkflowRunRecord[] = [];

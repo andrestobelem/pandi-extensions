@@ -13,7 +13,7 @@
  */
 import { Value } from "typebox/value";
 import { safeJson } from "./format.js";
-import type { AgentOptions } from "./index.js";
+import type { AgentOptions } from "./types.js";
 
 export function makeStructuredOutputSystemPrompt(schema: unknown): string {
 	return [

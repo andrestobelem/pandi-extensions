@@ -9,11 +9,10 @@
 
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-
-import type { WorkflowRunRecord, WorkflowRunStatus } from "./index.js";
 import { collectRunReport } from "./run-report-collector.js";
 import { buildRunReportHtml } from "./run-report-html.js";
 import { readRunStatus, writeTextFileAtomic } from "./run-store.js";
+import type { WorkflowRunRecord, WorkflowRunStatus } from "./types.js";
 
 export const RUN_REPORT_WATCH_INTERVAL_MS = 2000;
 

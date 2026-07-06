@@ -13,12 +13,12 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth } from "@earendil-works/pi-tui";
 import { MAX_TOOL_TEXT, stringify } from "./format.js";
-import type { WorkflowLogEntry, WorkflowRunRecord, WorkflowRunResult, WorkflowRunStatus } from "./index.js";
 import { notify } from "./notify.js";
 import { shortWorkflowName, workflowDashboardHint, workflowProgress, workflowProgressLabel } from "./presentation.js";
 import { renderSafeInline } from "./render-utils.js";
 import { activeRunCount, hasActiveRun } from "./run-registry.js";
 import { formatParallelAgents, formatParallelAgentsCompact, getRunState, getRunStatusLabel } from "./run-state.js";
+import type { WorkflowLogEntry, WorkflowRunRecord, WorkflowRunResult, WorkflowRunStatus } from "./types.js";
 
 const WORKFLOW_STATUS_KEY = "dynamic-workflows";
 const WORKFLOW_WIDGET_KEY = "dynamic-workflows";

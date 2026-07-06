@@ -18,7 +18,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
-import type { AgentOptions } from "./index.js";
+import type { AgentOptions } from "./types.js";
 
 export const DEFAULT_AGENT_WEB_SEARCH_TOOL = "web_search";
 export const DEFAULT_WEB_SEARCH_EXTENSION_PACKAGE = "pi-codex-web-search";

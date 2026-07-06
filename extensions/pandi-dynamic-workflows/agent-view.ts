@@ -15,11 +15,11 @@ import { AgentLiveViewComponent } from "./agent-live-view.js";
 import { parsePiJsonModeOutput, parsePiJsonModeOutputLenient } from "./agent-output.js";
 import { formatAgentPhase, readRunEvents } from "./event-parser.js";
 import { MAX_TOOL_TEXT, truncate } from "./format.js";
-import type { AgentMonitorModel, WorkflowRunRecord } from "./index.js";
 import { computeCodeHash } from "./journal.js";
 import { notify } from "./notify.js";
 import { formatElapsedMs } from "./presentation.js";
 import { formatRunView, pickAndOpenRunArtifact } from "./run-view.js";
+import type { AgentMonitorModel, WorkflowRunRecord } from "./types.js";
 
 export function resolveAgentArtifactPath(run: WorkflowRunRecord, agent: AgentMonitorModel): string | undefined {
 	if (!agent.artifactPath) return undefined;

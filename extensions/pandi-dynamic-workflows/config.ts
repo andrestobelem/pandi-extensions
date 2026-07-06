@@ -10,7 +10,7 @@
  * así no hay ciclo de import runtime.
  */
 
-import type { DynamicWorkflowToolParams, RunLimits } from "./index.js";
+import type { DynamicWorkflowToolParams, RunLimits } from "./types.js";
 
 export const DEFAULT_MAX_AGENTS = 64;
 export const HARD_MAX_AGENTS = 1000;

@@ -5,8 +5,8 @@
  * de status, tiempo transcurrido, conteos/pico de agentes paralelos). Vive acá para que TANTO
  * index.ts (ruta runner/tool) como la TUI del monitor puedan usarlas sin que la TUI
  * tenga que importar valores runtime desde index.ts (lo que crearía un ciclo ESM).
- * La única dependencia de vuelta hacia index.ts es SOLO de TIPOS (`import type`),
- * borrada en build time, así que index.ts -> run-state.js es una arista runtime unidireccional.
+ * Los contratos cruzan desde types.ts como import type, así que index.ts -> run-state.js
+ * es una arista runtime unidireccional.
  *
  * Cuerpos movidos textualmente desde index.ts (preserva comportamiento).
  */
@@ -17,7 +17,7 @@ import type {
 	WorkflowRunRecord,
 	WorkflowRunResult,
 	WorkflowRunState,
-} from "./index.js";
+} from "./types.js";
 
 export function getRunElapsedMs(run: WorkflowRunRecord, state: WorkflowRunState = getRunState(run)): number {
 	if (state === "running") {

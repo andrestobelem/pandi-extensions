@@ -6,8 +6,8 @@
  * Ciclos totalmente diferidos: este módulo instancia WorkflowDashboard y llama al engine,
  * collectors, run-lifecycle y helpers de pi-session solo dentro de cuerpos; index.ts y
  * run-lifecycle.ts importan de vuelta los entry points, y dashboard-down-editor.ts importa desde acá
- * openWorkflowDashboard + los tipos Dashboard{CommandSubmitter,Opener}. Los tipos Record/
- * pattern cruzan como import type. Extraído byte-idéntico.
+ * openWorkflowDashboard + los tipos Dashboard{CommandSubmitter,Opener}. Los contratos de workflow
+ * cruzan desde types.ts como import type; los pattern/dashboard types cruzan como import type local.
  */
 import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
@@ -22,15 +22,6 @@ import {
 	type WorkflowDashboardResult,
 } from "./dashboard-collectors.js";
 import { stringify } from "./format.js";
-import type {
-	PreparedWorkflowRun,
-	RunLimits,
-	WorkflowDefinition,
-	WorkflowLogEntry,
-	WorkflowRunRecord,
-	WorkflowRunResult,
-	WorkflowRunStatus,
-} from "./index.js";
 import { runWorkflow } from "./index.js";
 import { notify } from "./notify.js";
 import type { WorkflowPattern } from "./pattern-scaffolds.js";
@@ -58,6 +49,15 @@ import {
 	setWorkflowWidget,
 } from "./run-status-ui.js";
 import { listRuns, showRunView } from "./run-view.js";
+import type {
+	PreparedWorkflowRun,
+	RunLimits,
+	WorkflowDefinition,
+	WorkflowLogEntry,
+	WorkflowRunRecord,
+	WorkflowRunResult,
+	WorkflowRunStatus,
+} from "./types.js";
 import type { DashboardSelection, WorkflowDashboardTab } from "./workflow-dashboard.js";
 import { WorkflowDashboard } from "./workflow-dashboard.js";
 import { showWorkflowGraph } from "./workflow-graph.js";

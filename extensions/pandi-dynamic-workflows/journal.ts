@@ -19,8 +19,8 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { appendJsonLine } from "./file-append.js";
 import { truncate } from "./format.js";
-import type { AskResult, BashResult, JournalCache, JournalRecord, SubagentResult } from "./index.js";
 import { JOURNAL_FILE, MAX_AGENT_OUTPUT_IN_RESULT, MAX_JOURNALED_STREAM, transformWorkflowCode } from "./index.js";
+import type { AskResult, BashResult, JournalCache, JournalRecord, SubagentResult } from "./types.js";
 
 // --- Runs resumibles: diario de cache content-address ---
 

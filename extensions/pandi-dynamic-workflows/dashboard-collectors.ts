@@ -1,18 +1,11 @@
 /**
  * Capa de datos del dashboard — el lado de lectura que colecta actividad/agentes de runs y deriva los
  * modelos de workflow monitor que renderiza la UI del dashboard (workflow-dashboard.ts) y que abre la
- * orquestación. Construye objetos de modelo planos desde estado/logs/eventos de run; AgentMonitorModel
- * sigue siendo fundacional en index.ts y cruza acá como import type. Extraído byte-idéntico.
+ * orquestación. Construye objetos de modelo planos desde estado/logs/eventos de run; los contratos de
+ * modelo cruzan desde types.ts como import type.
  */
 import { existsSync } from "node:fs";
 import { readRunEvents, readRunLogEvents } from "./event-parser.js";
-import type {
-	AgentMonitorModel,
-	WorkflowDefinition,
-	WorkflowLogEntry,
-	WorkflowRunRecord,
-	WorkflowRunState,
-} from "./index.js";
 import { JOURNAL_FILE } from "./index.js";
 import type { WorkflowPattern } from "./pattern-scaffolds.js";
 import type { PiSessionModel } from "./pi-session.js";
@@ -27,6 +20,13 @@ import {
 } from "./run-state.js";
 import { canCancelRun, isActiveRunRecord } from "./run-status-ui.js";
 import { listRunFiles } from "./run-view.js";
+import type {
+	AgentMonitorModel,
+	WorkflowDefinition,
+	WorkflowLogEntry,
+	WorkflowRunRecord,
+	WorkflowRunState,
+} from "./types.js";
 
 export interface WorkflowDashboardResult {
 	type:

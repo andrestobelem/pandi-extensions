@@ -7,26 +7,13 @@
  * refreshActiveWorkflowStatus/resolveWorkflow from ./index.js only inside bodies and reads
  * the active-run registry from ./run-registry.js; index.ts imports the lifecycle entry points back (invoked only from
  * handler bodies) and re-exports settleWithinTimeout for the shutdown test. Run records come
- * from the run-store / run-state / run-view siblings; run record types cross as import type.
- * Extracted byte-identically.
+ * from the run-store / run-state / run-view siblings; workflow contracts cross from types.ts as import type.
  */
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { buildLimits, limitParamsFromInput } from "./config.js";
 import { runWorkflowWithUi } from "./dashboard-orchestration.js";
-import type {
-	ActiveWorkflowRun,
-	DynamicWorkflowToolParams,
-	PreparedWorkflowRun,
-	RunLimits,
-	WorkflowDefinition,
-	WorkflowLogEntry,
-	WorkflowRunRecord,
-	WorkflowRunResult,
-	WorkflowRunState,
-	WorkflowRunStatus,
-} from "./index.js";
 import { preflightWorkflowLaunch, prepareWorkflowRun, runWorkflow } from "./index.js";
 import { computeCodeHash, loadJournal, maxAgentArtifactNumber, maxJournalAgentId } from "./journal.js";
 import { notify } from "./notify.js";
@@ -49,6 +36,18 @@ import {
 import { formatRunSummary, refreshActiveWorkflowStatus } from "./run-status-ui.js";
 import { getRunDirs, readRunRecord, readRunStatus, writeJsonFile, writeRunStatus } from "./run-store.js";
 import { listRuns, resolveRun, selectRunByKey } from "./run-view.js";
+import type {
+	ActiveWorkflowRun,
+	DynamicWorkflowToolParams,
+	PreparedWorkflowRun,
+	RunLimits,
+	WorkflowDefinition,
+	WorkflowLogEntry,
+	WorkflowRunRecord,
+	WorkflowRunResult,
+	WorkflowRunState,
+	WorkflowRunStatus,
+} from "./types.js";
 import { ensureDir, resolveWorkflow } from "./workflow-resolve.js";
 
 function initialRunStatus(
