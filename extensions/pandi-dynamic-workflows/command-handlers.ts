@@ -60,6 +60,7 @@ import { canCancelRun, clearWorkflowWidget, formatRunSummary, showText } from ".
 import { formatRunList, formatRunView, listRuns, resolveRun, showRunView } from "./run-view.js";
 import { makeWorkflowGraphForContext, showWorkflowGraph } from "./workflow-graph.js";
 import { ensureDir, listWorkflows, parsePatternFlag, resolveWorkflow } from "./workflow-resolve.js";
+import { classifyDynamicWorkflowRequest } from "./workflow-tool-request.js";
 
 export async function handleTool(
 	pi: ExtensionAPI,
@@ -68,8 +69,8 @@ export async function handleTool(
 	onUpdate: AgentToolUpdateCallback | undefined,
 	ctx: ExtensionContext,
 ) {
-	const action = params.action;
-	const scope = params.scope ?? "auto";
+	const request = classifyDynamicWorkflowRequest(params);
+	const action = request.action;
 
 	// Guardia de recursión: un subagente de flujo de trabajo (profundidad >= límite) no puede lanzar más flujos de trabajo.
 	if (
@@ -83,11 +84,11 @@ export async function handleTool(
 		);
 	}
 
-	if (action === "scaffold") {
-		const pattern = params.name ? resolveWorkflowPattern(params.name) : undefined;
-		if (params.name && !pattern) {
+	if (request.kind === "pattern-scaffold") {
+		const pattern = request.patternKey ? resolveWorkflowPattern(request.patternKey) : undefined;
+		if (request.patternKey && !pattern) {
 			throw new Error(
-				`Unknown workflow pattern: ${params.name}. Available: ${WORKFLOW_PATTERN_CATALOG.map((item) => item.key).join(", ")}`,
+				`Unknown workflow pattern: ${request.patternKey}. Available: ${WORKFLOW_PATTERN_CATALOG.map((item) => item.key).join(", ")}`,
 			);
 		}
 		if (pattern) {
@@ -100,24 +101,24 @@ export async function handleTool(
 		};
 	}
 
-	if (action === "list") {
+	if (request.kind === "collection" && action === "list") {
 		const workflows = await listWorkflows(ctx);
 		return { content: [text(formatWorkflowList(workflows))], details: { action, workflows } };
 	}
 
-	if (action === "runs") {
+	if (request.kind === "collection" && action === "runs") {
 		const runs = await listRuns(ctx);
 		return { content: [text(formatRunList(runs))], details: { action, runs } };
 	}
 
-	if (action === "view") {
-		const run = await resolveRun(ctx, params.name);
+	if (request.kind === "run" && action === "view") {
+		const run = await resolveRun(ctx, request.runId);
 		const view = await formatRunView(run);
 		return { content: [text(view)], details: { action, run } };
 	}
 
-	if (action === "report") {
-		const run = await resolveRun(ctx, params.name);
+	if (request.kind === "run" && action === "report") {
+		const run = await resolveRun(ctx, request.runId);
 		const result = await writeRunReport(run, { watch: params.watch, signal });
 		return {
 			content: [
@@ -129,17 +130,17 @@ export async function handleTool(
 		};
 	}
 
-	if (action === "cancel") {
-		const message = await cancelWorkflowRun(ctx, params.name);
+	if (request.kind === "run" && action === "cancel") {
+		const message = await cancelWorkflowRun(ctx, request.runId);
 		return { content: [text(message)], details: { action, message } };
 	}
 
-	if (action === "resume") {
+	if (request.kind === "run" && action === "resume") {
 		const resumeInBackground = shouldLaunchWorkflowInBackground(ctx);
 		const record = await resumeWorkflow(
 			pi,
 			ctx,
-			params.name,
+			request.runId,
 			// limitParamsFromInput extrae solo los parámetros de límite numérico pasados explícitamente
 			// (concurrency/maxAgents/timeoutMs/agentTimeoutMs) de params, así que
 			// reanudar los honra como start en lugar de ignorarlos silenciosamente.
@@ -162,29 +163,27 @@ export async function handleTool(
 		return { content: [text(formatRunSummary(result))], details: { action, result } };
 	}
 
-	if (!params.name) throw new Error(`dynamic_workflow action=${action} requires name.`);
-
-	if (action === "read") {
-		const workflow = await resolveWorkflow(ctx, params.name, scope);
+	if (request.kind === "workflow-definition" && action === "read") {
+		const workflow = await resolveWorkflow(ctx, request.workflowName, request.scope);
 		const code = await fs.readFile(workflow.path, "utf8");
 		return { content: [text(code)], details: { action, workflow, code } };
 	}
 
-	if (action === "graph") {
-		const workflow = await resolveWorkflow(ctx, params.name, scope);
+	if (request.kind === "workflow-definition" && action === "graph") {
+		const workflow = await resolveWorkflow(ctx, request.workflowName, request.scope);
 		const code = await fs.readFile(workflow.path, "utf8");
 		const graph = await makeWorkflowGraphForContext(ctx, workflow, code);
 		return { content: [text(graph)], details: { action, workflow, graph } };
 	}
 
-	if (action === "check") {
-		const workflow = await resolveWorkflow(ctx, params.name, scope);
+	if (request.kind === "workflow-definition" && action === "check") {
+		const workflow = await resolveWorkflow(ctx, request.workflowName, request.scope);
 		const workflowInput = normalizeWorkflowInput(params.input);
 		const preflight = await preflightWorkflowLaunch(ctx, workflow, workflowInput);
 		return { content: [text(formatWorkflowPreflightSummary(preflight))], details: { action, workflow, preflight } };
 	}
 
-	if (action === "write") {
+	if (request.kind === "workflow-definition" && action === "write") {
 		if (params.code === undefined) throw new Error("dynamic_workflow action=write requires code.");
 		// Valida el contrato de autoría Y la sintaxis ANTES de persistir, para que el código
 		// inválido falle aquí con el error instructivo de la transformación en lugar de
@@ -199,7 +198,7 @@ export async function handleTool(
 				`Workflow code has a syntax error (fix it before writing): ${err instanceof Error ? err.message : String(err)}`,
 			);
 		}
-		const workflow = await resolveWorkflow(ctx, params.name, scope, "draft");
+		const workflow = await resolveWorkflow(ctx, request.workflowName, request.scope, "draft");
 		await ensureDir(path.dirname(workflow.path));
 		await fs.writeFile(workflow.path, params.code, "utf8");
 		return {
@@ -208,8 +207,8 @@ export async function handleTool(
 		};
 	}
 
-	if (action === "delete") {
-		const workflow = await resolveWorkflow(ctx, params.name, scope);
+	if (request.kind === "workflow-definition" && action === "delete") {
+		const workflow = await resolveWorkflow(ctx, request.workflowName, request.scope);
 		if (!ctx.hasUI) throw new Error("Deleting workflows requires interactive confirmation.");
 		const ok = await ctx.ui.confirm("Delete workflow?", `${workflow.name}\n${workflow.path}`);
 		if (!ok) throw new Error("Workflow deletion cancelled.");
@@ -220,8 +219,11 @@ export async function handleTool(
 		};
 	}
 
-	if (action === "start" || (action === "run" && shouldLaunchWorkflowInBackground(ctx))) {
-		const workflow = await resolveWorkflow(ctx, params.name, scope);
+	if (
+		request.kind === "workflow-definition" &&
+		(action === "start" || (action === "run" && shouldLaunchWorkflowInBackground(ctx)))
+	) {
+		const workflow = await resolveWorkflow(ctx, request.workflowName, request.scope);
 		const workflowInput = normalizeWorkflowInput(params.input);
 		const limits = buildLimits({ ...limitParamsFromInput(workflowInput), ...params });
 		const status = await startWorkflowBackground(pi, ctx, workflow, workflowInput, limits);
@@ -231,8 +233,8 @@ export async function handleTool(
 		};
 	}
 
-	if (action === "run") {
-		const workflow = await resolveWorkflow(ctx, params.name, scope);
+	if (request.kind === "workflow-definition" && action === "run") {
+		const workflow = await resolveWorkflow(ctx, request.workflowName, request.scope);
 		const workflowInput = normalizeWorkflowInput(params.input);
 		const limits = buildLimits({ ...limitParamsFromInput(workflowInput), ...params });
 		const result = await runWorkflowWithUi(pi, ctx, workflow, workflowInput, limits, signal, (logs) => {
