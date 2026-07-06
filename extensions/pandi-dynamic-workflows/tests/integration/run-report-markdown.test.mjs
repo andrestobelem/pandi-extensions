@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * run-report-markdown — pins issue #30's sanitized Markdown fragment renderer.
- * Agent output Markdown may become HTML, but only through the report allowlist:
- * raw HTML, script/image tags, external URLs, schemes, absolute paths, and parent
- * traversal links must not survive as executable/linkable HTML.
+ * run-report-markdown — fija el renderer sanitizado de fragments Markdown del issue #30.
+ * El Markdown de output de agente puede convertirse en HTML, pero solo a través de la allowlist
+ * del report: HTML raw, tags script/image, URLs externas, schemes, paths absolutos y links de
+ * traversal al parent no deben sobrevivir como HTML ejecutable/linkeable.
  */
 
 import * as path from "node:path";
