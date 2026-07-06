@@ -51,9 +51,12 @@ function notify(ctx: ExtensionCommandContext, message: string, type: "info" | "w
 	else console.error(message);
 }
 
+function errorMessage(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
+}
+
 function formatBtwFailure(error: unknown): string {
-	const message = error instanceof Error ? error.message : String(error);
-	return `btw falló: ${message}`;
+	return `btw falló: ${errorMessage(error)}`;
 }
 
 function setBtwStatus(ctx: ExtensionCommandContext, value: string | undefined): boolean {
