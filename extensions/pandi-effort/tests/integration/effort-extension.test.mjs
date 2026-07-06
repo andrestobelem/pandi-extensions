@@ -97,6 +97,22 @@ async function fire(handlers, event, payload, ctx) {
 	for (const handler of handlers.get(event) || []) await handler(payload, ctx);
 }
 
+async function withCapturedConsole(fn) {
+	const out = [];
+	const err = [];
+	const savedLog = console.log;
+	const savedError = console.error;
+	console.log = (...messages) => out.push(messages.map(String).join(" "));
+	console.error = (...messages) => err.push(messages.map(String).join(" "));
+	try {
+		await fn();
+	} finally {
+		console.log = savedLog;
+		console.error = savedError;
+	}
+	return { out, err };
+}
+
 async function scenarioLevels(url) {
 	const effortExtension = await loadDefault(url);
 	const harness = makePi();
@@ -254,18 +270,7 @@ async function scenarioNotifyErrorRouting(url) {
 
 	// F50: en modo print, stdout lleva datos legibles por máquina; warnings/errors van a stderr.
 	const printCtx = makeCtx({ mode: "print", hasUI: false });
-	const pLogs = [];
-	const pErrs = [];
-	const origLog = console.log;
-	const origErr = console.error;
-	console.log = (m) => pLogs.push(String(m));
-	console.error = (m) => pErrs.push(String(m));
-	try {
-		await command.handler("banana", printCtx);
-	} finally {
-		console.log = origLog;
-		console.error = origErr;
-	}
+	const { out: pLogs, err: pErrs } = await withCapturedConsole(() => command.handler("banana", printCtx));
 	check(
 		"print mode routes invalid-effort warning to stderr, not stdout",
 		pErrs.some((m) => /Esfuerzo desconocido/i.test(m)) && !pLogs.some((m) => /Esfuerzo desconocido/i.test(m)),
@@ -274,14 +279,7 @@ async function scenarioNotifyErrorRouting(url) {
 
 	// F51: headless (sin UI, no print) debe mostrar warnings/errors en stderr, no descartarlos.
 	const headlessCtx = makeCtx({ mode: "tui", hasUI: false });
-	const hErrs = [];
-	const origErr2 = console.error;
-	console.error = (m) => hErrs.push(String(m));
-	try {
-		await command.handler("banana", headlessCtx);
-	} finally {
-		console.error = origErr2;
-	}
+	const { err: hErrs } = await withCapturedConsole(() => command.handler("banana", headlessCtx));
 	check(
 		"headless mode surfaces invalid-effort warning on stderr (not dropped)",
 		hErrs.some((m) => /Esfuerzo desconocido/i.test(m)),
@@ -396,14 +394,7 @@ async function scenarioNoArgsEdges(url) {
 		selectCalls += 1;
 		return "high — high thinking";
 	};
-	const logs = [];
-	const origLog = console.log;
-	console.log = (m) => logs.push(String(m));
-	try {
-		await headless.commands.get("effort").handler("", ctx);
-	} finally {
-		console.log = origLog;
-	}
+	const { out: logs } = await withCapturedConsole(() => headless.commands.get("effort").handler("", ctx));
 	check("headless no-args: selector never opens", selectCalls === 0, `selectCalls=${selectCalls}`);
 	check("headless no-args: level unchanged", headless.level === "medium", headless.level);
 	check(
