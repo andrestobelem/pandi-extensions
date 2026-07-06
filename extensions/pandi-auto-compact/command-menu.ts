@@ -1,26 +1,57 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { CODEX_DEFAULT_THRESHOLD_PERCENT, DEFAULT_THRESHOLD_PERCENT } from "./settings.js";
 
-const MENU_ACTIONS = [
-	{ value: "status", description: "mostrar la configuración actual" },
-	{ value: "on", description: "activar la auto-compactación" },
-	{ value: "off", description: "desactivar la auto-compactación" },
-	{ value: "run", description: "compactar el contexto ahora" },
-	{ value: "bar on", description: "mostrar la barra de progreso del footer" },
-	{ value: "bar off", description: "ocultar la barra de progreso del footer" },
-	{ value: "snapshot on", description: "mantener instantáneas recuperables antes de compactar" },
-	{ value: "snapshot off", description: "dejar de guardar instantáneas" },
-	{ value: "snapshots", description: "listar las instantáneas recientes" },
-	{ value: "summary on", description: "usar resumen rápido y acotado durante la compactación" },
-	{ value: "summary off", description: "usar el resumen nativo de Pi" },
-	{ value: "clear-tools on", description: "elidir salidas de tools viejas y grandes (más barato que compactar)" },
-	{ value: "clear-tools off", description: "dejar de elidir salidas de tools viejas" },
-	{ value: "threshold", description: "configurar el % de umbral de compactación" },
+type CommandAction = {
+	value: string;
+	menuDescription?: string;
+	completion?: true;
+	completionDescription?: string;
+};
+
+const COMMAND_ACTIONS: readonly CommandAction[] = [
+	{ value: "status", menuDescription: "mostrar la configuración actual", completion: true },
+	{ value: "on", menuDescription: "activar la auto-compactación", completion: true },
+	{ value: "off", menuDescription: "desactivar la auto-compactación", completion: true },
+	{ value: "run", menuDescription: "compactar el contexto ahora", completion: true },
+	{ value: "bar", completionDescription: "Alternar la barra de progreso del footer" },
+	{ value: "bar on", menuDescription: "mostrar la barra de progreso del footer", completion: true },
+	{ value: "bar off", menuDescription: "ocultar la barra de progreso del footer", completion: true },
+	{ value: "snapshot", completionDescription: "Alternar las instantáneas recuperables de compactación" },
+	{ value: "snapshot on", menuDescription: "mantener instantáneas recuperables antes de compactar", completion: true },
+	{ value: "snapshot off", menuDescription: "dejar de guardar instantáneas", completion: true },
+	{
+		value: "snapshots",
+		menuDescription: "listar las instantáneas recientes",
+		completionDescription: "Listar las instantáneas recientes de esta sesión",
+	},
+	{ value: "summary", completionDescription: "Alternar el resumen rápido/acotado de compactación" },
+	{ value: "summary on", menuDescription: "usar resumen rápido y acotado durante la compactación", completion: true },
+	{ value: "summary off", menuDescription: "usar el resumen nativo de Pi", completion: true },
+	{ value: "clear-tools", completionDescription: "Alternar la elisión de salidas de tools viejas y grandes" },
+	{
+		value: "clear-tools on",
+		menuDescription: "elidir salidas de tools viejas y grandes (más barato que compactar)",
+		completionDescription: "Elidir salidas de tools viejas y grandes en cada llamada al LLM",
+	},
+	{ value: "clear-tools off", menuDescription: "dejar de elidir salidas de tools viejas", completion: true },
+	{ value: "threshold", menuDescription: "configurar el % de umbral de compactación" },
 ] as const;
+
+function capitalizeFirst(text: string): string {
+	return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function describeActionCompletion(action: CommandAction): string | undefined {
+	if (action.completionDescription) return action.completionDescription;
+	if (action.completion && action.menuDescription) return capitalizeFirst(action.menuDescription);
+	return undefined;
+}
 
 // Menú interactivo que se muestra para un `/auto-compact` sin argumentos en una sesión con UI. El texto
 // ANTES de " — " es el comando canónico que el manejador ya entiende.
-export const MENU_OPTIONS = MENU_ACTIONS.map(({ value, description }) => `${value} — ${description}`);
+export const MENU_OPTIONS = COMMAND_ACTIONS.flatMap(({ value, menuDescription }) =>
+	menuDescription ? [`${value} — ${menuDescription}`] : [],
+);
 
 // Valores predefinidos de threshold ofrecidos después de elegir "threshold"; se derivan para que el
 // predeterminado actual siempre esté presente (y marcado abajo). La última entrada abre un campo de texto.
@@ -36,45 +67,14 @@ function describeThresholdPreset(percent: number): string {
 	return `Configurar el umbral al ${percent}%`;
 }
 
+const ACTION_COMPLETIONS = COMMAND_ACTIONS.flatMap((action) => {
+	const description = describeActionCompletion(action);
+	return description ? [{ value: action.value, label: action.value, description }] : [];
+});
+
 // Items de autocompletado de argumentos. `value` se inserta en el editor al aceptar.
 export const ARG_COMPLETIONS: { value: string; label: string; description: string }[] = [
-	{ value: "status", label: "status", description: "Mostrar la configuración actual" },
-	{ value: "on", label: "on", description: "Activar la auto-compactación" },
-	{ value: "off", label: "off", description: "Desactivar la auto-compactación" },
-	{ value: "run", label: "run", description: "Compactar el contexto ahora" },
-	{ value: "bar", label: "bar", description: "Alternar la barra de progreso del footer" },
-	{ value: "bar on", label: "bar on", description: "Mostrar la barra de progreso del footer" },
-	{ value: "bar off", label: "bar off", description: "Ocultar la barra de progreso del footer" },
-	{ value: "snapshot", label: "snapshot", description: "Alternar las instantáneas recuperables de compactación" },
-	{
-		value: "snapshot on",
-		label: "snapshot on",
-		description: "Mantener instantáneas recuperables antes de compactar",
-	},
-	{ value: "snapshot off", label: "snapshot off", description: "Dejar de guardar instantáneas" },
-	{ value: "snapshots", label: "snapshots", description: "Listar las instantáneas recientes de esta sesión" },
-	{
-		value: "summary",
-		label: "summary",
-		description: "Alternar el resumen rápido/acotado de compactación",
-	},
-	{
-		value: "summary on",
-		label: "summary on",
-		description: "Usar resumen rápido y acotado durante la compactación",
-	},
-	{ value: "summary off", label: "summary off", description: "Usar el resumen nativo de Pi" },
-	{
-		value: "clear-tools",
-		label: "clear-tools",
-		description: "Alternar la elisión de salidas de tools viejas y grandes",
-	},
-	{
-		value: "clear-tools on",
-		label: "clear-tools on",
-		description: "Elidir salidas de tools viejas y grandes en cada llamada al LLM",
-	},
-	{ value: "clear-tools off", label: "clear-tools off", description: "Dejar de elidir salidas de tools viejas" },
+	...ACTION_COMPLETIONS,
 	...THRESHOLD_PRESETS.map((p) => ({
 		value: String(p),
 		label: `${p}%`,
