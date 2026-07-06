@@ -76,6 +76,16 @@ function formatAgentRef(agent: AgentMonitorModel, phase: string | undefined): st
 	return `#${agent.id}${phase ? ` ${phase}` : ""}`;
 }
 
+function describePromptSource(
+	promptFromEvent: string | undefined,
+	prompt: string | undefined,
+	promptAvailable: boolean | undefined,
+): string {
+	if (promptFromEvent) return "event promptCopy";
+	if (prompt) return "artifact Prompt section";
+	return promptAvailable ? "artifact missing/unparsed" : "unavailable";
+}
+
 // The agent detail document split into the base sub-tab views (Card / Prompt / Output) plus
 // the legacy single-document concatenation (`full`, used by print mode and non-TUI paths).
 export interface AgentViewParts {
@@ -232,13 +242,7 @@ export async function buildAgentViewParts(run: WorkflowRunRecord, agent: AgentMo
 			? ["", "### stderr", "", fencedBlock(truncate(stderr || liveStderr, 6000), "text")]
 			: []),
 	];
-	const promptSourceLabel = promptFromEvent
-		? "event promptCopy"
-		: prompt
-			? "artifact Prompt section"
-			: agent.promptAvailable
-				? "artifact missing/unparsed"
-				: "unavailable";
+	const promptSourceLabel = describePromptSource(promptFromEvent, prompt, agent.promptAvailable);
 	const promptWasTruncated =
 		!!promptSource && (promptSource.length > MAX_TOOL_TEXT || !!(promptFromEvent && agent.promptTruncated));
 	const promptRows: [string, string][] = [
