@@ -28,7 +28,7 @@ import {
 export { countRunArtifacts } from "./dashboard-collectors.js";
 export { settleWithinTimeout } from "./run-lifecycle.js";
 
-import { handleTool, handleWorkflowCommand, handleWorkflowsCommand } from "./command-handlers.js";
+import { handleWorkflowCommand, handleWorkflowsCommand } from "./command-handlers.js";
 import { openWorkflowDashboard } from "./dashboard-orchestration.js";
 import {
 	clearUltracodeContractGateStatus,
@@ -59,7 +59,7 @@ export {
 } from "./run-registry.js";
 
 import { resolveWorkflowMenu } from "./workflow-menu.js";
-import { makeWorkflowPromptGuidelines, workflowToolSchema } from "./workflow-tool-contract.js";
+import { registerDynamicWorkflowTool } from "./workflow-tool-registration.js";
 
 export { appendFileMutexCount, appendJsonLine } from "./file-append.js";
 export type {
@@ -150,19 +150,7 @@ export default function dynamicWorkflowsExtension(pi: ExtensionAPI): void {
 		if (currentCtx) setUltracodeStatus(currentCtx, ultracodeAlwaysOn);
 	});
 
-	pi.registerTool({
-		name: "dynamic_workflow",
-		label: "Dynamic Workflow",
-		description:
-			"Create, manage, and run Claude-style dynamic workflows: JavaScript orchestration scripts that can spawn parallel Pi subagents and store artifacts outside chat context.",
-		promptSnippet: "Create/list/read/write/run/start JavaScript workflows that orchestrate parallel Pi subagents.",
-		promptGuidelines: makeWorkflowPromptGuidelines(),
-		parameters: workflowToolSchema,
-		executionMode: "sequential",
-		async execute(_toolCallId, params, signal, onUpdate, ctx) {
-			return await handleTool(pi, params, signal, onUpdate, ctx);
-		},
-	});
+	registerDynamicWorkflowTool(pi);
 
 	pi.registerCommand("workflow", {
 		description:
