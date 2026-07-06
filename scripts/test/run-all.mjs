@@ -28,6 +28,24 @@ const SUITE_KILL_GRACE_MS = 5_000;
 const EXTENSIONS_DIR = "extensions";
 const SUITE_SUBDIR = path.posix.join("tests", "integration");
 const ALLOWED_ARGS = new Set(["--list", "--serial"]);
+const LOCAL_GIT_ENV_KEYS = [
+	"GIT_ALTERNATE_OBJECT_DIRECTORIES",
+	"GIT_CONFIG",
+	"GIT_CONFIG_PARAMETERS",
+	"GIT_CONFIG_COUNT",
+	"GIT_OBJECT_DIRECTORY",
+	"GIT_DIR",
+	"GIT_WORK_TREE",
+	"GIT_IMPLICIT_WORK_TREE",
+	"GIT_GRAFT_FILE",
+	"GIT_INDEX_FILE",
+	"GIT_NO_REPLACE_OBJECTS",
+	"GIT_REPLACE_REF_BASE",
+	"GIT_PREFIX",
+	"GIT_INTERNAL_SUPER_PREFIX",
+	"GIT_SHALLOW_FILE",
+	"GIT_COMMON_DIR",
+];
 
 // Las draft suites se excluyen, pero deben ser EXPLICIT (con una razón), para que una suite aún no verde
 // nunca corra Y una suite verde nunca se saltee en silencio. Sacá una suite de acá cuando esté verde de forma confiable. Hoy está vacío.
@@ -81,8 +99,15 @@ function fileSetContainsPathOrAncestor(files, file) {
 	return false;
 }
 
+function gitDiscoveryEnv(env = process.env) {
+	const clean = { ...env };
+	for (const key of LOCAL_GIT_ENV_KEYS) delete clean[key];
+	return clean;
+}
+
 function gitFileSet(repoRoot, args) {
-	const result = spawnSync("git", args, { cwd: repoRoot, encoding: "utf8" });
+	// Git hooks export local repository env vars; clear them so `cwd: repoRoot` is the source of truth.
+	const result = spawnSync("git", args, { cwd: repoRoot, encoding: "utf8", env: gitDiscoveryEnv() });
 	if (result.status !== 0) return undefined;
 	return new Set(
 		result.stdout

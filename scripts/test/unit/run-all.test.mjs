@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -21,6 +22,32 @@ const {
 function touch(file) {
 	fs.mkdirSync(path.dirname(file), { recursive: true });
 	fs.writeFileSync(file, "// test suite\n");
+}
+
+function cleanGitEnv(env = process.env) {
+	const clean = { ...env };
+	for (const key of Object.keys(clean)) {
+		if (key.startsWith("GIT_")) delete clean[key];
+	}
+	return clean;
+}
+
+function git(repo, args) {
+	const result = spawnSync("git", args, { cwd: repo, encoding: "utf8", env: cleanGitEnv() });
+	assert.equal(result.status, 0, result.stderr || result.stdout);
+}
+
+function withEnv(vars, fn) {
+	const previous = new Map(Object.keys(vars).map((key) => [key, process.env[key]]));
+	try {
+		for (const [key, value] of Object.entries(vars)) process.env[key] = value;
+		return fn();
+	} finally {
+		for (const [key, value] of previous) {
+			if (value === undefined) delete process.env[key];
+			else process.env[key] = value;
+		}
+	}
 }
 
 test("parseRunnerArgs accepts only the documented flags", () => {
@@ -52,6 +79,30 @@ test("discoverSuites finds integration tests by convention and reports existing 
 			ignoredExisting: ["extensions/beta/tests/integration/z.test.mjs"],
 		});
 	} finally {
+		fs.rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("discoverSuites ignores inherited Git hook env when probing another root", () => {
+	const hookRepo = fs.mkdtempSync(path.join(os.tmpdir(), "run-all-hook-repo-"));
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "run-all-hook-discovery-"));
+	try {
+		git(hookRepo, ["init", "--quiet"]);
+		touch(path.join(hookRepo, "tracked.test.mjs"));
+		git(hookRepo, ["add", "tracked.test.mjs"]);
+		touch(path.join(root, "extensions", "alpha", "tests", "integration", "a.test.mjs"));
+
+		withEnv({ GIT_DIR: path.join(hookRepo, ".git"), GIT_WORK_TREE: hookRepo }, () => {
+			assert.deepEqual(discoverSuites(root, new Set()), {
+				suites: ["extensions/alpha/tests/integration/a.test.mjs"],
+				unregisteredSuites: [],
+				ignoredSuiteFiles: [],
+				contaminatingFiles: [],
+				ignoredExisting: [],
+			});
+		});
+	} finally {
+		fs.rmSync(hookRepo, { recursive: true, force: true });
 		fs.rmSync(root, { recursive: true, force: true });
 	}
 });
