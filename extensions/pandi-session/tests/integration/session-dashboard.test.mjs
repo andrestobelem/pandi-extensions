@@ -20,7 +20,6 @@ async function buildDashboard() {
 		name: "pandi-session-dashboard",
 		src: path.join(REPO_ROOT, "extensions", "pandi-session", "session-dashboard.ts"),
 		outName: "session-dashboard.mjs",
-		stubs: { tui: true },
 	});
 }
 
@@ -95,6 +94,58 @@ async function main() {
 			captured?.type === "switchSession" && captured.session?.id === "other",
 			JSON.stringify(captured),
 		);
+		let ss3Captured = null;
+		const ss3Down = new PandiSessionDashboard(
+			[mkSession("current", { current: true }), mkSession("other", { live: false, staleReason: "pid exited" })],
+			theme,
+			() => {},
+			(result) => {
+				ss3Captured = result;
+			},
+		);
+		ss3Down.handleInput("\x1bOB");
+		ss3Down.handleInput("enter");
+		check(
+			"SS3 down-arrow sequence selects the next row",
+			ss3Captured?.type === "switchSession" && ss3Captured.session?.id === "other",
+			JSON.stringify(ss3Captured),
+		);
+
+		let ss3UpCaptured = null;
+		const ss3Up = new PandiSessionDashboard(
+			[mkSession("current", { current: true }), mkSession("other", { live: false, staleReason: "pid exited" })],
+			theme,
+			() => {},
+			(result) => {
+				ss3UpCaptured = result;
+			},
+		);
+		ss3Up.handleInput("down");
+		ss3Up.handleInput("\x1bOA");
+		ss3Up.handleInput("enter");
+		check(
+			"SS3 up-arrow sequence selects the previous row",
+			ss3UpCaptured?.type === "switchSession" && ss3UpCaptured.session?.id === "current",
+			JSON.stringify(ss3UpCaptured),
+		);
+
+		let ss3RightCaptured = null;
+		const ss3Right = new PandiSessionDashboard(
+			[mkSession("current", { current: true }), mkSession("other", { live: false, staleReason: "pid exited" })],
+			theme,
+			() => {},
+			(result) => {
+				ss3RightCaptured = result;
+			},
+		);
+		ss3Right.handleInput("down");
+		ss3Right.handleInput("\x1bOC");
+		check(
+			"SS3 right-arrow sequence switches to the selected row",
+			ss3RightCaptured?.type === "switchSession" && ss3RightCaptured.session?.id === "other",
+			JSON.stringify(ss3RightCaptured),
+		);
+
 		component.markRefreshError("collector failed noisily");
 		check(
 			"refresh errors are visible in the dashboard",

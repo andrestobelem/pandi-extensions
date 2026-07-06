@@ -1,3 +1,4 @@
+import { Key, matchesKey } from "@earendil-works/pi-tui";
 import type { PandiSessionModel } from "./session-registry.js";
 
 interface DashboardTheme {
@@ -25,14 +26,6 @@ function sessionLabel(session: PandiSessionModel): string {
 function statusLabel(session: PandiSessionModel): string {
 	if (session.live) return session.current ? "current" : "live";
 	return `stale:${session.staleReason ?? "unknown"}`;
-}
-
-function isEnter(data: string): boolean {
-	return data === "enter" || data === "\r" || data === "\n";
-}
-
-function isEscape(data: string): boolean {
-	return data === "escape" || data === "\u001b";
 }
 
 export class PandiSessionDashboard {
@@ -77,7 +70,7 @@ export class PandiSessionDashboard {
 	}
 
 	handleInput(data: string): void {
-		if (data === "q" || isEscape(data)) {
+		if (data === "q" || data === "escape" || matchesKey(data, Key.escape)) {
 			this.done(null);
 			return;
 		}
@@ -85,17 +78,17 @@ export class PandiSessionDashboard {
 			this.done({ type: "cleanup" });
 			return;
 		}
-		if (isEnter(data) || data === "right" || data === "\u001b[C") {
+		if (data === "enter" || data === "right" || matchesKey(data, Key.enter) || matchesKey(data, Key.right)) {
 			const session = this.sessions[this.selected];
 			if (session) this.done({ type: "switchSession", session });
 			return;
 		}
-		if (data === "down" || data === "j" || data === "\u001b[B") {
+		if (data === "down" || data === "j" || matchesKey(data, Key.down)) {
 			this.selected = Math.min(this.sessions.length - 1, this.selected + 1);
 			this.requestRender();
 			return;
 		}
-		if (data === "up" || data === "k" || data === "\u001b[A") {
+		if (data === "up" || data === "k" || matchesKey(data, Key.up)) {
 			this.selected = Math.max(0, this.selected - 1);
 			this.requestRender();
 		}
