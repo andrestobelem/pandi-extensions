@@ -1,19 +1,19 @@
 #!/usr/bin/env node
 /**
- * Regression: race() must surface branch errors instead of swallowing them.
+ * Regresión: race() debe exponer los errores de ramas en vez de tragárselos.
  *
- * Farley review 2026-07-03, finding #5: race()'s rejection handler discarded
- * the error entirely, so a genuine thunk bug (a typo, a thrown exception) was
- * indistinguishable from "every branch declined" — both returned
- * {winner:null,index:-1,status:'empty'}. An observability black hole for
- * workflow authors debugging why their race found nothing.
+ * Review Farley 2026-07-03, hallazgo #5: el handler de rejection de race() descartaba
+ * el error por completo, así que un bug genuino de thunk (un typo, una excepción lanzada)
+ * era indistinguible de "todas las ramas declinaron" — ambos devolvían
+ * {winner:null,index:-1,status:'empty'}. Un agujero negro de observabilidad para autores
+ * de workflows que debuggean por qué su race no encontró nada.
  *
- * Contract pinned here (worker-source.ts race()):
- *   - status/winner/index semantics are unchanged ('won' still wins, all-decline
- *     is still 'empty').
- *   - The result additionally carries errors: [{index, error}] for rejected
- *     branches, so an all-rejected race is debuggable.
- *   - A clean all-decline (nulls, no throws) reports no errors.
+ * Contrato fijado acá (worker-source.ts race()):
+ *   - la semántica status/winner/index no cambia ('won' sigue ganando, all-decline
+ *     sigue siendo 'empty').
+ *   - El resultado además lleva errors: [{index, error}] para ramas rechazadas,
+ *     así una race all-rejected es debuggeable.
+ *   - Un all-decline limpio (nulls, sin throws) no reporta errores.
  */
 
 import * as fs from "node:fs/promises";
@@ -110,7 +110,7 @@ async function main() {
 	const out = res?.details?.result?.output;
 	check("workflow ran", out != null && typeof out === "object", JSON.stringify(res?.details?.result?.error ?? out));
 
-	// Existing semantics preserved.
+	// Semántica existente preservada.
 	check(
 		"won: status won, winner surfaced",
 		out?.won?.status === "won" && out?.won?.winner === "yes",
@@ -119,7 +119,7 @@ async function main() {
 	check("bugged: still status empty", out?.bugged?.status === "empty", JSON.stringify(out?.bugged));
 	check("clean: still status empty", out?.clean?.status === "empty", JSON.stringify(out?.clean));
 
-	// The fix: rejected branches are debuggable.
+	// El fix: las ramas rechazadas son debuggeables.
 	check(
 		"bugged: rejection surfaced in errors[]",
 		Array.isArray(out?.bugged?.errors) &&
