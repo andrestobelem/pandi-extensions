@@ -121,10 +121,24 @@ tr:last-child td { border-bottom:none; }
 .callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:16px;
            border:1px solid var(--line); background:var(--paper); color:var(--ink); }
 .callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout .callout-label { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                          color:var(--muted); font-weight:600; margin:0 0 4px; }
 .callout.info    { background:var(--info-bg);    border-color:var(--purple); }
 .callout.success { background:var(--success-bg); border-color:var(--success); }
 .callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
 .callout.error   { background:var(--error-bg);   border-color:var(--error); }
+nav.toc { font-size:14px; border:1px solid var(--line); border-radius:12px;
+          background:var(--paper); padding:14px 18px; margin:8px 0 28px; }
+nav.toc .toc-title { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                     color:var(--muted); font-weight:600; margin:0 0 8px; }
+nav.toc ol { list-style:none; margin:0; padding:0; display:grid;
+             grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:2px 24px; }
+nav.toc a { color:var(--ink2); text-decoration:none; display:block; padding:2px 0; }
+nav.toc a:hover { color:var(--accent); }
+.hex-chip { display:inline-flex; align-items:center; white-space:nowrap; }
+.hex-chip .dot { display:inline-block; width:0.85em; height:0.85em; border-radius:3px;
+                 margin-right:0.4em; vertical-align:-0.08em; box-shadow:inset 0 0 0 1px var(--line-strong);
+                 flex-shrink:0; }
 footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </style>
 </head>
@@ -135,15 +149,28 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<h1>Recomendaciones de Andrej Karpathy sobre programación, aprendizaje y uso de IA</h1>
 	</header>
 	<main>
+<nav class="toc">
+	<p class="toc-title">Contents</p>
+	<ol>
+		<li><a href="#en-30-segundos">En 30 segundos</a></li>
+		<li><a href="#objetivo">Objetivo</a></li>
+		<li><a href="#workflow-recuperado">Workflow recuperado</a></li>
+		<li><a href="#fuentes-principales">Fuentes principales</a></li>
+		<li><a href="#síntesis-práctica">Síntesis práctica</a></li>
+		<li><a href="#implicancias-para-este-proyecto">Implicancias para este proyecto</a></li>
+		<li><a href="#validación">Validación</a></li>
+		<li><a href="#próximo-paso">Próximo paso</a></li>
+	</ol>
+</nav>
 <p>Fecha: 2026-06-25</p>
-<h2>En 30 segundos</h2>
+<h2 id="en-30-segundos">En 30 segundos</h2>
 <p>Este informe recupera y aplica ideas de Karpathy sobre cómo programar, aprender y trabajar con IA. La lectura útil es simple: construir para entender, delegar con criterio y verificar siempre con evidencia.</p>
-<h2>Objetivo</h2>
+<h2 id="objetivo">Objetivo</h2>
 <p>Recuperar y aplicar la investigación sobre los principios de programación de Andrej Karpathy a Dynamic Workflows, los prompts y la UX de agentes. El workflow histórico fue restaurado desde <code>HEAD</code> (<code>.pi/workflows/karpathy-programming-recommendations-research.js</code>), sintetizando fuentes primarias sobre aprendizaje, programación asistida por IA y juicio de ingeniería.</p>
-<h2>Workflow recuperado</h2>
+<h2 id="workflow-recuperado">Workflow recuperado</h2>
 <p>Restaurado desde <code>.pi/workflows/karpathy-programming-recommendations-research.js</code>.</p>
 <p><strong>Enfoque de investigación:</strong> fan-out por ángulos (fuentes primarias, aprendizaje de programación/ML, programación asistida por IA, principios de ingeniería, verificación escéptica) y síntesis con evidencia, citas, confianza y aplicabilidad.</p>
-<h2>Fuentes principales</h2>
+<h2 id="fuentes-principales">Fuentes principales</h2>
 <ul>
 <li><a href="https://karpathy.ai/">Andrej Karpathy homepage</a></li>
 <li><a href="https://karpathy.bearblog.dev/sequoia-ascent-2026/">Sequoia Ascent 2026 summary: Software 3.0 &amp; agentic engineering</a></li>
@@ -153,7 +180,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li>Repositorios <a href="https://github.com/karpathy/micrograd">micrograd</a> y <a href="https://github.com/karpathy/nanoGPT">nanoGPT</a></li>
 <li><a href="https://arxiv.org/abs/2506.23253">Empirical cross-check on vibe coding</a></li>
 </ul>
-<h2>Síntesis práctica</h2>
+<h2 id="síntesis-práctica">Síntesis práctica</h2>
 <h3>1. Aprender construyendo desde cero</h3>
 <p><strong>Principio:</strong> las implementaciones pequeñas, legibles y completas revelan los fundamentos.</p>
 <p><strong>Evidencia:</strong> <code>micrograd</code>, <code>nanoGPT</code>, Zero to Hero y material educativo en karpathy.ai.</p>
@@ -175,16 +202,16 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <h3>6. El rol del experto se desplaza hacia especificar, evaluar y depurar</h3>
 <p><strong>Principio:</strong> el uso de IA mueve el trabajo desde escribir código hacia gestionar contexto, revisar salidas, diseñar tests y verificar corrección.</p>
 <p><strong>Aplicación:</strong> los dashboards y graphs deberían mostrar estado, agentes, evidencia y fallos parciales para que las personas puedan supervisar.</p>
-<h2>Implicancias para este proyecto</h2>
+<h2 id="implicancias-para-este-proyecto">Implicancias para este proyecto</h2>
 <ul>
 <li><strong>Visualización de workflows:</strong> mostrar no solo las llamadas, sino también el patrón agentic en uso (fan-out, judge, feedback, pipeline, routing).</li>
 <li><strong>Prompts como programas:</strong> dejar legibles los evidence contracts, los allowed tools, los output formats y las stop conditions.</li>
 <li><strong>Ejemplos:</strong> preferir implementaciones pequeñas y educativas (estilo <code>micrograd</code>/<code>nanoGPT</code>) que sean fáciles de leer y ejecutar.</li>
 <li><strong>Verificación:</strong> para tareas serias, usar synthesis-as-judge, tests o verificación externa; nunca tratar la salida de un agente como verdad sin evidencia.</li>
 </ul>
-<h2>Validación</h2>
+<h2 id="validación">Validación</h2>
 <pre><code class="hljs language-bash">node --check .pi/workflows/karpathy-programming-recommendations-research.js</code></pre>
-<h2>Próximo paso</h2>
+<h2 id="próximo-paso">Próximo paso</h2>
 <p>Actualizar el workflow restaurado a patrones de runtime (<code>settle:true</code>, <code>agentType:&quot;researcher&quot;</code>, logging de partial-failure y explicit concurrency) sin perder su contrato con fuentes primarias.</p>
 	</main>
 	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>

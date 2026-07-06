@@ -121,10 +121,24 @@ tr:last-child td { border-bottom:none; }
 .callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:16px;
            border:1px solid var(--line); background:var(--paper); color:var(--ink); }
 .callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout .callout-label { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                          color:var(--muted); font-weight:600; margin:0 0 4px; }
 .callout.info    { background:var(--info-bg);    border-color:var(--purple); }
 .callout.success { background:var(--success-bg); border-color:var(--success); }
 .callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
 .callout.error   { background:var(--error-bg);   border-color:var(--error); }
+nav.toc { font-size:14px; border:1px solid var(--line); border-radius:12px;
+          background:var(--paper); padding:14px 18px; margin:8px 0 28px; }
+nav.toc .toc-title { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                     color:var(--muted); font-weight:600; margin:0 0 8px; }
+nav.toc ol { list-style:none; margin:0; padding:0; display:grid;
+             grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:2px 24px; }
+nav.toc a { color:var(--ink2); text-decoration:none; display:block; padding:2px 0; }
+nav.toc a:hover { color:var(--accent); }
+.hex-chip { display:inline-flex; align-items:center; white-space:nowrap; }
+.hex-chip .dot { display:inline-block; width:0.85em; height:0.85em; border-radius:3px;
+                 margin-right:0.4em; vertical-align:-0.08em; box-shadow:inset 0 0 0 1px var(--line-strong);
+                 flex-shrink:0; }
 footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </style>
 </head>
@@ -135,16 +149,29 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<h1>contract-gate</h1>
 	</header>
 	<main>
+<nav class="toc">
+	<p class="toc-title">Contents</p>
+	<ol>
+		<li><a href="#en-30-segundos">En 30 segundos</a></li>
+		<li><a href="#cómo-lanzarlo">Cómo lanzarlo</a></li>
+		<li><a href="#diagrama">Diagrama</a></li>
+		<li><a href="#qué-hace">Qué hace</a></li>
+		<li><a href="#cuándo-usarlo">Cuándo usarlo</a></li>
+		<li><a href="#cómo-funciona">Cómo funciona</a></li>
+		<li><a href="#input-y-output">Input y output</a></li>
+		<li><a href="#fases">Fases</a></li>
+	</ol>
+</nav>
 <blockquote>
 <p>Convierte un pedido crudo en un contrato inspeccionable y decide si hay que preguntar ahora o seguir con supuestos explícitos antes de rutear o construir nada.</p>
 </blockquote>
-<h2>En 30 segundos</h2>
+<h2 id="en-30-segundos">En 30 segundos</h2>
 <p><code>contract-gate</code> es el paso cero. Toma un pedido ambiguo, lo normaliza en un <code>contract</code> y clasifica cada ambigüedad con un gate de valor de información: si falta información bloqueante, devuelve <code>NEEDS_CLARIFICATION</code>; si no, sigue con <code>PROCEED</code> y puede reescribir el prompt e incluso encadenar <code>workflow-factory</code>.</p>
-<h2>Cómo lanzarlo</h2>
+<h2 id="cómo-lanzarlo">Cómo lanzarlo</h2>
 <pre><code class="hljs language-text">/workflow new mi-gate --pattern=contract-gate
 /workflow run mi-gate {&quot;request&quot;:&quot;Auditá el decoder SSE y arreglá lo que encuentres&quot;,&quot;reviewers&quot;:3,&quot;generate&quot;:true}</code></pre>
 <p><code>request</code> es obligatorio; también acepta <code>task</code>, <code>text</code> o <code>question</code>. <code>generate:true</code> solo intenta el handoff a <code>workflow-factory</code> cuando <code>routingHint.shape === &quot;dynamic-workflow&quot;</code>.</p>
-<h2>Diagrama</h2>
+<h2 id="diagrama">Diagrama</h2>
 <pre class="mermaid">flowchart TD
     A["request + context"] --&gt; B["Analyze: N reviewers (1..5) + synthesis"]
     B --&gt; C{"¿hay blocking?"}
@@ -157,11 +184,11 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
     H --&gt; J{"generate == true?"}
     J --&gt;|no| K["return PROCEED"]
     J --&gt;|sí| L["workflow-factory(task, name, write)"]</pre>
-<h2>Qué hace</h2>
+<h2 id="qué-hace">Qué hace</h2>
 <p><code>contract-gate</code> sirve para responder dos preguntas antes de gastar una corrida cara: <strong>qué hay que hacer</strong> y <strong>si hace falta aclarar algo primero</strong>. El contrato que produce separa <code>improvedTask</code>, <code>successCriteria</code>, <code>assumptions</code>, <code>nonGoals</code>, <code>constraints</code>, <code>verificationPlan</code>, <code>routingHint</code> y <code>ambiguities</code>.</p>
 <p>Una ambigüedad es <code>blocking</code> solo cuando el impacto es alto y no existe un default seguro. Todo lo demás se convierte en un supuesto explícito, con confianza e indicio de qué lo invalidaría. Esa es la diferencia central entre “preguntar porque sí” y “preguntar solo cuando cambiaría de verdad el resultado”.</p>
 <p>Si <code>improvePrompt</code> queda activo, <code>contract-gate</code> colapsa el contrato en un <code>rewrittenPrompt</code> autocontenido. Si <code>generate:true</code> y el ruteo recomendado es <code>dynamic-workflow</code>, puede pasarle ese prompt a <code>workflow-factory</code>. Si el ruteo es <code>trivial</code> o <code>single-agent</code>, no la ejecuta: devuelve la recomendación y deja el handoff afuera.</p>
-<h2>Cuándo usarlo</h2>
+<h2 id="cuándo-usarlo">Cuándo usarlo</h2>
 <table>
 <thead>
 <tr>
@@ -182,7 +209,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>Sí: <code>generate:true</code> + <code>routingHint.shape === &quot;dynamic-workflow&quot;</code></td>
 </tr>
 </tbody></table>
-<h2>Cómo funciona</h2>
+<h2 id="cómo-funciona">Cómo funciona</h2>
 <ul>
 <li><strong>Entrada.</strong> <code>request</code> es requerido. <code>context</code> default <code>&quot;&quot;</code>. <code>reviewers</code> default <code>3</code> y se clampa a <code>1..5</code>. <code>maxQuestions</code> default <code>4</code> y se clampa a <code>1..3</code>. <code>improvePrompt</code> default <code>true</code>. <code>planResources</code> default <code>true</code>. <code>name</code> se deriva como slug de <code>improvedTask</code> o <code>request</code>. <code>write</code> default <code>true</code>.</li>
 <li><strong>Analyze.</strong> Con <code>reviewers &lt;= 1</code> corre un solo <code>agent</code> (<code>analyze-contract</code>, <code>sonnet</code> + <code>medium</code>). Con más de uno, lanza N reviewers en <code>parallel</code> con lentes distintas y luego sintetiza con <code>analyze-synthesis</code> (<code>opus</code> + <code>high</code>). Los reviewers paralelos usan <code>cache:false</code> para mantener independencia.</li>
@@ -191,7 +218,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li><strong>Plan Resources.</strong> Solo corre cuando <code>planResources:true</code>, <code>routingHint.shape === &quot;dynamic-workflow&quot;</code> y existe <code>routingHint.pattern</code>. Devuelve un advisory <code>resourcePlan</code> con <code>{ tier, rationale, pattern, models, efforts }</code>; si el planner no produce algo usable, <code>resourcePlan</code> queda <code>null</code>.</li>
 <li><strong>Handoff.</strong> Solo corre si <code>generate:true</code>. Si el ruteo no es <code>dynamic-workflow</code>, devuelve <code>generated.handed_off:false</code>. Si sí lo es, llama <code>workflow(&quot;workflow-factory&quot;, { task: rewrittenPrompt, name, write })</code>. Si la composición anidada no está disponible una capa más adentro, degrada a handoff manual; si <code>workflow-factory</code> devuelve <code>null</code>, también degrada de forma explícita.</li>
 </ul>
-<h2>Input y output</h2>
+<h2 id="input-y-output">Input y output</h2>
 <table>
 <thead>
 <tr>
@@ -273,7 +300,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li><code>routing</code> replica <code>routingHint</code>; en <code>PROCEED</code> suma <code>note</code>, y en <code>BLOCKED</code> devuelve <code>contract?.routingHint ?? null</code> sin <code>note</code>.</li>
 <li><code>generated</code> queda <code>undefined</code> si <code>generate:false</code>; con <code>generate:true</code> puede ser <code>{ handed_off, reason?, name?, write?, output? }</code>.</li>
 </ul>
-<h2>Fases</h2>
+<h2 id="fases">Fases</h2>
 <ol>
 <li><strong>Analyze</strong> — N reviewers independientes o uno solo construyen el contrato estructurado.</li>
 <li><strong>Gate</strong> — separa ambigüedades bloqueantes de las asumibles; si hay bloqueantes, corta y devuelve preguntas.</li>

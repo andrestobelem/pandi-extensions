@@ -121,10 +121,24 @@ tr:last-child td { border-bottom:none; }
 .callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:16px;
            border:1px solid var(--line); background:var(--paper); color:var(--ink); }
 .callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout .callout-label { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                          color:var(--muted); font-weight:600; margin:0 0 4px; }
 .callout.info    { background:var(--info-bg);    border-color:var(--purple); }
 .callout.success { background:var(--success-bg); border-color:var(--success); }
 .callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
 .callout.error   { background:var(--error-bg);   border-color:var(--error); }
+nav.toc { font-size:14px; border:1px solid var(--line); border-radius:12px;
+          background:var(--paper); padding:14px 18px; margin:8px 0 28px; }
+nav.toc .toc-title { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                     color:var(--muted); font-weight:600; margin:0 0 8px; }
+nav.toc ol { list-style:none; margin:0; padding:0; display:grid;
+             grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:2px 24px; }
+nav.toc a { color:var(--ink2); text-decoration:none; display:block; padding:2px 0; }
+nav.toc a:hover { color:var(--accent); }
+.hex-chip { display:inline-flex; align-items:center; white-space:nowrap; }
+.hex-chip .dot { display:inline-block; width:0.85em; height:0.85em; border-radius:3px;
+                 margin-right:0.4em; vertical-align:-0.08em; box-shadow:inset 0 0 0 1px var(--line-strong);
+                 flex-shrink:0; }
 footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </style>
 </head>
@@ -135,12 +149,24 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<h1>Mejorar prompts para dynamic workflows</h1>
 	</header>
 	<main>
+<nav class="toc">
+	<p class="toc-title">Contents</p>
+	<ol>
+		<li><a href="#en-30-segundos">En 30 segundos</a></li>
+		<li><a href="#objetivo">Objetivo</a></li>
+		<li><a href="#patrones-aplicados">Patrones aplicados</a></li>
+		<li><a href="#workflows-actualizados">Workflows actualizados</a></li>
+		<li><a href="#docs-actualizadas">Docs actualizadas</a></li>
+		<li><a href="#decisiones">Decisiones</a></li>
+		<li><a href="#verificación-esperada">Verificación esperada</a></li>
+	</ol>
+</nav>
 <p>Fecha: 2026-06-25</p>
-<h2>En 30 segundos</h2>
+<h2 id="en-30-segundos">En 30 segundos</h2>
 <p>Este documento resume qué patrones de prompting conviene aplicar a los dynamic workflows y qué archivos se actualizaron con esos criterios. La idea es simple: cada subagent debe poder rendir por sí solo, la síntesis debe filtrar afirmaciones sin evidencia y los fallos parciales no se deben perder. Si estás ajustando prompts, acá tenés el mapa corto de decisiones y verificación.</p>
-<h2>Objetivo</h2>
+<h2 id="objetivo">Objetivo</h2>
 <p>Aplicar lo aprendido sobre patrones de workflow agentic a los prompts que usan nuestros dynamic workflows.</p>
-<h2>Patrones aplicados</h2>
+<h2 id="patrones-aplicados">Patrones aplicados</h2>
 <ul>
 <li><strong>Fan-out independiente</strong>: cada subagent recibe instrucciones para producir un resultado autocontenido, aunque fallen otros agentes.</li>
 <li><strong>Contrato de evidencia</strong>: exigir citas a archivos/líneas, URLs, comandos observados, o marcar <code>INSUFFICIENT_EVIDENCE</code> / <code>NO_FINDINGS</code>.</li>
@@ -150,7 +176,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li><strong>Manejo de fallos parciales</strong>: la síntesis debe mencionar agentes fallidos, vacíos, cancelados o agotados por timeout.</li>
 <li><strong>Seguridad por defecto</strong>: en auditorías, se refuerza &quot;do not edit files&quot; y las herramientas quedan en modo read-only.</li>
 </ul>
-<h2>Workflows actualizados</h2>
+<h2 id="workflows-actualizados">Workflows actualizados</h2>
 <p>Borradores internos e implementación:</p>
 <ul>
 <li><code>.pi/workflows/drafts/agentic-workflow-patterns-research.js</code></li>
@@ -170,20 +196,20 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li><code>examples/workflows/deep-research.js</code></li>
 <li><code>examples/workflows/repo-bug-hunt.js</code></li>
 </ul>
-<h2>Docs actualizadas</h2>
+<h2 id="docs-actualizadas">Docs actualizadas</h2>
 <ul>
 <li><code>README.md</code>: sección &quot;Recommended prompt patterns&quot;.</li>
 <li><code>.pi/skills/dynamic-workflows/SKILL.md</code>: sección &quot;Prompting Patterns&quot;.</li>
 <li><code>docs/memoria.md</code>: preferencia persistente.</li>
 <li><code>docs/research/2026-06-25-karpathy-programming-recommendations.md</code>: síntesis recuperada de Karpathy como criterios de prompt/workflow.</li>
 </ul>
-<h2>Decisiones</h2>
+<h2 id="decisiones">Decisiones</h2>
 <ul>
 <li>No se lanzó otro workflow para esta tarea porque los workflows más recientes con subagents quedaron colgados sin procesos visibles. Se hizo, en cambio, un refactor directo y verificable.</li>
 <li>Todavía no se agregó un helper compartido de prompts para evitar acoplar ejemplos simples al runtime interno.</li>
 <li>Se priorizó mejorar prompts antes que cambiar la API.</li>
 </ul>
-<h2>Verificación esperada</h2>
+<h2 id="verificación-esperada">Verificación esperada</h2>
 <ul>
 <li><code>node --check</code> sobre todos los workflows JS.</li>
 <li>Carga de extensión: <code>pi --no-extensions -e ./extensions/dynamic-workflows.ts --list-models __no_such_model__</code>.</li>

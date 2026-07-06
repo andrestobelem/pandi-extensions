@@ -121,10 +121,24 @@ tr:last-child td { border-bottom:none; }
 .callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:16px;
            border:1px solid var(--line); background:var(--paper); color:var(--ink); }
 .callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout .callout-label { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                          color:var(--muted); font-weight:600; margin:0 0 4px; }
 .callout.info    { background:var(--info-bg);    border-color:var(--purple); }
 .callout.success { background:var(--success-bg); border-color:var(--success); }
 .callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
 .callout.error   { background:var(--error-bg);   border-color:var(--error); }
+nav.toc { font-size:14px; border:1px solid var(--line); border-radius:12px;
+          background:var(--paper); padding:14px 18px; margin:8px 0 28px; }
+nav.toc .toc-title { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                     color:var(--muted); font-weight:600; margin:0 0 8px; }
+nav.toc ol { list-style:none; margin:0; padding:0; display:grid;
+             grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:2px 24px; }
+nav.toc a { color:var(--ink2); text-decoration:none; display:block; padding:2px 0; }
+nav.toc a:hover { color:var(--accent); }
+.hex-chip { display:inline-flex; align-items:center; white-space:nowrap; }
+.hex-chip .dot { display:inline-block; width:0.85em; height:0.85em; border-radius:3px;
+                 margin-right:0.4em; vertical-align:-0.08em; box-shadow:inset 0 0 0 1px var(--line-strong);
+                 flex-shrink:0; }
 footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </style>
 </head>
@@ -135,10 +149,20 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<h1>Backlog de mejoras del dashboard</h1>
 	</header>
 	<main>
+<nav class="toc">
+	<p class="toc-title">Contents</p>
+	<ol>
+		<li><a href="#en-30-segundos">En 30 segundos</a></li>
+		<li><a href="#cerrados">Cerrados</a></li>
+		<li><a href="#abiertos-en-allow-set-seguros-para-tomar-ahora">Abiertos (en allow-set; seguros para tomar ahora)</a></li>
+		<li><a href="#humanos-requieren-decisión-no-auto-fixable-en-allow-set">Humanos (requieren decisión; no auto-fixable en allow-set)</a></li>
+		<li><a href="#ideas-que-requieren-archivos-hot-solo-proponer--no-implementar-en-autopilot">Ideas que requieren archivos hot (solo proponer — no implementar en autopilot)</a></li>
+	</ol>
+</nav>
 <p>Esta es la lista canónica de ítems pendientes y cerrados del ciclo de mejora del TUI <code>/workflow</code> del dashboard. El relato de cada pasada vive en <code>dashboard-improvement-log.md</code>; este archivo deja el estado actual, con una sola fuente de verdad para lo que sigue abierto. Cada ítem incluye id estable, título, motivo, rutas reales (verificadas) y estado (<code>open</code> / <code>done</code> / <code>human</code>).</p>
-<h2>En 30 segundos</h2>
+<h2 id="en-30-segundos">En 30 segundos</h2>
 <p>Usá esta página para ver qué ya quedó cerrado, qué sigue abierto y qué requiere una decisión humana. Si vas a retomar el loop de mejoras, empezá por <strong>Abiertos</strong> y seguí cada ítem por su id estable.</p>
-<h2>Cerrados</h2>
+<h2 id="cerrados">Cerrados</h2>
 <ul>
 <li><strong>DW-DASH-001 — Extraer helper compartido del detalle de &quot;Selected agent&quot;</strong> · <code>done</code><ul>
 <li>Por qué: el bloque de detalle estaba duplicado casi idénticamente en dos rutas de render, así que cualquier cambio en el formato de campos podía divergir en silencio entre Monitor y Agents.</li>
@@ -207,11 +231,11 @@ la barra de ayuda por pestaña.</li>
 </ul>
 </li>
 </ul>
-<h2>Abiertos (en allow-set; seguros para tomar ahora)</h2>
+<h2 id="abiertos-en-allow-set-seguros-para-tomar-ahora">Abiertos (en allow-set; seguros para tomar ahora)</h2>
 <p><em>No hay elementos por ahora.</em></p>
-<h2>Humanos (requieren decisión; no auto-fixable en allow-set)</h2>
+<h2 id="humanos-requieren-decisión-no-auto-fixable-en-allow-set">Humanos (requieren decisión; no auto-fixable en allow-set)</h2>
 <p><em>No hay decisiones humanas pendientes por ahora.</em></p>
-<h2>Ideas que requieren archivos hot (solo proponer — no implementar en autopilot)</h2>
+<h2 id="ideas-que-requieren-archivos-hot-solo-proponer--no-implementar-en-autopilot">Ideas que requieren archivos hot (solo proponer — no implementar en autopilot)</h2>
 <p><em>No hay ideas pendientes que requieran archivos hot por ahora.</em></p>
 	</main>
 	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>

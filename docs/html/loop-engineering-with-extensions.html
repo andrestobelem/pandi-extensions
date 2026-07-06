@@ -121,10 +121,24 @@ tr:last-child td { border-bottom:none; }
 .callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:16px;
            border:1px solid var(--line); background:var(--paper); color:var(--ink); }
 .callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout .callout-label { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                          color:var(--muted); font-weight:600; margin:0 0 4px; }
 .callout.info    { background:var(--info-bg);    border-color:var(--purple); }
 .callout.success { background:var(--success-bg); border-color:var(--success); }
 .callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
 .callout.error   { background:var(--error-bg);   border-color:var(--error); }
+nav.toc { font-size:14px; border:1px solid var(--line); border-radius:12px;
+          background:var(--paper); padding:14px 18px; margin:8px 0 28px; }
+nav.toc .toc-title { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                     color:var(--muted); font-weight:600; margin:0 0 8px; }
+nav.toc ol { list-style:none; margin:0; padding:0; display:grid;
+             grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:2px 24px; }
+nav.toc a { color:var(--ink2); text-decoration:none; display:block; padding:2px 0; }
+nav.toc a:hover { color:var(--accent); }
+.hex-chip { display:inline-flex; align-items:center; white-space:nowrap; }
+.hex-chip .dot { display:inline-block; width:0.85em; height:0.85em; border-radius:3px;
+                 margin-right:0.4em; vertical-align:-0.08em; box-shadow:inset 0 0 0 1px var(--line-strong);
+                 flex-shrink:0; }
 footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </style>
 </head>
@@ -135,6 +149,18 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<h1>Ingeniería de loops con nuestras extensiones</h1>
 	</header>
 	<main>
+<nav class="toc">
+	<p class="toc-title">Contents</p>
+	<ol>
+		<li><a href="#en-30-segundos">En 30 segundos</a></li>
+		<li><a href="#tldr--elegí-la-superficie-de-loop-correcta">TL;DR — elegí la superficie de loop correcta</a></li>
+		<li><a href="#las-cuatro-superficies-de-loop">Las cuatro superficies de loop</a></li>
+		<li><a href="#los-ocho-principios--perillas-que-controlás">Los ocho principios → perillas que controlás</a></li>
+		<li><a href="#recetas">Recetas</a></li>
+		<li><a href="#anti-patrones">Anti-patrones</a></li>
+		<li><a href="#procedencia-y-fuentes">Procedencia y fuentes</a></li>
+	</ol>
+</nav>
 <p>Fecha: 2026-06-28</p>
 <p>Un loop de agente que nunca termina quema dinero; uno que se da por &quot;done&quot; por
 cuenta propia suele equivocarse (un modelo que juzga su propio trabajo es
@@ -144,7 +170,7 @@ que una verificación <em>independiente</em> lo confirma, y <strong><code>/loop<
 en una cadencia acotada sin ninguna noción de &quot;finished&quot;. Usá <code>/goal</code> cuando
 podés escribir un criterio de éxito verificable; usá <code>/loop</code> para trabajo de
 monitoreo o polling sin estado final claro.</p>
-<h2>En 30 segundos</h2>
+<h2 id="en-30-segundos">En 30 segundos</h2>
 <pre><code class="hljs language-bash">/goal migrate tests to vitest -- all tests pass; no jest imports remain
 /loop watch the deploy and report when it stabilizes</code></pre>
 <p>Esta guía convierte la
@@ -161,7 +187,7 @@ nunca. La versión corta: acotá el loop <strong>y</strong> mantené la señal d
 independiente y no sesgada — <code>/goal</code> es la superficie que impone ambas cosas a
 la vez.</p>
 </blockquote>
-<h2>TL;DR — elegí la superficie de loop correcta</h2>
+<h2 id="tldr--elegí-la-superficie-de-loop-correcta">TL;DR — elegí la superficie de loop correcta</h2>
 <table>
 <thead>
 <tr>
@@ -196,7 +222,7 @@ la vez.</p>
 <td>Acotar y verificar el alcance primero</td>
 </tr>
 </tbody></table>
-<h2>Las cuatro superficies de loop</h2>
+<h2 id="las-cuatro-superficies-de-loop">Las cuatro superficies de loop</h2>
 <h3><code>/goal</code> — loop cerrado con verificación independiente</h3>
 <p>Usá <code>/goal</code> siempre que exista una definición concreta y verificable de terminado.
 Ejecuta <code>pursuing → verifying → verifying-independent → done | blocked</code>: primero
@@ -268,7 +294,7 @@ optimiza contra un objetivo acordado en vez de contra un prompt vago.</p>
 <pre><code class="hljs language-bash">/effort ultracode          <span class="hljs-comment"># request xhigh + enable always-on routing</span>
 /ultracode-contract off    <span class="hljs-comment"># disable the Contract Gate for this session</span>
 /ultracode-mode off        <span class="hljs-comment"># turn the router off (lowering effort does not)</span></code></pre>
-<h2>Los ocho principios → perillas que controlás</h2>
+<h2 id="los-ocho-principios--perillas-que-controlás">Los ocho principios → perillas que controlás</h2>
 <table>
 <thead>
 <tr>
@@ -318,14 +344,14 @@ optimiza contra un objetivo acordado en vez de contra un prompt vago.</p>
 <td>Mantener el log &quot;stopped at maxRounds&quot;</td>
 </tr>
 </tbody></table>
-<h2>Recetas</h2>
+<h2 id="recetas">Recetas</h2>
 <p>Ejecutá trabajos distintos en paralelo (no se componen — ver abajo):</p>
 <pre><code class="hljs language-bash">/goal implement feature X -- criteria ...   <span class="hljs-comment"># itera hasta quedar verificado</span>
 /loop watch the X deploy 5m                 <span class="hljs-comment"># repite en una cadencia</span></code></pre>
 <p>Manejá cada uno por separado — mantienen estado e IDs distintos:</p>
 <pre><code class="hljs language-bash">/goal status     /goal stop [<span class="hljs-built_in">id</span>]
 /loop status     /loop pause [<span class="hljs-built_in">id</span>]   /loop resume [<span class="hljs-built_in">id</span>]   /loop stop [<span class="hljs-built_in">id</span>]</code></pre>
-<h2>Anti-patrones</h2>
+<h2 id="anti-patrones">Anti-patrones</h2>
 <ul>
 <li><strong>No</strong> uses <code>/loop</code> en una tarea que tenga un <code>done</code> verificable; para eso es
 <code>/goal</code>. <code>/loop</code> no tiene noción de &quot;finished&quot;.</li>
@@ -337,7 +363,7 @@ vuelo. Elegí una sola superficie por tarea.</li>
 puede hacer no-op silencioso.</li>
 <li><strong>No</strong> reportes <code>done</code> cuando un loop apenas llegó a su cap. Mostrá el cap.</li>
 </ul>
-<h2>Procedencia y fuentes</h2>
+<h2 id="procedencia-y-fuentes">Procedencia y fuentes</h2>
 <p>Esta guía operacionaliza la investigación con fuentes de respaldo en
 <a href="research/2026-06-28-loop-engineering.html"><code>docs/research/2026-06-28-loop-engineering.md</code></a>,
 que contiene las citas externas (ReAct, Reflexion, Self-Refine, Huang et al.,

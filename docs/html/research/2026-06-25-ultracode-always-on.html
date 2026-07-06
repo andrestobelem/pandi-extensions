@@ -121,10 +121,24 @@ tr:last-child td { border-bottom:none; }
 .callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:16px;
            border:1px solid var(--line); background:var(--paper); color:var(--ink); }
 .callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout .callout-label { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                          color:var(--muted); font-weight:600; margin:0 0 4px; }
 .callout.info    { background:var(--info-bg);    border-color:var(--purple); }
 .callout.success { background:var(--success-bg); border-color:var(--success); }
 .callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
 .callout.error   { background:var(--error-bg);   border-color:var(--error); }
+nav.toc { font-size:14px; border:1px solid var(--line); border-radius:12px;
+          background:var(--paper); padding:14px 18px; margin:8px 0 28px; }
+nav.toc .toc-title { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                     color:var(--muted); font-weight:600; margin:0 0 8px; }
+nav.toc ol { list-style:none; margin:0; padding:0; display:grid;
+             grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:2px 24px; }
+nav.toc a { color:var(--ink2); text-decoration:none; display:block; padding:2px 0; }
+nav.toc a:hover { color:var(--accent); }
+.hex-chip { display:inline-flex; align-items:center; white-space:nowrap; }
+.hex-chip .dot { display:inline-block; width:0.85em; height:0.85em; border-radius:3px;
+                 margin-right:0.4em; vertical-align:-0.08em; box-shadow:inset 0 0 0 1px var(--line-strong);
+                 flex-shrink:0; }
 footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </style>
 </head>
@@ -135,12 +149,25 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<h1>Investigación: ultracode siempre activo</h1>
 	</header>
 	<main>
+<nav class="toc">
+	<p class="toc-title">Contents</p>
+	<ol>
+		<li><a href="#en-30-segundos">En 30 segundos</a></li>
+		<li><a href="#pedido">Pedido</a></li>
+		<li><a href="#hallazgos-sobre-claude-code">Hallazgos sobre Claude Code</a></li>
+		<li><a href="#decisión-de-implementación-en-pi">Decisión de implementación en Pi</a></li>
+		<li><a href="#archivos-modificados">Archivos modificados</a></li>
+		<li><a href="#comandos-nuevos">Comandos nuevos</a></li>
+		<li><a href="#validaciones-realizadas">Validaciones realizadas</a></li>
+		<li><a href="#nota-de-alcance">Nota de alcance</a></li>
+	</ol>
+</nav>
 <p>Fecha: 2026-06-25</p>
-<h2>En 30 segundos</h2>
+<h2 id="en-30-segundos">En 30 segundos</h2>
 <p>Este documento resume una decisión de diseño: si Pi debía revisar cada tarea por defecto para decidir si conviene orquestarla con un dynamic workflow, al estilo de <code>ultracode</code> en Claude Code. La conclusión fue habilitar un router siempre activo para esa evaluación, pero sin forzar <code>xhigh</code> por ahora. Sirve como registro de la investigación, de las fuentes y de la implementación resultante.</p>
-<h2>Pedido</h2>
+<h2 id="pedido">Pedido</h2>
 <p>La solicitud fue hacer que Pi evalúe cada tarea por defecto y decida si debe resolverse mediante un dynamic workflow, inspirado en el modo <code>ultracode</code> de Claude Code, y mantener ese comportamiento siempre activo.</p>
-<h2>Hallazgos sobre Claude Code</h2>
+<h2 id="hallazgos-sobre-claude-code">Hallazgos sobre Claude Code</h2>
 <p>Según la documentación pública de Claude Code y Anthropic:</p>
 <ul>
 <li>Los dynamic workflows son scripts de JavaScript que Claude escribe y ejecuta para orquestar subagentes en paralelo.</li>
@@ -158,7 +185,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li>Claude Code Docs — Subagents: <a href="https://code.claude.com/docs/en/sub-agents">https://code.claude.com/docs/en/sub-agents</a></li>
 <li>Claude Code Settings: <a href="https://docs.anthropic.com/en/docs/claude-code/settings">https://docs.anthropic.com/en/docs/claude-code/settings</a></li>
 </ul>
-<h2>Decisión de implementación en Pi</h2>
+<h2 id="decisión-de-implementación-en-pi">Decisión de implementación en Pi</h2>
 <p>Implementamos un router always-on en la extensión <code>pandi-dynamic-workflows</code>:</p>
 <ul>
 <li>Se inyecta una sección corta del system prompt en <code>before_agent_start</code>.</li>
@@ -169,7 +196,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li>Pi debe crear, reutilizar o ejecutar workflows solo cuando haya una razón clara: completitud, confianza o escala, con límites explícitos.</li>
 <li>Para trabajo de larga duración, debe preferir background (<code>start</code>) y luego inspeccionar con <code>runs/view</code>.</li>
 </ul>
-<h2>Archivos modificados</h2>
+<h2 id="archivos-modificados">Archivos modificados</h2>
 <ul>
 <li><code>extensions/dynamic-workflows.ts</code></li>
 <li><code>README.md</code></li>
@@ -178,11 +205,11 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li><code>docs/memoria.md</code></li>
 <li><code>docs/conversaciones/2026-06-25-revisar-estado-actual.md</code></li>
 </ul>
-<h2>Comandos nuevos</h2>
+<h2 id="comandos-nuevos">Comandos nuevos</h2>
 <pre><code class="hljs language-text">/ultracode-mode status
 /ultracode-mode off
 /ultracode-mode on</code></pre>
-<h2>Validaciones realizadas</h2>
+<h2 id="validaciones-realizadas">Validaciones realizadas</h2>
 <h3>Inicialización de la extensión sin prompt del modelo</h3>
 <p>Verificamos que Pi puede inicializar explícitamente la extensión sin enviar un prompt al modelo:</p>
 <pre><code class="hljs language-bash">pi --no-extensions -e ./extensions/dynamic-workflows.ts --list-models __no_such_model__</code></pre>
@@ -194,7 +221,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <pre><code class="hljs language-text">Ultracode always-on is enabled.</code></pre>
 <h3>Limitación de la validación</h3>
 <p>El repositorio no tiene TypeScript instalado ni scripts <code>typecheck</code>; <code>npx tsc</code> no estaba disponible.</p>
-<h2>Nota de alcance</h2>
+<h2 id="nota-de-alcance">Nota de alcance</h2>
 <p>Esta implementación replica el comportamiento de enrutamiento automático. Por ahora no fuerza el nivel de pensamiento a <code>xhigh</code> para evitar cambios inesperados en costo o comportamiento del modelo; el criterio principal pedido era decidir por defecto si conviene usar un workflow.</p>
 	</main>
 	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>

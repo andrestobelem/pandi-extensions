@@ -121,10 +121,24 @@ tr:last-child td { border-bottom:none; }
 .callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:16px;
            border:1px solid var(--line); background:var(--paper); color:var(--ink); }
 .callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout .callout-label { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                          color:var(--muted); font-weight:600; margin:0 0 4px; }
 .callout.info    { background:var(--info-bg);    border-color:var(--purple); }
 .callout.success { background:var(--success-bg); border-color:var(--success); }
 .callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
 .callout.error   { background:var(--error-bg);   border-color:var(--error); }
+nav.toc { font-size:14px; border:1px solid var(--line); border-radius:12px;
+          background:var(--paper); padding:14px 18px; margin:8px 0 28px; }
+nav.toc .toc-title { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                     color:var(--muted); font-weight:600; margin:0 0 8px; }
+nav.toc ol { list-style:none; margin:0; padding:0; display:grid;
+             grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:2px 24px; }
+nav.toc a { color:var(--ink2); text-decoration:none; display:block; padding:2px 0; }
+nav.toc a:hover { color:var(--accent); }
+.hex-chip { display:inline-flex; align-items:center; white-space:nowrap; }
+.hex-chip .dot { display:inline-block; width:0.85em; height:0.85em; border-radius:3px;
+                 margin-right:0.4em; vertical-align:-0.08em; box-shadow:inset 0 0 0 1px var(--line-strong);
+                 flex-shrink:0; }
 footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </style>
 </head>
@@ -135,6 +149,17 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<h1>Configuración de kitty (entorno de desarrollo)</h1>
 	</header>
 	<main>
+<nav class="toc">
+	<p class="toc-title">Contents</p>
+	<ol>
+		<li><a href="#en-30-segundos">En 30 segundos</a></li>
+		<li><a href="#requisitos">Requisitos</a></li>
+		<li><a href="#cómo-aplicarlo">Cómo aplicarlo</a></li>
+		<li><a href="#qué-hace-cada-ajuste">Qué hace cada ajuste</a></li>
+		<li><a href="#tema">Tema</a></li>
+		<li><a href="#actualizar-esta-copia">Actualizar esta copia</a></li>
+	</ol>
+</nav>
 <p>Esta guía registra la configuración activa de <a href="https://sw.kovidgoyal.net/kitty/">kitty</a>
 que usamos para trabajar en este repo: correr Pi, Supacode y los dynamic workflows.</p>
 <p>Se versiona <strong>solo lo que está activo</strong>. El <code>kitty.conf</code> real generado por kitty
@@ -149,18 +174,18 @@ de kitty.</p>
 temas automáticos día/noche <code>light-theme.auto.conf</code> / <code>dark-theme.auto.conf</code> /
 <code>no-preference-theme.auto.conf</code></li>
 </ul>
-<h2>En 30 segundos</h2>
+<h2 id="en-30-segundos">En 30 segundos</h2>
 <p>Si querés reproducir este entorno, instalá los requisitos, copiá los archivos
 versionados a <code>~/.config/kitty/</code> y recargá kitty. Eso te deja el mismo tema
 (día/noche automático), fuente, scrollback, tabs, tamaño de ventana y control
 remoto que usamos en desarrollo.</p>
-<h2>Requisitos</h2>
+<h2 id="requisitos">Requisitos</h2>
 <ul>
 <li><strong>kitty</strong> ≥ 0.47 (<code>brew install --cask kitty</code> en macOS).</li>
 <li><strong>FiraCode Nerd Font Mono</strong> instalada (<code>brew install --cask font-fira-code-nerd-font</code>).
 Es una Nerd Font: incluye los glifos/íconos que usan los prompts y la TUI de Pi.</li>
 </ul>
-<h2>Cómo aplicarlo</h2>
+<h2 id="cómo-aplicarlo">Cómo aplicarlo</h2>
 <pre><code class="hljs language-bash"><span class="hljs-comment"># Backup de lo que tengas</span>
 <span class="hljs-built_in">cp</span> -a ~/.config/kitty ~/.config/kitty.bak 2&gt;/dev/null || <span class="hljs-literal">true</span>
 
@@ -172,7 +197,7 @@ Es una Nerd Font: incluye los glifos/íconos que usan los prompts y la TUI de Pi
    config/kitty/no-preference-theme.auto.conf \
    ~/.config/kitty/</code></pre>
 <p>Recargá la configuración con <code>ctrl+shift+F5</code> (o reiniciá kitty) y listo 🐼.</p>
-<h2>Qué hace cada ajuste</h2>
+<h2 id="qué-hace-cada-ajuste">Qué hace cada ajuste</h2>
 <table>
 <thead>
 <tr>
@@ -262,7 +287,7 @@ Es una Nerd Font: incluye los glifos/íconos que usan los prompts y la TUI de Pi
 <td>Las tabs nuevas heredan el cwd de la ventana actual.</td>
 </tr>
 </tbody></table>
-<h2>Tema</h2>
+<h2 id="tema">Tema</h2>
 <p>Los temas vienen de <a href="https://github.com/catppuccin/kitty">catppuccin/kitty</a>:</p>
 <ul>
 <li><code>light-theme.auto.conf</code> / <code>no-preference-theme.auto.conf</code> = <strong>Catppuccin-Latte</strong> (claro)</li>
@@ -271,7 +296,7 @@ Es una Nerd Font: incluye los glifos/íconos que usan los prompts y la TUI de Pi
 </ul>
 <p>Con los archivos <code>*-theme.auto.conf</code> presentes, kitty ≥ 0.38 alterna solo
 cuando macOS cambia entre modo claro y oscuro — no hace falta ningún script.</p>
-<h2>Actualizar esta copia</h2>
+<h2 id="actualizar-esta-copia">Actualizar esta copia</h2>
 <p>Si cambiás algo en <code>~/.config/kitty/kitty.conf</code>, regenerá la versión activa y
 verificá que coincida:</p>
 <pre><code class="hljs language-bash"><span class="hljs-comment"># Ver los ajustes activos en vivo</span>

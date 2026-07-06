@@ -121,10 +121,24 @@ tr:last-child td { border-bottom:none; }
 .callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:16px;
            border:1px solid var(--line); background:var(--paper); color:var(--ink); }
 .callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout .callout-label { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                          color:var(--muted); font-weight:600; margin:0 0 4px; }
 .callout.info    { background:var(--info-bg);    border-color:var(--purple); }
 .callout.success { background:var(--success-bg); border-color:var(--success); }
 .callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
 .callout.error   { background:var(--error-bg);   border-color:var(--error); }
+nav.toc { font-size:14px; border:1px solid var(--line); border-radius:12px;
+          background:var(--paper); padding:14px 18px; margin:8px 0 28px; }
+nav.toc .toc-title { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                     color:var(--muted); font-weight:600; margin:0 0 8px; }
+nav.toc ol { list-style:none; margin:0; padding:0; display:grid;
+             grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:2px 24px; }
+nav.toc a { color:var(--ink2); text-decoration:none; display:block; padding:2px 0; }
+nav.toc a:hover { color:var(--accent); }
+.hex-chip { display:inline-flex; align-items:center; white-space:nowrap; }
+.hex-chip .dot { display:inline-block; width:0.85em; height:0.85em; border-radius:3px;
+                 margin-right:0.4em; vertical-align:-0.08em; box-shadow:inset 0 0 0 1px var(--line-strong);
+                 flex-shrink:0; }
 footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </style>
 </head>
@@ -135,9 +149,23 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<h1>Loop engineering — una investigación respaldada por fuentes</h1>
 	</header>
 	<main>
+<nav class="toc">
+	<p class="toc-title">Contents</p>
+	<ol>
+		<li><a href="#en-30-segundos">En 30 segundos</a></li>
+		<li><a href="#1-resumen-ejecutivo">1. Resumen ejecutivo</a></li>
+		<li><a href="#2-qué-significa-loop-engineering-es-ya-un-término-establecido">2. Qué significa &quot;loop engineering&quot; (¿es ya un término establecido?)</a></li>
+		<li><a href="#3-fundamentos-y-trabajos-previos--con-citas">3. Fundamentos y trabajos previos — con citas</a></li>
+		<li><a href="#4-principios-centrales-de-loop-engineering">4. Principios centrales de loop engineering</a></li>
+		<li><a href="#5-modos-de-falla-y-mitigaciones">5. Modos de falla y mitigaciones</a></li>
+		<li><a href="#6-fundamento-en-este-repo">6. Fundamento en este repo</a></li>
+		<li><a href="#7-gaps-limitaciones-y-observaciones-opcionales-sin-diffs">7. Gaps, limitaciones y observaciones OPCIONALES (sin diffs)</a></li>
+		<li><a href="#8-brechas-de-cobertura-y-qué-verificar-después">8. Brechas de cobertura y qué verificar después</a></li>
+	</ol>
+</nav>
 <p>Fecha: 2026-06-28</p>
 <p><strong>Proveniencia de registro.</strong> Generado por el workflow dinámico <code>loop-engineering-deep-research</code> (run <code>2026-06-28T10-08-08-680Z-drafts-loop-engineering-deep-research-ebc0fa72</code>), enrutado por un Contract Gate de solo lectura (interpretación C) y confirmado por un verificador independiente de citación/trazabilidad de solo lectura (veredicto PASS). No se modificó código fuente. La evidencia por rama y el informe del verificador viven en ese directorio de run dentro de <code>.pi/workflows/runs/</code>.</p>
-<h2>En 30 segundos</h2>
+<h2 id="en-30-segundos">En 30 segundos</h2>
 <p>Este documento explica qué significa <em>loop engineering</em> y cómo ese patrón aparece en este repo. La idea central es simple: diseñar bucles que <strong>actúan → observan → verifican → continúan</strong> hasta cumplir una condición de parada basada en evidencia.</p>
 <p>La conclusión práctica es más importante que el nombre: un loop confiable necesita límites explícitos, una señal de crítica independiente y una salida que no dependa de la autodeclaración del modelo.</p>
 <blockquote>
@@ -145,7 +173,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <p>Para no inventar cobertura, el sintetizador <strong>volvió a leer de forma independiente cada archivo del repo en la grounding read-list</strong> (todos los <code>file:line</code> de abajo fueron verificados en este run) y <strong>ejecutó su propia búsqueda web</strong> para resolver la pregunta sobre el término. Las URLs externas de teoría de control se <strong>preservaron desde la rama 3</strong> y no se volvieron a buscar en la síntesis (marcado en §8). Los papers externos sobre loops de agentes citados por la rama 2 (Reflexion, Self-Refine, Huang et al.) fueron recuperados por esa rama; ReAct no fue recuperado de forma independiente por ninguna rama (marcado INSUFFICIENT_EVIDENCE).</p>
 </blockquote>
 <p><strong>Actualización — pase de verificación de fuentes (2026-06-28).</strong> Un seguimiento puntual cerró los principales ítems <code>INSUFFICIENT_EVIDENCE</code> mediante búsqueda web directa: ReAct (arXiv:2210.03629) ahora está confirmado por fuente primaria (Yao et al., ICLR 2023); los contraargumentos del debate sobre autocorrección (arXiv:2405.14092 <em>ProCo</em>; arXiv:2406.15673) se leyeron en vez de citarse solo por título; el límite experimental de Self-Refine es <strong>4 iteraciones</strong>; y el repo citado por el paper de Reflexion <code>github.com/noahshinn024/reflexion</code> ahora aloja un proyecto <strong>no relacionado</strong> &quot;Bugbounty POC&quot; (el código original ya no está en esa URL). Las entradas de §3 y §8 reflejan este pase.</p>
-<h2>1. Resumen ejecutivo</h2>
+<h2 id="1-resumen-ejecutivo">1. Resumen ejecutivo</h2>
 <p><strong>&quot;Loop engineering&quot; es un término industrial real y reciente (mitad de 2026), no una disciplina académica ya estabilizada.</strong> Nombra un patrón más viejo: diseñar el sistema que le pide repetidamente a un agente que <em>actúe → observe → verifique → continúe</em> hasta que se dispare una condición de parada basada en evidencia. Fuentes clave: <a href="https://addyosmani.com/blog/loop-engineering/">Addy Osmani</a>, <a href="https://www.langchain.com/blog/the-art-of-loop-engineering">LangChain</a>, <a href="https://code.claude.com/docs/en/how-claude-code-works">Claude Code docs</a> y <a href="https://www.theregister.com/ai-and-ml/2026/06/24/loop-engineering-latest-ai-buzzword-still-needs-humans-in-the-loop/5261735">The Register, 2026-06-24</a> (cobertura escéptica).</p>
 <p>La literatura converge en una lección dura: <strong>un loop iterativo de mejora propia solo es tan confiable como (a) la independencia/calidad de su señal de crítica y (b) sus límites.</strong></p>
 <p>La autocorrección puramente intrínseca puede <em>degradar</em> los resultados cuando no existe una señal externa/oráculo (<a href="https://arxiv.org/abs/2310.01798">Huang et al., arXiv:2310.01798</a>). Tanto Reflexion como Self-Refine incluyen límites explícitos de terminación (<a href="https://arxiv.org/abs/2303.11366">arXiv:2303.11366</a>; <a href="https://arxiv.org/abs/2303.17651">arXiv:2303.17651</a>).</p>
@@ -156,7 +184,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li>&quot;Quiet rounds&quot; es una heurística empírica de convergencia, no un criterio probado de punto fijo.</li>
 <li>La afirmación de la read-list de que el clamp de cadencia dinámica vive en <code>extensions/pandi-loop/interval.ts</code> es <strong>incorrecta</strong> — vive en <code>extensions/pandi-loop/index.ts:1253-1259</code>.</li>
 </ul>
-<h2>2. Qué significa &quot;loop engineering&quot; (¿es ya un término establecido?)</h2>
+<h2 id="2-qué-significa-loop-engineering-es-ya-un-término-establecido">2. Qué significa &quot;loop engineering&quot; (¿es ya un término establecido?)</h2>
 <p><strong>Veredicto: establecido como término industrial emergente (CONFIRMADO por búsqueda web en este run), pero no como disciplina académica estandarizada.</strong> Definilo en la primera mención.</p>
 <p>Evidencia encontrada:</p>
 <ul>
@@ -167,7 +195,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li><strong>The Register (2026-06-24)</strong> lo caracteriza como un <em>nuevo buzzword de IA</em> y advierte que la automatización sigue necesitando controles de costo y humanos en el loop. <a href="https://www.theregister.com/ai-and-ml/2026/06/24/loop-engineering-latest-ai-buzzword-still-needs-humans-in-the-loop/5261735">theregister.com/.../loop_engineering...</a></li>
 </ul>
 <p><strong>Definición de trabajo sintetizada (este artefacto):</strong> <em>loop engineering</em> es la disciplina de <strong>diseñar, acotar y verificar</strong> loops iterativos/de feedback alrededor de sistemas agénticos y de software. Un loop debe hacer progreso medible hacia una meta y <strong>parar en evidencia</strong> (done/quiet/blocked) en vez de hacerlo por reloj, por autodeclaración o nunca. Este es el marco paraguas que el repo ya practica bajo otros nombres: <code>/loop</code>, <code>loop-until-done</code>, <code>/goal</code>.</p>
-<h2>3. Fundamentos y trabajos previos — con citas</h2>
+<h2 id="3-fundamentos-y-trabajos-previos--con-citas">3. Fundamentos y trabajos previos — con citas</h2>
 <table>
 <thead>
 <tr>
@@ -209,7 +237,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </tr>
 </tbody></table>
 <p>El índice interno del repo ya mapea estos papers a prácticas de workflow, incluyendo &quot;loops with an explicit brake … must have a stop condition: max rounds, quiet rounds, maxAgents, timeout, or budget&quot; (<code>docs/research/2026-06-25-agentic-patterns-papers-workflows.md:51-52</code>, derived-principle 6).</p>
-<h2>4. Principios centrales de loop engineering</h2>
+<h2 id="4-principios-centrales-de-loop-engineering">4. Principios centrales de loop engineering</h2>
 <p>Sintetizados a partir de las fuentes anteriores y verificados contra el repo (§6). Cada principio empareja un ancla de literatura/teoría con el mecanismo del repo.</p>
 <ol>
 <li><strong>Terminación acotada (sin loops infinitos).</strong> Todo loop necesita una condición de parada. Reflexion acota la memoria; Self-Refine acota iteraciones (<a href="https://arxiv.org/abs/2303.11366">2303.11366</a>, <a href="https://arxiv.org/abs/2303.17651">2303.17651</a>). Repo: pandi-goal declara &quot;Never an infinite loop&quot; (<code>extensions/pandi-goal/index.ts:51</code>).</li>
@@ -221,7 +249,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li><strong>Progreso + verificación INDEPENDIENTE.</strong> La lección decisiva de Huang et al.: que un modelo juzgue su propio razonamiento es poco confiable, así que los loops deben cerrarse sobre una señal <em>externa</em>. Repo: verificación en dos etapas — un chequeo de completitud SELF (<code>verifying</code>) y luego un subagent adversarial separado, de solo lectura, que emite <code>VERDICT: PASS|FAIL</code> (<code>verifying-independent</code>); solo un PASS independiente cierra el goal (<code>extensions/pandi-goal/index.ts:34-55,221-315,733-757</code>).</li>
 <li><strong>Sin caps silenciosos.</strong> Un loop que se detiene por presupuesto pero reporta &quot;done&quot; oculta incompletitud. Repo registra <code>&quot;stopped at maxRounds (not dry)&quot;</code> (<code>templates.ts:392-394</code>).</li>
 </ol>
-<h2>5. Modos de falla y mitigaciones</h2>
+<h2 id="5-modos-de-falla-y-mitigaciones">5. Modos de falla y mitigaciones</h2>
 <table>
 <thead>
 <tr>
@@ -261,7 +289,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>Verificador INDEPENDIENTE de solo lectura; &quot;a claim without verifiable evidence is a FAIL&quot; <code>extensions/pandi-goal/index.ts:620-625</code>; el veredicto se ancla a la última línea no vacía para que no se pueda falsificar un PASS repitiendo el prompt <code>extensions/pandi-goal/verifier.ts:105-141</code>; exit no cero + PASS se trata como FAIL <code>extensions/pandi-goal/verifier.ts:172-183</code>.</td>
 </tr>
 </tbody></table>
-<h2>6. Fundamento en este repo</h2>
+<h2 id="6-fundamento-en-este-repo">6. Fundamento en este repo</h2>
 <p>Todos los <code>file:line</code> fueron verificados en este run. <strong>Alignment</strong> = el mecanismo coincide con el principio; <strong>Gap</strong> = limitación/discrepancia.</p>
 <table>
 <thead>
@@ -342,7 +370,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td><strong>Aligned</strong>; ReAct/Reflexion/Self-Refine están mapeados. ReAct fue re-verificado de forma independiente en el source pass del 2026-06-28 (Yao et al., ICLR 2023, arXiv:2210.03629).</td>
 </tr>
 </tbody></table>
-<h2>7. Gaps, limitaciones y observaciones OPCIONALES (sin diffs)</h2>
+<h2 id="7-gaps-limitaciones-y-observaciones-opcionales-sin-diffs">7. Gaps, limitaciones y observaciones OPCIONALES (sin diffs)</h2>
 <p>Solo observaciones; no se proponen cambios de código.</p>
 <p><strong>Actualización — observaciones aplicadas (2026-06-28).</strong> Un seguimiento aplicó los ítems seguros y quirúrgicos de abajo: <strong>#3</strong> (inexactitud de la read-list) se corrigió en la grounding read-list del workflow de investigación y en los prompts del reviewer (<code>.pi/workflows/drafts/loop-engineering-deep-research.js</code>) para que un re-run ya no atribuya erróneamente el clamp dinámico <code>[60,3600]s</code> a <code>interval.ts</code>; <strong>#6</strong> (dos caps de verificación distintos) y <strong>#5</strong> (costo del verificador independiente) se abordaron con comentarios de cruce sobre <code>MAX_VERIFY_ATTEMPTS</code> (<code>extensions/pandi-goal/constants.ts:43-49</code>) y <code>DEFAULT_MAX_INDEPENDENT_VERIFICATIONS</code> (<code>extensions/pandi-goal/constants.ts:58-64</code>). <strong>#1</strong> se dejó igual: <code>extensions/pandi-loop/caps.ts:20-40</code> ya documenta el best-effort/silent no-op en su docstring. <strong>#2</strong> (eval sweep de <code>quietRounds</code>/<code>maxRounds</code>) y <strong>#4</strong> (allowlist finita del destructive-gate) siguen abiertos por diseño — el primero necesita datos, el segundo es una asimetría aceptada deliberada. La guía práctica derivada de esta investigación vive en <a href="../loop-engineering-with-extensions.html"><code>docs/loop-engineering-with-extensions.md</code></a>.</p>
 <ol>
@@ -358,7 +386,7 @@ Cada paso <code>verifying-independent</code> lanza un proceso separado <code>pi 
 <li><strong>Dos caps de verificación distintos pueden confundir.</strong>
 <code>MAX_VERIFY_ATTEMPTS=3</code> (auto-chequeo de completitud) vs <code>DEFAULT_MAX_INDEPENDENT_VERIFICATIONS=2</code> (independiente) son gates distintos (<code>extensions/pandi-goal/constants.ts:43-49</code>, <code>extensions/pandi-goal/constants.ts:58-64</code>). Correcto e intencional, pero merece una cross-reference de una línea para mantenedores.</li>
 </ol>
-<h2>8. Brechas de cobertura y qué verificar después</h2>
+<h2 id="8-brechas-de-cobertura-y-qué-verificar-después">8. Brechas de cobertura y qué verificar después</h2>
 <p><strong>Ramas fallidas/vacías (conteo honesto):</strong></p>
 <ul>
 <li><code>research-react-observe-act</code> — <strong>VACÍA en el run original; RESUELTA 2026-06-28.</strong> ReAct (arXiv:2210.03629) ahora está confirmado por fuente primaria: Yao, Zhao, Yu, Du, Shafran, Narasimhan, Cao; v3 = <strong>ICLR 2023</strong> camera-ready; intercala trazas de razonamiento, acciones y observaciones del entorno; evaluado en HotpotQA, FEVER, ALFWorld y WebShop (<a href="https://arxiv.org/abs/2210.03629">abstract</a>, <a href="https://react-lm.github.io/">sitio oficial</a>).</li>

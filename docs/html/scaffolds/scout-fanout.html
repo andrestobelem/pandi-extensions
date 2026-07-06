@@ -121,10 +121,24 @@ tr:last-child td { border-bottom:none; }
 .callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:16px;
            border:1px solid var(--line); background:var(--paper); color:var(--ink); }
 .callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout .callout-label { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                          color:var(--muted); font-weight:600; margin:0 0 4px; }
 .callout.info    { background:var(--info-bg);    border-color:var(--purple); }
 .callout.success { background:var(--success-bg); border-color:var(--success); }
 .callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
 .callout.error   { background:var(--error-bg);   border-color:var(--error); }
+nav.toc { font-size:14px; border:1px solid var(--line); border-radius:12px;
+          background:var(--paper); padding:14px 18px; margin:8px 0 28px; }
+nav.toc .toc-title { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                     color:var(--muted); font-weight:600; margin:0 0 8px; }
+nav.toc ol { list-style:none; margin:0; padding:0; display:grid;
+             grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:2px 24px; }
+nav.toc a { color:var(--ink2); text-decoration:none; display:block; padding:2px 0; }
+nav.toc a:hover { color:var(--accent); }
+.hex-chip { display:inline-flex; align-items:center; white-space:nowrap; }
+.hex-chip .dot { display:inline-block; width:0.85em; height:0.85em; border-radius:3px;
+                 margin-right:0.4em; vertical-align:-0.08em; box-shadow:inset 0 0 0 1px var(--line-strong);
+                 flex-shrink:0; }
 footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </style>
 </head>
@@ -135,16 +149,29 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<h1>scout-fanout</h1>
 	</header>
 	<main>
+<nav class="toc">
+	<p class="toc-title">Contents</p>
+	<ol>
+		<li><a href="#en-30-segundos">En 30 segundos</a></li>
+		<li><a href="#cómo-lanzarlo">Cómo lanzarlo</a></li>
+		<li><a href="#diagrama">Diagrama</a></li>
+		<li><a href="#qué-hace">Qué hace</a></li>
+		<li><a href="#cuándo-usarlo">Cuándo usarlo</a></li>
+		<li><a href="#cómo-funciona">Cómo funciona</a></li>
+		<li><a href="#input-y-output">Input y output</a></li>
+		<li><a href="#fases">Fases</a></li>
+	</ol>
+</nav>
 <blockquote>
 <p>Scout y luego fan-out dinámico vía pipeline: clasifica el riesgo de cada archivo (barato), y solo hace deep-review de los de riesgo alto/medio; low-risk corta camino.</p>
 </blockquote>
-<h2>En 30 segundos</h2>
+<h2 id="en-30-segundos">En 30 segundos</h2>
 <p>Sirve para auditar árboles grandes de archivos sin pagar revisión profunda por cada uno. Primero un scout descubre el work-list real; después cada archivo pasa por dos pasos: una clasificación barata y, solo si el riesgo sale <code>high</code> o <code>medium</code>, una deep review. Los archivos <code>low</code> cortan camino. Elegilo cuando querés cobertura amplia pero el presupuesto caro debe ir solo a los casos prometedores.</p>
-<h2>Cómo lanzarlo</h2>
+<h2 id="cómo-lanzarlo">Cómo lanzarlo</h2>
 <pre><code class="hljs language-text">/workflow new mi-run --pattern=scout-fanout
 /workflow run mi-run {&quot;pattern&quot;:&quot;config&quot;,&quot;lens&quot;:&quot;security&quot;,&quot;maxFiles&quot;:40}</code></pre>
 <p>Todos los campos de <code>input</code> son opcionales. Sin <code>input.files</code>, el scout descubre los archivos vía <code>git ls-files</code> filtrado por <code>pattern</code>; si pasás <code>input.files</code> (array de paths), se usa directamente y el scout se salta. Ver la tabla completa en <a href="#input-y-output">Input y output</a>.</p>
-<h2>Diagrama</h2>
+<h2 id="diagrama">Diagrama</h2>
 <pre class="mermaid">flowchart TD
     A["Input: files opcional, pattern=code, lens=code, maxFiles=40 clamp 1..200"] --&gt; B["Phase: Scout"]
 
@@ -175,11 +202,11 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
     I --&gt; J["Phase: Synthesis"]
     J --&gt; K["agent synthesis opus·high\nrecibe coverage note + findings (fenced)\ndedup + prioriza + señala coverage gaps"]
     K --&gt; L["return synthesis (string)"]</pre>
-<h2>Qué hace</h2>
+<h2 id="qué-hace">Qué hace</h2>
 <p><code>scout-fanout</code> combina descubrimiento dinámico del work-list con profundidad adaptativa por archivo. No asume de antemano qué paths importan: el scout los descubre en runtime con <code>git ls-files</code> filtrado por <code>pattern</code>. Después, cada archivo recibe una clasificación barata; solo los de riesgo <code>high</code> o <code>medium</code> pagan deep review. Los archivos <code>low</code> se resuelven sin gastar el modelo caro.</p>
 <p>El branching es por item, no uniforme: cada archivo sigue su propia rama dentro de <code>pipeline(files, classifyStage, deepReviewStage)</code>. Eso es la profundidad adaptativa que implementa el scaffold: gastar más solo donde hay señal.</p>
 <p>Al final, una fase de síntesis reúne los hallazgos de deep review, los deduplica y prioriza, y marca explícitamente cualquier gap de cobertura. Los archivos saltados o con fallo NO se tratan como &quot;limpios&quot;.</p>
-<h2>Cuándo usarlo</h2>
+<h2 id="cuándo-usarlo">Cuándo usarlo</h2>
 <table>
 <thead>
 <tr>
@@ -214,7 +241,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li>Pasadas de clasificar-y-actuar donde la acción cara solo aplica a un subconjunto (catálogo: &quot;classify-and-act&quot;).</li>
 <li>Migraciones grandes donde interesa gastar presupuesto solo donde paga (catálogo: &quot;large-migration&quot;, &quot;Spend budget only where it pays&quot;).</li>
 </ul>
-<h2>Cómo funciona</h2>
+<h2 id="cómo-funciona">Cómo funciona</h2>
 <p><strong>Fase Scout.</strong> Si <code>input.files</code> viene como array no vacío, se usa directamente y se recorta a <code>maxFiles</code> si hace falta, logueando el descarte. Si no, se lanza un <code>agent</code> en rol <code>scout</code> (modelo <code>haiku</code>, effort <code>low</code>, <code>schema: FILE_LIST</code>) que corre <code>git ls-files</code> y filtra por el regex de <code>pattern</code> (preset <code>code</code>/<code>docs</code>/<code>web</code>/<code>config</code>, o regex libre). Ese filtrado vive dentro del prompt del agente, no en una interpolación de shell, así <code>input.pattern</code> no puede inyectar comandos. El patrón se envuelve en <code>fence()</code> con tratamiento explícito de datos no confiables. Si el work-list queda vacío, retorna de una vez <code>&quot;No files matched; nothing to review.&quot;</code>.</p>
 <p><strong>Fase Classify + Deep Review (pipeline).</strong> Se llama <code>pipeline(files, classifyStage, deepReviewStage)</code>, que procesa cada archivo por sus dos stages, en paralelo entre archivos.</p>
 <ul>
@@ -226,7 +253,7 @@ Si el output del deep review es <code>null</code>, se marca <code>{ failed: true
 <p><strong>Fase Synthesis.</strong> Un <code>agent</code> en rol <code>synthesis</code> (modelo <code>opus</code>, effort <code>high</code>) recibe una nota de cobertura explícita (<code>coverage</code>: total de archivos, cuántos con hallazgos, cuántos low-risk/limpios saltados, cuántos branches fallidos) más los <code>findings</code> compactados (<code>compact()</code>, cap de 60000 chars) dentro de un fence anti-inyección. Se le pide deduplicar, descartar afirmaciones sin soporte, priorizar por severidad y mencionar cualquier gap de cobertura. Los archivos saltados o fallidos NO son &quot;limpios&quot;.</p>
 <p><strong>Manejo de fallos parciales.</strong> Cada etapa del <code>agent</code> puede devolver <code>null</code> por error interno; el código lo convierte en <code>{ skipped: true }</code> o <code>{ failed: true }</code>, y los conteos se loguean y se pasan a la síntesis como cobertura explícita.</p>
 <p><strong>Caching.</strong> No se observa ningún mecanismo explícito de caché en el código; cada llamada a <code>agent</code> es fresca.</p>
-<h2>Input y output</h2>
+<h2 id="input-y-output">Input y output</h2>
 <table>
 <thead>
 <tr>
@@ -287,7 +314,7 @@ Si el output del deep review es <code>null</code>, se marca <code>{ failed: true
 </tbody></table>
 <p><strong>Output:</strong> un string (el texto de la síntesis final), o el mensaje literal <code>&quot;No files matched; nothing to review.&quot;</code> si el work-list quedó vacío tras el scout.</p>
 <p>No se observan llamadas a <code>writeArtifact</code> en este scaffold: toda la observabilidad pasa por <code>log(...)</code> (archivos scouteados, recortes por <code>maxFiles</code>, conteo deep-reviewed vs. total) y por el string de retorno.</p>
-<h2>Fases</h2>
+<h2 id="fases">Fases</h2>
 <ol>
 <li><strong>Scout</strong> — descubre el work-list: usa <code>input.files</code> tal cual, o lanza un agente que corre <code>git ls-files</code> filtrado por <code>pattern</code>; aplica el cap <code>maxFiles</code> y loguea recortes.</li>
 <li><strong>Classify</strong> — un <code>agent</code> clasificador (haiku·low) por archivo, dentro del pipeline, que asigna <code>risk: high|medium|low</code> según <code>lens</code>.</li>

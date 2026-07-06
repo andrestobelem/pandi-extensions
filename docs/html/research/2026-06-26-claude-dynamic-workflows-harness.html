@@ -121,10 +121,24 @@ tr:last-child td { border-bottom:none; }
 .callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:16px;
            border:1px solid var(--line); background:var(--paper); color:var(--ink); }
 .callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout .callout-label { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                          color:var(--muted); font-weight:600; margin:0 0 4px; }
 .callout.info    { background:var(--info-bg);    border-color:var(--purple); }
 .callout.success { background:var(--success-bg); border-color:var(--success); }
 .callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
 .callout.error   { background:var(--error-bg);   border-color:var(--error); }
+nav.toc { font-size:14px; border:1px solid var(--line); border-radius:12px;
+          background:var(--paper); padding:14px 18px; margin:8px 0 28px; }
+nav.toc .toc-title { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                     color:var(--muted); font-weight:600; margin:0 0 8px; }
+nav.toc ol { list-style:none; margin:0; padding:0; display:grid;
+             grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:2px 24px; }
+nav.toc a { color:var(--ink2); text-decoration:none; display:block; padding:2px 0; }
+nav.toc a:hover { color:var(--accent); }
+.hex-chip { display:inline-flex; align-items:center; white-space:nowrap; }
+.hex-chip .dot { display:inline-block; width:0.85em; height:0.85em; border-radius:3px;
+                 margin-right:0.4em; vertical-align:-0.08em; box-shadow:inset 0 0 0 1px var(--line-strong);
+                 flex-shrink:0; }
 footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </style>
 </head>
@@ -135,9 +149,27 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<h1>Claude Dynamic Workflows: _A harness for every task_</h1>
 	</header>
 	<main>
-<h2>En 30 segundos</h2>
+<nav class="toc">
+	<p class="toc-title">Contents</p>
+	<ol>
+		<li><a href="#en-30-segundos">En 30 segundos</a></li>
+		<li><a href="#fuentes-revisadas">Fuentes revisadas</a></li>
+		<li><a href="#tesis-del-post">Tesis del post</a></li>
+		<li><a href="#qué-es-un-dynamic-workflow-en-claude-code">Qué es un Dynamic Workflow en Claude Code</a></li>
+		<li><a href="#entradas-y-ux-en-claude-code">Entradas y UX en Claude Code</a></li>
+		<li><a href="#aprobación-permisos-y-seguridad">Aprobación, permisos y seguridad</a></li>
+		<li><a href="#guardado-y-reutilización">Guardado y reutilización</a></li>
+		<li><a href="#runtime-y-límites-oficiales">Runtime y límites oficiales</a></li>
+		<li><a href="#patrones-nombrados-por-anthropic">Patrones nombrados por Anthropic</a></li>
+		<li><a href="#costo-y-cuándo-no-usarlo">Costo y cuándo no usarlo</a></li>
+		<li><a href="#comparación-con-este-repo-pi-dynamic-workflows">Comparación con este repo, Pi Dynamic Workflows</a></li>
+		<li><a href="#deltas-o-ideas-para-acercarse-más-a-claude">Deltas o ideas para acercarse más a Claude</a></li>
+		<li><a href="#recomendación-para-pi">Recomendación para Pi</a></li>
+	</ol>
+</nav>
+<h2 id="en-30-segundos">En 30 segundos</h2>
 <p>Este informe resume cómo Anthropic presenta los dynamic workflows en Claude Code: una capa de orquestación que saca la estrategia del contexto y la vuelve un script JavaScript ejecutable. Sirven para tareas grandes o inciertas, donde hace falta fan-out, verificación cruzada y estado persistente sin llenar la conversación principal. Si querés comparar esa propuesta con Pi Dynamic Workflows, empezá por la tesis y la sección de comparación.</p>
-<h2>Fuentes revisadas</h2>
+<h2 id="fuentes-revisadas">Fuentes revisadas</h2>
 <ul>
 <li>Anthropic blog: <a href="https://claude.com/blog/a-harness-for-every-task-dynamic-workflows-in-claude-code"><em>A harness for every task: dynamic workflows in Claude Code</em></a>, Thariq Shihipar y Sid Bidasaria, 2026-06-02.</li>
 <li>Anthropic blog: <a href="https://claude.com/blog/introducing-dynamic-workflows-in-claude-code"><em>Introducing dynamic workflows in Claude Code</em></a>, 2026-05-28.</li>
@@ -148,7 +180,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li>Claude Code changelog: v2.1.154 introduce dynamic workflows.</li>
 <li>InfoQ: cobertura independiente del lanzamiento de Dynamic Workflows.</li>
 </ul>
-<h2>Tesis del post</h2>
+<h2 id="tesis-del-post">Tesis del post</h2>
 <p>El punto central de <em>A harness for every task</em> es que, para tareas grandes o inciertas, el agente no debería intentar coordinar todo dentro de una sola conversación. En su lugar, Claude Code genera un <strong>harness</strong> específico para la tarea: un script JavaScript que codifica la orquestación, lanza subagentes, guarda estado intermedio fuera del contexto principal y devuelve una síntesis final.</p>
 <p>La idea no es solamente &quot;más subagentes&quot;. Es mover la estrategia de ejecución a código inspeccionable para que el sistema pueda:</p>
 <ul>
@@ -158,7 +190,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li>reanudar o gestionar runs desde una vista de workflows;</li>
 <li>verificar hallazgos antes de reportarlos.</li>
 </ul>
-<h2>Qué es un Dynamic Workflow en Claude Code</h2>
+<h2 id="qué-es-un-dynamic-workflow-en-claude-code">Qué es un Dynamic Workflow en Claude Code</h2>
 <p>Según la documentación oficial, un workflow dinámico es un script JavaScript que Claude escribe para la tarea descrita por el usuario y que un runtime ejecuta en background. El script actúa como coordinador: mantiene loops, branching, variables intermedias y reglas de reducción, mientras los subagentes hacen el trabajo concreto.</p>
 <p>Diferencia principal frente a otras capacidades:</p>
 <table>
@@ -203,7 +235,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li>investigación que requiere cruzar fuentes;</li>
 <li>un plan difícil que conviene evaluar desde varios ángulos antes de implementar.</li>
 </ul>
-<h2>Entradas y UX en Claude Code</h2>
+<h2 id="entradas-y-ux-en-claude-code">Entradas y UX en Claude Code</h2>
 <p>Claude Code ofrece tres entradas principales:</p>
 <ol>
 <li><p><strong>Workflow bundled</strong>: <code>/deep-research &lt;question&gt;</code>.</p>
@@ -230,7 +262,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </ul>
 </li>
 </ol>
-<h2>Aprobación, permisos y seguridad</h2>
+<h2 id="aprobación-permisos-y-seguridad">Aprobación, permisos y seguridad</h2>
 <p>Antes de correr un workflow, Claude Code muestra una aprobación con fases planeadas. Opciones documentadas:</p>
 <ul>
 <li>correr una vez;</li>
@@ -241,7 +273,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </ul>
 <p>La prompt depende del permission mode. En modos no interactivos (<code>claude -p</code>, SDK, bypass permissions) puede arrancar sin prompt.</p>
 <p><strong>Punto importante:</strong> los subagentes corren con <code>acceptEdits</code> e heredan el tool allowlist de la sesión. Las ediciones de archivos se autoaprueban, pero shell, web fetches y MCP tools fuera del allowlist todavía pueden pedir permiso durante el run.</p>
-<h2>Guardado y reutilización</h2>
+<h2 id="guardado-y-reutilización">Guardado y reutilización</h2>
 <p>Si un run funciona, se puede guardar como comando desde <code>/workflows</code> con <code>s</code>.</p>
 <p>Ubicaciones documentadas:</p>
 <ul>
@@ -250,7 +282,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </ul>
 <p>Los workflows guardados se invocan como slash commands (<code>/&lt;name&gt;</code>). También pueden recibir input vía un global <code>args</code>, para pasar preguntas, paths, issue numbers o configuración estructurada sin editar el script.</p>
 <p>Claude Code carga workflows de <code>.claude/workflows/</code> a lo largo del path del proyecto; si hay nombres duplicados, gana el más cercano al cwd. Los workflows de proyecto ganan sobre los personales.</p>
-<h2>Runtime y límites oficiales</h2>
+<h2 id="runtime-y-límites-oficiales">Runtime y límites oficiales</h2>
 <p>Restricciones documentadas del runtime:</p>
 <table>
 <thead>
@@ -284,7 +316,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li>Si se pausa un run, al reanudar los agentes completados devuelven resultados cacheados y el resto corre live.</li>
 <li>La reanudación dentro de la misma sesión restaura estado. Si se cierra Claude Code durante un run, la siguiente sesión arranca de cero.</li>
 </ul>
-<h2>Patrones nombrados por Anthropic</h2>
+<h2 id="patrones-nombrados-por-anthropic">Patrones nombrados por Anthropic</h2>
 <p>Los patrones destacados en la cobertura del blog y la documentación son:</p>
 <ul>
 <li><strong>Classify-and-act</strong>: clasificar items y elegir acción por clase.</li>
@@ -294,10 +326,10 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li><strong>Tournaments</strong>: comparar candidatos en rondas o jurados.</li>
 <li><strong>Loop-until-done</strong>: iterar con una condición de salida observable.</li>
 </ul>
-<h2>Costo y cuándo no usarlo</h2>
+<h2 id="costo-y-cuándo-no-usarlo">Costo y cuándo no usarlo</h2>
 <p>Anthropic advierte que un workflow puede gastar muchos más tokens que resolver la tarea conversacionalmente, porque dispara muchos subagentes. La recomendación oficial es probar primero con un slice pequeño, por ejemplo un directorio en vez de todo el repo, o una pregunta estrecha en vez de un tema amplio.</p>
 <p>No conviene usar workflows para tareas normales de edición o preguntas simples. El criterio fuerte es si hay escala, independencia, verificación cruzada o necesidad de reutilizar la orquestación.</p>
-<h2>Comparación con este repo, Pi Dynamic Workflows</h2>
+<h2 id="comparación-con-este-repo-pi-dynamic-workflows">Comparación con este repo, Pi Dynamic Workflows</h2>
 <p>Lo que ya está alineado:</p>
 <ul>
 <li>Scripts JavaScript específicos de la tarea.</li>
@@ -311,7 +343,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li>Templates equivalentes: scout-fanout, adversarial-verify, tournament, loop-until-dry, self-consistency, deep-research, repo-bug-hunt.</li>
 <li>Resume más fuerte que Claude en un punto: este repo persiste un journal content-addressed para reanudar runs stale/failed/cancelled in-place entre sesiones Pi, reutilizando llamadas completadas.</li>
 </ul>
-<h2>Deltas o ideas para acercarse más a Claude</h2>
+<h2 id="deltas-o-ideas-para-acercarse-más-a-claude">Deltas o ideas para acercarse más a Claude</h2>
 <ol>
 <li><p><strong>Aprobación pre-run con fases y raw script</strong></p>
 <ul>
@@ -356,7 +388,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </ul>
 </li>
 </ol>
-<h2>Recomendación para Pi</h2>
+<h2 id="recomendación-para-pi">Recomendación para Pi</h2>
 <p>Mantener la ventaja actual de Pi: workflows como código confiable, composable y resumable.</p>
 <p>Pero adoptar tres elementos de UX de Claude porque mejoran seguridad y reutilización:</p>
 <ol>

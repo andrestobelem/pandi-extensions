@@ -121,10 +121,24 @@ tr:last-child td { border-bottom:none; }
 .callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:16px;
            border:1px solid var(--line); background:var(--paper); color:var(--ink); }
 .callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout .callout-label { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                          color:var(--muted); font-weight:600; margin:0 0 4px; }
 .callout.info    { background:var(--info-bg);    border-color:var(--purple); }
 .callout.success { background:var(--success-bg); border-color:var(--success); }
 .callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
 .callout.error   { background:var(--error-bg);   border-color:var(--error); }
+nav.toc { font-size:14px; border:1px solid var(--line); border-radius:12px;
+          background:var(--paper); padding:14px 18px; margin:8px 0 28px; }
+nav.toc .toc-title { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                     color:var(--muted); font-weight:600; margin:0 0 8px; }
+nav.toc ol { list-style:none; margin:0; padding:0; display:grid;
+             grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:2px 24px; }
+nav.toc a { color:var(--ink2); text-decoration:none; display:block; padding:2px 0; }
+nav.toc a:hover { color:var(--accent); }
+.hex-chip { display:inline-flex; align-items:center; white-space:nowrap; }
+.hex-chip .dot { display:inline-block; width:0.85em; height:0.85em; border-radius:3px;
+                 margin-right:0.4em; vertical-align:-0.08em; box-shadow:inset 0 0 0 1px var(--line-strong);
+                 flex-shrink:0; }
 footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </style>
 </head>
@@ -135,11 +149,22 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<h1>Memoria de trabajo</h1>
 	</header>
 	<main>
+<nav class="toc">
+	<p class="toc-title">Contents</p>
+	<ol>
+		<li><a href="#en-30-segundos">En 30 segundos</a></li>
+		<li><a href="#cómo-trabajamos">Cómo trabajamos</a></li>
+		<li><a href="#convenciones-del-proyecto">Convenciones del proyecto</a></li>
+		<li><a href="#preferencias-actuales">Preferencias actuales</a></li>
+		<li><a href="#registro-2026-06-25">Registro 2026-06-25</a></li>
+		<li><a href="#registro-2026-06-26">Registro 2026-06-26</a></li>
+	</ol>
+</nav>
 <p>Fecha inicial: 2026-06-25</p>
-<h2>En 30 segundos</h2>
+<h2 id="en-30-segundos">En 30 segundos</h2>
 <p>Este archivo es la memoria operativa de Pandi en este repositorio: resume cómo trabajamos, qué convenciones seguimos y qué decisiones quedan registradas.
 Consultalo antes de empezar una tarea no trivial o cuando necesites retomar contexto sin releer todo el historial.</p>
-<h2>Cómo trabajamos</h2>
+<h2 id="cómo-trabajamos">Cómo trabajamos</h2>
 <ul>
 <li>Hablamos en español, de forma directa y práctica.</li>
 <li>Antes de tocar archivos, inspeccionamos el estado del repo y leemos lo relevante.</li>
@@ -151,14 +176,14 @@ Consultalo antes de empezar una tarea no trivial o cuando necesites retomar cont
 <li>Distinguimos hechos, riesgos y suposiciones; no inventamos estado que no esté verificado.</li>
 <li>Dejamos próximos pasos accionables al cierre de cada bloque de trabajo.</li>
 </ul>
-<h2>Convenciones del proyecto</h2>
+<h2 id="convenciones-del-proyecto">Convenciones del proyecto</h2>
 <ul>
 <li><code>docs/README.md</code>: índice general.</li>
 <li><code>docs/workflows/</code>: documentación de workflows y ejecuciones.</li>
 <li><code>docs/conversaciones/</code>: resumen de conversaciones y decisiones.</li>
 <li><code>.pi/workflows/</code>: workflows locales/proyecto para automatizar revisiones o investigación.</li>
 </ul>
-<h2>Preferencias actuales</h2>
+<h2 id="preferencias-actuales">Preferencias actuales</h2>
 <ul>
 <li>Guardar en <code>docs/</code> todo lo realizado y las conversaciones relevantes.</li>
 <li>Mantener registro del estado de los workflows, incluyendo runs fallidos, <code>stale</code> o en background.</li>
@@ -179,7 +204,7 @@ Consultalo antes de empezar una tarea no trivial o cuando necesites retomar cont
 <li>Push: después de reescribir/splitear commits locales, no pushear implícitamente sin confirmación del usuario. Reportar qué quedó local vs remoto.</li>
 <li>Autopiloto/workflows: el workflow de mejora continua puede terminar <code>BLOCKED</code> aun con verde porque deja revisión/commit al humano. Antes de commitear, inspecciona diff y staged set; no asumas que todo el working tree pertenece al run.</li>
 </ul>
-<h2>Registro 2026-06-25</h2>
+<h2 id="registro-2026-06-25">Registro 2026-06-25</h2>
 <ul>
 <li>Se agregó <code>npm test</code> como typecheck de las extensiones publicadas (<code>dynamic-workflows</code>, <code>loop</code>, <code>goal</code>) y pasó localmente.</li>
 <li>Se smokeó <code>dynamic_workflow</code> creando un workflow generado de prueba; <code>action=run</code> completó con <code>parallel</code> (incluyendo rama fallida → <code>null</code>), <code>pipeline</code>, <code>bash</code> y artifact <code>smoke-result.json</code>.</li>
@@ -187,7 +212,7 @@ Consultalo antes de empezar una tarea no trivial o cuando necesites retomar cont
 <li>Se actualizó <code>extensions/dynamic-workflows.ts</code> para que en sesiones TUI/RPC los workflows lanzados con <code>run</code>, <code>start</code> o <code>resume</code> vayan siempre en background; <code>run</code> foreground queda solo como fallback print/json.</li>
 <li>Se recuperó <code>.pi/workflows/karpathy-programming-recommendations-research.js</code> desde git y se integró la síntesis en <code>docs/research/2026-06-25-karpathy-programming-recommendations.md</code>.</li>
 </ul>
-<h2>Registro 2026-06-26</h2>
+<h2 id="registro-2026-06-26">Registro 2026-06-26</h2>
 <ul>
 <li>Se implementó <code>/bg</code> M2a como runner local slash-only: <code>/bg start</code>, <code>/bg cancel</code>, <code>/bg list</code>, <code>/bg status</code>, <code>/bg logs</code>, con start solo en proyectos trusted/TUI-RPC, bloqueo en <code>/plan</code>, artifacts atómicos bajo <code>.pi/bg/runs/&lt;jobId&gt;/</code>, logs bounded y cancelación solo de jobs activos de la sesión.</li>
 <li>Se agregó <code>tests/bg/integration/bg-jobs.test.mjs</code> para start/completion/failure/cancel/stale/mode gates y se incluyó en <code>scripts/test/run-all.mjs</code>.</li>

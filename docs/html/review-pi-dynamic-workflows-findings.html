@@ -121,10 +121,24 @@ tr:last-child td { border-bottom:none; }
 .callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:16px;
            border:1px solid var(--line); background:var(--paper); color:var(--ink); }
 .callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout .callout-label { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                          color:var(--muted); font-weight:600; margin:0 0 4px; }
 .callout.info    { background:var(--info-bg);    border-color:var(--purple); }
 .callout.success { background:var(--success-bg); border-color:var(--success); }
 .callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
 .callout.error   { background:var(--error-bg);   border-color:var(--error); }
+nav.toc { font-size:14px; border:1px solid var(--line); border-radius:12px;
+          background:var(--paper); padding:14px 18px; margin:8px 0 28px; }
+nav.toc .toc-title { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                     color:var(--muted); font-weight:600; margin:0 0 8px; }
+nav.toc ol { list-style:none; margin:0; padding:0; display:grid;
+             grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:2px 24px; }
+nav.toc a { color:var(--ink2); text-decoration:none; display:block; padding:2px 0; }
+nav.toc a:hover { color:var(--accent); }
+.hex-chip { display:inline-flex; align-items:center; white-space:nowrap; }
+.hex-chip .dot { display:inline-block; width:0.85em; height:0.85em; border-radius:3px;
+                 margin-right:0.4em; vertical-align:-0.08em; box-shadow:inset 0 0 0 1px var(--line-strong);
+                 flex-shrink:0; }
 footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </style>
 </head>
@@ -135,7 +149,16 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<h1>Hallazgos consolidados de revisión de `pi-dynamic-workflows`</h1>
 	</header>
 	<main>
-<h2>En 30 segundos</h2>
+<nav class="toc">
+	<p class="toc-title">Contents</p>
+	<ol>
+		<li><a href="#en-30-segundos">En 30 segundos</a></li>
+		<li><a href="#alto">ALTO</a></li>
+		<li><a href="#medio">MEDIO</a></li>
+		<li><a href="#bajo">BAJO</a></li>
+	</ol>
+</nav>
+<h2 id="en-30-segundos">En 30 segundos</h2>
 <p>Este documento reúne los hallazgos de una auditoría multiagente sobre <code>pi-dynamic-workflows</code>. Sirve para priorizar riesgos: primero los hallazgos <strong>altos</strong>, luego los <strong>medios</strong> y, al final, los <strong>bajos</strong>.</p>
 <p>Hay <strong>45 hallazgos distintos</strong>: 13 altos, 21 medios y 11 bajos. Las zonas más sensibles son el puente VM/worker-source, <code>journal</code>/resume y los contratos de <code>parallel</code>/<code>agents</code>.</p>
 <table>
@@ -161,7 +184,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <blockquote>
 <p>La auditoría nunca se agotó por completo — la cobertura es buena, pero no exhaustiva; el puente VM/worker-source, <code>journal</code>/resume y los contratos de <code>parallel</code>/<code>agents</code> son las zonas calientes.</p>
 </blockquote>
-<h2>ALTO</h2>
+<h2 id="alto">ALTO</h2>
 <ul>
 <li><strong>El extractor JSON solo prueba el primer <code>{</code> y <code>[</code> — devuelve el objeto equivocado cuando hay salidas con múltiples segmentos</strong> — <code>json-extract.ts:24</code> <em>(review)</em><ul>
 <li>Arreglo: recopilar TODAS las posiciones de <code>{</code>/<code>[</code>, ordenarlas e iterar: <code>for (let i=0;i&lt;textValue.length;i++){const c=textValue[i]; if(c===&#39;{&#39;||c===&#39;[&#39;)starts.push(i);}</code>; luego ejecutar el walk balanceado existente para cada inicio. Cambio reversible mínimo en una línea. Falta un test que debería existir: un json-extract con salida mixta debe devolver el primer bloque JSON válido, no el segundo.</li>
@@ -216,7 +239,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </ul>
 </li>
 </ul>
-<h2>MEDIO</h2>
+<h2 id="medio">MEDIO</h2>
 <ul>
 <li><strong><code>getRunDirs</code> rechaza para TODOS los runs si un solo directorio desaparece entre <code>readdir</code> y <code>stat</code></strong> — <code>run-store.ts:32-41</code> <em>(review)</em><ul>
 <li>Arreglo: envolver el <code>stat</code> por entrada en <code>try/catch</code> devolviendo <code>undefined</code> y filtrando, o usar <code>Promise.allSettled</code> dejando solo los fulfilled — alineado con el patrón ya correcto en <code>collectPiSessions</code>. Falta test: una lista con un directorio borrado durante la enumeración (rejection de <code>stat</code> simulada) debe saltarse ese directorio y seguir enumerando el resto.</li>
@@ -303,7 +326,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </ul>
 </li>
 </ul>
-<h2>BAJO</h2>
+<h2 id="bajo">BAJO</h2>
 <ul>
 <li><strong><code>action=write</code> persiste el source del workflow sin validación estructural; el código inválido falla solo en tiempo de ejecución</strong> — <code>command-handlers.ts:149-158</code> <em>(review)</em><ul>
 <li>Arreglo: en la rama <code>write</code>, ejecutar <code>transformWorkflowCode(params.code)</code> (descartando el resultado) antes de escribir para que los errores estructurales aparezcan al momento de escribir con el mismo mensaje, y rechazar código vacío o solo espacios. El archivo en disco sigue siendo el source original. Test faltante: escribir con un import estático corrupto debe fallar al escribir, no más tarde al ejecutar.</li>

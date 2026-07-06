@@ -121,10 +121,24 @@ tr:last-child td { border-bottom:none; }
 .callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:16px;
            border:1px solid var(--line); background:var(--paper); color:var(--ink); }
 .callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout .callout-label { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                          color:var(--muted); font-weight:600; margin:0 0 4px; }
 .callout.info    { background:var(--info-bg);    border-color:var(--purple); }
 .callout.success { background:var(--success-bg); border-color:var(--success); }
 .callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
 .callout.error   { background:var(--error-bg);   border-color:var(--error); }
+nav.toc { font-size:14px; border:1px solid var(--line); border-radius:12px;
+          background:var(--paper); padding:14px 18px; margin:8px 0 28px; }
+nav.toc .toc-title { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                     color:var(--muted); font-weight:600; margin:0 0 8px; }
+nav.toc ol { list-style:none; margin:0; padding:0; display:grid;
+             grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:2px 24px; }
+nav.toc a { color:var(--ink2); text-decoration:none; display:block; padding:2px 0; }
+nav.toc a:hover { color:var(--accent); }
+.hex-chip { display:inline-flex; align-items:center; white-space:nowrap; }
+.hex-chip .dot { display:inline-block; width:0.85em; height:0.85em; border-radius:3px;
+                 margin-right:0.4em; vertical-align:-0.08em; box-shadow:inset 0 0 0 1px var(--line-strong);
+                 flex-shrink:0; }
 footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </style>
 </head>
@@ -135,14 +149,26 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<h1>Checklist de code review — extensiones Pandi (pandi-extensions)</h1>
 	</header>
 	<main>
+<nav class="toc">
+	<p class="toc-title">Contents</p>
+	<ol>
+		<li><a href="#en-30-segundos">En 30 segundos</a></li>
+		<li><a href="#1-contrato-y-alcance">1. Contrato y alcance</a></li>
+		<li><a href="#2-diseño-y-duplicación-intencional">2. Diseño y duplicación intencional</a></li>
+		<li><a href="#3-tests-tdd-completo">3. Tests (TDD completo)</a></li>
+		<li><a href="#4-código">4. Código</a></li>
+		<li><a href="#5-empaquetado-publish-standalone">5. Empaquetado (publish standalone)</a></li>
+		<li><a href="#6-suite-completa-y-commit">6. Suite completa y commit</a></li>
+	</ol>
+</nav>
 <p>Esta checklist ayuda a revisar cambios en extensiones sin perder de vista el alcance, la calidad técnica y la forma de publicar.
 Sirve para decidir rápido si un PR está listo o si todavía le faltan tests, limpieza o verificación de empaquetado.</p>
-<h2>En 30 segundos</h2>
+<h2 id="en-30-segundos">En 30 segundos</h2>
 <p>Si el cambio toca una extensión, revisá primero el alcance, después el contrato de diseño y por último la evidencia: tests, typecheck, lint, empaquetado y commit.
 Cada ítem trae el comando que lo verifica, así la review no depende de memoria.</p>
 <p>Fuentes: <code>AGENTS.md</code>, <code>docs/principios-ingenieria.md</code>, <code>package.json</code>, <code>extensions/*/package.json</code>,
 <code>scripts/test/run-all.mjs</code>. Cada ítem indica qué mirar y el comando que lo verifica.</p>
-<h2>1. Contrato y alcance</h2>
+<h2 id="1-contrato-y-alcance">1. Contrato y alcance</h2>
 <ul>
 <li><input disabled="" type="checkbox"> El PR o commit toca solo lo que pide la tarea (<code>git diff --stat</code>); sin &quot;mejoras&quot;
 adyacentes no pedidas ni refactors fuera de alcance.</li>
@@ -151,7 +177,7 @@ colgada de otra extensión ni de <code>extensions/shared/</code>).</li>
 <li><input disabled="" type="checkbox"> Si el cambio toca <code>extensions/shared/</code>, lo agregado vive bajo <code>extensions/shared/test/</code>
 (harness/fixtures), no runtime: <code>ls extensions/shared/</code> solo debe listar <code>test/</code>.</li>
 </ul>
-<h2>2. Diseño y duplicación intencional</h2>
+<h2 id="2-diseño-y-duplicación-intencional">2. Diseño y duplicación intencional</h2>
 <ul>
 <li><input disabled="" type="checkbox"> Ningún import runtime cruza el límite de la extensión (ni siquiera hacia
 <code>../shared</code>, que solo vale en tests): <code>grep -rn &quot;from \&quot;\.\./&quot; extensions/*/*.ts</code> sale
@@ -165,7 +191,7 @@ y dejar la duplicación intra-repo (intencional). Dedup solo dentro de la misma 
 un llamador o test real que la ejerza (<code>grep</code> del símbolo nuevo dentro del diff/PR);
 si es de un solo uso o no hay un caso real que la use, inlinear o cortar.</li>
 </ul>
-<h2>3. Tests (TDD completo)</h2>
+<h2 id="3-tests-tdd-completo">3. Tests (TDD completo)</h2>
 <ul>
 <li><input disabled="" type="checkbox"> El test que fija el bug o la feature se escribió antes del código (Red primero); si no se
 puede verificar test-first, el PR lo declara explícitamente en vez de llamarlo TDD.</li>
@@ -177,7 +203,7 @@ cambiar, porque X&quot;) — no puede estar ausente ni implícito.</li>
 <li><input disabled="" type="checkbox"> Las suites excluidas del runner están listadas con motivo en <code>ignoredDraftSuites</code>
 (<code>scripts/test/run-all.mjs</code>) — nunca se saltan en silencio.</li>
 </ul>
-<h2>4. Código</h2>
+<h2 id="4-código">4. Código</h2>
 <ul>
 <li><input disabled="" type="checkbox"> Los tipos están correctos, sin <code>any</code> innecesario: <code>npm run typecheck</code> (<code>tsc -p tsconfig.json</code>,
 <code>include: extensions/**/*.ts</code>) pasa sin errores.</li>
@@ -191,7 +217,7 @@ y confirmar con <code>git diff --stat</code> que solo cambiaron los archivos esp
 que la dispare, eliminar la rama.</li>
 <li><input disabled="" type="checkbox"> El Markdown tocado (README, skills, docs) pasa <code>npm run lint:md</code> (markdownlint-cli2).</li>
 </ul>
-<h2>5. Empaquetado (publish standalone)</h2>
+<h2 id="5-empaquetado-publish-standalone">5. Empaquetado (publish standalone)</h2>
 <ul>
 <li><input disabled="" type="checkbox"> <code>files[]</code> cubre todos los <code>.ts</code> importados por <code>index.ts</code> directa o transitivamente
 (siblings se importan con <code>.js</code>, resuelve al <code>.ts</code> real vía jiti). Supone <code>.ts</code> plano
@@ -210,7 +236,7 @@ coincide con el manifiesto root.</li>
 omite <code>pi-</code>, ej. <code>pandi-goal</code>→<code>@pandi-coding-agent/pandi-goal</code>) incluye todos los archivos
 runtime, no solo <code>index.ts</code>.</li>
 </ul>
-<h2>6. Suite completa y commit</h2>
+<h2 id="6-suite-completa-y-commit">6. Suite completa y commit</h2>
 <ul>
 <li><input disabled="" type="checkbox"> <code>npm test</code> (typecheck + biome check + lint:md + <code>sync:docs:html:check</code> + <code>sync:personas:check</code> + <code>test:unit</code> + <code>test:integration</code>) pasa completo,
 no solo la suite de la extensión tocada.</li>

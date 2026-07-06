@@ -121,10 +121,24 @@ tr:last-child td { border-bottom:none; }
 .callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:16px;
            border:1px solid var(--line); background:var(--paper); color:var(--ink); }
 .callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout .callout-label { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                          color:var(--muted); font-weight:600; margin:0 0 4px; }
 .callout.info    { background:var(--info-bg);    border-color:var(--purple); }
 .callout.success { background:var(--success-bg); border-color:var(--success); }
 .callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
 .callout.error   { background:var(--error-bg);   border-color:var(--error); }
+nav.toc { font-size:14px; border:1px solid var(--line); border-radius:12px;
+          background:var(--paper); padding:14px 18px; margin:8px 0 28px; }
+nav.toc .toc-title { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                     color:var(--muted); font-weight:600; margin:0 0 8px; }
+nav.toc ol { list-style:none; margin:0; padding:0; display:grid;
+             grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:2px 24px; }
+nav.toc a { color:var(--ink2); text-decoration:none; display:block; padding:2px 0; }
+nav.toc a:hover { color:var(--accent); }
+.hex-chip { display:inline-flex; align-items:center; white-space:nowrap; }
+.hex-chip .dot { display:inline-block; width:0.85em; height:0.85em; border-radius:3px;
+                 margin-right:0.4em; vertical-align:-0.08em; box-shadow:inset 0 0 0 1px var(--line-strong);
+                 flex-shrink:0; }
 footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </style>
 </head>
@@ -135,9 +149,25 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<h1>Dynamic Workflows — guía completa</h1>
 	</header>
 	<main>
+<nav class="toc">
+	<p class="toc-title">Contents</p>
+	<ol>
+		<li><a href="#en-30-segundos">En 30 segundos</a></li>
+		<li><a href="#la-forma-típica">La forma típica</a></li>
+		<li><a href="#cuándo-usarlos">Cuándo usarlos</a></li>
+		<li><a href="#qué-primitiva-uso">Qué primitiva uso?</a></li>
+		<li><a href="#ciclo-de-ejecución">Ciclo de ejecución</a></li>
+		<li><a href="#api-de-globals-inyectadas">API de globals inyectadas</a></li>
+		<li><a href="#concurrencia">Concurrencia</a></li>
+		<li><a href="#corridas-en-background">Corridas en background</a></li>
+		<li><a href="#corridas-reanudables-idempotentes">Corridas reanudables (idempotentes)</a></li>
+		<li><a href="#catálogo-de-patrones-y-casos-de-uso">Catálogo de patrones y casos de uso</a></li>
+		<li><a href="#seguridad-y-costo">Seguridad y costo</a></li>
+	</ol>
+</nav>
 <p>Un Dynamic Workflow es un <strong>script JavaScript confiable</strong> que Pi ejecuta para orquestar trabajo grande entre muchos subagentes. Conviene cuando una sola conversación no alcanza: necesitás repartir trabajo en paralelo con varios agentes <code>pi -p</code>, cubrir muchos ítems independientes o pedir verificación adversarial antes de decidir. Pensalo como <strong>MapReduce con agentes</strong>: <code>map</code> ejecuta muchos subagentes en paralelo sobre unidades independientes, y <code>reduce</code> hace la síntesis final para combinar resultados, resolver contradicciones y priorizar.</p>
 <p>Esta es la referencia profunda de la extensión <code>pandi-dynamic-workflows</code>. El <a href="index.html"><code>README.md</code></a> raíz tiene el resumen corto, y <a href="../extensions/pandi-dynamic-workflows/README.md"><code>extensions/pandi-dynamic-workflows/README.md</code></a> documenta el paquete instalable.</p>
-<h2>En 30 segundos</h2>
+<h2 id="en-30-segundos">En 30 segundos</h2>
 <p>Un workflow es un módulo JS cuyo export por defecto es una función <code>async</code>. Lee su entrada desde la global <code>args</code> y llama helpers inyectados (<code>agent</code>, <code>agents</code>, <code>log</code>, <code>writeArtifact</code>, …): no usa <code>import</code>/<code>require</code>, ni <code>ctx</code>.</p>
 <pre><code class="hljs language-js"><span class="hljs-comment">// .pi/workflows/drafts/review-two-files.js</span>
 <span class="hljs-comment">// The default export must NOT be named `workflow` (that shadows the composition</span>
@@ -161,7 +191,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <pre><code class="hljs language-text">/workflow run review-two-files
 /workflow view latest</code></pre>
 <p>Ese es todo el ciclo — <strong>explorar → fan out → sintetizar → persistir artifacts</strong>. El resto de esta guía solo completa los conceptos, la referencia de primitivas y los detalles operativos.</p>
-<h2>La forma típica</h2>
+<h2 id="la-forma-típica">La forma típica</h2>
 <ul>
 <li><strong>Exploración barata</strong>: primero descubrí la lista real de trabajo (<code>git ls-files</code>, diff, grep, glob, etc.).</li>
 <li><strong>Fan-out controlado</strong>: distribuí archivos, temas, hipótesis o perspectivas entre subagentes en paralelo.</li>
@@ -169,7 +199,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li><strong>Artifacts fuera del chat</strong>: persistí los resultados intermedios en el directorio del run en lugar de depender del contexto conversacional.</li>
 <li><strong>Síntesis como juez</strong>: un agente final deduplica, descarta afirmaciones sin respaldo, preserva la incertidumbre y devuelve una conclusión priorizada.</li>
 </ul>
-<h2>Cuándo usarlos</h2>
+<h2 id="cuándo-usarlos">Cuándo usarlos</h2>
 <p>Usá un workflow solo cuando haya una razón real de orquestación; una edición chica, una pregunta simple o unos pocos tool calls directos son mejor como single-agent.</p>
 <table>
 <thead>
@@ -195,7 +225,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>❌ hacelo single-agent en su lugar</td>
 </tr>
 </tbody></table>
-<h2>Qué primitiva uso?</h2>
+<h2 id="qué-primitiva-uso">Qué primitiva uso?</h2>
 <p>Todo se compone desde <code>agent()</code> (una unidad de trabajo del modelo). Elegí la primitiva de mayor nivel según la forma del trabajo:</p>
 <pre class="mermaid">flowchart TD
   start([Tengo trabajo para orquestar]) --&gt; many{¿Más de&lt;br/&gt;un ítem?}
@@ -214,7 +244,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li><strong><code>parallel</code> vs <code>pipeline</code></strong>: usá <code>parallel</code> solo para una barrera real (dedup/merge global, early-exit con total cero, ranking cruzado entre ramas). <code>parallel → transform-with-no-cross-item-dependency → parallel</code> debería ser UN <code>pipeline</code>.</li>
 <li><strong><code>workflow</code> vs corridas secuenciadas</strong>: si entre dos subpasos no hay una decisión humana/externa, componé con <code>workflow()</code> en una sola corrida; si tenés que leer resultados y decidir la fase siguiente, encadená corridas separadas (<code>action=start/run</code> + <code>action=view</code>).</li>
 </ul>
-<h2>Ciclo de ejecución</h2>
+<h2 id="ciclo-de-ejecución">Ciclo de ejecución</h2>
 <p>Cuando lanzás un workflow (<code>/workflow run</code>/<code>start</code> o <code>dynamic_workflow action=run</code>/<code>start</code>), la extensión ejecuta este ciclo:</p>
 <pre class="mermaid">flowchart TD
   launch([run / start]) --&gt; resolve[1. Resolver workflow&lt;br/&gt;por nombre: project + global]
@@ -236,7 +266,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li><strong>Guarda progreso y artifacts</strong>: logs en <code>events.jsonl</code>, estado en <code>status.json</code>, salidas de subagentes en <code>agents/*.md</code>, más los artifacts definidos por el workflow.</li>
 <li><strong>Devuelve el resultado final</strong>: el valor de retorno del workflow se guarda en <code>result.json</code> y se muestra como resumen.</li>
 </ol>
-<h2>API de globals inyectadas</h2>
+<h2 id="api-de-globals-inyectadas">API de globals inyectadas</h2>
 <p>Estas globals son toda la interfaz de autoría. Las más importantes:</p>
 <table>
 <thead>
@@ -320,7 +350,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 }</code></pre>
 <h3>Acceso por agente</h3>
 <p><code>tools</code>/<code>excludeTools</code> limitan las tools de Pi; por defecto, los allowlists explícitos también reciben <code>web_search</code> cuando el paquete <code>pi-codex-web-search</code> está disponible (opt out: <code>includeExtensions: false</code> o <code>excludeTools: [&quot;web_search&quot;]</code>). <code>skills: [&quot;path/to/skill&quot;]</code> carga skills explícitas (<code>includeSkills: true</code> las agrega al discovery, <code>includeSkills: false</code> lo desactiva); el discovery normal mantiene <code>context7-cli</code> disponible, y si pasás una lista explícita de skills, Dynamic Workflows agrega <code>context7-cli</code> cuando lo encuentra (opt out: <code>includeSkills: false</code>). <code>extensions: [&quot;path/to/ext.ts&quot;]</code> carga extensiones explícitas (<code>includeExtensions: true</code> habilita discovery). <code>keys: [&quot;GITHUB_TOKEN&quot;]</code> expone solo esas variables de entorno al agente en un entorno aislado (los valores se redacted en artifacts/dashboard). Usá <code>env: { NAME: &quot;value&quot; }</code> solo para inyectar un valor explícito; nunca escribas secretos en prompts.</p>
-<h2>Concurrencia</h2>
+<h2 id="concurrencia">Concurrencia</h2>
 <p><code>concurrency</code> controla cuántos subagentes corren <code>pi -p</code> al mismo tiempo — no el total de trabajo. Un bug hunt de 40 archivos con <code>concurrency: 4</code> corre en olas de hasta 4 agentes simultáneos hasta terminar la lista.</p>
 <p>Límites relacionados:</p>
 <ul>
@@ -384,7 +414,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li><code>agents(..., { concurrency })</code> vuelve a clamplear, así nunca supera el límite del run; <code>pipeline()</code> y <code>parallel()</code> también usan <code>limits.concurrency</code> como su límite local.</li>
 <li>Las llamadas cacheadas al reanudar (<code>journal.jsonl</code> HIT) no ejecutan <code>pi -p</code>, así que no consumen slots de concurrencia ni cuentan contra <code>maxAgents</code>.</li>
 </ul>
-<h2>Corridas en background</h2>
+<h2 id="corridas-en-background">Corridas en background</h2>
 <p>En una sesión TUI/RPC persistente, todos los workflows arrancan en background por defecto (<code>run</code>, <code>start</code> y <code>resume</code>):</p>
 <pre><code class="hljs language-text">/workflow start bug-hunt {&quot;maxFiles&quot;:40,&quot;concurrency&quot;:4,&quot;maxAgents&quot;:20}
 /workflow runs
@@ -402,7 +432,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li>Las corridas en background siguen gastando llamadas al modelo: usá límites explícitos.</li>
 <li><strong>Fallback en foreground</strong>: en modo print/json no hay una sesión persistente para sostener una corrida en background, así que <code>run</code> bloquea hasta completar.</li>
 </ul>
-<h2>Corridas reanudables (idempotentes)</h2>
+<h2 id="corridas-reanudables-idempotentes">Corridas reanudables (idempotentes)</h2>
 <p>Cuando una corrida se interrumpe (la sesión de Pi murió y aparece <code>stale</code>, o terminó <code>failed</code>/<code>cancelled</code>), podés reanudarla sin volver a ejecutar los subagentes que ya terminaron (cada subagente es un <code>pi -p</code> caro):</p>
 <pre><code class="hljs language-text">/workflow resume latest              # background by default in TUI/RPC
 /workflow resume &lt;runId&gt;              # background by default in TUI/RPC
@@ -424,7 +454,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li><code>/workflow runs</code> marca las corridas reanudables con <code>resumable</code> y muestra <code>cached:N</code>; <code>/workflow view &lt;runId&gt;</code> agrega una línea <code>Resume: /workflow resume &lt;runId&gt;</code>, el <code>codeHash</code>, el conteo de llamadas cacheadas y el aviso de cambio de código.</li>
 <li>Atomicidad: <code>status.json</code>/<code>result.json</code> se escriben con temp+rename para que un crash no los corrompa.</li>
 </ul>
-<h2>Catálogo de patrones y casos de uso</h2>
+<h2 id="catálogo-de-patrones-y-casos-de-uso">Catálogo de patrones y casos de uso</h2>
 <p>La pestaña <code>Patterns</code> y <code>/workflow patterns</code> muestran todos los scaffolds y casos de uso registrados. Los scaffolds están embebidos en la extensión, así que el paquete no depende de archivos bajo <code>examples/workflows/</code>. Las claves del catálogo SON los nombres de archivo de los scaffolds (1:1, sin alias):</p>
 <ul>
 <li><strong>Scaffolds</strong>: <code>fan-out-and-synthesize</code>, <code>adversarial-verify</code>, <code>judge-escalate</code>, <code>tournament</code>, <code>loop-until-dry</code>.</li>
@@ -456,7 +486,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li><strong>Fallos parciales visibles</strong>: la síntesis debe mencionar agentes fallidos, vacíos, cancelados o con timeout.</li>
 <li><strong>Seguro por defecto</strong>: para audits, prompts con &quot;do not edit files&quot;, tools solo de lectura, solo los <code>skills</code>/<code>extensions</code> necesarios y solo los <code>keys</code> que esa rama necesita.</li>
 </ul>
-<h2>Seguridad y costo</h2>
+<h2 id="seguridad-y-costo">Seguridad y costo</h2>
 <ul>
 <li><strong>Menor privilegio</strong>: para auditorías y exploración, usá tools de solo lectura y cargá solo los <code>skills</code>/<code>extensions</code> necesarios.</li>
 <li><strong>Secretos fuera del prompt</strong>: no pegues credenciales, tokens ni dumps completos; si hace falta contexto sensible, pasá nombres de claves y valores redacted.</li>

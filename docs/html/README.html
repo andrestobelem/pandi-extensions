@@ -121,10 +121,24 @@ tr:last-child td { border-bottom:none; }
 .callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:16px;
            border:1px solid var(--line); background:var(--paper); color:var(--ink); }
 .callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout .callout-label { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                          color:var(--muted); font-weight:600; margin:0 0 4px; }
 .callout.info    { background:var(--info-bg);    border-color:var(--purple); }
 .callout.success { background:var(--success-bg); border-color:var(--success); }
 .callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
 .callout.error   { background:var(--error-bg);   border-color:var(--error); }
+nav.toc { font-size:14px; border:1px solid var(--line); border-radius:12px;
+          background:var(--paper); padding:14px 18px; margin:8px 0 28px; }
+nav.toc .toc-title { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                     color:var(--muted); font-weight:600; margin:0 0 8px; }
+nav.toc ol { list-style:none; margin:0; padding:0; display:grid;
+             grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:2px 24px; }
+nav.toc a { color:var(--ink2); text-decoration:none; display:block; padding:2px 0; }
+nav.toc a:hover { color:var(--accent); }
+.hex-chip { display:inline-flex; align-items:center; white-space:nowrap; }
+.hex-chip .dot { display:inline-block; width:0.85em; height:0.85em; border-radius:3px;
+                 margin-right:0.4em; vertical-align:-0.08em; box-shadow:inset 0 0 0 1px var(--line-strong);
+                 flex-shrink:0; }
 footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </style>
 </head>
@@ -135,10 +149,20 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<h1>Documentación del proyecto</h1>
 	</header>
 	<main>
+<nav class="toc">
+	<p class="toc-title">Contents</p>
+	<ol>
+		<li><a href="#en-30-segundos">En 30 segundos</a></li>
+		<li><a href="#referencia-rápida">Referencia rápida</a></li>
+		<li><a href="#investigación-y-análisis">Investigación y análisis</a></li>
+		<li><a href="#estructura-del-directorio">Estructura del directorio</a></li>
+		<li><a href="#guía-de-documentación">Guía de documentación</a></li>
+	</ol>
+</nav>
 <p>Esta carpeta reúne el historial de trabajo del proyecto, sus decisiones, los workflows creados y las conversaciones relevantes. Es una referencia duradera y un rastro de auditoría al que siempre podés volver. 🐼</p>
-<h2>En 30 segundos</h2>
+<h2 id="en-30-segundos">En 30 segundos</h2>
 <p>Si querés ubicarte rápido, empezá por la guía de <code>Setup</code>, la documentación de <code>Dynamic Workflows</code> o los <code>Handbooks</code>. Si buscás contexto histórico o decisiones, entrá en <code>research/</code> o <code>memoria.md</code>.</p>
-<h2>Referencia rápida</h2>
+<h2 id="referencia-rápida">Referencia rápida</h2>
 <ul>
 <li><a href="index.html">README raíz</a> — entrada narrativa: qué es Pandi, cómo instalarlo y por dónde empezar</li>
 <li><a href="setup.html">Setup</a> — requisitos, capacidades opcionales, configuración y distribución</li>
@@ -150,7 +174,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li><a href="memoria.html">Memoria de trabajo</a> — registro de trabajo y decisiones</li>
 </ul>
 <p>El sitio HTML generado vive en <code>docs/html/</code>. No se edita a mano: sale del Markdown con <code>npm run sync:docs:html</code> y <code>npm test</code> detecta drift.</p>
-<h2>Investigación y análisis</h2>
+<h2 id="investigación-y-análisis">Investigación y análisis</h2>
 <ul>
 <li><a href="research/index.html">Índice OKF de investigación</a> — mapa navegable de las notas en <code>docs/research/</code></li>
 <li><a href="loop-engineering-with-extensions.html">Ingeniería de loops con nuestras extensiones (how-to)</a></li>
@@ -164,7 +188,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li><a href="research/2026-06-28-modularizacion-extensiones-design-audit.html">Modularización de extensiones — Design Audit y roadmap</a></li>
 <li><a href="research/2026-06-28-loop-engineering.html">Loop engineering — una investigación respaldada por fuentes</a></li>
 </ul>
-<h2>Estructura del directorio</h2>
+<h2 id="estructura-del-directorio">Estructura del directorio</h2>
 <ul>
 <li><code>docs/html/</code> — espejo HTML generado con estilo Pandi; no se edita a mano y se regenera con <code>npm run sync:docs:html</code> (<code>npm test</code> falla si hay drift)</li>
 <li><code>docs/handbooks/</code> — referencia duradera del proyecto (convenciones, onboarding y playbooks; empezá por <code>top-down-onboarding.md</code> si querés entender el código)</li>
@@ -172,7 +196,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li><code>docs/scaffolds/</code> — libro de patrones agénticos corribles, una página por scaffold</li>
 <li><code>docs/*.md</code> — guías principales, setup, ingeniería de extensiones y memoria del proyecto</li>
 </ul>
-<h2>Guía de documentación</h2>
+<h2 id="guía-de-documentación">Guía de documentación</h2>
 <p>Cada documento público debería abrir con 30 segundos de contexto, avanzar de ejemplo mínimo a referencia, y mantener links a Markdown fuente. Si necesitás una versión visual, regenerá <code>docs/html/</code>; si necesitás cambiar contenido, editá Markdown.</p>
 	</main>
 	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>

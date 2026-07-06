@@ -121,10 +121,24 @@ tr:last-child td { border-bottom:none; }
 .callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:16px;
            border:1px solid var(--line); background:var(--paper); color:var(--ink); }
 .callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout .callout-label { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                          color:var(--muted); font-weight:600; margin:0 0 4px; }
 .callout.info    { background:var(--info-bg);    border-color:var(--purple); }
 .callout.success { background:var(--success-bg); border-color:var(--success); }
 .callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
 .callout.error   { background:var(--error-bg);   border-color:var(--error); }
+nav.toc { font-size:14px; border:1px solid var(--line); border-radius:12px;
+          background:var(--paper); padding:14px 18px; margin:8px 0 28px; }
+nav.toc .toc-title { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                     color:var(--muted); font-weight:600; margin:0 0 8px; }
+nav.toc ol { list-style:none; margin:0; padding:0; display:grid;
+             grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:2px 24px; }
+nav.toc a { color:var(--ink2); text-decoration:none; display:block; padding:2px 0; }
+nav.toc a:hover { color:var(--accent); }
+.hex-chip { display:inline-flex; align-items:center; white-space:nowrap; }
+.hex-chip .dot { display:inline-block; width:0.85em; height:0.85em; border-radius:3px;
+                 margin-right:0.4em; vertical-align:-0.08em; box-shadow:inset 0 0 0 1px var(--line-strong);
+                 flex-shrink:0; }
 footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </style>
 </head>
@@ -135,19 +149,32 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<h1>fan-out-and-synthesize</h1>
 	</header>
 	<main>
+<nav class="toc">
+	<p class="toc-title">Contents</p>
+	<ol>
+		<li><a href="#en-30-segundos">En 30 segundos</a></li>
+		<li><a href="#cómo-lanzarlo">Cómo lanzarlo</a></li>
+		<li><a href="#diagrama">Diagrama</a></li>
+		<li><a href="#qué-hace">Qué hace</a></li>
+		<li><a href="#cuándo-usarlo">Cuándo usarlo</a></li>
+		<li><a href="#cómo-funciona">Cómo funciona</a></li>
+		<li><a href="#input-y-output">Input y output</a></li>
+		<li><a href="#fases">Fases</a></li>
+	</ol>
+</nav>
 <blockquote>
 <p>Scatter-gather: descubre un work-list, revisa cada ítem en paralelo y deja que una síntesis final actúe como juez, con notas de cobertura y fallos.</p>
 </blockquote>
-<h2>En 30 segundos</h2>
+<h2 id="en-30-segundos">En 30 segundos</h2>
 <p>Este patrón reparte una lista de trabajo entre varios revisores independientes y luego junta todo en una sola conclusión priorizada. Primero descubre el work-list (por defecto, archivos del repo que matchean un patrón), después lanza un revisor por ítem en paralelo, y al final un juez sintetiza los hallazgos, descarta lo que no tiene evidencia y marca qué ramas fallaron.</p>
 <p>Elegilo cuando necesitás cobertura amplia e independiente sobre una lista de trabajo conocida o casi conocida (archivos, docs, config) y querés un único resultado final priorizado.</p>
-<h2>Cómo lanzarlo</h2>
+<h2 id="cómo-lanzarlo">Cómo lanzarlo</h2>
 <pre><code class="hljs language-bash">/workflow new mi-run --pattern=fan-out-and-synthesize</code></pre>
 <p>Input JSON típico:</p>
 <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span> <span class="hljs-attr">&quot;lens&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;security&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;limit&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">20</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;pattern&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;code&quot;</span> <span class="hljs-punctuation">}</span></code></pre>
 <p><code>files</code> es opcional para saltear el scout con una lista explícita:</p>
 <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span> <span class="hljs-attr">&quot;files&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;src/a.ts&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-string">&quot;src/b.ts&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;lens&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;code&quot;</span> <span class="hljs-punctuation">}</span></code></pre>
-<h2>Diagrama</h2>
+<h2 id="diagrama">Diagrama</h2>
 <pre class="mermaid">flowchart TD
     Start(["input: limit, pattern, lens, files?"]) --&gt; HasFiles{"input.files provisto?"}
     HasFiles -- sí --&gt; Candidates["candidates = files.slice(0, limit)"]
@@ -165,11 +192,11 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
     FanOut --&gt; Filter["filter(Boolean)\ncompletedReviews vs failedFiles"]
     Filter --&gt; Judge["Synthesize: agent opus/high\nsynthesis-as-judge\nprioriza, descarta sin evidencia,\nnombra archivos no revisados"]
     Judge --&gt; Out(["return: texto libre del juez"])</pre>
-<h2>Qué hace</h2>
+<h2 id="qué-hace">Qué hace</h2>
 <p>El workflow implementa el patrón scatter-gather con síntesis-como-juez, descrito en &quot;Anthropic: Building Effective Agents&quot; (parallelization). Primero resuelve un work-list: si <code>input.files</code> viene con contenido, lo usa directamente; si no, corre un agente scout (modelo <code>haiku</code>, esfuerzo <code>low</code>) que ejecuta <code>git ls-files</code> y filtra los paths contra un patrón regex, devuelto con schema <code>{ files: string[] }</code>. El patrón puede ser un preset (<code>code</code>, <code>docs</code>, <code>web</code>, <code>config</code>) o una regex libre.</p>
 <p>La lista resultante se recorta a <code>limit</code> ítems (default 12), y el exceso se loggea y descarta. Después lanza un <code>parallel</code> con settle semantics: un agente <code>sonnet</code>/<code>medium</code> por archivo, cada uno revisando según el <code>lens</code> elegido (preset <code>code</code>, <code>security</code>, <code>prose</code> o texto libre), citando evidencia archivo/línea. Una rama fallida (agente que tira excepción o retorna null) se resuelve a <code>null</code> y no rompe las demás; el workflow filtra los resultados válidos y recupera por posición qué archivos quedaron sin revisar.</p>
 <p>Por último, un agente juez (<code>opus</code>, esfuerzo <code>high</code>) recibe todos los reportes completados más el conteo de cobertura y la lista de archivos fallidos, y produce una síntesis priorizada: descarta afirmaciones sin sustento y nombra explícitamente los archivos no revisados. Toda entrada externa (patrón regex, reportes de revisores) viaja envuelta en un fence <code>&lt;untrusted-…&gt;</code> con hash derivado del contenido, para que el agente la trate como datos y no como instrucciones.</p>
-<h2>Cuándo usarlo</h2>
+<h2 id="cuándo-usarlo">Cuándo usarlo</h2>
 <ul>
 <li>Repartir revisión de código/docs entre muchos archivos.</li>
 <li>Síntesis multi-ángulo: combinar hallazgos de revisores independientes en un solo veredicto priorizado.</li>
@@ -181,7 +208,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li>El work-list es enorme y solo una fracción amerita revisión profunda (ver <code>scout-fanout</code>, que clasifica riesgo antes de gastar en revisión honda).</li>
 <li>Necesitás un resultado estructurado (schema): la síntesis actual es prosa libre, sin schema — hay que agregarlo antes de componer este workflow como paso de otro.</li>
 </ul>
-<h2>Cómo funciona</h2>
+<h2 id="cómo-funciona">Cómo funciona</h2>
 <ol>
 <li><p><strong>Parseo de input y helpers.</strong> <code>args</code> se parsea defensivamente a objeto; <code>compact()</code> trunca datos largos a 60000 caracteres; <code>fence()</code> envuelve datos no confiables en un delimitador <code>&lt;untrusted-HASH kind=&quot;...&quot;&gt;</code> derivado del contenido (hash FNV-like), no falsificable por el propio contenido. <code>node(role, extra)</code> arma las opciones de cada agente aplicando overrides por rol (<code>input.models[role]</code>, <code>input.efforts[role]</code>, <code>input.toolsByRole[role]</code>, <code>input.skillsByRole[role]</code>, <code>input.excludeByRole[role]</code>) con fallback a los defaults globales (<code>input.model</code>, <code>input.effort</code>, <code>input.tools</code>, <code>input.skills</code>, <code>input.excludeTools</code>).</p>
 </li>
@@ -193,7 +220,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </li>
 </ol>
 <p>No hay caching explícito en el scaffold: cada corrida repite scout, reviews y síntesis desde cero.</p>
-<h2>Input y output</h2>
+<h2 id="input-y-output">Input y output</h2>
 <table>
 <thead>
 <tr>
@@ -247,7 +274,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </tr>
 </tbody></table>
 <p>Output: el resultado del agente juez — <strong>texto libre, sin schema</strong> (el propio scaffold lo marca como pendiente de mejora antes de componerlo downstream). No escribe artifacts con <code>writeArtifact</code>; todo el estado relevante (cobertura, archivos fallidos) se loggea con <code>log()</code> durante la corrida.</p>
-<h2>Fases</h2>
+<h2 id="fases">Fases</h2>
 <ol>
 <li><strong>Scout</strong> — descubre y filtra el work-list (<code>git ls-files</code> + regex, o <code>input.files</code>).</li>
 <li><strong>Review</strong> — un revisor independiente por archivo, en paralelo, con semántica <code>settle</code>.</li>

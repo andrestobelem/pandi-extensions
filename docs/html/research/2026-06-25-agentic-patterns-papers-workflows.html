@@ -121,10 +121,24 @@ tr:last-child td { border-bottom:none; }
 .callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:16px;
            border:1px solid var(--line); background:var(--paper); color:var(--ink); }
 .callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout .callout-label { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                          color:var(--muted); font-weight:600; margin:0 0 4px; }
 .callout.info    { background:var(--info-bg);    border-color:var(--purple); }
 .callout.success { background:var(--success-bg); border-color:var(--success); }
 .callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
 .callout.error   { background:var(--error-bg);   border-color:var(--error); }
+nav.toc { font-size:14px; border:1px solid var(--line); border-radius:12px;
+          background:var(--paper); padding:14px 18px; margin:8px 0 28px; }
+nav.toc .toc-title { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                     color:var(--muted); font-weight:600; margin:0 0 8px; }
+nav.toc ol { list-style:none; margin:0; padding:0; display:grid;
+             grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:2px 24px; }
+nav.toc a { color:var(--ink2); text-decoration:none; display:block; padding:2px 0; }
+nav.toc a:hover { color:var(--accent); }
+.hex-chip { display:inline-flex; align-items:center; white-space:nowrap; }
+.hex-chip .dot { display:inline-block; width:0.85em; height:0.85em; border-radius:3px;
+                 margin-right:0.4em; vertical-align:-0.08em; box-shadow:inset 0 0 0 1px var(--line-strong);
+                 flex-shrink:0; }
 footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </style>
 </head>
@@ -135,8 +149,20 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<h1>Patrones agénticos y papers aplicables a Dynamic Workflows</h1>
 	</header>
 	<main>
+<nav class="toc">
+	<p class="toc-title">Contents</p>
+	<ol>
+		<li><a href="#en-30-segundos">En 30 segundos</a></li>
+		<li><a href="#objetivo">Objetivo</a></li>
+		<li><a href="#fuentes-revisadas">Fuentes revisadas</a></li>
+		<li><a href="#principios-derivados">Principios derivados</a></li>
+		<li><a href="#cambios-aplicados">Cambios aplicados</a></li>
+		<li><a href="#validación">Validación</a></li>
+		<li><a href="#siguientes-pasos-recomendados">Siguientes pasos recomendados</a></li>
+	</ol>
+</nav>
 <p>Fecha: 2026-06-25</p>
-<h2>En 30 segundos</h2>
+<h2 id="en-30-segundos">En 30 segundos</h2>
 <p>Esta nota resume los patrones y papers que más nos sirven para mejorar Pi Dynamic Workflows: prompts, plantillas, ejemplos, selección de concurrencia y criterios para decidir cuándo orquestar. La idea práctica es simple: primero scoutear barato, después fan-out solo cuando haya independencia real, y cerrar con una síntesis que juzgue con evidencia.</p>
 <table>
 <thead>
@@ -162,9 +188,9 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>hace falta una barrera común</td>
 </tr>
 </tbody></table>
-<h2>Objetivo</h2>
+<h2 id="objetivo">Objetivo</h2>
 <p>Consolidar lo aprendido sobre workflows agénticos y papers relevantes para mejorar Pi Dynamic Workflows: prompts, plantillas, ejemplos, selección de concurrencia y criterios para decidir cuándo orquestar.</p>
-<h2>Fuentes revisadas</h2>
+<h2 id="fuentes-revisadas">Fuentes revisadas</h2>
 <ul>
 <li><strong>ReAct: Synergizing Reasoning and Acting in Language Models</strong> — arXiv:2210.03629. Idea útil: alternar razonamiento y acciones/herramientas; en workflows, separar scouting barato, ejecución con herramientas y síntesis con evidencia.</li>
 <li><strong>Self-Consistency Improves Chain of Thought Reasoning in Language Models</strong> — arXiv:2203.11171. Idea útil: múltiples caminos independientes + selección por consenso; en workflows, usar fan-out de perspectivas y síntesis como juez.</li>
@@ -179,7 +205,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li><strong>SWE-agent: Agent-Computer Interfaces Enable Automated Software Engineering</strong> — arXiv:2405.15793. Idea útil: importa la interfaz agente-computadora; en workflows, herramientas restringidas, prompts con paths/comandos y artefactos inspectables.</li>
 <li><strong>DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines</strong> — arXiv:2310.03714. Idea útil: módulos declarativos y contratos; en workflows, schemas, formatos fijos y helpers reutilizables.</li>
 </ul>
-<h2>Principios derivados</h2>
+<h2 id="principios-derivados">Principios derivados</h2>
 <ol>
 <li><p><strong>Primero dinámico, no hardcodeado</strong></p>
 <ul>
@@ -234,7 +260,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </ul>
 </li>
 </ol>
-<h2>Cambios aplicados</h2>
+<h2 id="cambios-aplicados">Cambios aplicados</h2>
 <ul>
 <li>README: agregó patrones respaldados por investigación y una explicación de workflows dinámicos/concurrency dinámica.</li>
 <li><code>dynamic-workflows</code> skill: reforzó reglas de decisión, patrones y falla parcial.</li>
@@ -244,7 +270,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li>TUI/widget: endureció el render para <code>width &lt;= 0</code> y sanitiza mensajes de log antes de renderizar.</li>
 <li>Política actualizada: <code>examples/</code> no debe contener <code>.pi</code>; abrir Pi desde la raíz del repo o copiar ejemplos a un proyecto temporal.</li>
 </ul>
-<h2>Validación</h2>
+<h2 id="validación">Validación</h2>
 <pre><code class="hljs language-bash">node --check examples/workflows/repo-bug-hunt.js
 node --check examples/workflows/deep-research.js
 node --check examples/workflows/adversarial-plan-review.js
@@ -254,7 +280,7 @@ pi --no-extensions -e ./extensions/dynamic-workflows.ts --list-models __no_such_
 PI_DYNAMIC_WORKFLOWS_PI_COMMAND=<span class="hljs-literal">true</span> pi --no-extensions -e ./extensions/dynamic-workflows.ts --no-session -p <span class="hljs-string">&quot;/ultracode-mode status&quot;</span></code></pre>
 <p>Desde <code>examples/</code>:</p>
 <pre><code class="hljs language-bash">PI_DYNAMIC_WORKFLOWS_PI_COMMAND=<span class="hljs-literal">true</span> pi --no-session -p <span class="hljs-string">&quot;/workflow list&quot;</span></code></pre>
-<h2>Siguientes pasos recomendados</h2>
+<h2 id="siguientes-pasos-recomendados">Siguientes pasos recomendados</h2>
 <ul>
 <li>Agregar scaffolds de patrones: <code>judge-panel</code>, <code>adversarial-verify</code>, <code>loop-until-dry</code>, <code>multi-modal-sweep</code>, <code>pipeline</code>.</li>
 <li>Agregar linting pre-run para detectar caps silenciosos y <code>concurrency</code> hardcodeada.</li>

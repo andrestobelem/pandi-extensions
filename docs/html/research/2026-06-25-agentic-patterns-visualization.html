@@ -121,10 +121,24 @@ tr:last-child td { border-bottom:none; }
 .callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:16px;
            border:1px solid var(--line); background:var(--paper); color:var(--ink); }
 .callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout .callout-label { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                          color:var(--muted); font-weight:600; margin:0 0 4px; }
 .callout.info    { background:var(--info-bg);    border-color:var(--purple); }
 .callout.success { background:var(--success-bg); border-color:var(--success); }
 .callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
 .callout.error   { background:var(--error-bg);   border-color:var(--error); }
+nav.toc { font-size:14px; border:1px solid var(--line); border-radius:12px;
+          background:var(--paper); padding:14px 18px; margin:8px 0 28px; }
+nav.toc .toc-title { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                     color:var(--muted); font-weight:600; margin:0 0 8px; }
+nav.toc ol { list-style:none; margin:0; padding:0; display:grid;
+             grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:2px 24px; }
+nav.toc a { color:var(--ink2); text-decoration:none; display:block; padding:2px 0; }
+nav.toc a:hover { color:var(--accent); }
+.hex-chip { display:inline-flex; align-items:center; white-space:nowrap; }
+.hex-chip .dot { display:inline-block; width:0.85em; height:0.85em; border-radius:3px;
+                 margin-right:0.4em; vertical-align:-0.08em; box-shadow:inset 0 0 0 1px var(--line-strong);
+                 flex-shrink:0; }
 footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </style>
 </head>
@@ -135,14 +149,26 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<h1>Visualización de patrones agénticos en Dynamic Workflows</h1>
 	</header>
 	<main>
+<nav class="toc">
+	<p class="toc-title">Contents</p>
+	<ol>
+		<li><a href="#en-30-segundos">En 30 segundos</a></li>
+		<li><a href="#cómo-probarlo">Cómo probarlo</a></li>
+		<li><a href="#fuentes-revisadas">Fuentes revisadas</a></li>
+		<li><a href="#gramática-visual-recomendada">Gramática visual recomendada</a></li>
+		<li><a href="#decisiones-implementadas">Decisiones implementadas</a></li>
+		<li><a href="#límites-aceptados">Límites aceptados</a></li>
+		<li><a href="#validación">Validación</a></li>
+	</ol>
+</nav>
 <p>Date: 2026-06-25</p>
 <p>Este trabajo mejora <code>/workflow graph</code> para que deje de verse como una lista lineal de llamadas y, en cambio, muestre los patrones agénticos relevantes: fan-out de muchos subagents por paso, pipelines por lanes/stages, barreras paralelas, síntesis/judge y loops aproximados.</p>
 <p>La señal clave es visual: si un paso lanza muchos agentes, eso tiene que verse en el diagrama. Además, el PNG inline debe aparecer más grande para que la estructura se lea sin esfuerzo.</p>
-<h2>En 30 segundos</h2>
+<h2 id="en-30-segundos">En 30 segundos</h2>
 <p>Sirve cuando el grafo te está ocultando la forma real del workflow. Usalo para distinguir rápido entre secuencia, fan-out, paralelismo y síntesis, y para comprobar que una etapa con muchos agentes no quedó aplastada en una sola flecha.</p>
-<h2>Cómo probarlo</h2>
+<h2 id="cómo-probarlo">Cómo probarlo</h2>
 <pre><code class="hljs language-bash">PI_DYNAMIC_WORKFLOWS_PI_COMMAND=<span class="hljs-literal">true</span> pi --no-extensions -e ./extensions/dynamic-workflows.ts --no-session -p <span class="hljs-string">&quot;/workflow graph generated/agentic-viz-patterns-research&quot;</span></code></pre>
-<h2>Fuentes revisadas</h2>
+<h2 id="fuentes-revisadas">Fuentes revisadas</h2>
 <p><strong>Documentación y frameworks:</strong></p>
 <ul>
 <li>Anthropic, <strong>Building effective agents</strong>: prompt chaining, routing, parallelization, orchestrator-workers, evaluator-optimizer.</li>
@@ -165,7 +191,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li>Run <code>2026-06-25T10-17-20-913Z-generated-agentic-viz-patterns-research-ef06f94c</code></li>
 <li>Artifacts en el directorio <code>.pi/workflow-runs/...</code> del proyecto</li>
 </ul>
-<h2>Gramática visual recomendada</h2>
+<h2 id="gramática-visual-recomendada">Gramática visual recomendada</h2>
 <ul>
 <li><strong>◆ fan-out:</strong> <code>ctx.agents(...)</code>; mostrar <code>P1 ×items.length agents</code>, <code>concurrency</code>, <code>settle:true</code>, fork, workers visibles y join.</li>
 <li><strong>▣ pipeline:</strong> <code>ctx.pipeline(items, ...stages)</code>; mostrar <code>×items.length lanes</code> y la cantidad de stages.</li>
@@ -176,7 +202,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li><strong>$ bash:</strong> comando del host.</li>
 <li><strong>Feedback loops:</strong> patrones ReAct/Reflexion/Self-Refine; se marcan como loops con condición de corte cuando se detecta <code>for</code>/<code>while</code>.</li>
 </ul>
-<h2>Decisiones implementadas</h2>
+<h2 id="decisiones-implementadas">Decisiones implementadas</h2>
 <ol>
 <li><p><strong>Modelo de grafo enriquecido</strong></p>
 <ul>
@@ -210,14 +236,14 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </ul>
 </li>
 </ol>
-<h2>Límites aceptados</h2>
+<h2 id="límites-aceptados">Límites aceptados</h2>
 <ul>
 <li>El grafo sigue siendo una vista estática: no ejecuta JS ni conoce el valor real de <code>files.length</code> antes de la corrida.</li>
 <li>Los conteos reales post-run existen en <code>phaseTotal</code>/<code>phaseIndex</code>/<code>phaseLabel</code> para <code>ctx.agents(...)</code>; una mejora futura aware de la corrida puede combinar el grafo estático con los eventos de ejecución.</li>
 <li>La inferencia por regex sigue siendo heurística; un AST sería más robusto, pero esta mejora evita las serializaciones falsas más visibles sin subir demasiado el costo/dependencias.</li>
 <li>Los fan-outs enormes se colapsan con elipsis para mejorar la legibilidad; el PNG muestra que hay muchos agentes sin intentar dibujar cientos por defecto.</li>
 </ul>
-<h2>Validación</h2>
+<h2 id="validación">Validación</h2>
 <p>Probá la implementación:</p>
 <pre><code class="hljs language-bash">npm <span class="hljs-built_in">test</span>
 ./node_modules/.bin/mmdc -q -i /tmp/subgraph-id-edge.mmd -o /tmp/subgraph-id-edge.png -e png -t dark -b transparent -w 2600 -H 1800 -s 2</code></pre>

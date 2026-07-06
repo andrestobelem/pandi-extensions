@@ -121,10 +121,24 @@ tr:last-child td { border-bottom:none; }
 .callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:16px;
            border:1px solid var(--line); background:var(--paper); color:var(--ink); }
 .callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout .callout-label { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                          color:var(--muted); font-weight:600; margin:0 0 4px; }
 .callout.info    { background:var(--info-bg);    border-color:var(--purple); }
 .callout.success { background:var(--success-bg); border-color:var(--success); }
 .callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
 .callout.error   { background:var(--error-bg);   border-color:var(--error); }
+nav.toc { font-size:14px; border:1px solid var(--line); border-radius:12px;
+          background:var(--paper); padding:14px 18px; margin:8px 0 28px; }
+nav.toc .toc-title { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                     color:var(--muted); font-weight:600; margin:0 0 8px; }
+nav.toc ol { list-style:none; margin:0; padding:0; display:grid;
+             grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:2px 24px; }
+nav.toc a { color:var(--ink2); text-decoration:none; display:block; padding:2px 0; }
+nav.toc a:hover { color:var(--accent); }
+.hex-chip { display:inline-flex; align-items:center; white-space:nowrap; }
+.hex-chip .dot { display:inline-block; width:0.85em; height:0.85em; border-radius:3px;
+                 margin-right:0.4em; vertical-align:-0.08em; box-shadow:inset 0 0 0 1px var(--line-strong);
+                 flex-shrink:0; }
 footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </style>
 </head>
@@ -135,15 +149,28 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<h1>Configuración — requisitos, capacidades opcionales, configuración y distribución</h1>
 	</header>
 	<main>
+<nav class="toc">
+	<p class="toc-title">Contents</p>
+	<ol>
+		<li><a href="#en-30-segundos">En 30 segundos</a></li>
+		<li><a href="#requisitos">Requisitos</a></li>
+		<li><a href="#variantes-de-instalación">Variantes de instalación</a></li>
+		<li><a href="#capacidades-opcionales-en-detalle">Capacidades opcionales en detalle</a></li>
+		<li><a href="#configuración-variables-de-entorno">Configuración (variables de entorno)</a></li>
+		<li><a href="#distribución-canales-y-regla-de-identidad-única">Distribución: canales y regla de identidad única</a></li>
+		<li><a href="#estructura-del-repositorio-extensiones">Estructura del repositorio (extensiones)</a></li>
+		<li><a href="#troubleshooting">Troubleshooting</a></li>
+	</ol>
+</nav>
 <p>Esta es la referencia <strong>exhaustiva</strong> de configuración de <code>pandi-extensions</code>: reúne requisitos obligatorios y opcionales, variables de entorno y canales de distribución. Si recién clonaste el repo, mejor empezá por el <a href="index.html#inicio-r%C3%A1pido">Inicio rápido del README raíz</a> y volvé acá cuando necesites un detalle puntual: una variable, una capacidad opcional o qué canal de distribución conviene.</p>
-<h2>En 30 segundos</h2>
+<h2 id="en-30-segundos">En 30 segundos</h2>
 <p>Si querés dejar una máquina lista rápido, estos cuatro comandos cubren el camino feliz:</p>
 <pre><code class="hljs language-bash">nvm install &amp;&amp; nvm use                                             <span class="hljs-comment"># Node &gt;= 22.19.0</span>
 npm install -g --ignore-scripts @earendil-works/pi-coding-agent    <span class="hljs-comment"># Pi CLI</span>
 npm install &amp;&amp; npm run doctor                                      <span class="hljs-comment"># toolchain + chequeo de entorno</span>
 pi install ./                                                      <span class="hljs-comment"># todas las extensiones + skills</span></code></pre>
 <p>Usá esta página cuando necesites decidir qué instalar, qué habilita cada dependencia opcional o cómo se distribuye el paquete. Para una primera puesta en marcha, el Quickstart suele alcanzar.</p>
-<h2>Requisitos</h2>
+<h2 id="requisitos">Requisitos</h2>
 <h3>Obligatorios</h3>
 <table>
 <thead>
@@ -216,7 +243,7 @@ pi install ./                                                      <span class="
 <blockquote>
 <p>Toda la toolchain de desarrollo (<code>biome</code>, <code>tsc</code>, <code>esbuild</code>, <code>markdownlint-cli2</code>, <code>prettier</code>, <code>ctx7</code>) vive como <strong>devDependencies</strong>; <code>@mermaid-js/mermaid-cli</code> es un <strong>optionalDependency</strong> (tiene fallback ASCII, así que una descarga fallida de Chromium no rompe la instalación). Todo se instala con <code>npm install</code> (los opcionales, salvo <code>--omit=optional</code>) y se ejecuta con <code>npm run …</code>/<code>npx</code>, sin instalaciones globales adicionales. La única instalación global es la del <strong>Pi CLI</strong>. Verificá el entorno con <code>npm run doctor</code>.</p>
 </blockquote>
-<h2>Variantes de instalación</h2>
+<h2 id="variantes-de-instalación">Variantes de instalación</h2>
 <table>
 <thead>
 <tr>
@@ -251,7 +278,7 @@ pi install ./                                                      <span class="
 <span class="hljs-keyword">done</span></code></pre>
 <h3>Skills vendorizados</h3>
 <p>El paquete <code>pandi-dynamic-workflows</code> <strong>vendoriza sus propios skills</strong> (<code>ultracode</code>, <code>deep-research</code>, <code>default</code>) en <code>extensions/pandi-dynamic-workflows/skills/</code>, para que viajen cuando instalás solo esa extensión. Son un espejo generado del origen canónico en <code>.pi/skills/</code> (regenerar con <code>npm run sync:skills:vendor</code>; el test de paridad y <code>npm run doctor</code> detectan drift). Dentro del repo no se duplican: la entrada de esa extensión en <code>.pi/settings.json</code> filtra <code>skills: []</code> porque el repo ya los carga por auto-discovery desde <code>.pi/skills/</code>.</p>
-<h2>Capacidades opcionales en detalle</h2>
+<h2 id="capacidades-opcionales-en-detalle">Capacidades opcionales en detalle</h2>
 <ul>
 <li><strong>Búsqueda web (<code>web_search</code>) para subagentes</strong> — instalá <code>pi install npm:pi-codex-web-search</code> (paquete separado, repo <code>github.com/ayagmar/pi-codex-web-search</code>) y el CLI <code>codex</code> (<code>brew install codex</code> o <code>npm install -g @openai/codex</code>). Cuando el runtime encuentra la extensión (en <code>~/.pi/agent/npm/node_modules/</code> o <code>./node_modules/</code>), agrega <code>web_search</code> automáticamente a la lista de herramientas de cada subagente. Si <code>codex</code> no está en el <code>PATH</code>, apuntalo con <code>CODEX_PATH</code>. Exclusión por subagente: <code>excludeTools: [&quot;web_search&quot;]</code> o <code>includeExtensions: false</code>.</li>
 <li><strong>Context7 (docs de librerías)</strong> — el skill <code>context7-cli</code> <strong>no</strong> viene vendorizado en el repo. Configuralo con <code>npx ctx7 setup --cli</code> (modo &quot;CLI + Skills&quot;; sucesor de <code>ctx7 skills install</code>, que deja de funcionar en la próxima major). Pi autodetecta el skill desde el scope global (<code>~/.agents/skills/</code> o <code>~/.pi/agent/skills/</code>) en cualquier proyecto y lo agrega a los subagentes. El CLI <code>ctx7</code> se distribuye como <strong>devDependency</strong>: ejecutalo con <code>npx ctx7</code> después de <code>npm install</code> (o globalmente con <code>npm i -g ctx7@latest</code>). Exclusión por subagente: <code>includeSkills: false</code>.</li>
@@ -259,7 +286,7 @@ pi install ./                                                      <span class="
 <li><strong>Sandboxes Linux (<code>pandi-container</code>)</strong> — solo macOS Apple Silicon: <code>brew install container &amp;&amp; container system kernel set --recommended &amp;&amp; container system start</code>. En hosts no compatibles, la extensión devuelve un mensaje acotado; no crashea.</li>
 <li><strong>Aislamiento Gondolin (micro-VM)</strong> — <code>npm run setup:gondolin</code> copia el ejemplo que trae Pi a <code>.pi/tools/gondolin/</code> (gitignored, no se auto-descubre) e instala sus dependencias con <code>--ignore-scripts</code>; cargalo cuando lo necesites con <code>pi -e .pi/tools/gondolin</code>. Requiere darwin-arm64/linux-x64 y Node ≥ 23.6.0. No aísla los spawns de subagentes de dynamic-workflows (ver <a href="gondolin-isolation.html"><code>docs/gondolin-isolation.md</code></a>).</li>
 </ul>
-<h2>Configuración (variables de entorno)</h2>
+<h2 id="configuración-variables-de-entorno">Configuración (variables de entorno)</h2>
 <p>Todas las extensiones arrancan con valores razonables; no hace falta configurar nada para empezar. Si querés ajustar el comportamiento, exportá variables de entorno — la lista completa con valores por defecto vive en <strong><code>.env.example</code></strong>. Las más usadas:</p>
 <table>
 <thead>
@@ -320,7 +347,7 @@ pi install ./                                                      <span class="
 </tr>
 </tbody></table>
 <p><code>.env</code> está gitignored; <code>.env.example</code> está committed. Este repo no carga <code>.env</code> automáticamente: exportá las variables en tu shell o usá <code>direnv</code>/<code>dotenvx</code>.</p>
-<h2>Distribución: canales y regla de identidad única</h2>
+<h2 id="distribución-canales-y-regla-de-identidad-única">Distribución: canales y regla de identidad única</h2>
 <p>La suite se distribuye por tres canales; <strong>elegí uno por máquina o alcance</strong> — Pi deduplica paquetes por identidad (nombre npm / URL git / ruta local resuelta), así que dos canales conviviendo cargan todo dos veces (<code>npm run doctor</code> lo detecta y avisa):</p>
 <table>
 <thead>
@@ -417,7 +444,7 @@ pi install ./                                                      <span class="
 </tr>
 </tbody></table>
 <p>Los fixes de la tabla son locales, idempotentes y commiteables. Estado global del usuario (por ejemplo <code>~/.claude</code> o instalaciones Pi globales) se reporta como diagnóstico/propose-only: <code>doctor</code> te dice qué correr, pero no lo muta por vos.</p>
-<h2>Estructura del repositorio (extensiones)</h2>
+<h2 id="estructura-del-repositorio-extensiones">Estructura del repositorio (extensiones)</h2>
 <p>Cada extensión vive como un mini paquete npm bajo <code>extensions/&lt;name&gt;/</code>:</p>
 <pre><code class="hljs language-text">extensions/&lt;name&gt;/
   index.ts              # entrypoint de Pi
@@ -426,7 +453,7 @@ pi install ./                                                      <span class="
   tests/integration/    # suites durables de comportamiento</code></pre>
 <p><code>package.json</code> publica solo archivos de runtime con <code>files: [&quot;extensions/*/*.ts&quot;, ...]</code>, así que los tests quedan cerca del código pero fuera del tarball npm. <code>pi.extensions</code> lista explícitamente los entrypoints cargados por defecto; las extensiones opcionales pueden seguir el mismo patrón y cargarse desde settings.</p>
 <p><code>extensions/pandi-local-memory/</code> carga la carpeta <code>.pi/memory/</code> cuando existe (inyecta el índice <code>MEMORY.md</code> con tope de 200 líneas/25 KB y lista archivos temáticos para lectura bajo demanda; cae al viejo <code>.pi/MEMORY.md</code>). La extensión viene con el paquete; el contenido de memoria queda privado y gitignored.</p>
-<h2>Troubleshooting</h2>
+<h2 id="troubleshooting">Troubleshooting</h2>
 <ul>
 <li><strong>Un comando no aparece después de instalar</strong> — abrí Pi en el proyecto objetivo, ejecutá <code>/trust</code> y después <code>/reload</code> (o reiniciá). Los workflows con alcance de proyecto están protegidos por trust.</li>
 <li><strong><code>pi</code> no se encuentra</strong> — la instalación global (ver Requisitos) no terminó, o el binario global de npm no está en <code>PATH</code>.</li>

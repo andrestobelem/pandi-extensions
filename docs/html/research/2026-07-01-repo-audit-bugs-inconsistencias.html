@@ -121,10 +121,24 @@ tr:last-child td { border-bottom:none; }
 .callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:16px;
            border:1px solid var(--line); background:var(--paper); color:var(--ink); }
 .callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout .callout-label { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                          color:var(--muted); font-weight:600; margin:0 0 4px; }
 .callout.info    { background:var(--info-bg);    border-color:var(--purple); }
 .callout.success { background:var(--success-bg); border-color:var(--success); }
 .callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
 .callout.error   { background:var(--error-bg);   border-color:var(--error); }
+nav.toc { font-size:14px; border:1px solid var(--line); border-radius:12px;
+          background:var(--paper); padding:14px 18px; margin:8px 0 28px; }
+nav.toc .toc-title { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                     color:var(--muted); font-weight:600; margin:0 0 8px; }
+nav.toc ol { list-style:none; margin:0; padding:0; display:grid;
+             grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:2px 24px; }
+nav.toc a { color:var(--ink2); text-decoration:none; display:block; padding:2px 0; }
+nav.toc a:hover { color:var(--accent); }
+.hex-chip { display:inline-flex; align-items:center; white-space:nowrap; }
+.hex-chip .dot { display:inline-block; width:0.85em; height:0.85em; border-radius:3px;
+                 margin-right:0.4em; vertical-align:-0.08em; box-shadow:inset 0 0 0 1px var(--line-strong);
+                 flex-shrink:0; }
 footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </style>
 </head>
@@ -135,13 +149,26 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<h1>Auditoría del repo — errores e inconsistencias (2026-07-01)</h1>
 	</header>
 	<main>
-<h2>En 30 segundos</h2>
+<nav class="toc">
+	<p class="toc-title">Contents</p>
+	<ol>
+		<li><a href="#en-30-segundos">En 30 segundos</a></li>
+		<li><a href="#método">Método</a></li>
+		<li><a href="#hallazgos-de-alto-impacto-high">Hallazgos de alto impacto (HIGH)</a></li>
+		<li><a href="#core-dispatch-parte-b--dispatcher-journal-resume-corrida-4-opus">core-dispatch (parte B) — dispatcher, journal, resume (corrida 4, opus)</a></li>
+		<li><a href="#devtools-a-y-docs-consistency-auditado-inline--sin-hallazgos">devtools-a y docs-consistency (auditado inline — sin hallazgos)</a></li>
+		<li><a href="#medium--low-destacados-verificados-en-corrida-1">Medium / Low destacados (verificados en corrida 1)</a></li>
+		<li><a href="#cobertura-y-límites">Cobertura y límites</a></li>
+		<li><a href="#lecciones-de-fiabilidad-de-los-workflows">Lecciones de fiabilidad de los workflows</a></li>
+	</ol>
+</nav>
+<h2 id="en-30-segundos">En 30 segundos</h2>
 <p>Esta nota resume una auditoría read-only del monorepo de extensiones
 <code>pandi-dynamic-workflows</code>. Sirve para ubicar bugs e inconsistencias, con
 pistas concretas de <code>archivo:línea</code> en los hallazgos donde la cita lineal
 pudo verificarse a mano, y para separar lo que ya fue rechequeado a mano de
 lo que todavía pide una revisión fina.</p>
-<h2>Método</h2>
+<h2 id="método">Método</h2>
 <p>Tres corridas sucesivas (workflows <code>.pi/workflows/repo-audit{,-2,-3}.js</code>), cada
 una read-only con <code>tools: [read, grep, find, ls]</code> y un juez de síntesis:</p>
 <ul>
@@ -155,7 +182,7 @@ entero) y los shards vacíos se reintentan una vez con <code>cache:false</code>.
 </ul>
 <p>Gate determinista en cada corrida: <code>tsc --noEmit</code> limpio, <code>biome check</code> limpio
 (255 archivos), <code>markdownlint</code> 0 errores.</p>
-<h2>Hallazgos de alto impacto (HIGH)</h2>
+<h2 id="hallazgos-de-alto-impacto-high">Hallazgos de alto impacto (HIGH)</h2>
 <ol>
 <li><p><strong>Los 25 scaffolds no se empaquetan</strong> — <code>package.json:17</code>. <strong>[verificado]</strong>
 <code>files: [&quot;extensions/*/*.ts&quot;, …]</code>: el glob <code>*/*.ts</code> matchea un solo nivel y
@@ -218,7 +245,7 @@ no está scopeado por sesión (<code>activePlans</code> module-level; <code>sess
 <code>clear()</code>), así que una sesión puede bloquear o limpiar el gate de otra.</p>
 </li>
 </ol>
-<h2>core-dispatch (parte B) — dispatcher, journal, resume (corrida 4, opus)</h2>
+<h2 id="core-dispatch-parte-b--dispatcher-journal-resume-corrida-4-opus">core-dispatch (parte B) — dispatcher, journal, resume (corrida 4, opus)</h2>
 <ul>
 <li><strong>Secretos en disco vía <code>ask()</code></strong> — <code>index.ts:1418-1437</code>. <strong>[verificado]</strong> <code>runAsk</code>
 escribe la respuesta humana verbatim en <code>events.jsonl</code> y <code>journal.jsonl</code> sin
@@ -244,7 +271,7 @@ que el HIGH 6 de <code>agents()</code>).</li>
 <code>runStreamingAgentProcess</code> lanza antes (timeout/abort), el error de escritura
 del log en vivo se pierde. <strong>[low]</strong></li>
 </ul>
-<h2>devtools-a y docs-consistency (auditado inline — sin hallazgos)</h2>
+<h2 id="devtools-a-y-docs-consistency-auditado-inline--sin-hallazgos">devtools-a y docs-consistency (auditado inline — sin hallazgos)</h2>
 <p>Tras salir vacías repetidamente en los workflows, se auditaron a mano:</p>
 <ul>
 <li><strong>pi-bg / pi-typescript-lsp</strong>: sin defectos evidentes. <code>process-liveness.ts</code>
@@ -258,7 +285,7 @@ por <code>if (ctx.hasUI)</code> (<code>pi-bg/index.ts:262</code>).</li>
 <code>TS_LSP_MAX=20</code>) y los 13 comandos slash documentados coinciden con las
 extensiones registradas.</li>
 </ul>
-<h2>Medium / Low destacados (verificados en corrida 1)</h2>
+<h2 id="medium--low-destacados-verificados-en-corrida-1">Medium / Low destacados (verificados en corrida 1)</h2>
 <ul>
 <li><strong>pi-pandi</strong>: ~13 llamadas <code>ctx.ui.*</code> sin guard <code>ctx.hasUI</code>
 (<code>pi-pandi/index.ts:143-236</code>) → posible crash en <code>--print</code>/headless; todas las
@@ -280,7 +307,7 @@ container (severidad baja: SIGTERM en el mismo tick); &quot;open hint&quot; de w
 con path crudo (LOW, es un string mostrado, no ejecutado); varios casts sin
 validar sobre <code>event.input</code> en el gate.</li>
 </ul>
-<h2>Cobertura y límites</h2>
+<h2 id="cobertura-y-límites">Cobertura y límites</h2>
 <table>
 <thead>
 <tr>
@@ -328,7 +355,7 @@ validar sobre <code>event.input</code> en el gate.</li>
 <p>Cobertura completa. Las áreas que volvían vacías en los workflows se cerraron
 con opus (core-dispatch-b) o con auditoría manual (devtools-a, docs-consistency),
 sin hallazgos nuevos en estas dos últimas.</p>
-<h2>Lecciones de fiabilidad de los workflows</h2>
+<h2 id="lecciones-de-fiabilidad-de-los-workflows">Lecciones de fiabilidad de los workflows</h2>
 <ul>
 <li><strong>Truncamiento de salida (v1).</strong> Reviewers pesados con schema estricto
 generan hallazgos muy verbosos cuyo JSON excede el presupuesto de tokens y se

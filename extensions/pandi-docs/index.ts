@@ -24,7 +24,8 @@ import { parseArgs, renderMarkdownToHtml } from "./scripts/markdown-to-html.mjs"
 const EXT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const TOKENS_CSS_PATH = path.join(EXT_DIR, "skills", "pandi-artifact-style", "reference", "pandi-tokens.css");
 
-const USAGE = 'Uso: /docs <input.md> [más.md…] [-o output.html] [--kicker "Texto"]';
+const USAGE =
+	'Uso: /docs <input.md> [más.md…] [-o output.html] [--kicker "Texto"] [--tokens tokens.css] [--css estilo.css]';
 const EMPTY_MARKDOWN_PATH_ERROR =
 	"markdown_to_html: `path` no puede estar vacío — pasá una ruta a un archivo Markdown.";
 
@@ -54,7 +55,7 @@ export interface ConvertResult {
  */
 export function convertMarkdownFile(
 	inputPath: string,
-	opts: { cwd: string; out?: string; kicker?: string },
+	opts: { cwd: string; out?: string; kicker?: string; tokens?: string; css?: string },
 ): ConvertResult {
 	const inputAbs = resolveUserPath(inputPath, opts.cwd);
 	let md: string;
@@ -63,8 +64,23 @@ export function convertMarkdownFile(
 	} catch {
 		throw new Error(`No se pudo leer ${inputPath} — revisá la ruta y volvé a intentar`);
 	}
-	const tokensCss = fs.readFileSync(TOKENS_CSS_PATH, "utf8");
-	const html = renderMarkdownToHtml(md, { title: path.basename(inputAbs), kicker: opts.kicker, tokensCss });
+	// `css` reemplaza la hoja de estilos completa; `tokens` solo pisa la paleta pandi.
+	let css: string | undefined;
+	if (opts.css) {
+		try {
+			css = fs.readFileSync(resolveUserPath(opts.css, opts.cwd), "utf8");
+		} catch {
+			throw new Error(`No se pudo leer ${opts.css} — revisá la ruta al CSS`);
+		}
+	}
+	const tokensCssPath = opts.tokens ? resolveUserPath(opts.tokens, opts.cwd) : TOKENS_CSS_PATH;
+	let tokensCss: string | undefined;
+	try {
+		tokensCss = css ? undefined : fs.readFileSync(tokensCssPath, "utf8");
+	} catch {
+		throw new Error(`No se pudo leer ${opts.tokens} — revisá la ruta a los tokens CSS`);
+	}
+	const html = renderMarkdownToHtml(md, { title: path.basename(inputAbs), kicker: opts.kicker, tokensCss, css });
 	const outAbs = opts.out ? resolveUserPath(opts.out, opts.cwd) : defaultOutPath(inputAbs);
 	fs.mkdirSync(path.dirname(outAbs), { recursive: true });
 	fs.writeFileSync(outAbs, html);
@@ -99,7 +115,14 @@ export default function docsExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("docs", {
 		description: "Convertí un archivo Markdown a HTML autocontenido con estilo pandi",
 		handler: async (args, ctx) => {
-			let parsed: { inputs?: string[]; out?: string | null; kicker?: string; help?: boolean };
+			let parsed: {
+				inputs?: string[];
+				out?: string | null;
+				kicker?: string;
+				tokens?: string;
+				css?: string;
+				help?: boolean;
+			};
 			try {
 				parsed = parseArgs(tokenizeArgs(args ?? ""));
 			} catch (error) {
@@ -121,6 +144,8 @@ export default function docsExtension(pi: ExtensionAPI): void {
 						cwd: ctx.cwd,
 						out: parsed.out ?? undefined,
 						kicker: parsed.kicker,
+						tokens: parsed.tokens,
+						css: parsed.css,
 					});
 					written.push(relativeTo(ctx.cwd, result.output));
 				} catch (error) {
@@ -157,6 +182,20 @@ export default function docsExtension(pi: ExtensionAPI): void {
 					description: 'Texto de kicker sobre el título de la página (por defecto "Pandi artifact").',
 				}),
 			),
+			tokens: Type.Optional(
+				Type.String({
+					description:
+						"Ruta a un archivo CSS con tokens (custom properties) propios para pisar la paleta " +
+						"pandi por defecto — así otro proyecto conecta su propia identidad visual.",
+				}),
+			),
+			css: Type.Optional(
+				Type.String({
+					description:
+						"Ruta a una hoja de estilos que reemplaza el CSS COMPLETO (tokens + layout pandi) — " +
+						"para repos con look propio. Tiene prioridad sobre `tokens`.",
+				}),
+			),
 		}),
 		executionMode: "sequential",
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx: ExtensionContext) {
@@ -164,7 +203,13 @@ export default function docsExtension(pi: ExtensionAPI): void {
 				return toolError(EMPTY_MARKDOWN_PATH_ERROR);
 			}
 			try {
-				const result = convertMarkdownFile(params.path, { cwd: ctx.cwd, out: params.out, kicker: params.kicker });
+				const result = convertMarkdownFile(params.path, {
+					cwd: ctx.cwd,
+					out: params.out,
+					kicker: params.kicker,
+					tokens: params.tokens,
+					css: params.css,
+				});
 				const output = relativeTo(ctx.cwd, result.output);
 				return toolResult(
 					`Se escribió ${output} (${result.bytes} bytes) a partir de ${relativeTo(ctx.cwd, result.input)}.`,

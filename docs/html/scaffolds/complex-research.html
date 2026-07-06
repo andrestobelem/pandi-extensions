@@ -121,10 +121,24 @@ tr:last-child td { border-bottom:none; }
 .callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:16px;
            border:1px solid var(--line); background:var(--paper); color:var(--ink); }
 .callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout .callout-label { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                          color:var(--muted); font-weight:600; margin:0 0 4px; }
 .callout.info    { background:var(--info-bg);    border-color:var(--purple); }
 .callout.success { background:var(--success-bg); border-color:var(--success); }
 .callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
 .callout.error   { background:var(--error-bg);   border-color:var(--error); }
+nav.toc { font-size:14px; border:1px solid var(--line); border-radius:12px;
+          background:var(--paper); padding:14px 18px; margin:8px 0 28px; }
+nav.toc .toc-title { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                     color:var(--muted); font-weight:600; margin:0 0 8px; }
+nav.toc ol { list-style:none; margin:0; padding:0; display:grid;
+             grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:2px 24px; }
+nav.toc a { color:var(--ink2); text-decoration:none; display:block; padding:2px 0; }
+nav.toc a:hover { color:var(--accent); }
+.hex-chip { display:inline-flex; align-items:center; white-space:nowrap; }
+.hex-chip .dot { display:inline-block; width:0.85em; height:0.85em; border-radius:3px;
+                 margin-right:0.4em; vertical-align:-0.08em; box-shadow:inset 0 0 0 1px var(--line-strong);
+                 flex-shrink:0; }
 footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </style>
 </head>
@@ -135,17 +149,30 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<h1>complex-research</h1>
 	</header>
 	<main>
+<nav class="toc">
+	<p class="toc-title">Contents</p>
+	<ol>
+		<li><a href="#en-30-segundos">En 30 segundos</a></li>
+		<li><a href="#cómo-lanzarlo">Cómo lanzarlo</a></li>
+		<li><a href="#diagrama">Diagrama</a></li>
+		<li><a href="#qué-hace">Qué hace</a></li>
+		<li><a href="#cuándo-usarlo">Cuándo usarlo</a></li>
+		<li><a href="#cómo-funciona">Cómo funciona</a></li>
+		<li><a href="#input-y-output">Input y output</a></li>
+		<li><a href="#fases">Fases</a></li>
+	</ol>
+</nav>
 <blockquote>
 <p>Ángulos de investigación independientes con búsqueda web, sintetizados como juez con citas y notas de cobertura.</p>
 </blockquote>
-<h2>En 30 segundos</h2>
+<h2 id="en-30-segundos">En 30 segundos</h2>
 <p>Es el patrón base para responder una pregunta externa con evidencia: varios agentes de investigación corren en paralelo, cada uno enfocado en un ángulo distinto (docs oficiales, tradeoffs, riesgos, recomendación), y un agente juez sintetiza todo en una respuesta final con fuentes. Elegilo cuando necesitás una respuesta citada a una pregunta técnica; si la respuesta es consecuente (decisión de producción, seguridad), encadenalo con un paso de verificación posterior — este scaffold no verifica, solo investiga y sintetiza.</p>
-<h2>Cómo lanzarlo</h2>
+<h2 id="cómo-lanzarlo">Cómo lanzarlo</h2>
 <pre><code class="hljs language-text">/workflow new mi-run --pattern=complex-research
 /workflow run mi-run {&quot;question&quot;:&quot;WASM vs NAPI FFI para Node en 2026?&quot;}</code></pre>
 <p><code>question</code> es el único campo obligatorio. <code>angles</code> es opcional (array de strings); si no se pasa, usa 4 ángulos por defecto (ver <a href="#c%C3%B3mo-funciona">Cómo funciona</a>):</p>
 <pre><code class="hljs language-text">/workflow run mi-run {&quot;question&quot;:&quot;...&quot;,&quot;angles&quot;:[&quot;adopción en la industria&quot;,&quot;benchmarks de performance&quot;]}</code></pre>
-<h2>Diagrama</h2>
+<h2 id="diagrama">Diagrama</h2>
 <pre class="mermaid">flowchart TD
     A["Input: question (req, o q/text), angles[] opcional"] --&gt; B{"question ausente?"}
     B --&gt;|"sí"| B1["throw Error: falta question"]
@@ -165,11 +192,11 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 
     G --&gt; H["agent research-synthesis opus·high\nsynthesis-as-judge sobre completedResearch\ncoverage: angles pedidos / completadas / fallidas"]
     H --&gt; I["return: Markdown final\n(resumen ejecutivo, recomendación, evidencia,\ntradeoffs, riesgos, gaps de cobertura)"]</pre>
-<h2>Qué hace</h2>
+<h2 id="qué-hace">Qué hace</h2>
 <p><code>complex-research</code> hace un scatter-gather en dos fases: primero reparte la pregunta en varios ángulos de investigación independientes y después un agente de síntesis los consolida como juez. Cada ángulo corre su propia búsqueda web, no ve los demás resultados y devuelve un informe estructurado; así se gana cobertura independiente y se evita el anclaje entre agentes.</p>
 <p>Es dinámico porque quien llama al workflow define <code>input.angles</code> en runtime; el ancho del fan-out sale de ese array, no del scaffold. El contrato de evidencia es estricto: cada research agent puede responder <code>INSUFFICIENT_EVIDENCE</code> si no alcanza la evidencia, y la síntesis debe preferir fuentes primarias/oficiales, deduplicar y marcar incertidumbre.</p>
 <p>Es un patrón base (<code>basedOn: fan-out-and-synthesize</code>): ya incluye síntesis final como juez, pero no agrega una capa extra de verificación adversarial. Para respuestas consecuentes, conviene encadenarlo con un paso posterior de verificación.</p>
-<h2>Cuándo usarlo</h2>
+<h2 id="cuándo-usarlo">Cuándo usarlo</h2>
 <ul>
 <li>Comparaciones de tecnología (p. ej. &quot;WASM vs NAPI FFI para Node&quot;).</li>
 <li>Relevamientos de literatura o panorama de un tema (landscape scans).</li>
@@ -181,14 +208,14 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li>El corpus a resumir es un documento/log gigante que no entra en una ventana de contexto (no es investigación web) — usá <code>map-reduce</code>.</li>
 <li>Necesitás verificación reproducible de un bug — usá <code>bug-verify</code>.</li>
 </ul>
-<h2>Cómo funciona</h2>
+<h2 id="cómo-funciona">Cómo funciona</h2>
 <p><strong>Validación de entrada.</strong> <code>question</code> es obligatorio (acepta alias <code>q</code> o <code>text</code>); si falta, el workflow lanza una excepción explícita (<code>throw new Error</code>) — a diferencia de otros scaffolds que abortan con un resultado de error, este falla duro. <code>angles</code> es opcional: si no se pasa un array no vacío, usa 4 ángulos por defecto (&quot;official documentation and primary sources&quot;, &quot;implementation options and tradeoffs&quot;, &quot;risks, gotchas, and migration concerns&quot;, &quot;best current recommendation with evidence&quot;). El array de ángulos (propio o default) se recorta a 64 elementos como máximo, logueando si hubo recorte.</p>
 <p><strong>Fase Research.</strong> Lanza un <code>agent</code> por cada ángulo en <code>parallel</code>, cada uno bajo el rol lógico <code>research</code> (modelo <code>haiku</code>, effort <code>low</code> — investigación barata y paralela). Cada research agent recibe el ángulo y la pregunta envueltos en un fence anti-inyección (<code>fence()</code>, delimitador derivado de un hash de contenido), con instrucciones explícitas de tratar ese contenido como dato a investigar, nunca como instrucciones, y de ignorar cualquier directiva embebida (cambios de rol, manipulación de veredicto, &quot;ignorá lo anterior&quot;). El contrato de salida por ángulo es fijo: Key findings, Evidence/sources, Tradeoffs, Risks/gotchas, Recommendation for this angle; y debe preferir fuentes primarias/oficiales, citar URLs/archivos/comandos solo si fueron realmente usados/observados, separar hechos de interpretación, y declarar <code>INSUFFICIENT_EVIDENCE</code> si la evidencia no alcanza. Cada rama retorna <code>{ name, output }</code> o <code>null</code> si el agente falla.</p>
 <p>Tras el fan-out, se filtran los <code>null</code> (<code>completedResearch</code>) y se calcula <code>failed = total - completed</code>, logueando ambos conteos. Si <strong>todas</strong> las ramas fallaron o quedaron vacías, el workflow corta ahí mismo y retorna un mensaje explícito indicando que no hay evidencia para sintetizar (nunca sintetiza desde cero evidencia).</p>
 <p><strong>Fase Synthesis.</strong> Un único <code>agent</code> bajo el rol <code>research-synthesis</code> (modelo <code>opus</code>, effort <code>high</code> — el nodo más caro/capaz del workflow, acorde a que es el paso de juicio final) recibe: la pregunta original, los conteos de cobertura (ángulos pedidos, completados, fallidos), y todos los outputs de investigación completados, comprimidos con <code>compact()</code> (trunca a 90000 caracteres) y envueltos en el mismo fence anti-inyección. Las instrucciones de síntesis exigen: deduplicar, preferir evidencia primaria, marcar incertidumbre, y mencionar explícitamente las ramas fallidas/vacías. El formato de salida es fijo: resumen ejecutivo, recomendación, evidencia/fuentes, tradeoffs y alternativas, riesgos/preguntas abiertas, y brechas de cobertura con qué verificar a continuación. Ese texto Markdown es el retorno final del workflow.</p>
 <p><strong>Caching:</strong> no hay ningún mecanismo de caché explícito; cada <code>agent</code> corre fresco.</p>
 <p><strong>Manejo de fallos parciales:</strong> patrón settle manual (filtrado post-hoc de <code>null</code> en vez de propagar excepción) en el fan-out de investigación; si el fallo es total, se corta antes de la síntesis con un mensaje explícito en vez de invocar al sintetizador sobre datos vacíos.</p>
-<h2>Input y output</h2>
+<h2 id="input-y-output">Input y output</h2>
 <p><strong>Input</strong> (JSON-stringified en <code>args</code>, parseado defensivamente; si el parseo falla, se usa <code>{}</code>):</p>
 <table>
 <thead>
@@ -232,7 +259,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </tbody></table>
 <p><strong>Output:</strong> un string Markdown de texto libre (no está validado contra un schema), producido por el agente de síntesis: resumen ejecutivo, recomendación, evidencia/fuentes, tradeoffs, riesgos y brechas de cobertura. En el camino de fallo total, el retorno es en cambio el string literal indicando que todas las ramas fallaron/vacías.</p>
 <p>No se observan llamadas a <code>writeArtifact</code> en este scaffold: toda la observabilidad pasa por <code>log(...)</code> (ángulos usados, conteo de fan-out completado/fallido) y por el string retornado.</p>
-<h2>Fases</h2>
+<h2 id="fases">Fases</h2>
 <ol>
 <li><strong>Research</strong> — fan-out en <code>parallel</code> de un <code>agent</code> (haiku·low) por ángulo, cada uno investigando de forma independiente con su propia búsqueda web bajo un contrato de evidencia fijo; se filtran los fallos y se corta temprano si todas las ramas fallan.</li>
 <li><strong>Synthesis</strong> — un único <code>agent</code> (opus·high) actuando como juez: deduplica, prefiere evidencia primaria, marca incertidumbre y reporta explícitamente la cobertura (ángulos completados vs. fallidos).</li>

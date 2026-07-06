@@ -22,11 +22,11 @@ const EXT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 const TOKENS_CSS_PATH = path.join(EXT_DIR, "skills", "pandi-artifact-style", "reference", "pandi-tokens.css");
 
 const ALERT_CALLOUTS = {
-	NOTE: "info",
-	TIP: "success",
-	IMPORTANT: "info",
-	WARNING: "warn",
-	CAUTION: "error",
+	NOTE: { tone: "info", label: "Note" },
+	TIP: { tone: "success", label: "Tip" },
+	IMPORTANT: { tone: "info", label: "Important" },
+	WARNING: { tone: "warn", label: "Warning" },
+	CAUTION: { tone: "error", label: "Caution" },
 };
 
 // Estilos del componente para el cuerpo Markdown renderizado — las recetas de SKILL.md
@@ -77,14 +77,76 @@ tr:last-child td { border-bottom:none; }
 .callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:16px;
            border:1px solid var(--line); background:var(--paper); color:var(--ink); }
 .callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout .callout-label { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                          color:var(--muted); font-weight:600; margin:0 0 4px; }
 .callout.info    { background:var(--info-bg);    border-color:var(--purple); }
 .callout.success { background:var(--success-bg); border-color:var(--success); }
 .callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
 .callout.error   { background:var(--error-bg);   border-color:var(--error); }
+nav.toc { font-size:14px; border:1px solid var(--line); border-radius:12px;
+          background:var(--paper); padding:14px 18px; margin:8px 0 28px; }
+nav.toc .toc-title { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                     color:var(--muted); font-weight:600; margin:0 0 8px; }
+nav.toc ol { list-style:none; margin:0; padding:0; display:grid;
+             grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:2px 24px; }
+nav.toc a { color:var(--ink2); text-decoration:none; display:block; padding:2px 0; }
+nav.toc a:hover { color:var(--accent); }
+.hex-chip { display:inline-flex; align-items:center; white-space:nowrap; }
+.hex-chip .dot { display:inline-block; width:0.85em; height:0.85em; border-radius:3px;
+                 margin-right:0.4em; vertical-align:-0.08em; box-shadow:inset 0 0 0 1px var(--line-strong);
+                 flex-shrink:0; }
 footer { margin-top:40px; color:var(--muted); font-size:15px; }
 `;
 
 const escapeHtml = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+// Slugs GitHub-compatibles para que anchors escritos a mano (#seccion-existente) sigan
+// funcionando: saca tags/entidades/puntuación, conserva letras unicode y _, un guion por espacio.
+const slugify = (html) =>
+	html
+		.replace(/<[^>]+>/g, "")
+		.replace(/&#?\w+;/g, "")
+		.toLowerCase()
+		.replace(/[^\p{L}\p{N}\s_-]/gu, "")
+		.trim()
+		.replace(/\s/g, "-");
+
+// Marca cada `#RRGGBB` en un code span inline con un swatch de color — no toca hashes de prosa
+// (issue #123) porque el code span ya viene delimitado por marked antes de este paso.
+const addColorDots = (html) =>
+	html.replace(
+		/<code>(#[0-9A-Fa-f]{6})<\/code>/g,
+		'<span class="hex-chip"><span class="dot" style="background:$1"></span><code>$1</code></span>',
+	);
+
+// Agrega ids con slug a cada <h2> (colisiones resueltas con sufijo -N al estilo GitHub) y
+// devuelve la tabla de contenidos: el patrón interno "temperado" evita que un <h2> mal cerrado
+// se trague el próximo heading real.
+function addHeadingIdsAndToc(html) {
+	const headings = [];
+	const usedSlugs = new Set();
+	const withIds = html.replace(/<h2>((?:(?!<h2[\s>])[\s\S])*?)<\/h2>/g, (_, inner) => {
+		let slug = slugify(inner) || "section";
+		if (usedSlugs.has(slug)) {
+			let i = 1;
+			while (usedSlugs.has(`${slug}-${i}`)) i++;
+			slug = `${slug}-${i}`;
+		}
+		usedSlugs.add(slug);
+		headings.push({ slug, inner });
+		return `<h2 id="${slug}">${inner}</h2>`;
+	});
+	const toc =
+		headings.length >= 4
+			? `<nav class="toc">
+	<p class="toc-title">Contents</p>
+	<ol>
+${headings.map((h) => `		<li><a href="#${h.slug}">${h.inner.replace(/<\/?a\b[^>]*>/g, "")}</a></li>`).join("\n")}
+	</ol>
+</nav>\n`
+			: "";
+	return { body: withIds, toc };
+}
 const codeLanguage = (lang) => (lang || "").trim().split(/\s+/, 1)[0].toLowerCase();
 const classToken = (lang) => lang.replace(/[^A-Za-z0-9_-]/g, "-");
 
@@ -188,24 +250,32 @@ function splitTitle(md) {
 function alertsToCallouts(html) {
 	const kinds = Object.keys(ALERT_CALLOUTS).join("|");
 	const marker = new RegExp(`<blockquote>\\s*<p>\\[!(${kinds})\\]\\s*(?:<br\\s*/?>\\s*)?`, "g");
-	let out = html.replace(marker, (_all, kind) => `<div class="callout ${ALERT_CALLOUTS[kind]}"><p>`);
+	let out = html.replace(marker, (_all, kind) => {
+		const { tone, label } = ALERT_CALLOUTS[kind];
+		return `<div class="callout ${tone}"><p class="callout-label">${label}</p><p>`;
+	});
+	if (out === html) return out;
+	// Un marcador solo en su párrafo deja un <p> vacío detrás de la etiqueta.
+	out = out.replace(/(<p class="callout-label">[^<]+<\/p>)<p>\s*<\/p>/g, "$1");
 	// Cierra el div solo para los blockquotes que abrimos como callouts.
-	if (out !== html)
-		out = out.replace(/<\/blockquote>/g, (close, idx) => {
-			const opened = out.lastIndexOf('<div class="callout', idx);
-			const openedQuote = out.lastIndexOf("<blockquote>", idx);
-			return opened > openedQuote ? "</div>" : close;
-		});
-	return out;
+	return out.replace(/<\/blockquote>/g, (close, idx) => {
+		const opened = out.lastIndexOf('<div class="callout', idx);
+		const openedQuote = out.lastIndexOf("<blockquote>", idx);
+		return opened > openedQuote ? "</div>" : close;
+	});
 }
 
 export function renderMarkdownToHtml(md, opts = {}) {
-	const tokensCss = opts.tokensCss ?? fs.readFileSync(TOKENS_CSS_PATH, "utf8");
+	// `css` reemplaza la hoja de estilos COMPLETA (tokens + body css) — para repos con look
+	// propio; `tokensCss` solo pisa la paleta manteniendo el layout pandi.
+	const tokensCss = opts.css ? undefined : (opts.tokensCss ?? fs.readFileSync(TOKENS_CSS_PATH, "utf8"));
+	const styleCss = opts.css ?? `${tokensCss}\n${BODY_CSS}`;
 	const kicker = opts.kicker ?? "Pandi artifact";
 	const { title: docTitle, body } = splitTitle(stripYamlFrontmatter(md));
 	const title = docTitle ?? opts.title ?? "Untitled";
-	const rendered = alertsToCallouts(engine.parse(body, { async: false }));
-	const mermaidBlock = rendered.includes('<pre class="mermaid">') ? `${mermaidScript(tokensCss)}\n` : "";
+	const { body: withIds, toc } = addHeadingIdsAndToc(alertsToCallouts(engine.parse(body, { async: false })));
+	const rendered = addColorDots(withIds);
+	const mermaidBlock = rendered.includes('<pre class="mermaid">') ? `${mermaidScript(opts.css ?? tokensCss)}\n` : "";
 
 	return `<!doctype html>
 <html lang="es">
@@ -214,8 +284,7 @@ export function renderMarkdownToHtml(md, opts = {}) {
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${escapeHtml(title)}</title>
 <style>
-${tokensCss}
-${BODY_CSS}</style>
+${styleCss}</style>
 </head>
 <body>
 <div class="container">
@@ -224,7 +293,7 @@ ${BODY_CSS}</style>
 		<h1>${escapeHtml(title)}</h1>
 	</header>
 	<main>
-${rendered}	</main>
+${toc}${rendered}	</main>
 	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
 </div>
 ${mermaidBlock}</body>
@@ -236,31 +305,39 @@ export function parseArgs(argv) {
 	const inputs = [];
 	let out = null;
 	let kicker;
+	let tokens;
+	let css;
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i];
 		if (a === "-o" || a === "--out") out = argv[++i];
 		else if (a === "--kicker") kicker = argv[++i];
+		else if (a === "--tokens") tokens = argv[++i];
+		else if (a === "--css") css = argv[++i];
 		else if (a === "-h" || a === "--help") return { help: true };
 		else if (a.startsWith("-")) throw new Error(`flag desconocida: ${a}`);
 		else inputs.push(a);
 	}
-	return { inputs, out, kicker };
+	return { inputs, out, kicker, tokens, css };
 }
 
 function main() {
 	const parsed = parseArgs(process.argv.slice(2));
 	if (parsed.help || !parsed.inputs?.length) {
-		console.log('Uso: markdown-to-html.mjs <input.md> [más.md…] [-o output.html] [--kicker "Texto"]');
+		console.log(
+			'Uso: markdown-to-html.mjs <input.md> [más.md…] [-o output.html] [--kicker "Texto"] [--tokens tokens.css] [--css estilo.css]',
+		);
 		process.exit(parsed.help ? 0 : 1);
 	}
 	if (parsed.out && parsed.inputs.length > 1) {
 		console.error("-o solo es válido con un único archivo de entrada");
 		process.exit(1);
 	}
+	const tokensCss = parsed.tokens ? fs.readFileSync(parsed.tokens, "utf8") : undefined;
+	const css = parsed.css ? fs.readFileSync(parsed.css, "utf8") : undefined;
 	for (const input of parsed.inputs) {
 		const md = fs.readFileSync(input, "utf8");
 		const outPath = parsed.out ?? `${input.replace(/\.md$/i, "")}.html`;
-		const html = renderMarkdownToHtml(md, { title: path.basename(input), kicker: parsed.kicker });
+		const html = renderMarkdownToHtml(md, { title: path.basename(input), kicker: parsed.kicker, tokensCss, css });
 		fs.writeFileSync(outPath, html);
 		console.log(`${input} -> ${outPath}`);
 	}

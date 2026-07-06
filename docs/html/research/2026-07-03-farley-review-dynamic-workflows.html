@@ -121,10 +121,24 @@ tr:last-child td { border-bottom:none; }
 .callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:16px;
            border:1px solid var(--line); background:var(--paper); color:var(--ink); }
 .callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout .callout-label { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                          color:var(--muted); font-weight:600; margin:0 0 4px; }
 .callout.info    { background:var(--info-bg);    border-color:var(--purple); }
 .callout.success { background:var(--success-bg); border-color:var(--success); }
 .callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
 .callout.error   { background:var(--error-bg);   border-color:var(--error); }
+nav.toc { font-size:14px; border:1px solid var(--line); border-radius:12px;
+          background:var(--paper); padding:14px 18px; margin:8px 0 28px; }
+nav.toc .toc-title { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                     color:var(--muted); font-weight:600; margin:0 0 8px; }
+nav.toc ol { list-style:none; margin:0; padding:0; display:grid;
+             grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:2px 24px; }
+nav.toc a { color:var(--ink2); text-decoration:none; display:block; padding:2px 0; }
+nav.toc a:hover { color:var(--accent); }
+.hex-chip { display:inline-flex; align-items:center; white-space:nowrap; }
+.hex-chip .dot { display:inline-block; width:0.85em; height:0.85em; border-radius:3px;
+                 margin-right:0.4em; vertical-align:-0.08em; box-shadow:inset 0 0 0 1px var(--line-strong);
+                 flex-shrink:0; }
 footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </style>
 </head>
@@ -135,17 +149,28 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<h1>Revisión Farley (MSE) de Pi Dynamic Workflows — 2026-07-03</h1>
 	</header>
 	<main>
+<nav class="toc">
+	<p class="toc-title">Contents</p>
+	<ol>
+		<li><a href="#en-30-segundos">En 30 segundos</a></li>
+		<li><a href="#cómo-se-produjo-y-qué-encontró-el-proceso-mismo">Cómo se produjo (y qué encontró el proceso mismo)</a></li>
+		<li><a href="#evaluación-general">Evaluación general</a></li>
+		<li><a href="#hallazgos-priorizados-verificados-por-cita">Hallazgos priorizados (verificados por cita)</a></li>
+		<li><a href="#cobertura-honesta">Cobertura (honesta)</a></li>
+		<li><a href="#estado-loop-until-dry-2026-07-03-misma-sesión">Estado (loop-until-dry 2026-07-03, misma sesión)</a></li>
+	</ol>
+</nav>
 <p>Revisión técnica de la extensión <code>pandi-dynamic-workflows</code> (engine/runtime,
 primitivas, catálogo de scaffolds, dashboard/graph) con la lente de Dave
 Farley (<em>Modern Software Engineering</em>): aprendizaje, TDD como feedback,
 gestión de complejidad, estabilidad + throughput. Contract Gate: PROCEED (run
 <code>…contract-gate-3abe7ce6</code>).</p>
-<h2>En 30 segundos</h2>
+<h2 id="en-30-segundos">En 30 segundos</h2>
 <p>Este informe resume qué encontró la revisión técnica, qué defectos reales ya
 salieron del proceso y cuáles seguían abiertos en el momento del análisis. Sirve
 para ubicar rápido los riesgos más importantes de <code>pandi-dynamic-workflows</code> y
 ver qué gaps de pruebas siguen pidiendo una corrección concreta.</p>
-<h2>Cómo se produjo (y qué encontró el proceso mismo)</h2>
+<h2 id="cómo-se-produjo-y-qué-encontró-el-proceso-mismo">Cómo se produjo (y qué encontró el proceso mismo)</h2>
 <p>Dos workflows: <code>revisar-dw-farley</code> (16 reviewers + jurado adversarial 3×N +
 síntesis; <strong>falló dos veces por diseño</strong>: fan-out impredecible del jurado vs
 <code>maxAgents</code>, y schema estricto sobre unidades enormes) y
@@ -158,7 +183,7 @@ silenciosa, dos reseñas de 8 min &quot;vacías&quot; recuperadas después del s
 <li><strong>Feature (enviada, <code>a501094</code>):</strong> progreso auto-derivado del batch
 (<code>Review 5/16</code>) en status line y panel — antes <code>done/started</code> mentía por omisión.</li>
 </ul>
-<h2>Evaluación general</h2>
+<h2 id="evaluación-general">Evaluación general</h2>
 <p>El kernel está deliberadamente diseñado (abort plumbing documentado, escrituras
 atómicas, journal content-addressed, reselect-by-key). El cluster de riesgo real
 es <strong>fallo silencioso / restauración de estado bajo concurrencia</strong>: caminos donde
@@ -166,7 +191,7 @@ el sistema hace lo incorrecto sin ruido (resume duplicado, <code>latest</code> e
 foco que se resetea, errores tragados). Las tres unidades sintetizadas reportan
 <strong>cero cobertura de caracterización en los caminos riesgosos encontrados</strong> — el
 gap de TDD es exactamente donde están los defectos.</p>
-<h2>Hallazgos priorizados (verificados por cita)</h2>
+<h2 id="hallazgos-priorizados-verificados-por-cita">Hallazgos priorizados (verificados por cita)</h2>
 <h3>Alta</h3>
 <ol>
 <li><strong>Resume duplicado concurrente puede corromper un run-dir</strong> —
@@ -210,7 +235,7 @@ jurado; degradar (sintetizar lo que hay) en vez de fallar.</li>
 la salida en prosa + síntesis-judge es más robusta (lección ya aplicada a las
 lentes del scaffold, ahora también a unidades).</li>
 </ol>
-<h2>Cobertura (honesta)</h2>
+<h2 id="cobertura-honesta">Cobertura (honesta)</h2>
 <ul>
 <li><strong>Sintetizado:</strong> dashboard-tui, run-resume-state, concurrency-spawn (core run);
 engine-run y tool-dispatch (reseñas recuperadas del stream, citas spot-checked).</li>
@@ -221,7 +246,7 @@ engine-run y tool-dispatch (reseñas recuperadas del stream, citas spot-checked)
 <li><strong>No cubierto:</strong> catálogo de 25 scaffolds a nivel por-archivo (muestreo del run
 grande sin síntesis).</li>
 </ul>
-<h2>Estado (loop-until-dry 2026-07-03, misma sesión)</h2>
+<h2 id="estado-loop-until-dry-2026-07-03-misma-sesión">Estado (loop-until-dry 2026-07-03, misma sesión)</h2>
 <table>
 <thead>
 <tr>

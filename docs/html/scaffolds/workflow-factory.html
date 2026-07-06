@@ -121,10 +121,24 @@ tr:last-child td { border-bottom:none; }
 .callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:16px;
            border:1px solid var(--line); background:var(--paper); color:var(--ink); }
 .callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout .callout-label { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                          color:var(--muted); font-weight:600; margin:0 0 4px; }
 .callout.info    { background:var(--info-bg);    border-color:var(--purple); }
 .callout.success { background:var(--success-bg); border-color:var(--success); }
 .callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
 .callout.error   { background:var(--error-bg);   border-color:var(--error); }
+nav.toc { font-size:14px; border:1px solid var(--line); border-radius:12px;
+          background:var(--paper); padding:14px 18px; margin:8px 0 28px; }
+nav.toc .toc-title { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                     color:var(--muted); font-weight:600; margin:0 0 8px; }
+nav.toc ol { list-style:none; margin:0; padding:0; display:grid;
+             grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:2px 24px; }
+nav.toc a { color:var(--ink2); text-decoration:none; display:block; padding:2px 0; }
+nav.toc a:hover { color:var(--accent); }
+.hex-chip { display:inline-flex; align-items:center; white-space:nowrap; }
+.hex-chip .dot { display:inline-block; width:0.85em; height:0.85em; border-radius:3px;
+                 margin-right:0.4em; vertical-align:-0.08em; box-shadow:inset 0 0 0 1px var(--line-strong);
+                 flex-shrink:0; }
 footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </style>
 </head>
@@ -135,16 +149,29 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<h1>workflow-factory</h1>
 	</header>
 	<main>
+<nav class="toc">
+	<p class="toc-title">Contents</p>
+	<ol>
+		<li><a href="#en-30-segundos">En 30 segundos</a></li>
+		<li><a href="#cómo-lanzarlo">Cómo lanzarlo</a></li>
+		<li><a href="#diagrama">Diagrama</a></li>
+		<li><a href="#qué-hace">Qué hace</a></li>
+		<li><a href="#cuándo-usarlo">Cuándo usarlo</a></li>
+		<li><a href="#cómo-funciona">Cómo funciona</a></li>
+		<li><a href="#input-y-output">Input y output</a></li>
+		<li><a href="#fases">Fases</a></li>
+	</ol>
+</nav>
 <blockquote>
 <p>Meta-workflow: catálogo → plan → generación → revisión → refinamiento, y después escribe <code>&lt;configDir&gt;/workflows/drafts/&lt;slug&gt;.js</code>.</p>
 </blockquote>
-<h2>En 30 segundos</h2>
+<h2 id="en-30-segundos">En 30 segundos</h2>
 <p>Es el workflow que diseña otro workflow. Le das una tarea en lenguaje natural y usa una corrida completa para: descubrir el catálogo de scaffolds existentes, elegir el patrón y el presupuesto de modelos, generar el JS del nuevo workflow, revisarlo de forma adversarial, refinarlo si hace falta y escribir el draft en disco. Usalo cuando ningún scaffold existente encaja y necesitás uno específico para la tarea; si <code>fan-out-and-synthesize</code>, <code>map-reduce</code> u otro patrón catalogado ya resuelve el caso, conviene llamarlo directo.</p>
-<h2>Cómo lanzarlo</h2>
+<h2 id="cómo-lanzarlo">Cómo lanzarlo</h2>
 <pre><code class="hljs language-text">/workflow new mi-run --pattern=workflow-factory
 /workflow run mi-run {&quot;task&quot;:&quot;Auditar resolvers de GraphQL en busca de queries N+1&quot;,&quot;write&quot;:true}</code></pre>
 <p><code>task</code> es el único campo obligatorio (qué debe lograr el workflow generado). <code>write</code> (default <code>true</code> si se omite) controla si el resultado se escribe a disco o solo se devuelve como texto — ver <a href="#input-y-output">Input y output</a>.</p>
-<h2>Diagrama</h2>
+<h2 id="diagrama">Diagrama</h2>
 <pre class="mermaid">flowchart TD
     A["Input: task (req), name?, write?=true,\nmodel/effort, models/efforts[role],\ntoolsByRole/skillsByRole/excludeByRole[role]"] --&gt; B{"task ausente?"}
     B --&gt;|"sí"| B1["throw Error: falta task"]
@@ -189,12 +216,12 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
     V --&gt; END
     Z --&gt; END
     Z1 --&gt; END</pre>
-<h2>Qué hace</h2>
+<h2 id="qué-hace">Qué hace</h2>
 <p><code>workflow-factory</code> produce otro workflow: parte de un <code>task</code> en lenguaje natural y ejecuta un pipeline de seis fases (Catalog → Plan → Generate → Review → Refine → Write) donde cada fase pasa contexto a la siguiente. El objetivo es dejar un draft JS listo para inspeccionar y editar, no una respuesta final para confiar sin revisión humana — el propio código lo deja claro en el resumen final (&quot;inspect/edit the generated workflow (it is NOT syntax-checked)&quot;).</p>
 <p>Es &quot;catalog-aware&quot;: antes de planear, un agente barato escanea los <code>.pi/workflows/*.js</code> existentes (del proyecto y, si existe, el catálogo global) y extrae <code>meta.name</code>/<code>meta.description</code>, clasificando cada uno como <code>lib</code> (sub-workflow reusable, p. ej. terminado en <code>-lib</code>), <code>composed</code> (usa <code>workflow(...)</code>) o <code>base</code>. Ese catálogo se inyecta en los prompts de Plan, Generate y Review para que el planificador PREFIERA reusar/especializar el scaffold más cercano y COMPONER sub-pasos reusables vía <code>workflow(name, args)</code> en vez de reinventar — el plan debe justificar explícitamente construir desde cero si nada encaja.</p>
 <p>El diseño soporta composición recursiva acotada por profundidad: un workflow generado puede componer otros scaffolds con <code>workflow(name, args)</code>, incluyendo llamar a <code>workflow(&quot;contract-gate&quot;, …)</code> desde dentro de un nodo para re-acotar una subtarea antes de profundizar. Esa recursión está limitada por el runtime (Claude Code Workflow tool: profundidad 1, solo el nivel superior puede componer; pi: profundidad 2 por defecto, configurable con <code>PI_DYNAMIC_WORKFLOWS_MAX_DEPTH</code>).</p>
 <p>Todo el input/contexto no confiable (el <code>task</code> del usuario, el catálogo, el código generado, los hallazgos de revisión) se envuelve con <code>fence()</code>, un delimitador derivado del hash del propio contenido: un payload malicioso no puede forjar el marcador de cierre porque cambiar el contenido cambia el hash. Los prompts de Generate/Refine/Review instruyen explícitamente a tratar ese contenido como datos a diseñar/juzgar, nunca como instrucciones a obedecer.</p>
-<h2>Cuándo usarlo</h2>
+<h2 id="cuándo-usarlo">Cuándo usarlo</h2>
 <ul>
 <li>Bootstrap de un patrón nuevo que no está en el catálogo (caso de uso del catálogo).</li>
 <li>Especializar el scaffold existente más cercano a la tarea (caso de uso del catálogo).</li>
@@ -207,7 +234,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li>Para tareas puntuales de una sola vez donde el costo de Plan+Generate+Review+Refine (hasta 4 llamadas a modelos caros) no se amortiza.</li>
 <li>El resultado es un <strong>draft sin syntax-check</strong>: no usarlo cuando se necesita una respuesta inmediata y confiable sin revisión humana posterior.</li>
 </ul>
-<h2>Cómo funciona</h2>
+<h2 id="cómo-funciona">Cómo funciona</h2>
 <p><strong>Fase Catalog.</strong> Un <code>agent</code> (rol <code>catalog-scan</code>, modelo <code>haiku</code>, effort <code>low</code>) lee los archivos <code>.pi/workflows/*.js</code> del proyecto y, si existe, <code>~/.pi/agent/workflows/*.js</code>, excluyendo <code>workflow-factory</code> y cualquier cosa bajo <code>drafts/</code>. Devuelve <code>{ workflows: [{ name, description, kind }] }</code> con schema fijo. El resultado se filtra (se descarta <code>workflow-factory</code> si aparece) y se formatea en <code>catalogText</code>, una lista de líneas <code>- name [kind]: description</code> que se reusa en las tres fases siguientes.</p>
 <p><strong>Fase Plan.</strong> Un <code>agent</code> (rol <code>workflow-plan</code>, modelo <code>opus</code>, effort <code>high</code>, con <code>schema PLAN</code>) recibe el <code>task</code> y el <code>catalogText</code> (ambos dentro de un <code>fence</code>) y debe devolver un plan estructurado: <code>name</code>, <code>pattern</code>, <code>why</code>, <code>inputs</code>, <code>scout</code>, <code>primitives</code> disponibles (<code>agent</code>, <code>parallel</code>, <code>pipeline</code>, <code>workflow(name,args)</code>), <code>reuse</code> (nombres del catálogo a componer/especializar — vacío solo si <code>why</code> justifica construir desde cero), <code>promptContracts</code>, <code>verification</code>, <code>risks</code>, y <code>budget</code> (un array con <code>{ role, model, effort, why }</code> por cada rol de agente planeado, atado explícitamente a ancho de fan-out, dificultad, costo de error y si hay verificación posterior).</p>
 <p><strong>Fase Generate.</strong> Un <code>agent</code> (rol <code>workflow-codegen</code>, modelo <code>sonnet</code>, effort <code>medium</code>, <code>timeoutMs=20 min</code>) recibe el <code>task</code>, el <code>plan</code> (compactado a 12000 chars) y el <code>catalogText</code>, todos fenced, y debe devolver JS puro (sin fences Markdown) que cumpla contratos duros: <code>export const meta</code> como literal puro, sin <code>import</code>/<code>require</code>, llamadas <code>agent(promptString, opts)</code> (nunca forma-objeto), cada <code>agent()</code> con <code>model</code>/<code>effort</code> explícitos tomados del budget del plan, un helper <code>node(role, extra)</code> para overrides por rol, tools read-only salvo mutación explícitamente requerida, y contratos de evidencia (citar o declarar <code>NO_FINDINGS</code>/<code>INSUFFICIENT_EVIDENCE</code>). <code>extractJs()</code> saca el bloque de código (con o sin fences). Si el resultado queda vacío — típicamente por timeout del agente — el workflow aborta con <code>throw</code> explícito en vez de dejar pasar un código vacío a Review (evita que un timeout se entierre bajo un turno de revisión desperdiciado).</p>
@@ -217,7 +244,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <p><strong>Fase Write.</strong> Solo corre si <code>input.write !== false</code> y <code>codeValid</code>. Un <code>agent</code> (rol <code>write-file</code>, modelo <code>haiku</code>, effort <code>low</code>, <code>schema {wrote,path}</code>) usa la tool Write para crear <code>.pi/workflows/drafts/&lt;slug&gt;.js</code> con el contenido pasado como dato fenced (&quot;verbatim, nunca instrucciones&quot;). Si el agente no confirma <code>wrote:true</code> o lanza una excepción, se registra <code>writeError</code> y el código generado se devuelve igual en el resultado en vez de perderse.</p>
 <p><strong>Manejo de fallos parciales:</strong> no hay fan-out paralelo en este scaffold (es una cadena secuencial de agentes únicos por fase), así que no aplica <code>settle</code>; en su lugar cada fase que puede fallar (codegen vacío, validación estructural, escritura a disco) tiene su propio camino de degradación explícito (<code>throw</code>, draft no-escrito, o resultado devuelto en texto) en vez de fallar en silencio.</p>
 <p><strong>Caching:</strong> no se observa ningún mecanismo explícito de caché; cada <code>agent</code> se invoca fresco en cada corrida.</p>
-<h2>Input y output</h2>
+<h2 id="input-y-output">Input y output</h2>
 <p><strong>Input</strong> (JSON-stringified en <code>args</code>, parseado defensivamente):</p>
 <table>
 <thead>
@@ -276,7 +303,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li>Si NO se escribió a disco, el código JS completo (compactado a 60000 chars) se incluye al final del string.</li>
 </ul>
 <p>No hay llamadas a <code>writeArtifact</code>; la única escritura a disco es el archivo del workflow generado en sí, hecha por el sub-agente <code>write-file</code> vía la tool <code>Write</code>.</p>
-<h2>Fases</h2>
+<h2 id="fases">Fases</h2>
 <ol>
 <li><strong>Catalog</strong> — un <code>agent</code> barato escanea los <code>.pi/workflows/*.js</code> existentes y produce <code>{ name, description, kind }</code> por cada uno, excluyendo <code>workflow-factory</code> y drafts.</li>
 <li><strong>Plan</strong> — un <code>agent</code> de alto tier diseña el patrón, primitivas, reuse del catálogo y presupuesto de modelo/effort por rol.</li>

@@ -121,10 +121,24 @@ tr:last-child td { border-bottom:none; }
 .callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:16px;
            border:1px solid var(--line); background:var(--paper); color:var(--ink); }
 .callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout .callout-label { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                          color:var(--muted); font-weight:600; margin:0 0 4px; }
 .callout.info    { background:var(--info-bg);    border-color:var(--purple); }
 .callout.success { background:var(--success-bg); border-color:var(--success); }
 .callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
 .callout.error   { background:var(--error-bg);   border-color:var(--error); }
+nav.toc { font-size:14px; border:1px solid var(--line); border-radius:12px;
+          background:var(--paper); padding:14px 18px; margin:8px 0 28px; }
+nav.toc .toc-title { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                     color:var(--muted); font-weight:600; margin:0 0 8px; }
+nav.toc ol { list-style:none; margin:0; padding:0; display:grid;
+             grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:2px 24px; }
+nav.toc a { color:var(--ink2); text-decoration:none; display:block; padding:2px 0; }
+nav.toc a:hover { color:var(--accent); }
+.hex-chip { display:inline-flex; align-items:center; white-space:nowrap; }
+.hex-chip .dot { display:inline-block; width:0.85em; height:0.85em; border-radius:3px;
+                 margin-right:0.4em; vertical-align:-0.08em; box-shadow:inset 0 0 0 1px var(--line-strong);
+                 flex-shrink:0; }
 footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </style>
 </head>
@@ -135,6 +149,21 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<h1>Catálogo de workflows (referencia rápida)</h1>
 	</header>
 	<main>
+<nav class="toc">
+	<p class="toc-title">Contents</p>
+	<ol>
+		<li><a href="#qué-familia-necesito">¿Qué familia necesito?</a></li>
+		<li><a href="#gate--guard--encuadrar-y-proteger">🚪 Gate &amp; guard — encuadrar y proteger</a></li>
+		<li><a href="#route--orchestrate">🧭 Route &amp; orchestrate</a></li>
+		<li><a href="#discover--fan-out">🔍 Discover &amp; fan-out</a></li>
+		<li><a href="#verify">✅ Verify</a></li>
+		<li><a href="#generate--select">🎯 Generate &amp; select</a></li>
+		<li><a href="#iterate--refine">🔁 Iterate &amp; refine</a></li>
+		<li><a href="#migrate">🚚 Migrate</a></li>
+		<li><a href="#compose--meta">🧩 Compose &amp; meta</a></li>
+		<li><a href="#próximos-pasos">Próximos pasos</a></li>
+	</ol>
+</nav>
 <p><strong>Fecha:</strong> 2026-07-01 | <strong>Estado:</strong> referencia durable | <strong>Alcance:</strong> 25 scaffolds de dynamic workflows en <code>pandi-dynamic-workflows</code></p>
 <p>Antes de escribir un workflow desde cero, mirá acá: este índice reúne todos los scaffolds integrados, agrupados por familia, para que elijas un patrón en vez de reinventarlo. La mayoría de las tareas no necesita nada de esto: una sola llamada a un agente gana en casi todo; usá un scaffold solo cuando necesites escala, exhaustividad o verificación independiente.</p>
 <pre><code class="hljs language-text">dynamic_workflow action=scaffold name=fan-out-and-synthesize</code></pre>
@@ -147,7 +176,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li>El skill <code>ultracode</code> (<code>.pi/skills/ultracode/SKILL.md</code>) expone el mismo catálogo por familia.</li>
 </ul>
 <p><strong>Chequeo de completitud (2026-07-01):</strong> 25 scaffolds de pi, 25 workflows de Claude y 25 en la referencia empaquetada del skill. La sección &quot;pattern catalog&quot; del skill nombra los 25 sin extras.</p>
-<h2>¿Qué familia necesito?</h2>
+<h2 id="qué-familia-necesito">¿Qué familia necesito?</h2>
 <p>Recorré primero las compuertas: la mayoría de las tareas se resuelve antes de llegar al fondo.</p>
 <pre class="mermaid">flowchart TD
     A[¿Pedido vago o de alto riesgo?] --&gt;|sí| B[Gate &amp; guard]
@@ -222,7 +251,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </tr>
 </tbody></table>
 <hr>
-<h2>🚪 Gate &amp; guard — encuadrar y proteger</h2>
+<h2 id="gate--guard--encuadrar-y-proteger">🚪 Gate &amp; guard — encuadrar y proteger</h2>
 <table>
 <thead>
 <tr>
@@ -245,7 +274,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>Ya sabés la tarea y solo necesitás un límite duro (PII, secretos) aplicado alrededor de ella o de su salida.</td>
 </tr>
 </tbody></table>
-<h2>🧭 Route &amp; orchestrate</h2>
+<h2 id="route--orchestrate">🧭 Route &amp; orchestrate</h2>
 <table>
 <thead>
 <tr>
@@ -286,7 +315,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>Necesitás que el patrón gate→dispatch recurra sobre subtareas, no solo correr una vez.</td>
 </tr>
 </tbody></table>
-<h2>🔍 Discover &amp; fan-out</h2>
+<h2 id="discover--fan-out">🔍 Discover &amp; fan-out</h2>
 <table>
 <thead>
 <tr>
@@ -333,7 +362,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>La pregunta es externa (requiere la web), no algo que pueda responderse leyendo este repo.</td>
 </tr>
 </tbody></table>
-<h2>✅ Verify</h2>
+<h2 id="verify">✅ Verify</h2>
 <table>
 <thead>
 <tr>
@@ -368,7 +397,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>El artefacto bajo revisión es un <em>plan</em>, no código ni afirmaciones — usalo antes de empezar a implementar.</td>
 </tr>
 </tbody></table>
-<h2>🎯 Generate &amp; select</h2>
+<h2 id="generate--select">🎯 Generate &amp; select</h2>
 <table>
 <thead>
 <tr>
@@ -403,7 +432,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>El problema tiene pasos intermedios que vale la pena explorar, no solo candidatos finales para comparar.</td>
 </tr>
 </tbody></table>
-<h2>🔁 Iterate &amp; refine</h2>
+<h2 id="iterate--refine">🔁 Iterate &amp; refine</h2>
 <table>
 <thead>
 <tr>
@@ -426,7 +455,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>Tenés un oráculo pass/fail (por ejemplo, tests) y un reintento fresco gana a editar en el lugar.</td>
 </tr>
 </tbody></table>
-<h2>🚚 Migrate</h2>
+<h2 id="migrate">🚚 Migrate</h2>
 <table>
 <thead>
 <tr>
@@ -443,7 +472,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>Vas a mutar muchos archivos y no podés dejar ninguno roto atrás — no sirve para descubrimiento de solo lectura.</td>
 </tr>
 </tbody></table>
-<h2>🧩 Compose &amp; meta</h2>
+<h2 id="compose--meta">🧩 Compose &amp; meta</h2>
 <table>
 <thead>
 <tr>
@@ -461,7 +490,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </tr>
 </tbody></table>
 <hr>
-<h2>Próximos pasos</h2>
+<h2 id="próximos-pasos">Próximos pasos</h2>
 <ul>
 <li>Mantené esto en sync cuando se agreguen o eliminen scaffolds: reejecutá <code>dynamic_workflow action=scaffold</code> y compará los nombres contra <code>extensions/pandi-dynamic-workflows/scaffolds/*.js</code>.</li>
 <li>Para las formas de input y las primitives de cada workflow, mirá la salida del catálogo vivo (cada entrada lista un <code>Input</code> y <code>Primitives</code> de ejemplo) o la página HTML enlazada de cada scaffold.</li>

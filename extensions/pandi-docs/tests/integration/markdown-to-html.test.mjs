@@ -72,16 +72,24 @@ test("renders GFM tables", () => {
 	assert.match(html, /<td>2<\/td>/);
 });
 
-test("maps GitHub alerts to pandi callouts and strips the marker", () => {
+test("maps GitHub alerts to labeled pandi callouts and strips the marker", () => {
 	const html = renderMarkdownToHtml("# T\n\n> [!WARNING]\n> Coverage was capped.\n", {});
 	assert.match(html, /class="callout warn"/);
+	assert.match(html, /<p class="callout-label">Warning<\/p>/);
 	assert.match(html, /Coverage was capped\./);
 	assert.doesNotMatch(html, /\[!WARNING\]/);
-	// Cada tipo de alerta mapea a su propia clase; los blockquotes comunes siguen siendo blockquotes.
-	assert.match(renderMarkdownToHtml("# T\n\n> [!NOTE]\n> n\n", {}), /class="callout info"/);
-	assert.match(renderMarkdownToHtml("# T\n\n> [!TIP]\n> t\n", {}), /class="callout success"/);
+	// Cada tipo de alerta mapea a su propia clase y etiqueta; los blockquotes comunes siguen siendo blockquotes.
+	const note = renderMarkdownToHtml("# T\n\n> [!NOTE]\n> n\n", {});
+	assert.match(note, /class="callout info"/);
+	assert.match(note, /<p class="callout-label">Note<\/p>/);
+	assert.match(renderMarkdownToHtml("# T\n\n> [!TIP]\n> t\n", {}), /<p class="callout-label">Tip<\/p>/);
 	assert.match(renderMarkdownToHtml("# T\n\n> [!CAUTION]\n> c\n", {}), /class="callout error"/);
-	assert.match(renderMarkdownToHtml("# T\n\n> plain quote\n", {}), /<blockquote>/);
+	const plain = renderMarkdownToHtml("# T\n\n> plain quote\n", {});
+	assert.match(plain, /<blockquote>/);
+	assert.doesNotMatch(plain, /<p class="callout-label">/);
+	// Un marcador solo en su párrafo no deja un <p> vacío atrás.
+	const alone = renderMarkdownToHtml("# T\n\n> [!NOTE]\n>\n> body\n", {});
+	assert.doesNotMatch(alone, /<p>\s*<\/p>/);
 });
 
 test("escapes HTML inside code fences", () => {
@@ -117,6 +125,30 @@ test("mermaid fences become pandi-themed diagrams; plain docs stay JS-free", () 
 	assert.doesNotMatch(plain, /<script/);
 });
 
+test("h2 sections get GitHub-style slug ids, deduped on collision", () => {
+	const html = renderMarkdownToHtml("# T\n\n## Setup\n\na\n\n## Setup\n\nb\n", {});
+	assert.match(html, /<h2 id="setup">Setup<\/h2>/);
+	assert.match(html, /<h2 id="setup-1">Setup<\/h2>/);
+});
+
+test("adds a table of contents once a doc has 4+ h2 sections; omits it otherwise", () => {
+	const withThree = renderMarkdownToHtml("# T\n\n## A\n\nx\n\n## B\n\nx\n\n## C\n\nx\n", {});
+	assert.doesNotMatch(withThree, /<nav class="toc">/);
+	const withFour = renderMarkdownToHtml("# T\n\n## A\n\nx\n\n## B\n\nx\n\n## C\n\nx\n\n## D\n\nx\n", {});
+	assert.match(withFour, /<nav class="toc">/);
+	assert.match(withFour, /href="#a">A<\/a>/);
+	assert.match(withFour, /href="#d">D<\/a>/);
+});
+
+test("hex color code spans get a color dot; plain prose hashes do not", () => {
+	const html = renderMarkdownToHtml("# T\n\nBrand is `#4A9D44`. Issue #123 stays plain.\n", {});
+	assert.match(
+		html,
+		/<span class="hex-chip"><span class="dot" style="background:#4A9D44"><\/span><code>#4A9D44<\/code><\/span>/,
+	);
+	assert.doesNotMatch(html, /background:#123\b/);
+});
+
 test("CLI converts a .md file to a sibling .html", () => {
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pandi-md2html-"));
 	try {
@@ -126,6 +158,45 @@ test("CLI converts a .md file to a sibling .html", () => {
 		const html = fs.readFileSync(path.join(dir, "informe.html"), "utf8");
 		assert.match(html, /<title>CLI smoke<\/title>/);
 		assert.match(html, /Body here\./);
+	} finally {
+		fs.rmSync(dir, { recursive: true, force: true });
+	}
+});
+
+test("opts.css replaces the ENTIRE stylesheet (tokens + body css) with the project's own look", () => {
+	const html = renderMarkdownToHtml("# T\n\nx\n", { css: "body { color: teal; }\n" });
+	assert.match(html, /body \{ color: teal; \}/);
+	assert.doesNotMatch(html, /--bg:\s*#242526/, "los tokens pandi no se mezclan con el css propio");
+	assert.doesNotMatch(html, /\.container \{ max-width/, "el body css pandi tampoco");
+});
+
+test("CLI --css replaces the whole stylesheet from a file", () => {
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pandi-md2html-css-"));
+	try {
+		const mdPath = path.join(dir, "informe.md");
+		const cssPath = path.join(dir, "brand.css");
+		fs.writeFileSync(mdPath, "# CLI smoke\n\nBody here.\n");
+		fs.writeFileSync(cssPath, "body { color: teal; }\n");
+		execFileSync(process.execPath, [SCRIPT, mdPath, "--css", cssPath], { encoding: "utf8" });
+		const html = fs.readFileSync(path.join(dir, "informe.html"), "utf8");
+		assert.match(html, /body \{ color: teal; \}/);
+		assert.doesNotMatch(html, /--bg:\s*#242526/);
+	} finally {
+		fs.rmSync(dir, { recursive: true, force: true });
+	}
+});
+
+test("CLI --tokens overrides the embedded tokens with another project's palette", () => {
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pandi-md2html-tokens-"));
+	try {
+		const mdPath = path.join(dir, "informe.md");
+		const tokensPath = path.join(dir, "custom.css");
+		fs.writeFileSync(mdPath, "# CLI smoke\n\nBody here.\n");
+		fs.writeFileSync(tokensPath, ":root { --bg: #010203; }\n");
+		execFileSync(process.execPath, [SCRIPT, mdPath, "--tokens", tokensPath], { encoding: "utf8" });
+		const html = fs.readFileSync(path.join(dir, "informe.html"), "utf8");
+		assert.match(html, /--bg:\s*#010203/);
+		assert.doesNotMatch(html, /--bg:\s*#242526/, "default pandi tokens must not leak in alongside the override");
 	} finally {
 		fs.rmSync(dir, { recursive: true, force: true });
 	}

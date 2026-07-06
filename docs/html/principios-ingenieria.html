@@ -121,10 +121,24 @@ tr:last-child td { border-bottom:none; }
 .callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:16px;
            border:1px solid var(--line); background:var(--paper); color:var(--ink); }
 .callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout .callout-label { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                          color:var(--muted); font-weight:600; margin:0 0 4px; }
 .callout.info    { background:var(--info-bg);    border-color:var(--purple); }
 .callout.success { background:var(--success-bg); border-color:var(--success); }
 .callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
 .callout.error   { background:var(--error-bg);   border-color:var(--error); }
+nav.toc { font-size:14px; border:1px solid var(--line); border-radius:12px;
+          background:var(--paper); padding:14px 18px; margin:8px 0 28px; }
+nav.toc .toc-title { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                     color:var(--muted); font-weight:600; margin:0 0 8px; }
+nav.toc ol { list-style:none; margin:0; padding:0; display:grid;
+             grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:2px 24px; }
+nav.toc a { color:var(--ink2); text-decoration:none; display:block; padding:2px 0; }
+nav.toc a:hover { color:var(--accent); }
+.hex-chip { display:inline-flex; align-items:center; white-space:nowrap; }
+.hex-chip .dot { display:inline-block; width:0.85em; height:0.85em; border-radius:3px;
+                 margin-right:0.4em; vertical-align:-0.08em; box-shadow:inset 0 0 0 1px var(--line-strong);
+                 flex-shrink:0; }
 footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </style>
 </head>
@@ -135,14 +149,24 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<h1>Principios de ingeniería de este repo (pandi-extensions)</h1>
 	</header>
 	<main>
+<nav class="toc">
+	<p class="toc-title">Contents</p>
+	<ol>
+		<li><a href="#en-30-segundos">En 30 segundos</a></li>
+		<li><a href="#1-mentalidad-karpathy">1. Mentalidad (Karpathy)</a></li>
+		<li><a href="#2-disciplina-de-cambio-farley--tdd">2. Disciplina de cambio (Farley / TDD)</a></li>
+		<li><a href="#3-reglas-del-repo-que-no-son-negociables">3. Reglas del repo que NO son negociables</a></li>
+		<li><a href="#4-ia-y-workflows-dinámicos">4. IA y workflows dinámicos</a></li>
+	</ol>
+</nav>
 <p>Destilado de <code>AGENTS.md</code>, <code>modern-software-engineering/SKILL.md</code>,
 <code>ai-assisted-engineering/SKILL.md</code> y <code>karpathy-guidelines</code>. Reglas accionables, no slogans.</p>
-<h2>En 30 segundos</h2>
+<h2 id="en-30-segundos">En 30 segundos</h2>
 <p>Este documento resume las reglas de ingeniería que rigen este repo. Te sirve para decidir
 cómo encarar un cambio, revisar una PR o coordinarte con IA sin perder verificabilidad.
 Si hay varias opciones válidas, elegí el slice más chico, escribí/ejecutá tests y dejá
 evidencia concreta.</p>
-<h2>1. Mentalidad (Karpathy)</h2>
+<h2 id="1-mentalidad-karpathy">1. Mentalidad (Karpathy)</h2>
 <ul>
 <li><strong>Entendé antes de escribir código.</strong> Declarar supuestos antes de implementar; si hay
 varias interpretaciones válidas, presentalas — no elijas en silencio. Si algo no está
@@ -157,7 +181,7 @@ cambio dejó huérfano. Prueba: cada línea cambiada debe trazarse al pedido del
 (&quot;arreglar el bug&quot; → &quot;test que lo reproduce, luego hacerlo pasar&quot;); en tareas
 multi-paso, enumerá plan + verificación por paso antes de ejecutar.</li>
 </ul>
-<h2>2. Disciplina de cambio (Farley / TDD)</h2>
+<h2 id="2-disciplina-de-cambio-farley--tdd">2. Disciplina de cambio (Farley / TDD)</h2>
 <ul>
 <li><strong>TDD completo para cambios de comportamiento, no la mitad fácil:</strong><ol>
 <li><strong>Red primero:</strong> el test que falla se escribe ANTES de la implementación.
@@ -183,7 +207,7 @@ o configurabilidad con evidencia de que mejoran una de las dos sin degradar la o
 Reportá evidencia, no confianza: comandos ejecutados, resultados de test/CI o
 incertidumbre explícita.</li>
 </ul>
-<h2>3. Reglas del repo que NO son negociables</h2>
+<h2 id="3-reglas-del-repo-que-no-son-negociables">3. Reglas del repo que NO son negociables</h2>
 <ul>
 <li><strong>Extensiones self-contained → duplicación intencional.</strong> Pi carga cada extensión como
 unidad autónoma (un archivo o su propio dir vía resolución de jiti); un <code>import</code> runtime
@@ -203,7 +227,7 @@ un commit encima del tuyo: verificá <code>git log</code>/<code>git reflog</code
 <code>HEAD</code> es con certeza tu propio commit. Si ya mezclaste cambios, recuperá con <code>reflog</code> +
 <code>git reset --soft</code> para separarlos.</li>
 </ul>
-<h2>4. IA y workflows dinámicos</h2>
+<h2 id="4-ia-y-workflows-dinámicos">4. IA y workflows dinámicos</h2>
 <ul>
 <li><strong>Separá orquestador de workers.</strong> <code>ai-assisted-engineering</code> es la lente del
 ORQUESTADOR (clasificar prototipo vs. producción, fijar el límite de delegación, scout +

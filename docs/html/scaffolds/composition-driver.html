@@ -121,10 +121,24 @@ tr:last-child td { border-bottom:none; }
 .callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:16px;
            border:1px solid var(--line); background:var(--paper); color:var(--ink); }
 .callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout .callout-label { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                          color:var(--muted); font-weight:600; margin:0 0 4px; }
 .callout.info    { background:var(--info-bg);    border-color:var(--purple); }
 .callout.success { background:var(--success-bg); border-color:var(--success); }
 .callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
 .callout.error   { background:var(--error-bg);   border-color:var(--error); }
+nav.toc { font-size:14px; border:1px solid var(--line); border-radius:12px;
+          background:var(--paper); padding:14px 18px; margin:8px 0 28px; }
+nav.toc .toc-title { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                     color:var(--muted); font-weight:600; margin:0 0 8px; }
+nav.toc ol { list-style:none; margin:0; padding:0; display:grid;
+             grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:2px 24px; }
+nav.toc a { color:var(--ink2); text-decoration:none; display:block; padding:2px 0; }
+nav.toc a:hover { color:var(--accent); }
+.hex-chip { display:inline-flex; align-items:center; white-space:nowrap; }
+.hex-chip .dot { display:inline-block; width:0.85em; height:0.85em; border-radius:3px;
+                 margin-right:0.4em; vertical-align:-0.08em; box-shadow:inset 0 0 0 1px var(--line-strong);
+                 flex-shrink:0; }
 footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </style>
 </head>
@@ -135,24 +149,37 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<h1>composition-driver</h1>
 	</header>
 	<main>
+<nav class="toc">
+	<p class="toc-title">Contents</p>
+	<ol>
+		<li><a href="#en-30-segundos">En 30 segundos</a></li>
+		<li><a href="#cómo-lanzarlo">Cómo lanzarlo</a></li>
+		<li><a href="#diagrama">Diagrama</a></li>
+		<li><a href="#qué-hace">Qué hace</a></li>
+		<li><a href="#cuándo-usarlo">Cuándo usarlo</a></li>
+		<li><a href="#cómo-funciona">Cómo funciona</a></li>
+		<li><a href="#input-y-output">Input y output</a></li>
+		<li><a href="#fases">Fases</a></li>
+	</ol>
+</nav>
 <blockquote>
 <p>Workflow padre: descubre claims, delega la verificación a <code>verify-claims-lib</code> y sintetiza.</p>
 </blockquote>
-<h2>En 30 segundos</h2>
+<h2 id="en-30-segundos">En 30 segundos</h2>
 <p>Este scaffold muestra el patrón de composición más claro: un workflow padre
 (<code>composition-driver</code>) hace su parte, descubrir claims, y delega la verificación
 reutilizable a un sub-workflow independiente (<code>verify-claims-lib</code>) con
 <code>workflow(name, args)</code>. Usalo cuando quieras ver el flujo padre + librería de
 punta a punta, o cuando necesites exactamente descubrir → verificar → sintetizar
 sobre un texto.</p>
-<h2>Cómo lanzarlo</h2>
+<h2 id="cómo-lanzarlo">Cómo lanzarlo</h2>
 <pre><code class="hljs language-sh">/workflow new fact-check-sse --pattern=composition-driver</code></pre>
 <p>Ejemplo mínimo de input:</p>
 <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span> <span class="hljs-attr">&quot;topic&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;claims en nuestro doc de paridad SSE&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;maxClaims&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">8</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;skeptics&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">3</span> <span class="hljs-punctuation">}</span></code></pre>
 <p>Requiere que exista, junto a este scaffold, un workflow de proyecto o global
 llamado <code>verify-claims-lib</code> (ver <a href="verify-claims-lib.html">verify-claims-lib</a>).
 Si no está disponible, el workflow degrada en lugar de fallar.</p>
-<h2>Diagrama</h2>
+<h2 id="diagrama">Diagrama</h2>
 <pre class="mermaid">flowchart TD
     Input["input: topic, maxClaims?, skeptics?"] --&gt; Discover
     subgraph Discover["Fase Discover"]
@@ -174,7 +201,7 @@ Si no está disponible, el workflow degrada en lugar de fallar.</p>
         Judge["agent: composition-synthesis (opus, high)"]
     end
     Synthesize --&gt; Output["return synthesis (texto)"]</pre>
-<h2>Qué hace</h2>
+<h2 id="qué-hace">Qué hace</h2>
 <p><code>composition-driver</code> es un workflow de tres fases que muestra composición real
 entre workflows: no reimplementa la verificación de claims, sino que la delega a
 <code>verify-claims-lib</code> con el contrato exacto que ese sub-workflow espera
@@ -193,7 +220,7 @@ verificación) se encierra con <code>fence(...)</code>, un delimitador derivado 
 del contenido: un payload malicioso no puede falsificar el marcador de cierre
 porque cambiar el contenido cambia el hash. Cada prompt de agente le pide
 explícitamente tratar ese contenido como datos, nunca como instrucciones.</p>
-<h2>Cuándo usarlo</h2>
+<h2 id="cuándo-usarlo">Cuándo usarlo</h2>
 <ul>
 <li>Fact-checking de un documento: extraer afirmaciones verificables y
 contrastarlas.</li>
@@ -209,7 +236,7 @@ directo, sin la fase de descubrimiento.</li>
 <li>No tenés desplegado el sub-workflow <code>verify-claims-lib</code>: el resultado sigue
 siendo válido, pero la verificación queda degradada (<code>note: &quot;verification skipped (nesting depth exceeded)&quot;</code>).</li>
 </ul>
-<h2>Cómo funciona</h2>
+<h2 id="cómo-funciona">Cómo funciona</h2>
 <ol>
 <li><strong>Parseo de input y overrides.</strong> <code>args</code> se parsea a JSON (string u objeto);
 si falla, cae a <code>{}</code>. Soporta overrides globales (<code>input.model</code>, <code>input.effort</code>,
@@ -239,7 +266,7 @@ de retorno del workflow.</li>
 <p>No hay <code>writeArtifact</code> en este scaffold: el único output es el valor de retorno
 de la fase Synthesize. El caching de agentes es el del runtime de Dynamic
 Workflows; no hay lógica de cache explícita en el código.</p>
-<h2>Input y output</h2>
+<h2 id="input-y-output">Input y output</h2>
 <table>
 <thead>
 <tr>
@@ -281,7 +308,7 @@ Workflows; no hay lógica de cache explícita en el código.</p>
 </tbody></table>
 <p><strong>Salida:</strong> el texto de síntesis devuelto por el agente <code>composition-synthesis</code>
 (sin schema forzado, prosa libre). No escribe artifacts a disco.</p>
-<h2>Fases</h2>
+<h2 id="fases">Fases</h2>
 <ol>
 <li><strong>Discover</strong> — un agente (<code>haiku</code>, low) descubre hasta <code>maxClaims</code> claims
 falsables sobre el <code>topic</code>.</li>

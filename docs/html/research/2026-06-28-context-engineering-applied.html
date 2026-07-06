@@ -121,10 +121,24 @@ tr:last-child td { border-bottom:none; }
 .callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:16px;
            border:1px solid var(--line); background:var(--paper); color:var(--ink); }
 .callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout .callout-label { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                          color:var(--muted); font-weight:600; margin:0 0 4px; }
 .callout.info    { background:var(--info-bg);    border-color:var(--purple); }
 .callout.success { background:var(--success-bg); border-color:var(--success); }
 .callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
 .callout.error   { background:var(--error-bg);   border-color:var(--error); }
+nav.toc { font-size:14px; border:1px solid var(--line); border-radius:12px;
+          background:var(--paper); padding:14px 18px; margin:8px 0 28px; }
+nav.toc .toc-title { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                     color:var(--muted); font-weight:600; margin:0 0 8px; }
+nav.toc ol { list-style:none; margin:0; padding:0; display:grid;
+             grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:2px 24px; }
+nav.toc a { color:var(--ink2); text-decoration:none; display:block; padding:2px 0; }
+nav.toc a:hover { color:var(--accent); }
+.hex-chip { display:inline-flex; align-items:center; white-space:nowrap; }
+.hex-chip .dot { display:inline-block; width:0.85em; height:0.85em; border-radius:3px;
+                 margin-right:0.4em; vertical-align:-0.08em; box-shadow:inset 0 0 0 1px var(--line-strong);
+                 flex-shrink:0; }
 footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </style>
 </head>
@@ -135,6 +149,16 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<h1>Context Engineering, Aplicado: mapeo de la investigación a nuestras extensiones</h1>
 	</header>
 	<main>
+<nav class="toc">
+	<p class="toc-title">Contents</p>
+	<ol>
+		<li><a href="#1-reencuadre-central">1. Reencuadre central</a></li>
+		<li><a href="#2-qué-ya-está-implementado-palanca-de-investigación--extensión">2. Qué ya está implementado (palanca de investigación → extensión)</a></li>
+		<li><a href="#3-brechas-de-mayor-valor-priorizadas">3. Brechas de mayor valor (priorizadas)</a></li>
+		<li><a href="#4-recomendación">4. Recomendación</a></li>
+		<li><a href="#5-estado-de-implementación">5. Estado de implementación</a></li>
+	</ol>
+</nav>
 <blockquote>
 <p><strong>Estado: ANÁLISIS.</strong> Complemento de <code>2026-06-28-context-engineering-focus.md</code>. Relee
 esa investigación como una auditoría concreta de las extensiones de este paquete: qué ya
@@ -142,7 +166,7 @@ implementa cada palanca, dónde están las brechas y qué arreglos realmente val
 Este documento no cambia código; es el entregable de “pensar a fondo” que precede a cualquier plan.</p>
 </blockquote>
 <hr>
-<h2>1. Reencuadre central</h2>
+<h2 id="1-reencuadre-central">1. Reencuadre central</h2>
 <p>La investigación presenta el contexto como un <strong>presupuesto finito de atención</strong>, no como un
 recipiente para llenar. Cuatro modos de falla concretos ordenan todo lo demás:</p>
 <ul>
@@ -153,7 +177,7 @@ recipiente para llenar. Cuatro modos de falla concretos ordenan todo lo demás:<
 </ul>
 <p>La conclusión más llamativa para <em>este</em> paquete: <strong>la mayoría de las mitigaciones del paper ya existen aquí como mecanismos de runtime.</strong> La arquitectura es, en la práctica, “context engineering operacionalizado”. El valor está en (a) reconocerlo explícitamente y (b) cerrar seis o siete brechas puntuales.</p>
 <hr>
-<h2>2. Qué ya está implementado (palanca de investigación → extensión)</h2>
+<h2 id="2-qué-ya-está-implementado-palanca-de-investigación--extensión">2. Qué ya está implementado (palanca de investigación → extensión)</h2>
 <table>
 <thead>
 <tr>
@@ -209,7 +233,7 @@ recipiente para llenar. Cuatro modos de falla concretos ordenan todo lo demás:<
 </tr>
 </tbody></table>
 <hr>
-<h2>3. Brechas de mayor valor (priorizadas)</h2>
+<h2 id="3-brechas-de-mayor-valor-priorizadas">3. Brechas de mayor valor (priorizadas)</h2>
 <h3>3.1 Compaction recuperable — la brecha más fuerte (§3b)</h3>
 <p><code>pandi-auto-compact</code> llama a <code>ctx.compact()</code> (un resumen del harness) <strong>sin acoplarlo a
 memory/artifacts</strong>. El paper es explícito: la summarization recursiva puede perder un dato que
@@ -247,14 +271,14 @@ spans de OpenTelemetry GenAI. Esta es la parte de “medir el foco en vivo”.</
 evidencia (no lexical). Oportunidad menor: al agregar context evals, gatear sobre <strong>needles no
 lexicales + distractores</strong>, no sobre matches literales.</p>
 <hr>
-<h2>4. Recomendación</h2>
+<h2 id="4-recomendación">4. Recomendación</h2>
 <p>Los dos ítems de mayor ROI y menor riesgo son <strong>3.1 (compaction recuperable)</strong> y <strong>3.3
 (síntesis sensible a la posición)</strong>: atacan los dos modos de falla centrales del paper
 (cascade de compactación + lost-in-the-middle) con cambios quirúrgicos sobre extensiones ya
 bien entendidas. Orden sugerido: planear 3.1 primero (cruza <code>pandi-auto-compact</code> + memory/
 artifacts y merece un pass de diseño), y luego hacer 3.3 como follow-up acotado.</p>
 <hr>
-<h2>5. Estado de implementación</h2>
+<h2 id="5-estado-de-implementación">5. Estado de implementación</h2>
 <blockquote>
 <p><strong>Estado: IMPLEMENTADO.</strong> Las siete brechas priorizadas se publicaron como commits atómicos
 separados, cada uno verificado contra el gate completo de <code>npm test</code> (typecheck + eslint +

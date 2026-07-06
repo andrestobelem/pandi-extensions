@@ -121,10 +121,24 @@ tr:last-child td { border-bottom:none; }
 .callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:16px;
            border:1px solid var(--line); background:var(--paper); color:var(--ink); }
 .callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout .callout-label { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                          color:var(--muted); font-weight:600; margin:0 0 4px; }
 .callout.info    { background:var(--info-bg);    border-color:var(--purple); }
 .callout.success { background:var(--success-bg); border-color:var(--success); }
 .callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
 .callout.error   { background:var(--error-bg);   border-color:var(--error); }
+nav.toc { font-size:14px; border:1px solid var(--line); border-radius:12px;
+          background:var(--paper); padding:14px 18px; margin:8px 0 28px; }
+nav.toc .toc-title { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                     color:var(--muted); font-weight:600; margin:0 0 8px; }
+nav.toc ol { list-style:none; margin:0; padding:0; display:grid;
+             grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:2px 24px; }
+nav.toc a { color:var(--ink2); text-decoration:none; display:block; padding:2px 0; }
+nav.toc a:hover { color:var(--accent); }
+.hex-chip { display:inline-flex; align-items:center; white-space:nowrap; }
+.hex-chip .dot { display:inline-block; width:0.85em; height:0.85em; border-radius:3px;
+                 margin-right:0.4em; vertical-align:-0.08em; box-shadow:inset 0 0 0 1px var(--line-strong);
+                 flex-shrink:0; }
 footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </style>
 </head>
@@ -135,19 +149,37 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<h1>Modularización de extensiones — Design Audit y roadmap</h1>
 	</header>
 	<main>
+<nav class="toc">
+	<p class="toc-title">Contents</p>
+	<ol>
+		<li><a href="#objetivo">Objetivo</a></li>
+		<li><a href="#en-30-segundos">En 30 segundos</a></li>
+		<li><a href="#procedencia">Procedencia</a></li>
+		<li><a href="#estado-de-implementación-sesión-2026-06-28">Estado de implementación (sesión 2026-06-28)</a></li>
+		<li><a href="#1-veredicto-ejecutivo">1. Veredicto ejecutivo</a></li>
+		<li><a href="#2-mapa-de-duplicación-cross-extension">2. Mapa de duplicación (cross-extension)</a></li>
+		<li><a href="#3-límites-de-módulos-por-extensión">3. Límites de módulos por extensión</a></li>
+		<li><a href="#4-plan-single-source-of-truth-de-prompts">4. Plan single-source-of-truth de prompts</a></li>
+		<li><a href="#5-plan-de-modularización-de-tests">5. Plan de modularización de tests</a></li>
+		<li><a href="#6-restricciones-de-packaging--typecheck">6. Restricciones de packaging / typecheck</a></li>
+		<li><a href="#7-roadmap-incremental-priorizado">7. Roadmap incremental priorizado</a></li>
+		<li><a href="#8-plan-de-verificación-y-métricas">8. Plan de verificación y métricas</a></li>
+		<li><a href="#9-notas-y-limitaciones">9. Notas y limitaciones</a></li>
+	</ol>
+</nav>
 <p>Fecha: 2026-06-28</p>
-<h2>Objetivo</h2>
+<h2 id="objetivo">Objetivo</h2>
 <p>Auditar el diseño del monorepo de 9 extensiones Pi y producir un plan incremental,
 <strong>behavior-preserving</strong>, para: (1) modularizar el código, (2) sacar duplicación a módulos
 compartidos, (3) modularizar los tests, (4) revisar el diseño con lente Kent Beck / Dave
 Farley, y (5) aplicar los mismos conceptos (DRY / single-source) a los prompts.</p>
-<h2>En 30 segundos</h2>
+<h2 id="en-30-segundos">En 30 segundos</h2>
 <p>Este informe resume una auditoría de diseño del monorepo de 9 extensiones Pi y propone una ruta
 incremental para modularizar sin cambiar el comportamiento observable. Sirve para decidir qué
 extraer primero, qué dejar como está y dónde está el riesgo real: estado mutable compartido,
 bootstrap de tests duplicado y prompts que conviene tratar como fuente única de verdad.
 Si vas a tocar una extensión grande o a mover código compartido, empezá por acá.</p>
-<h2>Procedencia</h2>
+<h2 id="procedencia">Procedencia</h2>
 <ul>
 <li><p><strong>Contract Gate</strong> (4 reviewers read-only + síntesis): contrato de tarea, sin blockers.</p>
 </li>
@@ -169,7 +201,7 @@ ejecutado como dynamic workflow read-only.</p>
 </ul>
 </li>
 </ul>
-<h2>Estado de implementación (sesión 2026-06-28)</h2>
+<h2 id="estado-de-implementación-sesión-2026-06-28">Estado de implementación (sesión 2026-06-28)</h2>
 <p>Rondas ejecutadas con las siguientes garantías:</p>
 <ul>
 <li>Conventional Commit atómico por ronda</li>
@@ -229,7 +261,7 @@ ejecutado como dynamic workflow read-only.</p>
 </ul>
 </blockquote>
 <hr>
-<h2>1. Veredicto ejecutivo</h2>
+<h2 id="1-veredicto-ejecutivo">1. Veredicto ejecutivo</h2>
 <h3>Estado general de salud</h3>
 <p>El conjunto es sano en su mayoría:</p>
 <ul>
@@ -266,7 +298,7 @@ ejecutado como dynamic workflow read-only.</p>
 </ul>
 <p>También contratos cross-extension por <code>Symbol.for</code>/evento.</p>
 <hr>
-<h2>2. Mapa de duplicación (cross-extension)</h2>
+<h2 id="2-mapa-de-duplicación-cross-extension">2. Mapa de duplicación (cross-extension)</h2>
 <table>
 <thead>
 <tr>
@@ -333,7 +365,7 @@ ejecutado como dynamic workflow read-only.</p>
 </tbody></table>
 <p>Notas duras del transversal de packaging: <code>extensions/shared/*.ts</code> SÍ casa con el glob <code>files: extensions/*/*.ts</code> y se empaqueta; NodeNext exige specifiers <code>.js</code> (p.ej. <code>../shared/notify.js</code>). <strong>Antes de fusionar cualquier par, diff a nivel de cuerpo</strong>: el analizador de packaging advierte explícitamente que los nombres iguales (notify×7, walk×3, etc.) pueden tener cuerpos divergentes; toda consolidación es condicional a que un diff pruebe equivalencia.</p>
 <hr>
-<h2>3. Límites de módulos por extensión</h2>
+<h2 id="3-límites-de-módulos-por-extensión">3. Límites de módulos por extensión</h2>
 <h3>pi-dynamic-workflows (7143 LOC) — monolito, descomponer último y con tests</h3>
 <table>
 <thead>
@@ -581,7 +613,7 @@ ejecutado como dynamic workflow read-only.</p>
 <li>Mejora opcional: consolidar el <code>TAG</code> y añadir 2 tests de escaping (mayúsculas/open-tag)</li>
 </ul>
 <hr>
-<h2>4. Plan single-source-of-truth de prompts</h2>
+<h2 id="4-plan-single-source-of-truth-de-prompts">4. Plan single-source-of-truth de prompts</h2>
 <table>
 <thead>
 <tr>
@@ -624,7 +656,7 @@ ejecutado como dynamic workflow read-only.</p>
 </tbody></table>
 <p>Regla general: el único trabajo de prompts en Fase 1 es <strong>añadir guardianes</strong> (no reescribir wording). Solo si más adelante se quiere reducir LOC, generar las secciones markdown desde <code>formatWorkflowPatternCatalog()</code> en un paso de build, dejando los <code>.md</code> como artefactos derivados.</p>
 <hr>
-<h2>5. Plan de modularización de tests</h2>
+<h2 id="5-plan-de-modularización-de-tests">5. Plan de modularización de tests</h2>
 <p><strong>Estado verificado:</strong> <strong>no existe</strong> harness compartido; cada una de las 24 suites reimplementa el bootstrap esbuild→tempdir→<code>pathToFileURL</code> con variantes incompatibles:</p>
 <ul>
 <li><code>npx --no-install esbuild</code>: auto-compact.test.mjs:39, local-memory.test.mjs:39</li>
@@ -668,7 +700,7 @@ ejecutado como dynamic workflow read-only.</p>
 <li>Usar <code>ignoredDraftSuites</code> (<code>:65-69</code>) solo para drafts con razón.</li>
 </ul>
 <hr>
-<h2>6. Restricciones de packaging / typecheck</h2>
+<h2 id="6-restricciones-de-packaging--typecheck">6. Restricciones de packaging / typecheck</h2>
 <h3>DO</h3>
 <ul>
 <li>Colocar todo módulo nuevo a <strong>profundidad uno:</strong> <code>extensions/&lt;dir&gt;/&lt;name&gt;.ts</code> o <code>extensions/shared/&lt;name&gt;.ts</code> (ambos casan con <code>files: extensions/*/*.ts</code>, <code>package.json:14-15</code>).</li>
@@ -686,7 +718,7 @@ ejecutado como dynamic workflow read-only.</p>
 </ul>
 <p><strong>Prueba positiva en repo:</strong> <code>templates.ts</code> (1325 LOC) es la evidencia empírica de sibling depth-one empaquetado + typecheck transitivo + import <code>.js</code> (<code>index.ts:33-45</code>). Es el molde de referencia.</p>
 <hr>
-<h2>7. Roadmap incremental priorizado</h2>
+<h2 id="7-roadmap-incremental-priorizado">7. Roadmap incremental priorizado</h2>
 <p>Cada ronda = 1 Conventional Commit atómico, todo estructural (tidy-first), <code>npm test</code> verde antes/después. Empezar Low/alto-payoff.</p>
 <h3>Fase 1 — Guardianes de prompts (Low, cero cambio de wording)</h3>
 <table>
@@ -918,7 +950,7 @@ ejecutado como dynamic workflow read-only.</p>
 <p>La síntesis se truncó tras la ronda 3.16 (la 3.17 <code>runtime.ts</code> quedó cortada). El roadmap completo está en <code>roadmap.json</code> del run; la Fase 4 (tests) se describe en §5.</p>
 </blockquote>
 <hr>
-<h2>8. Plan de verificación y métricas</h2>
+<h2 id="8-plan-de-verificación-y-métricas">8. Plan de verificación y métricas</h2>
 <ul>
 <li><strong>Baseline:</strong> <code>npm test</code> verde antes de tocar nada (typecheck + 23 suites de integración,
 ~20s); registrar LOC por archivo, #copias de funciones (<code>notify</code>×7, <code>formatEta</code>×2, etc.) y
@@ -935,7 +967,7 @@ movido es idéntico (sólo <code>export</code>/import añadidos), como se hizo e
 <li><strong>Métricas de mejora:</strong> LOC por archivo y #clusters de código/prompt eliminados
 (grep/jscpd) antes/después.</li>
 </ul>
-<h2>9. Notas y limitaciones</h2>
+<h2 id="9-notas-y-limitaciones">9. Notas y limitaciones</h2>
 <ul>
 <li>Analizadores: 8/9 por extensión válidos (<code>pandi-goal</code> falló schema) + 4/4 transversales.</li>
 <li>La síntesis se truncó al final de §7; <code>roadmap.json</code> tiene el roadmap completo (fases 1-3).</li>

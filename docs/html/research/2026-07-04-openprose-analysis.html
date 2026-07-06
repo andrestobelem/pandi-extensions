@@ -121,10 +121,24 @@ tr:last-child td { border-bottom:none; }
 .callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:16px;
            border:1px solid var(--line); background:var(--paper); color:var(--ink); }
 .callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout .callout-label { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                          color:var(--muted); font-weight:600; margin:0 0 4px; }
 .callout.info    { background:var(--info-bg);    border-color:var(--purple); }
 .callout.success { background:var(--success-bg); border-color:var(--success); }
 .callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
 .callout.error   { background:var(--error-bg);   border-color:var(--error); }
+nav.toc { font-size:14px; border:1px solid var(--line); border-radius:12px;
+          background:var(--paper); padding:14px 18px; margin:8px 0 28px; }
+nav.toc .toc-title { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                     color:var(--muted); font-weight:600; margin:0 0 8px; }
+nav.toc ol { list-style:none; margin:0; padding:0; display:grid;
+             grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:2px 24px; }
+nav.toc a { color:var(--ink2); text-decoration:none; display:block; padding:2px 0; }
+nav.toc a:hover { color:var(--accent); }
+.hex-chip { display:inline-flex; align-items:center; white-space:nowrap; }
+.hex-chip .dot { display:inline-block; width:0.85em; height:0.85em; border-radius:3px;
+                 margin-right:0.4em; vertical-align:-0.08em; box-shadow:inset 0 0 0 1px var(--line-strong);
+                 flex-shrink:0; }
 footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </style>
 </head>
@@ -135,13 +149,27 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<h1>OpenProse ("Prose") — análisis y comparación con Dynamic Workflows</h1>
 	</header>
 	<main>
+<nav class="toc">
+	<p class="toc-title">Contents</p>
+	<ol>
+		<li><a href="#en-30-segundos">En 30 segundos</a></li>
+		<li><a href="#objetivo">Objetivo</a></li>
+		<li><a href="#fuentes-revisadas">Fuentes revisadas</a></li>
+		<li><a href="#qué-es-openprose">Qué es OpenProse</a></li>
+		<li><a href="#modelo-de-ejecución">Modelo de ejecución</a></li>
+		<li><a href="#skill-local-v0150">Skill local (v0.15.0)</a></li>
+		<li><a href="#fortalezas-y-limitaciones">Fortalezas y limitaciones</a></li>
+		<li><a href="#comparación-con-los-dynamic-workflows-de-este-repo">Comparación con los dynamic workflows de este repo</a></li>
+		<li><a href="#próximos-pasos-posibles">Próximos pasos posibles</a></li>
+	</ol>
+</nav>
 <p>Fecha: 2026-07-04</p>
-<h2>En 30 segundos</h2>
+<h2 id="en-30-segundos">En 30 segundos</h2>
 <p>OpenProse propone tratar una sesión de IA como un programa declarativo escrito en Markdown. Sirve para convertir flujos exitosos en contratos versionables y reutilizables, con trazabilidad de ejecución.</p>
 <p>Este informe resume cómo funciona su modelo y qué cambia frente a los dynamic workflows imperativos de este repo. La comparación ayuda a decidir qué ideas conviene adoptar y cuáles chocan con nuestro foco en control explícito y evidencia inspeccionable.</p>
-<h2>Objetivo</h2>
+<h2 id="objetivo">Objetivo</h2>
 <p>Entender qué es OpenProse (el &quot;programming language for AI sessions&quot; detrás del skill local <code>open-prose</code>), cómo funciona su modelo de contratos declarativos y cómo se compara con los dynamic workflows imperativos de este repo — para poder tomar lo útil y dejar claras las compensaciones.</p>
-<h2>Fuentes revisadas</h2>
+<h2 id="fuentes-revisadas">Fuentes revisadas</h2>
 <ul>
 <li><strong>prose.md / openprose.ai</strong> (sitio oficial; openprose.ai redirige con 301 a
 prose.md) — modelo declarativo, primitivas, lista de harnesses &quot;Prose Complete&quot;.
@@ -161,7 +189,7 @@ Weitekamp, 2026-06-27)</strong> — contexto sobre uso recursivo y self-hosted.
 <code>~/.claude/skills/open-prose/</code>) — <code>SKILL.md</code>, cinco piezas centrales,
 contrato de activación.</li>
 </ul>
-<h2>Qué es OpenProse</h2>
+<h2 id="qué-es-openprose">Qué es OpenProse</h2>
 <p>OpenProse (Raymond Weitekamp, open source) trata una sesión de IA como una
 máquina virtual Turing-complete. Los programas son archivos Markdown
 (<code>*.prose.md</code>) con YAML frontmatter; el propio agente de código actúa como
@@ -173,7 +201,7 @@ reutilización: las sesiones exitosas desaparecen en el historial del chat,
 lo que obliga a babysittear agentes en vez de reproducir flujos probados.
 OpenProse convierte esos flujos en contratos versionables, y cada ejecución deja
 un audit trail (&quot;receipts&quot;).</p>
-<h2>Modelo de ejecución</h2>
+<h2 id="modelo-de-ejecución">Modelo de ejecución</h2>
 <ul>
 <li><strong>Contratos declarativos.</strong> Una unidad de trabajo (una <em>responsibility</em>)
 declara <code>### Requires</code> (precondiciones/inputs), <code>### Ensures</code>
@@ -200,7 +228,7 @@ ensures: [test_</span>plan]
 
 Review the codebase analysis and create a comprehensive test plan
 covering all edge cases for the authentication module.</code></pre>
-<h2>Skill local (v0.15.0)</h2>
+<h2 id="skill-local-v0150">Skill local (v0.15.0)</h2>
 <p>El skill <code>open-prose</code> instalado documenta cinco piezas centrales:</p>
 <table>
 <thead>
@@ -239,7 +267,7 @@ covering all edge cases for the authentication module.</code></pre>
 <p>Activación: escribir <code>prose ...</code>, abrir un <code>.prose.md</code> con frontmatter <code>kind:</code>,
 o pedir orquestación multi-agente reutilizable; <code>prose run</code> es una instrucción
 en sesión (el agente encarna la VM — no existe un binario <code>prose</code>).</p>
-<h2>Fortalezas y limitaciones</h2>
+<h2 id="fortalezas-y-limitaciones">Fortalezas y limitaciones</h2>
 <p>Fortalezas: portable entre harnesses, sin dependencias externas, los programas
 mejoran gratis a medida que mejoran los modelos, Markdown+YAML es legible y
 amigable con Git, paralelización automática a partir de contratos.</p>
@@ -249,7 +277,7 @@ los contratos tienen que estar bien diseñados y funciona mejor con frontier
 models. El debugging es el trade-off más duro: cuando el runtime decide el orden
 de ejecución, explicar <em>por qué</em> ejecutó en ese orden exige entender el
 algoritmo de resolución de contratos.</p>
-<h2>Comparación con los dynamic workflows de este repo</h2>
+<h2 id="comparación-con-los-dynamic-workflows-de-este-repo">Comparación con los dynamic workflows de este repo</h2>
 <table>
 <thead>
 <tr>
@@ -294,7 +322,7 @@ OpenProse optimiza expresividad y reutilización de intención; este repo optimi
 control flow determinista y evidencia inspeccionable — justo la propiedad que
 las instrucciones del proyecto llaman &quot;observable workflows, inspectable
 artifacts over hidden magic&quot;.</p>
-<h2>Próximos pasos posibles</h2>
+<h2 id="próximos-pasos-posibles">Próximos pasos posibles</h2>
 <ul>
 <li>Leer los ejemplos locales (<code>~/.agents/skills/open-prose/examples/</code>, por
 ejemplo <code>session-to-prose</code>) para ver una responsibility completa en práctica.</li>

@@ -5,6 +5,8 @@
 export interface RenderOptions {
 	/** Pandi tokens CSS to embed; default: read from the vendored skill copy. */
 	tokensCss?: string;
+	/** Full stylesheet replacing tokens + body CSS entirely (own-look repos); wins over tokensCss. */
+	css?: string;
 	/** Kicker line above the title (default "Pandi artifact"). */
 	kicker?: string;
 	/** Fallback page title when the document has no leading `# h1`. */
@@ -17,6 +19,8 @@ export interface ParsedArgs {
 	inputs?: string[];
 	out?: string | null;
 	kicker?: string;
+	tokens?: string;
+	css?: string;
 	help?: boolean;
 }
 

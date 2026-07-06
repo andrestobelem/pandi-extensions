@@ -121,10 +121,24 @@ tr:last-child td { border-bottom:none; }
 .callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:16px;
            border:1px solid var(--line); background:var(--paper); color:var(--ink); }
 .callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout .callout-label { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                          color:var(--muted); font-weight:600; margin:0 0 4px; }
 .callout.info    { background:var(--info-bg);    border-color:var(--purple); }
 .callout.success { background:var(--success-bg); border-color:var(--success); }
 .callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
 .callout.error   { background:var(--error-bg);   border-color:var(--error); }
+nav.toc { font-size:14px; border:1px solid var(--line); border-radius:12px;
+          background:var(--paper); padding:14px 18px; margin:8px 0 28px; }
+nav.toc .toc-title { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                     color:var(--muted); font-weight:600; margin:0 0 8px; }
+nav.toc ol { list-style:none; margin:0; padding:0; display:grid;
+             grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:2px 24px; }
+nav.toc a { color:var(--ink2); text-decoration:none; display:block; padding:2px 0; }
+nav.toc a:hover { color:var(--accent); }
+.hex-chip { display:inline-flex; align-items:center; white-space:nowrap; }
+.hex-chip .dot { display:inline-block; width:0.85em; height:0.85em; border-radius:3px;
+                 margin-right:0.4em; vertical-align:-0.08em; box-shadow:inset 0 0 0 1px var(--line-strong);
+                 flex-shrink:0; }
 footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </style>
 </head>
@@ -135,12 +149,23 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<h1>Sistema de Personas (`agentType`) — revisión técnica</h1>
 	</header>
 	<main>
+<nav class="toc">
+	<p class="toc-title">Contents</p>
+	<ol>
+		<li><a href="#en-30-segundos">En 30 segundos</a></li>
+		<li><a href="#objetivo">Objetivo</a></li>
+		<li><a href="#dónde-vive">Dónde vive</a></li>
+		<li><a href="#lo-que-está-bien-no-tocar">Lo que está bien (no tocar)</a></li>
+		<li><a href="#hallazgos-por-peso">Hallazgos (por peso)</a></li>
+		<li><a href="#orden-sugerido-de-arreglo">Orden sugerido de arreglo</a></li>
+	</ol>
+</nav>
 <p>Fecha: 2026-06-29</p>
-<h2>En 30 segundos</h2>
+<h2 id="en-30-segundos">En 30 segundos</h2>
 <p>Este documento revisa el subsistema de <strong>Personas</strong> de <code>pandi-dynamic-workflows</code>: dónde se definen, cómo se resuelven y fusionan, y qué riesgos de correctitud, seguridad y consistencia aparecen. La lectura está pensada como una revisión escéptica y read-only, con referencias <code>file:line</code> para verificar cada afirmación.</p>
-<h2>Objetivo</h2>
+<h2 id="objetivo">Objetivo</h2>
 <p>Revisar el subsistema de <strong>Personas</strong> de <code>pandi-dynamic-workflows</code>: dónde se definen, cómo se resuelven/fusionan, y qué riesgos de correctitud, seguridad y consistencia tiene.</p>
-<h2>Dónde vive</h2>
+<h2 id="dónde-vive">Dónde vive</h2>
 <ul>
 <li><strong>Definición:</strong> <code>extensions/pandi-dynamic-workflows/agent-env-persona.ts</code>
 — <code>BUILTIN_AGENT_PERSONAS</code> (6 personas, líneas 27–58) + resolución/fusión/carga.</li>
@@ -151,7 +176,7 @@ Sí existen personas de proyecto en el repo: <code>.pi/personas/andrej-karpathy.
 Las 6 personas: <code>explore·medium</code>, <code>reviewer·high</code>, <code>planner·high</code>, <code>architect·high</code>, <code>implementer·medium</code>,
 <code>researcher·high</code> — no coinciden exactamente con el README raíz ni con el skill <code>ultracode</code>.</li>
 </ul>
-<h2>Lo que está bien (no tocar)</h2>
+<h2 id="lo-que-está-bien-no-tocar">Lo que está bien (no tocar)</h2>
 <ul>
 <li><p><strong>Gate de confianza</strong> (<code>agent-env-persona.ts:229</code>): proyecto no confiable → ignora
 <code>.pi/personas/*</code> y cae a built-in. Correcto: una persona puede setear <code>env</code>/<code>keys</code>/<code>tools</code>/
@@ -167,7 +192,7 @@ re-disparar la resolución (sin recursión) ni inyectar <code>schema</code>/<cod
 los niveles de <code>thinking</code> respetan el contrato documentado.</p>
 </li>
 </ul>
-<h2>Hallazgos (por peso)</h2>
+<h2 id="hallazgos-por-peso">Hallazgos (por peso)</h2>
 <h3>1. <code>systemPrompt</code> se pisa, <code>appendSystemPrompt</code> se fusiona — asimetría</h3>
 <p><code>mergePersonaOptions</code> (líneas 210–219) hace <code>{...persona, ...options}</code>. La <strong>identidad</strong> de cada
 persona (lo que hace que <code>reviewer</code> sea escéptico) vive en <code>systemPrompt</code>, que es un campo
@@ -205,7 +230,7 @@ escéptico, etc.). Decisión pendiente: ¿adoptar <code>agentType</code> en los 
 <h3>6. Brecha de documentación (menor)</h3>
 <p>El README de la extensión (<code>extensions/pandi-dynamic-workflows/README.md</code>) no menciona personas; sí
 lo hacen el README raíz (líneas 158, 402, 500, 525) y el skill.</p>
-<h2>Orden sugerido de arreglo</h2>
+<h2 id="orden-sugerido-de-arreglo">Orden sugerido de arreglo</h2>
 <ol>
 <li><strong>#2</strong> — bug real cross-plataforma, fix de 1 línea.</li>
 <li><strong>#1</strong> — decisión de diseño: mover identidad a <code>appendSystemPrompt</code> o documentar el clobber.</li>

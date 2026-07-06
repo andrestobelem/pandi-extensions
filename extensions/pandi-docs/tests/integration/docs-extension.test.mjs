@@ -113,6 +113,56 @@ async function scenarioCommandOutAndKicker(url) {
 	check("command --kicker: sets the kicker", />Informe demo</.test(html), html.match(/kicker[^<]*<[^>]*>[^<]*/)?.[0]);
 }
 
+async function scenarioCommandTokensOverride(url) {
+	const cwd = await tmpCwd("tokens");
+	await fs.writeFile(path.join(cwd, "doc.md"), "# T\n\nx\n", "utf8");
+	await fs.writeFile(path.join(cwd, "custom.css"), ":root { --bg: #010203; }\n", "utf8");
+	const { command, tool } = await loadSurfaces(url);
+
+	const ctx = makeCtx({ cwd });
+	await command.handler("doc.md --tokens custom.css", ctx);
+	const html = await fs.readFile(path.join(cwd, "doc.html"), "utf8");
+	check("command --tokens: embeds the custom palette", /--bg:\s*#010203/.test(html));
+	check("command --tokens: default pandi tokens do not leak in", !/--bg:\s*#242526/.test(html));
+
+	const ctx2 = makeCtx({ cwd, mode: "print" });
+	const result = await tool.execute(
+		"call-tokens",
+		{ path: "doc.md", out: "tool-tokens.html", tokens: "custom.css" },
+		undefined,
+		undefined,
+		ctx2,
+	);
+	const html2 = await fs.readFile(path.join(cwd, "tool-tokens.html"), "utf8");
+	check("tool tokens: embeds the custom palette", /--bg:\s*#010203/.test(html2));
+	check("tool tokens: not an error", !result?.details?.isError, JSON.stringify(result?.details));
+}
+
+async function scenarioCssOverride(url) {
+	const cwd = await tmpCwd("css");
+	await fs.writeFile(path.join(cwd, "doc.md"), "# T\n\nx\n", "utf8");
+	await fs.writeFile(path.join(cwd, "brand.css"), "body { color: teal; }\n", "utf8");
+	const { command, tool } = await loadSurfaces(url);
+
+	const ctx = makeCtx({ cwd });
+	await command.handler("doc.md --css brand.css", ctx);
+	const html = await fs.readFile(path.join(cwd, "doc.html"), "utf8");
+	check("command --css: embeds the full custom stylesheet", /body \{ color: teal; \}/.test(html));
+	check("command --css: pandi tokens fully replaced", !/--bg:\s*#242526/.test(html));
+
+	const ctx2 = makeCtx({ cwd, mode: "print" });
+	const result = await tool.execute(
+		"call-css",
+		{ path: "doc.md", out: "tool-css.html", css: "brand.css" },
+		undefined,
+		undefined,
+		ctx2,
+	);
+	const html2 = await fs.readFile(path.join(cwd, "tool-css.html"), "utf8");
+	check("tool css: embeds the full custom stylesheet", /body \{ color: teal; \}/.test(html2));
+	check("tool css: not an error", !result?.details?.isError, JSON.stringify(result?.details));
+}
+
 async function scenarioCommandMultipleInputs(url) {
 	const cwd = await tmpCwd("multi");
 	await fs.writeFile(path.join(cwd, "a.md"), "# A\n\na\n", "utf8");
@@ -210,6 +260,8 @@ async function main() {
 	await scenarioRegistered(url);
 	await scenarioCommandConverts(url);
 	await scenarioCommandOutAndKicker(url);
+	await scenarioCommandTokensOverride(url);
+	await scenarioCssOverride(url);
 	await scenarioCommandMultipleInputs(url);
 	await scenarioCommandErrors(url);
 	await scenarioToolConverts(url);

@@ -121,10 +121,24 @@ tr:last-child td { border-bottom:none; }
 .callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:16px;
            border:1px solid var(--line); background:var(--paper); color:var(--ink); }
 .callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout .callout-label { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                          color:var(--muted); font-weight:600; margin:0 0 4px; }
 .callout.info    { background:var(--info-bg);    border-color:var(--purple); }
 .callout.success { background:var(--success-bg); border-color:var(--success); }
 .callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
 .callout.error   { background:var(--error-bg);   border-color:var(--error); }
+nav.toc { font-size:14px; border:1px solid var(--line); border-radius:12px;
+          background:var(--paper); padding:14px 18px; margin:8px 0 28px; }
+nav.toc .toc-title { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                     color:var(--muted); font-weight:600; margin:0 0 8px; }
+nav.toc ol { list-style:none; margin:0; padding:0; display:grid;
+             grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:2px 24px; }
+nav.toc a { color:var(--ink2); text-decoration:none; display:block; padding:2px 0; }
+nav.toc a:hover { color:var(--accent); }
+.hex-chip { display:inline-flex; align-items:center; white-space:nowrap; }
+.hex-chip .dot { display:inline-block; width:0.85em; height:0.85em; border-radius:3px;
+                 margin-right:0.4em; vertical-align:-0.08em; box-shadow:inset 0 0 0 1px var(--line-strong);
+                 flex-shrink:0; }
 footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </style>
 </head>
@@ -135,11 +149,24 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<h1>Context Engineering: mantener enfocado un LLM y su harness de agentes</h1>
 	</header>
 	<main>
+<nav class="toc">
+	<p class="toc-title">Contents</p>
+	<ol>
+		<li><a href="#1-resumen-ejecutivo">1. Resumen ejecutivo</a></li>
+		<li><a href="#2-cómo-falla-el-foco-mecanismos">2. Cómo falla el foco (mecanismos)</a></li>
+		<li><a href="#3-técnicas-por-capa">3. Técnicas por capa</a></li>
+		<li><a href="#4-evaluar-y-observar-el-foco">4. Evaluar y observar el foco</a></li>
+		<li><a href="#5-playbook-práctico--guía-de-decisión">5. Playbook práctico / guía de decisión</a></li>
+		<li><a href="#6-evidencia-y-fuentes-consolidado">6. Evidencia y fuentes (consolidado)</a></li>
+		<li><a href="#7-preguntas-abiertas-y-vacíos-de-cobertura">7. Preguntas abiertas y vacíos de cobertura</a></li>
+		<li><a href="#8-confianza-y-advertencias">8. Confianza y advertencias</a></li>
+	</ol>
+</nav>
 <blockquote>
 <p><strong>Estado: FINAL.</strong> Revisión hecha para incorporar feedback externo. Las cifras autoinformadas o de proveedor, y los desacuerdos, están marcados como <code>[UNVERIFIED]</code> o <code>[CONTESTED]</code>. Cuando el borrador original citaba IDs de arXiv imposibles de verificar (por ser futuros), esos números se quitaron. El “acuerdo de research-branch” interno se reemplazó por conteos de fuentes externas distintas. También se agregaron vacíos de cobertura señalados por la revisión (prompt compression, extensión de contexto a nivel de modelo, defensas contra inyección, RAG avanzado, evacuación de KV-cache, amplitud de evaluaciones) con fuentes verificadas. Ver <strong>§8 Confidence &amp; caveats</strong>.</p>
 </blockquote>
 <hr>
-<h2>1. Resumen ejecutivo</h2>
+<h2 id="1-resumen-ejecutivo">1. Resumen ejecutivo</h2>
 <p><strong>Context engineering es la disciplina de curar <em>todos</em> los tokens que ve un modelo.</strong> Eso incluye system prompt, definiciones de tools, historial de mensajes, datos recuperados y estado del entorno; todo reducido al conjunto mínimo de alta señal, en vez de intentar meter todo en una ventana grande (Anthropic, &quot;Effective context engineering for AI agents,&quot; Sep 29 2025 — <a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents</a>).</p>
 <p><strong>La relectura central:</strong> el contexto es un “presupuesto de atención” finito, no un balde.</p>
 <p><strong>Empíricamente, la recuperación y la confiabilidad del razonamiento se degradan cuando crece la longitud de entrada</strong> — fenómeno que suele llamarse “context rot” — aun cuando la tarea se mantiene constante. El mecanismo preciso se debate (ver §2). La complejidad O(n²) de self-attention suele usarse como intuición de por qué los contextos largos son más difíciles, pero eso es una propiedad de <em>costo</em> de attention, no una causa establecida de pérdida de recall; tómese como metáfora, no como mecanismo.</p>
@@ -151,7 +178,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </ul>
 <p><strong>Consecuencia práctica:</strong> mantené el contexto de trabajo pequeño y de alta señal, poné el material crítico en los bordes, recuperá just-in-time, aislá el ruido y medí el foco a longitudes realistas en lugar de confiar en ventanas “advertised”.</p>
 <hr>
-<h2>2. Cómo falla el foco (mecanismos)</h2>
+<h2 id="2-cómo-falla-el-foco-mecanismos">2. Cómo falla el foco (mecanismos)</h2>
 <table>
 <thead>
 <tr>
@@ -214,7 +241,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <p><strong>Caveat mecanismo vs. medición <code>[CONTESTED/INTERPRETED]</code>.</strong> Context rot, lost-in-the-middle y NoLiMa <em>miden</em> degradación. La causa subyacente — ya sea positional encoding, attention dilution o softmax mass allocation — se infiere parcialmente. StreamingLLM ofrece el relato mecánico más directo, pero explica streaming/eviction, no toda la pérdida en el medio del contexto. Sigue abierto si el comportamiento de attention sinks y la negligencia del medio son el mismo fenómeno.</p>
 <p><strong>Mitigación a nivel de modelo (extensión de contexto).</strong> Parte de la caída por longitud es un artefacto de la longitud de entrenamiento: los modelos basados en RoPE extrapolan mal más allá de su ventana entrenada. <strong>Position Interpolation</strong> (Chen et al. — <a href="https://arxiv.org/abs/2306.15595">https://arxiv.org/abs/2306.15595</a>) y <strong>YaRN</strong> (Peng et al. — <a href="https://arxiv.org/abs/2309.00071">https://arxiv.org/abs/2309.00071</a>) reescalan rotary position embeddings para extender la ventana usable con fine-tuning modesto. Cuidado: esto extiende la longitud <em>entrenada</em> y reduce fallos de extrapolación, pero no elimina por sí solo lost-in-the-middle ni la degradación de context-rot. La longitud efectiva sigue por debajo de la ventana extendida (RULER).</p>
 <hr>
-<h2>3. Técnicas por capa</h2>
+<h2 id="3-técnicas-por-capa">3. Técnicas por capa</h2>
 <h3>3a. Construcción de contexto (prompt/system, placement, estructura, señal/ruido)</h3>
 <ul>
 <li><strong>Diseño sensible a la posición.</strong> Poné el material crítico para la tarea (instrucciones, la pregunta real, el único documento más relevante) al <strong>inicio y/o al final</strong>, nunca enterrado en el medio del contexto — contrarresta directamente la U-shape (Liu et al.). Anclar directivas durables en los <em>primeros tokens</em> también aprovecha la estructura de attention sink (StreamingLLM).</li>
@@ -297,7 +324,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li><strong>Self-consistency sampling</strong> diluye errores inducidos por distracción (GSM-IC: 72.4% → 88.1% con 20 samples).</li>
 </ul>
 <hr>
-<h2>4. Evaluar y observar el foco</h2>
+<h2 id="4-evaluar-y-observar-el-foco">4. Evaluar y observar el foco</h2>
 <p><strong>Benchmarks (offline):</strong></p>
 <table>
 <thead>
@@ -350,7 +377,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </ul>
 <p><strong>Receta de evaluación (branch 7):</strong> corré RULER en tu longitud objetivo para encontrar el cliff, después acotá la entrada por debajo de ese punto → re-test con longitudes realistas, needles no léxicos estilo NoLiMa y distractores → agregá checks estilo IFEval para restricciones → calificá trajectories (no solo respuestas finales) → emití spans OTel → fijá/versioná el harness.</p>
 <hr>
-<h2>5. Playbook práctico / guía de decisión</h2>
+<h2 id="5-playbook-práctico--guía-de-decisión">5. Playbook práctico / guía de decisión</h2>
 <p><strong>Defaults (alta confianza — corroborados por ≥2 branches):</strong></p>
 <ol>
 <li><strong>Tratá el contexto como un presupuesto escaso de atención.</strong> Curá el conjunto mínimo de alta señal; empezá por lo mínimo y agregá solo lo necesario.</li>
@@ -413,7 +440,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li>Usar NIAH single-needle vanilla como única evaluación de largo contexto — oculta degradación real; gateá con needles no léxicos estilo NoLiMa + RULER (NoLiMa, RULER, Context Rot).</li>
 </ul>
 <hr>
-<h2>6. Evidencia y fuentes (consolidado)</h2>
+<h2 id="6-evidencia-y-fuentes-consolidado">6. Evidencia y fuentes (consolidado)</h2>
 <p>Fuentes deduplicadas y agrupadas por tema. Las cifras autoinformadas o de proveedor están marcadas <code>[UNVERIFIED]</code> en el texto.</p>
 <h3>Modos de falla y mecanismos</h3>
 <ul>
@@ -478,7 +505,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li>OpenTelemetry GenAI agent spans — <a href="https://github.com/open-telemetry/semantic-conventions-genai">https://github.com/open-telemetry/semantic-conventions-genai</a> · HAL harness — <a href="https://github.com/princeton-pli/hal-harness">https://github.com/princeton-pli/hal-harness</a></li>
 </ul>
 <hr>
-<h2>7. Preguntas abiertas y vacíos de cobertura</h2>
+<h2 id="7-preguntas-abiertas-y-vacíos-de-cobertura">7. Preguntas abiertas y vacíos de cobertura</h2>
 <ul>
 <li><strong>Mecanismo vs. medición.</strong> Sigue sin resolverse si lost-in-the-middle, context rot y attention-sink behavior comparten una sola causa (positional encoding vs. attention dilution vs. softmax mass allocation). StreamingLLM explica streaming/eviction, no toda la pérdida en el medio.</li>
 <li><strong>¿Recitation realmente ayuda?</strong> El “re-anchor the goal / rewrite todo.md” de Manus se reporta solo en forma cualitativa; no hay una ablation controlada que cuantifique la ganancia.</li>
@@ -488,7 +515,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li><strong>Vacío de procedencia.</strong> Una rama de research (attention steering) quedó parcialmente corrupta; §3e cita magnitudes de PASTA/AutoPASTA, pero no se re-verificaron de forma independiente.</li>
 </ul>
 <hr>
-<h2>8. Confianza y advertencias</h2>
+<h2 id="8-confianza-y-advertencias">8. Confianza y advertencias</h2>
 <p><strong>Sólido (spot-checked contra fuentes primarias por el revisor adversarial):</strong> la tabla de mecanismos de §2; Context Rot, NoLiMa, Anthropic Contextual Retrieval, Anthropic multi-agent +90.2%, y los hallazgos de LlamaIndex filesystem-vs-RAG; la reconciliación arquitectónica Cognition-vs-Anthropic en §3d.</p>
 <p><strong>Corregido durante la revisión (estaba mal o sobreafirmado en el primer borrador):</strong> la confusión de la base de costo “15×” en multi-agent (15× es vs <em>chat</em>, no vs single-agent); el framing causal de O(n²) en el executive summary (reformulado como correlación observada); “Always rerank / single largest precision lift” (suavizado a “cuando importa la precisión y la latencia lo permite”); los IDs de arXiv financieros futuros e irresolubles y sus números (eliminados); “cited by N branches” (reemplazado por fuentes externas distintas); “18 frontier models” → “18 models”.</p>
 <p><strong>Frágil / <code>[UNVERIFIED]</code></strong> (plausible, bien citado, no re-verificado de forma independiente aquí): el threshold 85.6% / 13 tareas de RULER; PASTA ~22% / AutoPASTA +7.95%; RAG-MCP 43.13% vs 13.62%; LongFuncEval 7%–85%; GSM-IC 95%→72.4%→88.1%; caching vendor “~90% cost / ~85% latency”; la cifra long-doc de Anthropic “+30%”.</p>

@@ -121,10 +121,24 @@ tr:last-child td { border-bottom:none; }
 .callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:16px;
            border:1px solid var(--line); background:var(--paper); color:var(--ink); }
 .callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout .callout-label { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                          color:var(--muted); font-weight:600; margin:0 0 4px; }
 .callout.info    { background:var(--info-bg);    border-color:var(--purple); }
 .callout.success { background:var(--success-bg); border-color:var(--success); }
 .callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
 .callout.error   { background:var(--error-bg);   border-color:var(--error); }
+nav.toc { font-size:14px; border:1px solid var(--line); border-radius:12px;
+          background:var(--paper); padding:14px 18px; margin:8px 0 28px; }
+nav.toc .toc-title { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                     color:var(--muted); font-weight:600; margin:0 0 8px; }
+nav.toc ol { list-style:none; margin:0; padding:0; display:grid;
+             grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:2px 24px; }
+nav.toc a { color:var(--ink2); text-decoration:none; display:block; padding:2px 0; }
+nav.toc a:hover { color:var(--accent); }
+.hex-chip { display:inline-flex; align-items:center; white-space:nowrap; }
+.hex-chip .dot { display:inline-block; width:0.85em; height:0.85em; border-radius:3px;
+                 margin-right:0.4em; vertical-align:-0.08em; box-shadow:inset 0 0 0 1px var(--line-strong);
+                 flex-shrink:0; }
 footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </style>
 </head>
@@ -135,10 +149,23 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<h1>react-scout</h1>
 	</header>
 	<main>
+<nav class="toc">
+	<p class="toc-title">Contents</p>
+	<ol>
+		<li><a href="#en-30-segundos">En 30 segundos</a></li>
+		<li><a href="#cómo-lanzarlo">Cómo lanzarlo</a></li>
+		<li><a href="#diagrama">Diagrama</a></li>
+		<li><a href="#qué-hace">Qué hace</a></li>
+		<li><a href="#cuándo-usarlo">Cuándo usarlo</a></li>
+		<li><a href="#cómo-funciona">Cómo funciona</a></li>
+		<li><a href="#input-y-output">Input y output</a></li>
+		<li><a href="#fases">Fases</a></li>
+	</ol>
+</nav>
 <blockquote>
 <p>Bucle ReAct de reason → act → observe: cada paso apoya el siguiente pensamiento en una observación real de solo lectura.</p>
 </blockquote>
-<h2>En 30 segundos</h2>
+<h2 id="en-30-segundos">En 30 segundos</h2>
 <p>En vez de dejar que un solo agente improvise una respuesta, <code>react-scout</code>
 alterna explícitamente razonamiento y acción: un &quot;actor&quot; propone un
 PENSAMIENTO y una única ACCIÓN de solo lectura, un &quot;observador&quot; independiente
@@ -146,14 +173,14 @@ la ejecuta y devuelve evidencia citada, y esa evidencia se agrega a una traza
 que el siguiente pensamiento debe usar. Elegilo cuando necesitás una
 investigación fundada en evidencia real (no en prosa suelta) antes de
 comprometerte a una respuesta o de lanzar un fan-out más caro.</p>
-<h2>Cómo lanzarlo</h2>
+<h2 id="cómo-lanzarlo">Cómo lanzarlo</h2>
 <pre><code class="hljs language-bash">/workflow new mi-scout --pattern=react-scout</code></pre>
 <p>Entrada típica:</p>
 <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
   <span class="hljs-attr">&quot;question&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;¿Dónde el decodificador WASM recibe los bytes de entrada?&quot;</span><span class="hljs-punctuation">,</span>
   <span class="hljs-attr">&quot;maxSteps&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">6</span>
 <span class="hljs-punctuation">}</span></code></pre>
-<h2>Diagrama</h2>
+<h2 id="diagrama">Diagrama</h2>
 <pre class="mermaid">flowchart TD
     Start(["Entrada: question, maxSteps"]) --&gt; Loop{"step &lt; maxSteps and not done?"}
     Loop -- sí --&gt; Reason["Fase Reason: agent actor (sonnet)\nemite thought + action + query (schema STEP)"]
@@ -166,7 +193,7 @@ comprometerte a una respuesta o de lanzar un fan-out más caro.</p>
     Trace2 --&gt; Loop
     Loop -- no --&gt; Answer["Fase Answer: agent sintetizador (opus)\nresponde SOLO con la traza,\ncita evidencia o INSUFFICIENT_EVIDENCE"]
     Answer --&gt; Out(["Salida: answer, trace, steps, converged"])</pre>
-<h2>Qué hace</h2>
+<h2 id="qué-hace">Qué hace</h2>
 <p><code>react-scout</code> implementa el patrón ReAct (arXiv:2210.03629): en lugar de que
 un modelo genere una respuesta de una sola vez, el workflow fuerza un ciclo
 explícito de razonar → actuar → observar. En cada paso, un agente &quot;actor&quot;
@@ -186,7 +213,7 @@ si la traza no alcanza.</p>
 <p>Es explícitamente la interfaz canónica para un fan-out: se puede correr
 primero para fundamentar una hipótesis o lista de trabajo, y luego pasar
 <code>result.trace</code> a <code>scout-fanout</code> o <code>fan-out-and-synthesize</code>.</p>
-<h2>Cuándo usarlo</h2>
+<h2 id="cuándo-usarlo">Cuándo usarlo</h2>
 <ul>
 <li>Investigación fundada en evidencia real antes de comprometerse a una
 respuesta o acción.</li>
@@ -197,7 +224,7 @@ web, en vez de dejar que el modelo &quot;recuerde&quot; o infiera.</li>
 resuelve en un paso, ni cuando se necesita escritura/mutación (el loop es
 deliberadamente de solo lectura).</li>
 </ul>
-<h2>Cómo funciona</h2>
+<h2 id="cómo-funciona">Cómo funciona</h2>
 <p>El flujo parsea la entrada, valida <code>question</code> (obligatorio) y limita
 <code>maxSteps</code> entre 1 y 50 (predeterminado 6, registrando si hubo ajuste). Las
 observaciones/acciones permitidas por defecto son
@@ -234,7 +261,7 @@ sintetiza la respuesta usando solo la traza, citando evidencia, o devolviendo
 explícito de insuficiencia en vez de propagar <code>null</code> en silencio.</p>
 <p>No hay caché explícita ni artefactos escritos por este scaffold; el
 resultado se devuelve directamente al llamador.</p>
-<h2>Input y output</h2>
+<h2 id="input-y-output">Input y output</h2>
 <table>
 <thead>
 <tr>
@@ -288,7 +315,7 @@ resultado se devuelve directamente al llamador.</p>
 <li><code>steps</code>: number de pasos ejecutados.</li>
 <li><code>converged</code>: boolean — <code>true</code> si el actor declaró <code>done</code> antes de agotar <code>maxSteps</code>.</li>
 </ul>
-<h2>Fases</h2>
+<h2 id="fases">Fases</h2>
 <ol>
 <li><strong>Reason</strong> — el actor emite THOUGHT + ACTION sobre la traza acumulada.</li>
 <li><strong>Observe</strong> — el observador ejecuta solo esa acción y reporta evidencia citada.</li>

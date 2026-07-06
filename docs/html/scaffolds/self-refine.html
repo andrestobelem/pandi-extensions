@@ -121,10 +121,24 @@ tr:last-child td { border-bottom:none; }
 .callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:16px;
            border:1px solid var(--line); background:var(--paper); color:var(--ink); }
 .callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout .callout-label { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                          color:var(--muted); font-weight:600; margin:0 0 4px; }
 .callout.info    { background:var(--info-bg);    border-color:var(--purple); }
 .callout.success { background:var(--success-bg); border-color:var(--success); }
 .callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
 .callout.error   { background:var(--error-bg);   border-color:var(--error); }
+nav.toc { font-size:14px; border:1px solid var(--line); border-radius:12px;
+          background:var(--paper); padding:14px 18px; margin:8px 0 28px; }
+nav.toc .toc-title { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                     color:var(--muted); font-weight:600; margin:0 0 8px; }
+nav.toc ol { list-style:none; margin:0; padding:0; display:grid;
+             grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:2px 24px; }
+nav.toc a { color:var(--ink2); text-decoration:none; display:block; padding:2px 0; }
+nav.toc a:hover { color:var(--accent); }
+.hex-chip { display:inline-flex; align-items:center; white-space:nowrap; }
+.hex-chip .dot { display:inline-block; width:0.85em; height:0.85em; border-radius:3px;
+                 margin-right:0.4em; vertical-align:-0.08em; box-shadow:inset 0 0 0 1px var(--line-strong);
+                 flex-shrink:0; }
 footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </style>
 </head>
@@ -135,16 +149,29 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<h1>self-refine</h1>
 	</header>
 	<main>
+<nav class="toc">
+	<p class="toc-title">Contents</p>
+	<ol>
+		<li><a href="#en-30-segundos">En 30 segundos</a></li>
+		<li><a href="#cómo-lanzarlo">Cómo lanzarlo</a></li>
+		<li><a href="#diagrama">Diagrama</a></li>
+		<li><a href="#qué-hace">Qué hace</a></li>
+		<li><a href="#cuándo-usarlo">Cuándo usarlo</a></li>
+		<li><a href="#cómo-funciona">Cómo funciona</a></li>
+		<li><a href="#input-y-output">Input y output</a></li>
+		<li><a href="#fases">Fases</a></li>
+	</ol>
+</nav>
 <blockquote>
 <p>Bucle acotado de generar → criticar → refinar en el mismo artefacto, con memoria verbal; quiet-stop cuando el crítico queda conforme (arXiv:2303.17651).</p>
 </blockquote>
-<h2>En 30 segundos</h2>
+<h2 id="en-30-segundos">En 30 segundos</h2>
 <p>Es un patrón para pulir un solo artefacto (un texto, un doc o una sección de spec) por rondas: un agente genera un borrador, otro lo critica de forma adversarial y localizada, y un tercer paso incorpora esa crítica. El loop se corta por <code>satisfied</code>, cuando ya no queda nada accionable; por <code>maxRounds</code>, cuando se llega al tope; por <code>draft</code> inicial <code>null</code>; por <code>critique</code> <code>null</code>; o por una excepción. Usalo cuando la señal de mejora puede salir de otro LLM leyendo el mismo texto; si necesitás un oráculo externo y reintentos desde cero, elegí <code>reflexion</code>.</p>
-<h2>Cómo lanzarlo</h2>
+<h2 id="cómo-lanzarlo">Cómo lanzarlo</h2>
 <pre><code class="hljs language-text">/workflow new mi-run --pattern=self-refine
 /workflow run mi-run {&quot;task&quot;:&quot;Escribí la sección de migración del changelog v2.&quot;, &quot;maxRounds&quot;:4, &quot;useJury&quot;:true}</code></pre>
 <p><code>task</code> es el único campo obligatorio (si falta, la función tira <code>Error</code>). Ver la tabla en <a href="#input-y-output">Input y output</a> para el resto de los campos y sus defaults.</p>
-<h2>Diagrama</h2>
+<h2 id="diagrama">Diagrama</h2>
 <pre class="mermaid">flowchart TD
     A["Input: task (req), maxRounds=4 (clamp 1..8), useJury=false"] --&gt; B{"task presente?"}
     B --&gt;|"no"| B1["throw Error"]
@@ -185,11 +212,11 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
         H -.-&gt; CX["excepción en critique o refine"]
         CX --&gt; CY["failureNote = round N failed: msg\nbreak: return último draft bueno"]
     end</pre>
-<h2>Qué hace</h2>
+<h2 id="qué-hace">Qué hace</h2>
 <p><code>self-refine</code> implementa el patrón Self-Refine (Madaan et al., arXiv:2303.17651): un mismo artefacto se produce, se critica y se revisa en un ciclo, en vez de generarse una sola vez. La crítica se acumula como &quot;memoria verbal&quot; — cada ronda ve TODAS las críticas anteriores, no solo la última — así el refine no repite errores ya señalados ni pierde contexto de por qué se cambió algo.</p>
 <p>El bucle está acotado en ambos extremos, que es la parte que las implementaciones ingenuas de &quot;seguir mejorando&quot; suelen fallar: un tope duro <code>maxRounds</code> (el paper reporta retornos decrecientes después de ~4 rondas) y un &quot;quiet stop&quot; cuando el crítico declara <code>satisfied</code> (sin issues accionables). Para que el quiet-stop sea confiable, al crítico se le exige ser específico y localizado (apuntar a spans concretos con un fix concreto), y se le pide una postura adversarial — nunca acordar mansamente con el propio draft.</p>
 <p>La corrección puramente intrínseca (el crítico es, en esencia, el mismo generador acordando consigo mismo) puede degradar el output en vez de mejorarlo (Huang et al., arXiv:2310.01798). El scaffold mitiga esto de dos formas: (1) el crítico es una instancia de agente separada con un brief explícitamente adversarial, y (2) opcionalmente (<code>useJury: true</code>) reemplaza al crítico único por una COMPOSICIÓN con el workflow <code>adversarial-verify</code> — un jurado de escépticos que refuta por mayoría las afirmaciones del draft, un oráculo más fuerte e independiente que evalúa antes de confiar en un &quot;satisfied&quot;.</p>
-<h2>Cuándo usarlo</h2>
+<h2 id="cuándo-usarlo">Cuándo usarlo</h2>
 <table>
 <thead>
 <tr>
@@ -210,7 +237,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li>Activá <code>useJury: true</code> cuando quieras que la crítica venga de <code>adversarial-verify</code>, un jurado más duro que un solo crítico.</li>
 <li>No lo uses cuando ya tenés tests o un comando de verificación que te diga objetivamente si pasaste o no.</li>
 </ul>
-<h2>Cómo funciona</h2>
+<h2 id="cómo-funciona">Cómo funciona</h2>
 <ul>
 <li><p><strong>Validación y setup.</strong> <code>task</code> (o sus alias <code>question</code>/<code>text</code>) es obligatorio; si falta, lanza <code>Error</code>. <code>maxRounds</code> se sanea con <code>clamp(1, 8)</code> sobre el valor pedido (default 4); si se recorta, se registra en <code>log(...)</code>. <code>useJury</code> activa la composición con <code>adversarial-verify</code>. También hay overrides por nodo: <code>input.model</code>/<code>input.effort</code> globales, <code>input.models[role]</code>/<code>input.efforts[role]</code> por rol, y lo mismo para <code>tools</code>/<code>skills</code>/<code>excludeTools</code>; la precedencia es por-rol &gt; global &gt; default del call-site.</p>
 </li>
@@ -225,7 +252,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li><p><strong>Fallos parciales y caché.</strong> Si critique o refine tiran una excepción, se registra <code>failureNote</code>, se loguea, y se retorna el último draft bueno. No se observa caché explícita: cada llamada a <code>agent</code>/<code>workflow</code> es fresca.</p>
 </li>
 </ul>
-<h2>Input y output</h2>
+<h2 id="input-y-output">Input y output</h2>
 <p><strong>Input</strong> (JSON-stringified en <code>args</code>, parseado defensivamente):</p>
 <table>
 <thead>
@@ -288,7 +315,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li><code>failure</code> (opcional): string con la causa cuando el loop terminó de forma anómala (<code>initial draft null</code>, crítico <code>null</code> o excepción en una ronda); ausente en el camino feliz.</li>
 </ul>
 <p>No se observan llamadas a <code>writeArtifact</code>: toda la observabilidad pasa por <code>log(...)</code> (progreso por ronda, satisfacción o cantidad de issues, clamps aplicados, fallos) y por el shape de retorno.</p>
-<h2>Fases</h2>
+<h2 id="fases">Fases</h2>
 <ol>
 <li><strong>Generate</strong> — un <code>agent</code> produce el primer borrador completo de la tarea.</li>
 <li><strong>Critique</strong> — un <code>agent</code> adversarial (o, con <code>useJury:true</code>, el workflow <code>adversarial-verify</code> como jurado escéptico) evalúa el draft y devuelve <code>satisfied</code> + <code>issues</code> localizadas y accionables.</li>

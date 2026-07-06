@@ -121,10 +121,24 @@ tr:last-child td { border-bottom:none; }
 .callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:16px;
            border:1px solid var(--line); background:var(--paper); color:var(--ink); }
 .callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout .callout-label { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                          color:var(--muted); font-weight:600; margin:0 0 4px; }
 .callout.info    { background:var(--info-bg);    border-color:var(--purple); }
 .callout.success { background:var(--success-bg); border-color:var(--success); }
 .callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
 .callout.error   { background:var(--error-bg);   border-color:var(--error); }
+nav.toc { font-size:14px; border:1px solid var(--line); border-radius:12px;
+          background:var(--paper); padding:14px 18px; margin:8px 0 28px; }
+nav.toc .toc-title { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                     color:var(--muted); font-weight:600; margin:0 0 8px; }
+nav.toc ol { list-style:none; margin:0; padding:0; display:grid;
+             grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:2px 24px; }
+nav.toc a { color:var(--ink2); text-decoration:none; display:block; padding:2px 0; }
+nav.toc a:hover { color:var(--accent); }
+.hex-chip { display:inline-flex; align-items:center; white-space:nowrap; }
+.hex-chip .dot { display:inline-block; width:0.85em; height:0.85em; border-radius:3px;
+                 margin-right:0.4em; vertical-align:-0.08em; box-shadow:inset 0 0 0 1px var(--line-strong);
+                 flex-shrink:0; }
 footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </style>
 </head>
@@ -135,14 +149,27 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<h1>adversarial-plan-review</h1>
 	</header>
 	<main>
+<nav class="toc">
+	<p class="toc-title">Contents</p>
+	<ol>
+		<li><a href="#en-30-segundos">En 30 segundos</a></li>
+		<li><a href="#cómo-lanzarlo">Cómo lanzarlo</a></li>
+		<li><a href="#diagrama">Diagrama</a></li>
+		<li><a href="#qué-hace">Qué hace</a></li>
+		<li><a href="#cuándo-usarlo">Cuándo usarlo</a></li>
+		<li><a href="#cómo-funciona">Cómo funciona</a></li>
+		<li><a href="#input-y-output">Input y output</a></li>
+		<li><a href="#fases">Fases</a></li>
+	</ol>
+</nav>
 <blockquote>
 <p>N revisores de ángulo fijo (corrección, seguridad, mantenibilidad, alcance) sintetizan un plan revisado.</p>
 </blockquote>
-<h2>En 30 segundos</h2>
+<h2 id="en-30-segundos">En 30 segundos</h2>
 <p>Este scaffold toma un plan de implementación y lo somete a cuatro críticas
 independientes en paralelo. Sirve como filtro previo a implementar: encuentra
 riesgos, huecos y sobrealcance antes de escribir código.</p>
-<h2>Cómo lanzarlo</h2>
+<h2 id="cómo-lanzarlo">Cómo lanzarlo</h2>
 <pre><code class="hljs language-bash">/workflow new revision-plan --pattern=adversarial-plan-review</code></pre>
 <p>Input típico (JSON):</p>
 <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
@@ -150,7 +177,7 @@ riesgos, huecos y sobrealcance antes de escribir código.</p>
 <span class="hljs-punctuation">}</span></code></pre>
 <p>También acepta <code>input.text</code> como alias alternativo de <code>plan</code>. Debe venir al
 menos uno de los dos: si faltan ambos, el workflow lanza <code>Pass { plan: &quot;...&quot; } as workflow input.</code>.</p>
-<h2>Diagrama</h2>
+<h2 id="diagrama">Diagrama</h2>
 <pre class="mermaid">flowchart TD
     A["Input: plan (o text)"] --&gt; B["compacta el plan a 40000 chars"]
     B --&gt; C["parallel(settle): fan-out de 4 revisores"]
@@ -172,7 +199,7 @@ menos uno de los dos: si faltan ambos, el workflow lanza <code>Pass { plan: &quo
     E --&gt;|no| G["compacta las críticas a 60000 chars"]
     G --&gt; H["Síntesis — `opus`, `high`"]
     H --&gt; I["Plan revisado + cambios obligatorios + diferidos + riesgos + checklist + huecos de cobertura"]</pre>
-<h2>Qué hace</h2>
+<h2 id="qué-hace">Qué hace</h2>
 <p>El scaffold implementa el patrón &quot;fan-out adversarial + síntesis como juez&quot;:
 cuatro agentes revisores, cada uno con un ángulo fijo y sin visibilidad de los
 otros, critican el mismo plan de forma independiente y en paralelo. Cada
@@ -196,7 +223,7 @@ puede falsificar el marcador de cierre porque insertarlo cambiaría el hash.
 Esto neutraliza intentos de inyección de instrucciones dentro del plan o las
 críticas (cambios de rol, manipulación de veredicto, &quot;ignore previous&quot;, etc.),
 que se tratan siempre como datos a analizar, nunca como órdenes.</p>
-<h2>Cuándo usarlo</h2>
+<h2 id="cuándo-usarlo">Cuándo usarlo</h2>
 <ul>
 <li>Revisión de diseño/RFC antes de implementar.</li>
 <li>Filtro previo a la implementación de un plan.</li>
@@ -205,7 +232,7 @@ que se tratan siempre como datos a analizar, nunca como órdenes.</p>
 revisión de diffs/PRs) ni cuando el plan es trivial y no justifica 5
 llamadas a agentes (4 revisores + 1 síntesis).</li>
 </ul>
-<h2>Cómo funciona</h2>
+<h2 id="cómo-funciona">Cómo funciona</h2>
 <p><strong>Fase de revisión.</strong> Se arma un arreglo fijo de 4 revisores
 (<code>correctness-reviewer</code>, <code>security-reviewer</code>, <code>maintainability-reviewer</code>,
 <code>scope-reviewer</code>), cada uno con su propio ángulo de análisis. Se lanzan con
@@ -234,7 +261,7 @@ cambios opcionales/diferidos, riesgos aceptados y por qué, checklist de
 validación, huecos de cobertura/revisores fallidos.</p>
 <p>No hay caching explícito en el código; el manejo de fallos parciales se
 resuelve enteramente vía <code>parallel</code> con semántica settle + <code>filter(Boolean)</code>.</p>
-<h2>Input y output</h2>
+<h2 id="input-y-output">Input y output</h2>
 <table>
 <thead>
 <tr>
@@ -276,7 +303,7 @@ El número de revisores es fijo en 4 (no configurable desde el input).</p>
 final, o <code>INSUFFICIENT_EVIDENCE: ...</code> si los 4 revisores fallaron o vinieron
 vacíos. No se observan llamadas a <code>writeArtifact</code> en el código: el resultado
 es el valor de retorno del workflow.</p>
-<h2>Fases</h2>
+<h2 id="fases">Fases</h2>
 <ol>
 <li><strong>Revisión</strong> — fan-out en paralelo de 4 revisores de ángulo fijo (<code>parallel</code>
 con semántica settle), cada uno vía <code>agent(...)</code> sin schema.</li>

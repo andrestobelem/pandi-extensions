@@ -121,10 +121,24 @@ tr:last-child td { border-bottom:none; }
 .callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:16px;
            border:1px solid var(--line); background:var(--paper); color:var(--ink); }
 .callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout .callout-label { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                          color:var(--muted); font-weight:600; margin:0 0 4px; }
 .callout.info    { background:var(--info-bg);    border-color:var(--purple); }
 .callout.success { background:var(--success-bg); border-color:var(--success); }
 .callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
 .callout.error   { background:var(--error-bg);   border-color:var(--error); }
+nav.toc { font-size:14px; border:1px solid var(--line); border-radius:12px;
+          background:var(--paper); padding:14px 18px; margin:8px 0 28px; }
+nav.toc .toc-title { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                     color:var(--muted); font-weight:600; margin:0 0 8px; }
+nav.toc ol { list-style:none; margin:0; padding:0; display:grid;
+             grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:2px 24px; }
+nav.toc a { color:var(--ink2); text-decoration:none; display:block; padding:2px 0; }
+nav.toc a:hover { color:var(--accent); }
+.hex-chip { display:inline-flex; align-items:center; white-space:nowrap; }
+.hex-chip .dot { display:inline-block; width:0.85em; height:0.85em; border-radius:3px;
+                 margin-right:0.4em; vertical-align:-0.08em; box-shadow:inset 0 0 0 1px var(--line-strong);
+                 flex-shrink:0; }
 footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </style>
 </head>
@@ -135,6 +149,20 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<h1>Open Knowledge Format (OKF): el formato de Google para conocimiento agéntico</h1>
 	</header>
 	<main>
+<nav class="toc">
+	<p class="toc-title">Contents</p>
+	<ol>
+		<li><a href="#en-30-segundos">En 30 segundos</a></li>
+		<li><a href="#1-resumen-ejecutivo">1. Resumen ejecutivo</a></li>
+		<li><a href="#2-anatomía-del-formato">2. Anatomía del formato</a></li>
+		<li><a href="#3-repositorio-y-herramientas-knowledge-catalog">3. Repositorio y herramientas (<code>knowledge-catalog</code>)</a></li>
+		<li><a href="#4-casos-de-uso-y-consumo-por-agentes">4. Casos de uso y consumo por agentes</a></li>
+		<li><a href="#5-okf-vs-a2a-vs-mcp-vs-agentsmd-vs-llmstxt">5. OKF vs A2A vs MCP vs AGENTS.md vs llms.txt</a></li>
+		<li><a href="#6-madurez-gobernanza-adopción-y-riesgos">6. Madurez, gobernanza, adopción y riesgos</a></li>
+		<li><a href="#7-fuentes-urls-primarias">7. Fuentes (URLs primarias)</a></li>
+		<li><a href="#8-lagunas-de-cobertura-y-qué-verificar-después">8. Lagunas de cobertura y qué verificar después</a></li>
+	</ol>
+</nav>
 <blockquote>
 <p><strong>Estado: FINAL.</strong> Síntesis de una investigación de 5 ramas paralelas (5/5 completadas, 0 fallidas) sobre OKF de Google Cloud:</p>
 </blockquote>
@@ -144,12 +172,12 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li>Marcado: hechos verificados en 2ª pasada → <strong>[VERIFICADO]</strong>; afirmaciones dependientes de búsqueda o interpretación → <em>[no verificado directamente]</em>.</li>
 </ul>
 <hr>
-<h2>En 30 segundos</h2>
+<h2 id="en-30-segundos">En 30 segundos</h2>
 <p>OKF es una especificación abierta en borrador para representar conocimiento en Markdown + YAML: un bundle portable, fácil de revisar en diffs y apto para humanos y agentes.
 Sirve cuando querés publicar contexto curado sobre tablas, métricas, runbooks o APIs sin depender de una plataforma central.
 Si querés probarlo en este repo, el visualizador de ejemplo abre un bundle real:</p>
 <pre><code class="hljs language-bash">python -m reference_agent visualize --bundle ./bundles/ga4</code></pre>
-<h2>1. Resumen ejecutivo</h2>
+<h2 id="1-resumen-ejecutivo">1. Resumen ejecutivo</h2>
 <p>El <strong>Open Knowledge Format (OKF)</strong> es una <strong>especificación abierta en estado borrador (v0.1 — Draft)</strong> de Google Cloud para representar <em>conocimiento</em>: &quot;los metadatos, el contexto y la perspectiva curada que rodean a los datos y los sistemas&quot; (SPEC.md). Su tesis central es ser <strong>un formato, no una plataforma</strong>: &quot;un directorio de archivos markdown con frontmatter YAML. No hay registro de esquemas, ni autoridad central, ni herramientas obligatorias&quot; (SPEC.md).</p>
 <p>La propuesta de valor es que el conocimiento organizativo (definiciones de tablas, métricas, runbooks, descripciones de APIs, rutas de join) se vuelva <strong>legible, parseable, diffeable y portable</strong>: &quot;si puedes hacer <code>cat</code> a un archivo, puedes leer OKF; si puedes hacer <code>git clone</code> a un repo, puedes distribuirlo&quot; (README de OKF). Sirve como una <strong>capa durable de conocimiento/contexto</strong> que tanto humanos como agentes de IA pueden consumir, frente a otros artefactos del ecosistema agentico que resuelven capas distintas (descubrimiento de agentes, protocolos de runtime, instrucciones de repo).</p>
 <p><strong>Puntos clave:</strong></p>
@@ -161,7 +189,7 @@ Si querés probarlo en este repo, el visualizador de ejemplo abre un bundle real
 <li><strong>[VERIFICADO]</strong> Anunciado el <strong>12 de junio de 2026</strong> en Google Cloud Blog en el artículo &quot;Introducing the Open Knowledge Format&quot; por <strong>Sam McVeety</strong> (Tech Lead, Data Analytics) y <strong>Amir Hormati</strong> (Tech Lead, BigQuery), ambos de Data Cloud.</li>
 </ul>
 <hr>
-<h2>2. Anatomía del formato</h2>
+<h2 id="2-anatomía-del-formato">2. Anatomía del formato</h2>
 <h3>2.1 Paquetes (bundles) — unidad de distribución (§3)</h3>
 <p>Un <strong>Knowledge Bundle</strong> es un árbol de directorios de archivos Markdown UTF-8 y es &quot;la unidad de distribución&quot;. PUEDE enviarse como:</p>
 <ul>
@@ -298,7 +326,7 @@ Joined with [<span class="hljs-string">customers</span>](<span class="hljs-link"
 <h3>2.12 Versionado (§11)</h3>
 <p>Esquema <code>&lt;major&gt;.&lt;minor&gt;</code>: minor = adiciones retrocompatibles; major = cambios disruptivos. Un bundle PUEDE declarar su versión objetivo con <code>okf_version: &quot;0.1&quot;</code> en el frontmatter del <code>index.md</code> <strong>raíz del bundle</strong> — &quot;el único lugar donde se permite frontmatter en un <code>index.md</code>&quot;. Versiones declaradas desconocidas → consumo de mejor esfuerzo.</p>
 <hr>
-<h2>3. Repositorio y herramientas (<code>knowledge-catalog</code>)</h2>
+<h2 id="3-repositorio-y-herramientas-knowledge-catalog">3. Repositorio y herramientas (<code>knowledge-catalog</code>)</h2>
 <p><strong>Repositorio:</strong> <code>GoogleCloudPlatform/knowledge-catalog</code>, <strong>Apache-2.0</strong>. Metadatos (API de GitHub): creado <strong>2026-05-04</strong>, último push 2026-06-21, ~5.777 estrellas, 91 issues abiertos en el momento de la consulta. Descargo: <strong>&quot;This repository and its contents are not an official Google product.&quot;</strong> Contribuir requiere el <strong>Google CLA</strong>.</p>
 <p><strong>Layout raíz (verificado vía API):</strong> <code>okf/</code>, <code>samples/</code>, <code>toolbox/</code>, más <code>LICENSE.md</code>, <code>README.md</code>, <code>CONTRIBUTING.md</code>, <code>CODE_OF_CONDUCT.md</code>.</p>
 <h3>3.1 Directorio <code>okf/</code></h3>
@@ -337,7 +365,7 @@ Joined with [<span class="hljs-string">customers</span>](<span class="hljs-link"
 <p><strong>Validadores:</strong> Google <strong>no</strong> publica un validador oficial de conformidad; los tests del repo son de pytest para el reference agent/visualizador. <strong>[VERIFICADO]</strong> Existen validadores <strong>de comunidad</strong> que aplican las reglas de §9, notablemente la <em>OKF Conformance Suite</em> de WitsCode (<code>node validator/okf-validate.mjs ./bundle</code>, modo JSON/strict y exit codes para CI).</p>
 </blockquote>
 <hr>
-<h2>4. Casos de uso y consumo por agentes</h2>
+<h2 id="4-casos-de-uso-y-consumo-por-agentes">4. Casos de uso y consumo por agentes</h2>
 <p><strong>Modelo productor → consumidor (README de OKF):</strong></p>
 <ul>
 <li><strong>Productores</strong>: humanos a mano; agentes sobre cualquier framework (Google ADK, LangChain, custom); pipelines de exportación desde catálogos existentes (Dataplex/Knowledge Catalog, Unity Catalog, Collibra); o scripts que recorren una base de datos.</li>
@@ -360,7 +388,7 @@ Joined with [<span class="hljs-string">customers</span>](<span class="hljs-link"
 <p>El demo OKF mapea cada <code>.md</code> a una <strong>entry</strong> de Knowledge Catalog usando el <strong>Documents Layout</strong>: deriva el nombre de la entry de la ruta del fichero, guarda el cuerpo Markdown en el aspecto global <strong><code>overview</code></strong>, y hace <em>fallback</em> a <strong><code>dataplex-types.global.generic</code></strong> para valores de <code>type</code> OKF personalizados que no son type-refs válidos de Dataplex. <code>kcmd</code> soporta sync bidireccional (<code>pull</code>/<code>push</code>). <em>(Fuentes: <code>toolbox/mdcode</code> y <code>toolbox/mdcode/demo</code>.)</em></p>
 <p><strong>Casos de uso para agentes:</strong> cargar contexto curado de tablas/métricas en la ventana de contexto de un LLM; resolver rutas de join (sección <code># Joins</code>); navegar el grafo de conceptos vía backlinks; enriquecer iterativamente conocimiento generado parcialmente por agentes (la conformidad permisiva mantiene válidos los bundles parciales).</p>
 <hr>
-<h2>5. OKF vs A2A vs MCP vs AGENTS.md vs llms.txt</h2>
+<h2 id="5-okf-vs-a2a-vs-mcp-vs-agentsmd-vs-llmstxt">5. OKF vs A2A vs MCP vs AGENTS.md vs llms.txt</h2>
 <blockquote>
 <p><strong>Advertencia importante de evidencia.</strong> Se verificó por grep que <strong>A2A, MCP, AGENTS.md, llms.txt, &quot;Agent Card&quot; y &quot;Model Context&quot; NO aparecen en <code>SPEC.md</code> ni en <code>okf/README.md</code></strong>. El §10 del SPEC (&quot;Relationship to other formats&quot;) solo nombra tres comparadores: <strong>repositorios &quot;wiki&quot; para LLM</strong>, <strong>herramientas de conocimiento personal (Obsidian/Notion)</strong> y <strong>&quot;metadata as code&quot;</strong>, afirmando que OKF &quot;difiere principalmente en estar <em>especificado</em>&quot;. Por tanto, <strong>la comparativa siguiente es síntesis/interpretación</strong> a partir de las fuentes primarias de cada formato, <strong>no texto normativo de OKF</strong>.</p>
 </blockquote>
@@ -420,7 +448,7 @@ Joined with [<span class="hljs-string">customers</span>](<span class="hljs-link"
 <p><strong>Stack complementario (interpretación):</strong> AGENTS.md orienta a un agente de código → llms.txt apunta a docs públicos → OKF empaqueta conocimiento tipado profundo → MCP sirve/busca esos bundles y expone tools → los A2A Agent Cards permiten que agentes independientes se anuncien e invoquen entre sí. Cada uno ocupa una ranura distinta; <strong>son complementarios, no competidores</strong>, y OKF no reemplaza a ninguno.</p>
 <p><strong>Linaje (verificado):</strong> Google enmarca OKF como una formalización del patrón &quot;LLM wiki&quot; (bases de conocimiento Markdown persistentes e interconectadas, mantenidas por agentes), explícitamente asociado al gist &quot;LLM-wiki&quot; de Andrej Karpathy.</p>
 <hr>
-<h2>6. Madurez, gobernanza, adopción y riesgos</h2>
+<h2 id="6-madurez-gobernanza-adopción-y-riesgos">6. Madurez, gobernanza, adopción y riesgos</h2>
 <p><strong>Madurez/estado.</strong> Etiquetado explícitamente <strong>&quot;Version 0.1 — Draft&quot;</strong>. Es etapa temprana: una versión publicada de la spec, un productor PoC (reference agent), un consumidor PoC (visualizador HTML) y tres bundles de ejemplo. Repo creado 2026-05-04.</p>
 <p><strong>Gobernanza.</strong> Mantenido por <strong>Google Cloud</strong> bajo el org <code>GoogleCloudPlatform</code>, <strong>Apache-2.0</strong>, con descargo de <strong>&quot;no es un producto oficial de Google&quot;</strong>. Las contribuciones requieren el <strong>Google CLA</strong>; todos los PRs requieren revisión. <strong>No hay fundación independiente, organismo de estándares ni comité multi-vendor</strong> — la gobernanza es de un solo proveedor (Google), aunque el <em>formato</em> se posicione como neutral respecto al proveedor. Contexto de producto: <strong>[VERIFICADO]</strong> Knowledge Catalog es el renombre de <strong>Dataplex Universal Catalog</strong> (efectivo el <strong>10 de abril de 2026</strong> según la doc oficial de Dataplex); las APIs, librerías cliente, comandos <code>gcloud dataplex</code> y nombres IAM permanecen sin cambios.</p>
 <p><strong>Neutralidad de proveedor (y su matiz).</strong> El <em>formato</em> (Markdown + YAML) es genuinamente portable y sin lock-in. Pero la <em>gobernanza, autoría de la spec, herramientas de referencia y valores de ejemplo</em> son Google-céntricos (los <code>type</code> por defecto son <code>BigQuery Table</code>/<code>BigQuery Dataset</code>; el reference agent enriquece desde BigQuery + Gemini/Vertex). <strong>La neutralidad es una propiedad de diseño, no aún una realidad de gobernanza.</strong></p>
@@ -435,7 +463,7 @@ Joined with [<span class="hljs-string">customers</span>](<span class="hljs-link"
 </ol>
 <p><strong>Adopción.</strong> <strong>[VERIFICADO]</strong> Adopción temprana pero real fuera de Google: <strong>Data Product SDK v0.2.5</strong> (Open Data Products) añadió soporte OKF; herramientas de comunidad como <code>scaccogatto/okf-skills</code>, <code>parkscloud/okf-author</code> y la <em>OKF Conformance Suite</em> de WitsCode. En cambio, Collibra/Unity Catalog solo se <em>nombran como posibilidades</em> en el README, sin integración confirmada.</p>
 <hr>
-<h2>7. Fuentes (URLs primarias)</h2>
+<h2 id="7-fuentes-urls-primarias">7. Fuentes (URLs primarias)</h2>
 <h3>Evidencia primaria verificada (leída directamente)</h3>
 <ul>
 <li>OKF v0.1 SPEC (normativo): <a href="https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md">https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md</a> · raw: <a href="https://raw.githubusercontent.com/GoogleCloudPlatform/knowledge-catalog/main/okf/SPEC.md">https://raw.githubusercontent.com/GoogleCloudPlatform/knowledge-catalog/main/okf/SPEC.md</a></li>
@@ -473,7 +501,7 @@ Joined with [<span class="hljs-string">customers</span>](<span class="hljs-link"
 <li>Gist LLM-wiki de Karpathy: <a href="https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f">https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f</a></li>
 </ul>
 <hr>
-<h2>8. Lagunas de cobertura y qué verificar después</h2>
+<h2 id="8-lagunas-de-cobertura-y-qué-verificar-después">8. Lagunas de cobertura y qué verificar después</h2>
 <p><strong>Ramas fallidas o vacías: 0</strong> (5 de 5 ángulos completados). Estado de las lagunas tras la 2ª pasada de verificación:</p>
 <ol>
 <li><del><strong>HTML del blog no recuperado.</strong></del> <strong>[CERRADA]</strong> Verificado vía búsqueda dirigida: blog publicado el <strong>12-jun-2026</strong> por <strong>Sam McVeety</strong> y <strong>Amir Hormati</strong>; confirma que <strong>Knowledge Catalog fue actualizado para ingerir OKF y servirlo a agentes</strong>. <em>(Pendiente menor: si el blog menciona explícitamente AGENTS.md/MCP/A2A no se confirmó palabra por palabra.)</em></li>

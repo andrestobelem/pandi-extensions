@@ -121,10 +121,24 @@ tr:last-child td { border-bottom:none; }
 .callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:16px;
            border:1px solid var(--line); background:var(--paper); color:var(--ink); }
 .callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout .callout-label { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                          color:var(--muted); font-weight:600; margin:0 0 4px; }
 .callout.info    { background:var(--info-bg);    border-color:var(--purple); }
 .callout.success { background:var(--success-bg); border-color:var(--success); }
 .callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
 .callout.error   { background:var(--error-bg);   border-color:var(--error); }
+nav.toc { font-size:14px; border:1px solid var(--line); border-radius:12px;
+          background:var(--paper); padding:14px 18px; margin:8px 0 28px; }
+nav.toc .toc-title { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                     color:var(--muted); font-weight:600; margin:0 0 8px; }
+nav.toc ol { list-style:none; margin:0; padding:0; display:grid;
+             grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:2px 24px; }
+nav.toc a { color:var(--ink2); text-decoration:none; display:block; padding:2px 0; }
+nav.toc a:hover { color:var(--accent); }
+.hex-chip { display:inline-flex; align-items:center; white-space:nowrap; }
+.hex-chip .dot { display:inline-block; width:0.85em; height:0.85em; border-radius:3px;
+                 margin-right:0.4em; vertical-align:-0.08em; box-shadow:inset 0 0 0 1px var(--line-strong);
+                 flex-shrink:0; }
 footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </style>
 </head>
@@ -135,6 +149,15 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<h1>Project personas</h1>
 	</header>
 	<main>
+<nav class="toc">
+	<p class="toc-title">Contents</p>
+	<ol>
+		<li><a href="#andrej-karpathy">andrej-karpathy</a></li>
+		<li><a href="#dave-farley">dave-farley</a></li>
+		<li><a href="#kent-beck">kent-beck</a></li>
+		<li><a href="#uncle-bob">uncle-bob</a></li>
+	</ol>
+</nav>
 <p>Read-only advisor personas for subagents, selected with <code>agentType: &quot;&lt;name&gt;&quot;</code> and loaded by
 <code>extensions/pandi-dynamic-workflows/agent-env-persona.ts</code> (project personas override built-ins;
 explicit call options win). The JSON files are the source of truth and are injected at spawn;
@@ -173,7 +196,7 @@ this README is their readable mirror.</p>
 <td>2331 + 3056 chars</td>
 </tr>
 </tbody></table>
-<h2>andrej-karpathy</h2>
+<h2 id="andrej-karpathy">andrej-karpathy</h2>
 <ul>
 <li><strong>tools</strong>: <code>[&quot;read&quot;,&quot;grep&quot;,&quot;find&quot;,&quot;ls&quot;]</code></li>
 <li><strong>skills</strong>: <code>[&quot;ai-assisted-engineering&quot;,&quot;karpathy-guidelines&quot;]</code></li>
@@ -211,7 +234,7 @@ this README is their readable mirror.</p>
 <p>Keep it lean: if the best next step is a tiny script, a data inspection, or overfitting one case, say exactly that instead of proposing a grand design.</p>
 <p>Never fabricate verbatim quotes; paraphrase and attribute honestly, and flag when a framing is your synthesis rather than a sourced claim.</p>
 <hr>
-<h2>dave-farley</h2>
+<h2 id="dave-farley">dave-farley</h2>
 <ul>
 <li><strong>tools</strong>: <code>[&quot;read&quot;,&quot;grep&quot;,&quot;find&quot;,&quot;ls&quot;]</code></li>
 <li><strong>skills</strong>: <code>[&quot;modern-software-engineering&quot;]</code></li>
@@ -248,7 +271,7 @@ this README is their readable mirror.</p>
 <p>Name and refuse to endorse anti-patterns: implementing behavior before a failing test/check without stating replacement evidence; long-lived feature branches instead of real continuous integration; big-batch or speculative rewrites that delay learning; abstractions, configurability, or ceremony added without evidence they improve stability, throughput, or complexity control; slow or flaky tests where fast, focused ones would do; and treating AI-generated output or agent consensus as equivalent to passing tests.</p>
 <p>Keep it lean — if the best next step is a small test, spike, or measurement, say so instead of proposing a grand design.</p>
 <hr>
-<h2>kent-beck</h2>
+<h2 id="kent-beck">kent-beck</h2>
 <ul>
 <li><strong>tools</strong>: <code>[&quot;read&quot;,&quot;grep&quot;,&quot;find&quot;,&quot;ls&quot;]</code></li>
 <li><strong>skills</strong>: <code>[&quot;empirical-software-design&quot;]</code></li>
@@ -284,7 +307,7 @@ this README is their readable mirror.</p>
 <p>Defer CI/CD mechanics, real-CI-vs-branch-theater calls, and DORA empiricism (including TDD inside a deployment pipeline) to the Farley lens; defer deep AI-delegation judgment — prototype vs production stakes, prompts-as-program — to the Karpathy lens; defer code-level craftsmanship rules, SOLID and component principles, Clean Architecture boundaries, and TDD-as-professional-discipline framing to the Uncle Bob lens.</p>
 <p>Keep it lean: if the best next step is one failing test, one tidying, or one cheap experiment, say exactly that — and label your framings as experiments and paraphrases, never as prescriptions or quotes.</p>
 <hr>
-<h2>uncle-bob</h2>
+<h2 id="uncle-bob">uncle-bob</h2>
 <ul>
 <li><strong>tools</strong>: <code>[&quot;read&quot;,&quot;grep&quot;,&quot;find&quot;,&quot;ls&quot;]</code></li>
 <li><strong>skills</strong>: <code>[&quot;clean-craftsmanship&quot;]</code></li>

@@ -121,10 +121,24 @@ tr:last-child td { border-bottom:none; }
 .callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:16px;
            border:1px solid var(--line); background:var(--paper); color:var(--ink); }
 .callout p { margin:6px 0; color:var(--ink); max-width:none; }
+.callout .callout-label { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                          color:var(--muted); font-weight:600; margin:0 0 4px; }
 .callout.info    { background:var(--info-bg);    border-color:var(--purple); }
 .callout.success { background:var(--success-bg); border-color:var(--success); }
 .callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
 .callout.error   { background:var(--error-bg);   border-color:var(--error); }
+nav.toc { font-size:14px; border:1px solid var(--line); border-radius:12px;
+          background:var(--paper); padding:14px 18px; margin:8px 0 28px; }
+nav.toc .toc-title { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                     color:var(--muted); font-weight:600; margin:0 0 8px; }
+nav.toc ol { list-style:none; margin:0; padding:0; display:grid;
+             grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:2px 24px; }
+nav.toc a { color:var(--ink2); text-decoration:none; display:block; padding:2px 0; }
+nav.toc a:hover { color:var(--accent); }
+.hex-chip { display:inline-flex; align-items:center; white-space:nowrap; }
+.hex-chip .dot { display:inline-block; width:0.85em; height:0.85em; border-radius:3px;
+                 margin-right:0.4em; vertical-align:-0.08em; box-shadow:inset 0 0 0 1px var(--line-strong);
+                 flex-shrink:0; }
 footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </style>
 </head>
@@ -135,16 +149,29 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<h1>large-migration</h1>
 	</header>
 	<main>
+<nav class="toc">
+	<p class="toc-title">Contents</p>
+	<ol>
+		<li><a href="#en-30-segundos">En 30 segundos</a></li>
+		<li><a href="#cómo-lanzarlo">Cómo lanzarlo</a></li>
+		<li><a href="#diagrama">Diagrama</a></li>
+		<li><a href="#qué-hace">Qué hace</a></li>
+		<li><a href="#cuándo-usarlo">Cuándo usarlo</a></li>
+		<li><a href="#cómo-funciona">Cómo funciona</a></li>
+		<li><a href="#input-y-output">Input y output</a></li>
+		<li><a href="#fases">Fases</a></li>
+	</ol>
+</nav>
 <blockquote>
 <p>Un applier real: gate de baseline verde, apply → verify → repair acotado por archivo, rollback ante fallo. Secuencial.</p>
 </blockquote>
-<h2>En 30 segundos</h2>
+<h2 id="en-30-segundos">En 30 segundos</h2>
 <p><code>large-migration</code> migra código archivo por archivo y escribe de verdad en el árbol de trabajo: no audita, aplica cambios. Antes de tocar nada exige que el build/test esté en verde; después de cada archivo vuelve a verificar de forma independiente y, si algo sigue roto tras los intentos de reparación permitidos, hace <code>git checkout --</code> y continúa sin dejar un archivo a medio migrar. Elegilo cuando vas a mutar muchos archivos con la misma regla y no podés permitirte dejar uno roto atrás; para auditar o revisar sin mutar, usá <code>scout-fanout</code>.</p>
-<h2>Cómo lanzarlo</h2>
+<h2 id="cómo-lanzarlo">Cómo lanzarlo</h2>
 <pre><code class="hljs language-text">/workflow new mi-run --pattern=large-migration
 /workflow run mi-run {&quot;instruction&quot;:&quot;Reemplazar oldApi(...) por newApi(...)&quot;,&quot;verifyCmd&quot;:&quot;npm run build &amp;&amp; npm test&quot;,&quot;dryRun&quot;:true}</code></pre>
 <p><code>instruction</code> es el único campo obligatorio. <code>dryRun:true</code> permite previsualizar sin escribir; con <code>dryRun:false</code> el workflow aplica cambios de verdad. Si no hay <code>verifyCmd</code>, migra sin gate de build/test y lo deja asentado como warning. La tabla completa está en <a href="#input-y-output">Input y output</a>.</p>
-<h2>Diagrama</h2>
+<h2 id="diagrama">Diagrama</h2>
 <pre class="mermaid">flowchart TD
     A["Input: instruction (req), files[] | pattern, verifyCmd, maxRepairs=2, maxFiles=50, triage=true, dryRun=false"] --&gt; B{"instruction ausente?"}
     B --&gt;|"sí"| B1["throw Error"]
@@ -208,11 +235,11 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
     W --&gt;|"sí"| X["agent final-verify haiku·low\nrun verifyCmd una vez más -&gt; { green, evidence }"]
     W --&gt;|"no"| Y["return { instruction, dryRun, aborted?, counts, finalVerify, results }"]
     X --&gt; Y</pre>
-<h2>Qué hace</h2>
+<h2 id="qué-hace">Qué hace</h2>
 <p><code>large-migration</code> es la variante <em>applier</em> de <code>scout-fanout</code>: en vez de triar y revisar sin tocar código, modifica el árbol de trabajo de verdad, siguiendo prácticas de migración a gran escala documentadas por Google (LSC, AI-migration), Amazon Q Code Transformation y el SWE Book. La idea central es tratar cada archivo como una unidad transaccional: aplicar el cambio, verificarlo con el build/test real del repo, reparar un número acotado de veces si falla, y si sigue fallando revertir ese archivo puntual con <code>git checkout --</code> para no dejar nada roto.</p>
 <p>Todo corre <strong>secuencialmente</strong>, a propósito: como todos los archivos comparten el mismo working tree, paralelizar apply/verify generaría carreras (un archivo verificando mientras otro edita). Antes de cada archivo, salvo el primero, se vuelve a chequear que el árbol siga verde para no seguir migrando sobre una corrupción dejada por un archivo anterior; y después de que un agente reporta <code>migrated</code>, el orquestador vuelve a correr <code>verifyCmd</code> de forma independiente en lugar de confiar en el self-report del agente. Si el chequeo independiente da rojo, degrada el status a <code>verify-mismatch-not-rolled-back</code> en vez de aceptar la afirmación a ciegas.</p>
 <p>El workflow deja explícito lo que queda fuera de alcance: no ordena archivos por dependencias (los procesa en el orden de la lista), no hace un commit por archivo para producir diffs aterrizables, y no usa worktrees paralelos. Si la migración necesita eso, hay que agregarlo por fuera.</p>
-<h2>Cuándo usarlo</h2>
+<h2 id="cuándo-usarlo">Cuándo usarlo</h2>
 <ul>
 <li><strong>Rollouts de API/codemod</strong>: reemplazar una llamada o patrón de API por otro en todo el repo.</li>
 <li><strong>Upgrades de framework</strong>: migraciones mecánicas repetidas archivo por archivo.</li>
@@ -225,7 +252,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li>La migración requiere orden de dependencias entre archivos, commits atómicos por archivo, o worktrees paralelos (fuera de alcance declarado).</li>
 <li>No hay forma de expresar un <code>verifyCmd</code> confiable: el workflow igual corre, pero sin gate de build/test queda como edición a ciegas (se loguea como warning explícito).</li>
 </ul>
-<h2>Cómo funciona</h2>
+<h2 id="cómo-funciona">Cómo funciona</h2>
 <p><strong>Fase Discover.</strong> Si <code>input.files</code> llega como un array no vacío, se usa tal cual y se saltea <code>git</code>. Si no, un <code>agent</code> <code>scout</code> (modelo <code>haiku</code>, effort <code>low</code>) corre <code>git ls-files</code>, filtra por <code>pattern</code> (regex; con presets <code>code</code>/<code>docs</code>/<code>web</code>/<code>config</code>, y <code>code</code> por defecto = <code>ts|tsx|js|jsx|py|go|rs</code>) y devuelve <code>{ files[], totalMatched }</code> bajo el schema <code>FILE_LIST</code>. La instrucción es explícita: no inventar paths que no aparezcan en la salida real de <code>git ls-files</code>. El resultado se recorta a <code>maxFiles</code> (default 50, clamp 1..4096); si se recorta, se loguea. Si no queda ningún archivo, retorna temprano con &quot;nada que migrar&quot;.</p>
 <p><strong>Fase Baseline.</strong> Si hay <code>verifyCmd</code>, un <code>agent</code> <code>baseline</code> (haiku·low) corre ese comando <strong>sin editar nada</strong> y devuelve <code>{ green, evidence }</code> (schema <code>VERIFY</code>). Si no da verde, el workflow aborta de inmediato con <code>{ aborted: true, reason, baseline }</code>: nunca migra sobre un árbol rojo. Si no hay <code>verifyCmd</code>, se loguea una advertencia explícita de que la migración correrá sin gate de build/test.</p>
 <p><strong>Fase Migrate.</strong> Recorre <code>files</code> en un loop secuencial (<code>for</code>, no <code>parallel</code>):</p>
@@ -238,7 +265,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <p>Al final del loop (si hubo <code>verifyCmd</code> y no es <code>dryRun</code>), un <code>agent</code> <code>final-verify</code> (haiku·low) corre <code>verifyCmd</code> una vez más para confirmar que los cambios por archivo siguen componiendo verde en conjunto.</p>
 <p><strong>Fallos parciales:</strong> cada paso de verificación (<code>baseline</code>, <code>recheck</code> de integridad, <code>verify-gate</code>, <code>final-verify</code>) es un <code>agent</code> dedicado con schema estricto, no una inferencia; el status por archivo distingue explícitamente entre self-report confiado (<code>migrated</code>), self-report desmentido (<code>verify-mismatch-not-rolled-back</code>), reparado y revertido (<code>failed-rolled-back</code>), sin necesidad (<code>skipped</code>), sin gate (<code>applied-unverified</code>) y solo-preview (<code>dry-run-preview</code>). No hay <code>try/catch</code> alrededor de la lógica de negocio: los abortos son retornos explícitos con razón (<code>red tree</code>, <code>tree roto por archivo previo</code>), no excepciones.</p>
 <p><strong>Caché:</strong> no se observa ningún mecanismo explícito de caché; cada llamada a <code>agent</code> es fresca.</p>
-<h2>Input y output</h2>
+<h2 id="input-y-output">Input y output</h2>
 <table>
 <thead>
 <tr>
@@ -329,7 +356,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
   <span class="hljs-attr">&quot;results&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-punctuation">{</span> <span class="hljs-attr">&quot;file&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;attempts&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;notes&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span> <span class="hljs-punctuation">}</span><span class="hljs-punctuation">]</span>
 <span class="hljs-punctuation">}</span></code></pre>
 <p><code>aborted</code> solo aparece si el baseline dio rojo o si el integrity-check entre archivos detectó un árbol roto; en ese caso el loop se corta antes de procesar todos los archivos. <code>finalVerify</code> es <code>null</code> si no hubo <code>verifyCmd</code> o si <code>dryRun</code> es <code>true</code>. No se observan llamadas a <code>writeArtifact</code>: toda la observabilidad pasa por <code>log(...)</code> (baseline, integridad entre archivos, status por archivo, mismatches de verify-gate) y por la forma de retorno.</p>
-<h2>Fases</h2>
+<h2 id="fases">Fases</h2>
 <ol>
 <li><strong>Discover</strong> — resuelve la lista de trabajo: usa <code>files</code> explícitos o descubre vía <code>git ls-files</code> + <code>pattern</code> regex (agente <code>scout</code>), acotado por <code>maxFiles</code>.</li>
 <li><strong>Baseline</strong> — gate de árbol verde: corre <code>verifyCmd</code> antes de cualquier cambio (agente <code>baseline</code>); aborta si el árbol ya está rojo.</li>
