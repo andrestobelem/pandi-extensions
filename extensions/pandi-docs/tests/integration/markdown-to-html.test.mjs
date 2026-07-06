@@ -58,6 +58,9 @@ test("strips YAML frontmatter before extracting the h1 title", () => {
 test("prose typography: body justified, h2 is a real heading above h3 (no uppercase label style)", () => {
 	const html = renderMarkdownToHtml("# T\n\n## Section\n\ntext\n", {});
 	assert.match(html, /text-align:\s*justify/);
+	// Los callouts quedan alineados a la izquierda: justificar texto angosto en caja
+	// mezclado con code inline produce ríos de espacios.
+	assert.match(html, /\.callout p[^}]*text-align:\s*left/);
 	const h2Rule = /main h2 \{([^}]*)\}/.exec(html)?.[1] ?? "";
 	const h3Rule = /main h3 \{([^}]*)\}/.exec(html)?.[1] ?? "";
 	assert.doesNotMatch(h2Rule, /text-transform:\s*uppercase/);
