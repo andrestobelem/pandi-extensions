@@ -291,7 +291,10 @@ export async function collectRunReport(runDir: string, opts: CollectRunReportOpt
 			const section = prefix ? extractMarkdownSection(prefix, "Prompt") : undefined;
 			if (section) prompt = boundedText(section, B.promptChars);
 		}
-		if (agent.output) output = boundedText(agent.output, B.outputChars);
+		if (agent.output !== undefined) {
+			output = boundedText(agent.output, B.outputChars);
+			if (agent.outputTruncated === true) output = { ...output, truncated: true };
+		}
 		const dataJson = agentData.get(agent.id);
 		if (dataJson) data = boundedText(dataJson, B.dataChars);
 
@@ -335,6 +338,9 @@ export async function collectRunReport(runDir: string, opts: CollectRunReportOpt
 			...(agent.promptPreview ? { promptPreview: agent.promptPreview } : {}),
 			...(prompt ? { prompt } : {}),
 			...(output ? { output } : {}),
+			...(agent.outputChars === undefined ? {} : { outputChars: agent.outputChars }),
+			...(agent.outputEmpty === undefined ? {} : { outputEmpty: agent.outputEmpty }),
+			...(agent.outputTruncated === undefined ? {} : { outputTruncated: agent.outputTruncated }),
 			...(data ? { data } : {}),
 			...(stderrTail ? { stderrTail } : {}),
 			...(stdoutHref ? { stdoutHref } : {}),

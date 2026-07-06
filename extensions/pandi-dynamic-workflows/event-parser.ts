@@ -184,7 +184,18 @@ export function mergeAgentMonitor(
 		...(existing?.promptTruncated !== undefined || patch.promptTruncated !== undefined
 			? { promptTruncated: patch.promptTruncated ?? existing?.promptTruncated }
 			: {}),
-		...(existing?.output || patch.output ? { output: patch.output ?? existing?.output } : {}),
+		...(existing?.output !== undefined || patch.output !== undefined
+			? { output: patch.output ?? existing?.output }
+			: {}),
+		...(existing?.outputChars !== undefined || patch.outputChars !== undefined
+			? { outputChars: patch.outputChars ?? existing?.outputChars }
+			: {}),
+		...(existing?.outputEmpty !== undefined || patch.outputEmpty !== undefined
+			? { outputEmpty: patch.outputEmpty ?? existing?.outputEmpty }
+			: {}),
+		...(existing?.outputTruncated !== undefined || patch.outputTruncated !== undefined
+			? { outputTruncated: patch.outputTruncated ?? existing?.outputTruncated }
+			: {}),
 		...(existing?.schemaOk !== undefined || patch.schemaOk !== undefined
 			? { schemaOk: patch.schemaOk ?? existing?.schemaOk }
 			: {}),
@@ -318,7 +329,16 @@ export async function readRunEvents(runDir: string): Promise<ParsedRunEvents> {
 							...(booleanValue(event.promptTruncated) === undefined
 								? {}
 								: { promptTruncated: booleanValue(event.promptTruncated) }),
-							...(stringValue(event.output) ? { output: stringValue(event.output) } : {}),
+							...(stringValue(event.output) === undefined ? {} : { output: stringValue(event.output) }),
+							...(numberValue(event.outputChars) === undefined
+								? {}
+								: { outputChars: numberValue(event.outputChars) }),
+							...(booleanValue(event.outputEmpty) === undefined
+								? {}
+								: { outputEmpty: booleanValue(event.outputEmpty) }),
+							...(booleanValue(event.outputTruncated) === undefined
+								? {}
+								: { outputTruncated: booleanValue(event.outputTruncated) }),
 							...(booleanValue(event.schemaOk) === undefined ? {} : { schemaOk: booleanValue(event.schemaOk) }),
 							...(metrics ? { metrics } : {}),
 							promptAvailable: booleanValue(event.promptAvailable) === true || !!stringValue(event.artifactPath),

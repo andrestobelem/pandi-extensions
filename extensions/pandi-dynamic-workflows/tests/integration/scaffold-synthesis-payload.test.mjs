@@ -30,6 +30,7 @@ async function buildExtension() {
 			ai: true,
 			tui: true,
 			sdk: (dir) => sdkStub(dir, { customEditor: "full" }),
+			sanitizeHtml: "export default function sanitizeHtml(html) { return String(html); }\n",
 		},
 	});
 }
@@ -108,7 +109,22 @@ for (const [key, rawVar] of Object.entries(FAN_OUT_SYNTHESIS)) {
 	const projects = /\.map\(\s*\(?\s*r\s*\)?\s*=>\s*\(\{[^}]*\boutput:\s*r\.output\b/.test(code);
 	check(`${key}: projects results to {..., output: r.output} for synthesis`, projects, code.slice(0, 0));
 
-	// 3) Position-aware (lost-in-the-middle): the task must be restated AFTER the
+	// 3) Required-branch integrity: empty and display-truncated outputs must be
+	//    counted separately from process failures and passed to the synthesis judge.
+	check(`${key}: marks empty branch outputs explicitly`, /\boutputEmpty\b/.test(code), code.slice(0, 0));
+	check(
+		`${key}: marks display-truncated branch outputs explicitly`,
+		/\boutputTruncated\b/.test(code),
+		code.slice(0, 0),
+	);
+	check(
+		`${key}: excludes empty outputs from completed branches`,
+		/\.filter\([\s\S]{0,160}=>[\s\S]{0,160}![\s\S]{0,80}\.outputEmpty/.test(code),
+		code.slice(0, 0),
+	);
+	check(`${key}: tells synthesis about truncated branches`, /truncad/i.test(code), code.slice(0, 0));
+
+	// 4) Position-aware (lost-in-the-middle): the task must be restated AFTER the
 	//    evidence block, so instructions sit at BOTH ends of the synthesis prompt
 	//    rather than only at the top where a long evidence block can bury them.
 	const compactIdx = code.lastIndexOf("compact(");
