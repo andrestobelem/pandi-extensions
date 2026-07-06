@@ -1,24 +1,24 @@
 #!/usr/bin/env node
 /**
- * Regression: a subagent whose FINAL assistant message is tool-call-only must not
- * lose its real output.
+ * Regresión: un subagente cuyo mensaje assistant FINAL es solo tool-call no debe
+ * perder su output real.
  *
- * Bug found by the Farley review of 2026-07-03 (run revisar-dw-farley-core):
- * two reviewers ran ~8 min, exited ok:true code:0 with a 4.4MB event stream that
- * CONTAINED the full review markdown — but the extracted output was "". Cause:
- * extractTextFromMessageContent maps non-text parts (toolCall/thinking) to "" and
- * join("")s them, so a tool-only assistant message yields "" (not undefined), and
- * the fold `if (textValue !== undefined) lastAssistantText = textValue` lets that
- * empty string OVERWRITE the earlier real text. Silent data loss reported as
+ * Bug encontrado por la review Farley de 2026-07-03 (run revisar-dw-farley-core):
+ * dos reviewers corrieron ~8 min, salieron ok:true code:0 con un event stream de 4.4MB que
+ * CONTENÍA el markdown completo de review — pero el output extraído fue "". Causa:
+ * extractTextFromMessageContent mapea partes no-texto (toolCall/thinking) a "" y
+ * las join("")ea, así un mensaje assistant solo-tool produce "" (no undefined), y
+ * el fold `if (textValue !== undefined) lastAssistantText = textValue` deja que ese
+ * string vacío SOBRESCRIBA el texto real anterior. Pérdida silenciosa de datos reportada como
  * success.
  *
- * Contract pinned here (agent-output.ts):
- *   - The final output is the last NON-EMPTY assistant text: a trailing tool-only
- *     (or otherwise textless) assistant message never clobbers earlier real text,
- *     in both the incremental events (message_end/turn_end/message_update) and the
- *     agent_end.messages replay.
- *   - Two real texts → the later one still wins (existing behavior preserved).
- *   - A stream with NO assistant text at all still returns ok:false.
+ * Contrato pineado acá (agent-output.ts):
+ *   - El output final es el último texto assistant NO VACÍO: un mensaje assistant trailing solo-tool
+ *     (o sin texto por otro motivo) nunca pisa texto real previo,
+ *     tanto en los eventos incrementales (message_end/turn_end/message_update) como en el replay
+ *     agent_end.messages.
+ *   - Dos textos reales → el posterior sigue ganando (comportamiento existente preservado).
+ *   - Un stream SIN texto assistant en absoluto sigue devolviendo ok:false.
  */
 
 import * as path from "node:path";
@@ -49,7 +49,7 @@ async function main() {
 	const { parsePiJsonModeOutput, parsePiJsonModeOutputLenient } = await loadModule(url);
 	check("parsePiJsonModeOutput exported", typeof parsePiJsonModeOutput === "function");
 
-	// --- the bug: trailing tool-only message must not clobber real text ---------
+	// --- el bug: el mensaje trailing solo-tool no debe pisar texto real ---------
 	for (const eventType of ["message_end", "turn_end", "message_update"]) {
 		const toolFinal = parsePiJsonModeOutput(
 			stream(
@@ -65,7 +65,7 @@ async function main() {
 		);
 	}
 
-	// agent_end replay variant (the full-messages replay path).
+	// Variante de replay agent_end (el path de replay de mensajes completos).
 	const replay = parsePiJsonModeOutput(
 		stream({
 			type: "agent_end",
@@ -78,13 +78,13 @@ async function main() {
 		JSON.stringify(replay),
 	);
 
-	// Whitespace-only text behaves like no text (must not clobber either).
+	// Texto solo-whitespace se comporta como sin texto (tampoco debe pisar).
 	const wsFinal = parsePiJsonModeOutput(
 		stream({ type: "message_end", message: textMsg("real") }, { type: "message_end", message: textMsg("   \n  ") }),
 	);
 	check("whitespace-only final does not clobber", wsFinal.ok && wsFinal.output === "real", JSON.stringify(wsFinal));
 
-	// --- existing behavior preserved ---------------------------------------------
+	// --- comportamiento existente preservado -------------------------------------
 	const lastWins = parsePiJsonModeOutput(
 		stream({ type: "message_end", message: textMsg("first") }, { type: "message_end", message: textMsg("second") }),
 	);
