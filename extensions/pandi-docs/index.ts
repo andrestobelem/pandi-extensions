@@ -25,6 +25,8 @@ const EXT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const TOKENS_CSS_PATH = path.join(EXT_DIR, "skills", "pandi-artifact-style", "reference", "pandi-tokens.css");
 
 const USAGE = 'Uso: /docs <input.md> [más.md…] [-o output.html] [--kicker "Texto"]';
+const EMPTY_MARKDOWN_PATH_ERROR =
+	"markdown_to_html: `path` no puede estar vacío — pasá una ruta a un archivo Markdown.";
 
 function expandHomePath(input: string): string {
 	return input === "~" || input.startsWith("~/") ? path.join(os.homedir(), input.slice(1)) : input;
@@ -159,7 +161,7 @@ export default function docsExtension(pi: ExtensionAPI): void {
 		executionMode: "sequential",
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx: ExtensionContext) {
 			if (!params.path?.trim()) {
-				return toolError("markdown_to_html: `path` no puede estar vacío — pasá una ruta a un archivo Markdown.");
+				return toolError(EMPTY_MARKDOWN_PATH_ERROR);
 			}
 			try {
 				const result = convertMarkdownFile(params.path, { cwd: ctx.cwd, out: params.out, kicker: params.kicker });
