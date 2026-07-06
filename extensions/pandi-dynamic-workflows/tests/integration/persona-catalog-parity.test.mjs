@@ -14,7 +14,7 @@
  * a READ_ONLY_AGENT_TOOLS. Agregar una persona con capacidad de escritura (p. ej. un executor)
  * debe ser un cambio CONSCIENTE que actualice este test; no debería colarse en silencio.
  *
- * Sin build de extensión / sin modelo: filesystem puro + regex sobre la fuente.
+ * Sin modelo: bundlea el módulo persona para leer la export real, y compara surfaces de filesystem.
  *
  * Ejecutalo:
  *   node extensions/pandi-dynamic-workflows/tests/integration/persona-catalog-parity.test.mjs
@@ -23,14 +23,14 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createChecker } from "../../../shared/test/harness.mjs";
+import { createChecker, sdkStub, buildExtension as sharedBuildExtension } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 const EXT_DIR = path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows");
 const SKILL_DIR = path.join(REPO_ROOT, ".pi", "skills", "ultracode");
 
-const PERSONA_SRC = path.join(EXT_DIR, "agent-env-persona.ts");
+const READ_ONLY_TOOLS = ["read", "grep", "find", "ls"];
 const SURFACES = {
 	"workflow tool prompt": path.join(EXT_DIR, "workflow-tool-contract.ts"),
 	"primitives/agent.md": path.join(EXT_DIR, "primitives", "agent.md"),
@@ -43,20 +43,19 @@ const SURFACES = {
 const { check, counts } = createChecker();
 const read = (p) => (fs.existsSync(p) ? fs.readFileSync(p, "utf8") : "");
 
-/** Parsea BUILTIN_AGENT_PERSONAS en entries [{ name, body }]. */
-function parsePersonas(source) {
-	const block = source.match(/BUILTIN_AGENT_PERSONAS[^{]*{([\s\S]*?)\n};/);
-	if (!block) return [];
-	const out = [];
-	for (const m of block[1].matchAll(/\n\t([a-z][a-zA-Z0-9]*):\s*{([\s\S]*?)\n\t},/g)) {
-		out.push({ name: m[1], body: m[2] });
-	}
-	return out;
+async function loadBuiltInPersonas() {
+	const { url } = await sharedBuildExtension({
+		name: "pi-dw-persona-catalog-parity",
+		src: path.join(EXT_DIR, "agent-env-persona.ts"),
+		outName: "agent-env-persona.mjs",
+		stubs: { sdk: (dir) => sdkStub(dir) },
+	});
+	const mod = await import(url);
+	return Object.entries(mod.BUILTIN_AGENT_PERSONAS ?? {}).map(([name, options]) => ({ name, options }));
 }
 
-function main() {
-	const personaSrc = read(PERSONA_SRC);
-	const personas = parsePersonas(personaSrc);
+async function main() {
+	const personas = await loadBuiltInPersonas();
 
 	// Control negativo: la extracción debe ser no vacua e incluir sentinels conocidos.
 	check("persona extraction is non-vacuous", personas.length >= 5, `found=${personas.length}`);
@@ -67,12 +66,12 @@ function main() {
 	// Leé cada superficie una sola vez.
 	const surfaceText = Object.fromEntries(Object.entries(SURFACES).map(([label, p]) => [label, read(p)]));
 
-	for (const { name, body } of personas) {
+	for (const { name, options } of personas) {
 		// Invariante de seguridad read-only.
 		check(
-			`persona '${name}' defaults to READ_ONLY_AGENT_TOOLS`,
-			/tools:\s*READ_ONLY_AGENT_TOOLS/.test(body),
-			body.trim(),
+			`persona '${name}' defaults to the read-only tool set`,
+			Array.isArray(options?.tools) && options.tools.join(",") === READ_ONLY_TOOLS.join(","),
+			`tools=${JSON.stringify(options?.tools)}`,
 		);
 		// Presente en cada superficie.
 		for (const [label, text] of Object.entries(surfaceText)) {
@@ -91,4 +90,7 @@ function finish() {
 	}
 }
 
-main();
+main().catch((err) => {
+	console.error("INTEGRATION TEST CRASH:", err?.stack ? err.stack : err);
+	process.exit(2);
+});
