@@ -115,6 +115,25 @@ function isPromptSourceTruncated(
 	return !!promptSource && (promptSource.length > MAX_TOOL_TEXT || !!(promptFromEvent && promptTruncated));
 }
 
+function formatPromptMetadataRows(
+	agent: AgentMonitorModel,
+	agentRef: string,
+	stateIcon: string,
+	promptSourceLabel: string,
+	promptSource: string | undefined,
+	promptWasTruncated: boolean,
+	artifactPath: string | undefined,
+): [string, string][] {
+	return [
+		["Agent", `${agentRef} ${agent.name}`],
+		["State", `${stateIcon} ${agent.state}`],
+		["Source", promptSourceLabel],
+		["Characters", promptSource ? `${promptSource.length} source` : "n/a"],
+		["Truncated", promptWasTruncated ? "yes" : "no"],
+		["Artifact", artifactPath ?? "unavailable"],
+	];
+}
+
 async function readLiveStreamIfSectionMissing(
 	streamPath: string | undefined,
 	artifactSection: string | undefined,
@@ -278,14 +297,15 @@ export async function buildAgentViewParts(run: WorkflowRunRecord, agent: AgentMo
 	];
 	const promptSourceLabel = describePromptSource(promptFromEvent, prompt, agent.promptAvailable);
 	const promptWasTruncated = isPromptSourceTruncated(promptSource, promptFromEvent, agent.promptTruncated);
-	const promptRows: [string, string][] = [
-		["Agent", `${agentRef} ${agent.name}`],
-		["State", `${stateIcon} ${agent.state}`],
-		["Source", promptSourceLabel],
-		["Characters", promptSource ? `${promptSource.length} source` : "n/a"],
-		["Truncated", promptWasTruncated ? "yes" : "no"],
-		["Artifact", artifactPath ?? "unavailable"],
-	];
+	const promptRows = formatPromptMetadataRows(
+		agent,
+		agentRef,
+		stateIcon,
+		promptSourceLabel,
+		promptSource,
+		promptWasTruncated,
+		artifactPath,
+	);
 	const promptTable = formatSettingTable(promptRows);
 	const promptLines = [
 		`# Prompt: Agent ${agentRef}: ${agent.name}`,
