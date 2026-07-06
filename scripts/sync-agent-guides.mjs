@@ -12,23 +12,16 @@
 //   node scripts/sync-agent-guides.mjs           # escribe CLAUDE.md desde AGENTS.md
 //   node scripts/sync-agent-guides.mjs --check    # solo verifica; sale con 1 si hay drift (sin writes)
 
-import { readFile, writeFile } from "node:fs/promises";
+import { writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readMaybe } from "./lib/sync-file-tree.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SRC = join(REPO, "AGENTS.md");
 const DST = join(REPO, "CLAUDE.md");
 
 const checkOnly = process.argv.includes("--check");
-
-async function readMaybe(file) {
-	try {
-		return await readFile(file, "utf8");
-	} catch {
-		return null;
-	}
-}
 
 const want = await readMaybe(SRC);
 if (want === null) {

@@ -16,8 +16,9 @@
 //   node scripts/vendor-extension-skills.mjs           # escribe copias vendorizadas desde .pi -> extensión
 //   node scripts/vendor-extension-skills.mjs --check   # solo verifica; sale con 1 si hay drift (sin writes)
 
-import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
-import { dirname, join, relative } from "node:path";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { listFilesRec, readMaybe } from "./lib/sync-file-tree.mjs";
 import { discoverSkillClassification, REPO, reportUnclassifiedSkills, SKILLS_ROOT } from "./skill-classification.mjs";
 
 const SKILLS_SRC = SKILLS_ROOT;
@@ -26,31 +27,6 @@ const classification = discoverSkillClassification();
 const VENDOR = classification.vendoredByExtension;
 
 if (checkOnly && reportUnclassifiedSkills("vendor-extension-skills", classification) > 0) process.exit(1);
-
-// Lista recursivamente los archivos bajo `dir` como paths relativos a `dir` (ordenados, estilo POSIX).
-async function listFilesRec(dir, base = dir) {
-	const out = [];
-	let entries;
-	try {
-		entries = await readdir(dir, { withFileTypes: true });
-	} catch {
-		return out;
-	}
-	for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
-		const full = join(dir, entry.name);
-		if (entry.isDirectory()) out.push(...(await listFilesRec(full, base)));
-		else out.push(relative(base, full));
-	}
-	return out;
-}
-
-async function readMaybe(file) {
-	try {
-		return await readFile(file, "utf8");
-	} catch {
-		return null;
-	}
-}
 
 // Construye el conjunto completo de archivos esperados (path relativo -> contenido) para un árbol de skill vendorizado.
 async function expectedFilesFor(skillName) {

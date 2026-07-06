@@ -19,9 +19,10 @@
 //   node scripts/generate-claude-ultracode-skills.mjs           # escribe ambos skills desde .pi
 //   node scripts/generate-claude-ultracode-skills.mjs --check   # solo verifica; sale con 1 si hay drift
 
-import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
-import { dirname, join, relative, resolve } from "node:path";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { listFilesRec, readMaybe } from "./lib/sync-file-tree.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SRC = join(REPO, ".pi", "skills", "ultracode");
@@ -36,31 +37,6 @@ const checkOnly = process.argv.includes("--check");
 // Para el target "ultracode" esto es la identidad (el nombre y el heading ya son `ultracode`).
 function transformSkill(src, targetName) {
 	return src.replace(/^name: ultracode$/m, `name: ${targetName}`).replace(/^# ultracode$/m, `# ${targetName}`);
-}
-
-// Lista recursivamente los archivos bajo `dir` como paths relativos a `dir` (ordenados, estilo POSIX).
-async function listFilesRec(dir, base = dir) {
-	const out = [];
-	let entries;
-	try {
-		entries = await readdir(dir, { withFileTypes: true });
-	} catch {
-		return out;
-	}
-	for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
-		const full = join(dir, entry.name);
-		if (entry.isDirectory()) out.push(...(await listFilesRec(full, base)));
-		else out.push(relative(base, full));
-	}
-	return out;
-}
-
-async function readMaybe(file) {
-	try {
-		return await readFile(file, "utf8");
-	} catch {
-		return null;
-	}
 }
 
 // Construye el conjunto completo de archivos esperados (path relativo -> contenido) para un target.

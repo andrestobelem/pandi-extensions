@@ -15,8 +15,9 @@
 //   node scripts/sync-skill-mirrors.mjs           # escribe mirrors desde .pi -> .claude
 //   node scripts/sync-skill-mirrors.mjs --check    # solo verifica; sale con 1 si hay drift (sin writes)
 
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { readMaybe } from "./lib/sync-file-tree.mjs";
 import { discoverSkillClassification, REPO, reportUnclassifiedSkills, SKILLS_ROOT } from "./skill-classification.mjs";
 
 const checkOnly = process.argv.includes("--check");
@@ -24,14 +25,6 @@ const classification = discoverSkillClassification();
 const MIRRORED = classification.mirrored;
 
 if (checkOnly && reportUnclassifiedSkills("sync-skill-mirrors", classification) > 0) process.exit(1);
-
-async function readMaybe(file) {
-	try {
-		return await readFile(file, "utf8");
-	} catch {
-		return null;
-	}
-}
 
 let drift = 0;
 let wrote = 0;
