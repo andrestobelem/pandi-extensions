@@ -1,20 +1,20 @@
 /**
- * Packaging GUARDIAN: the runtime scaffolds must ship in the npm tarball.
+ * GUARDIÁN de packaging: los scaffolds de runtime deben shipearse en el tarball npm.
  *
- * Why this file exists
- * --------------------
- * pattern-scaffolds.ts loads the executable pattern scaffolds from disk at runtime
- * via `readdirSync(SCAFFOLDS_DIR)` (extensions/pandi-dynamic-workflows/scaffolds/*.js)
- * and THROWS `Workflow scaffold missing for pattern ...` when a catalog pattern has
- * no file. package.json `files[]` therefore MUST include those .js files, or an
- * npm-installed copy breaks on every scaffold request (new/start/run from a pattern).
+ * Por qué existe este archivo
+ * --------------------------
+ * pattern-scaffolds.ts carga desde disco los scaffolds ejecutables de patterns en runtime
+ * vía `readdirSync(SCAFFOLDS_DIR)` (extensions/pandi-dynamic-workflows/scaffolds/*.js)
+ * y LANZA `Workflow scaffold missing for pattern ...` cuando un pattern del catálogo no
+ * tiene archivo. Por eso `files[]` de package.json DEBE incluir esos archivos .js, o una
+ * copia instalada desde npm se rompe en cada pedido de scaffold (new/start/run desde un pattern).
  *
- * The original `files: ["extensions/*\/*.ts", ...]` glob matched only one directory
- * level AND only `.ts`, so it shipped ZERO of the scaffolds (they live two levels
- * deep under scaffolds/ and are `.js`). This test pins the fix by asserting that
- * `npm pack --dry-run` includes every scaffolds/*.js file that exists on disk.
+ * El glob original `files: ["extensions/*\/*.ts", ...]` matcheaba solo un nivel de directorio
+ * Y solo `.ts`, así que shipeaba CERO scaffolds (viven dos niveles más abajo, en scaffolds/,
+ * y son `.js`). Este test fija el arreglo asertando que `npm pack --dry-run` incluye todos
+ * los archivos scaffolds/*.js que existen en disco.
  *
- * Run directly:
+ * Ejecutalo directamente:
  *   node extensions/pandi-dynamic-workflows/tests/integration/packaging-scaffolds.test.mjs
  */
 
@@ -43,7 +43,7 @@ function packedFilePaths() {
 		maxBuffer: 32 * 1024 * 1024,
 	});
 	if (res.status !== 0) throw new Error(`npm pack --dry-run failed: ${res.stderr || res.stdout}`);
-	// --json prints a JSON array on stdout; npm notices go to stderr.
+	// --json imprime un array JSON en stdout; los avisos de npm van a stderr.
 	const parsed = JSON.parse(res.stdout);
 	const entry = Array.isArray(parsed) ? parsed[0] : parsed;
 	return new Set((entry?.files || []).map((f) => f.path.replace(/\\/g, "/")));
