@@ -1,27 +1,27 @@
 /**
- * Regression: agent output/schema/metrics must be parsed from the COMPLETE
- * on-disk live stdout artifact, not the bounded in-memory buffer.
+ * Regresión: output/schema/metrics de agente deben parsearse desde el artifact stdout live
+ * COMPLETO en disco, no desde el buffer acotado en memoria.
  *
- * Finding (run 2026-07-03T01-36-13 revisar-dw-farley): when a subagent's FINAL
- * JSON-mode line (the agent_end replay of all messages) exceeds
- * MAX_JOURNALED_STREAM (200 KB) and ends with "\n", the in-memory tail-trim in
- * runStreamingAgentProcess ({preserveLineBoundary:true}) finds that terminal
- * newline as the "first newline of the tail" and slices past it — leaving
- * result.stdout EMPTY while the full 16 MB conversation sits in the on-disk
- * .stdout.log. Downstream, schema extraction saw "empty output", burned 3
- * schema retries per agent (~20 min of reviewer work each), the script retried
- * whole agents, blew past maxAgents=64, and the run failed. Focus metrics
- * (parsed from the same buffer) reported "0 turns, 0 tok" for a 74-turn agent.
+ * Hallazgo (run 2026-07-03T01-36-13 revisar-dw-farley): cuando la línea FINAL
+ * JSON-mode de un subagente (el replay agent_end de todos los mensajes) supera
+ * MAX_JOURNALED_STREAM (200 KB) y termina con "\n", el tail-trim en memoria de
+ * runStreamingAgentProcess ({preserveLineBoundary:true}) encuentra ese newline terminal
+ * como el "first newline of the tail" y corta después de él, dejando
+ * result.stdout VACÍO mientras la conversación completa de 16 MB queda en el
+ * .stdout.log en disco. Aguas abajo, la extracción de schema veía "empty output",
+ * quemaba 3 retries de schema por agente (~20 min de trabajo reviewer cada uno), el script reintentaba
+ * agentes completos, pasaba maxAgents=64 y el run fallaba. Las focus metrics
+ * (parseadas desde el mismo buffer) reportaban "0 turns, 0 tok" para un agente de 74 turns.
  *
- * This drives a real agent() through the Worker with a fake `pi` binary
- * (PI_DYNAMIC_WORKFLOWS_PI_COMMAND) that emits a realistic stream: one small
- * message_end (assistant text + usage) followed by ONE giant agent_end line
- * (>200 KB, trailing "\n") carrying the final assistant text — a valid JSON
- * object whose `tail` field is last. With the fix the agent's schema data
- * parses (data.tail === "END") and focus metrics count the message_end turn;
- * before the fix the run fails with "empty output" and metrics report 0 turns.
+ * Esto maneja un agent() real a través del Worker con un binario `pi` fake
+ * (PI_DYNAMIC_WORKFLOWS_PI_COMMAND) que emite un stream realista: un message_end pequeño
+ * (assistant text + usage) seguido de UNA línea agent_end gigante
+ * (>200 KB, trailing "\n") que lleva el assistant text final: un objeto JSON válido
+ * cuyo campo `tail` va último. Con el fix, los datos schema del agente parsean
+ * (data.tail === "END") y las focus metrics cuentan el turn message_end; antes del fix,
+ * el run falla con "empty output" y metrics reporta 0 turns.
  *
- * Run it:
+ * Ejecutalo:
  *   node extensions/pandi-dynamic-workflows/tests/integration/stdout-disk-source-of-truth.test.mjs
  */
 import * as fs from "node:fs/promises";
@@ -34,7 +34,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 const { check, counts } = createChecker();
 
-// A workflow that asks one agent for a schema'd JSON value and returns its parsed data.
+// Workflow que le pide a un agente un valor JSON con schema y devuelve sus datos parseados.
 const WORKFLOW = [
 	"export const meta = { name: 'stdout-disk', description: 'disk is source of truth', phases: [{ title: 'P' }] };",
 	"phase('P');",
@@ -105,11 +105,11 @@ async function makeProject() {
 	await fs.mkdir(path.join(project, ".pi", "workflows"), { recursive: true });
 	await fs.writeFile(path.join(project, ".pi", "workflows", "stdout-disk.js"), `${WORKFLOW}\n`, "utf8");
 
-	// Fake `pi` binary emitting a realistic JSON-mode stream:
-	//  1. a SMALL message_end with assistant text + usage (the focus-metrics turn),
-	//  2. ONE GIANT agent_end line (>200_000 chars, trailing "\n") whose messages
-	//     carry the final assistant text: a valid JSON object with `tail` LAST so
-	//     any truncation drops it (and breaks JSON parse).
+	// Binario `pi` fake que emite un stream JSON-mode realista:
+	//  1. un message_end PEQUEÑO con assistant text + usage (el turn de focus-metrics),
+	//  2. UNA línea agent_end GIGANTE (>200_000 chars, trailing "\n") cuyos mensajes
+	//     llevan el assistant text final: un objeto JSON válido con `tail` AL FINAL para que
+	//     cualquier truncamiento lo pierda (y rompa el JSON parse).
 	const midEvent = JSON.stringify({
 		type: "message_end",
 		message: {
@@ -151,8 +151,8 @@ async function main() {
 	const tool = tools.get("dynamic_workflow");
 	const ctx = makeCtx(project);
 
-	// PI_DYNAMIC_WORKFLOWS_PI_COMMAND is passed verbatim to spawn() as the command, so
-	// it must be a single executable. Use a wrapper shell script that execs node + fake-pi.
+	// PI_DYNAMIC_WORKFLOWS_PI_COMMAND se pasa verbatim a spawn() como comando, así que
+	// debe ser un único ejecutable. Usá un wrapper shell script que exec node + fake-pi.
 	const wrapper = path.join(project, "pi-wrapper.sh");
 	await fs.writeFile(
 		wrapper,
@@ -161,8 +161,8 @@ async function main() {
 	);
 	process.env.PI_DYNAMIC_WORKFLOWS_PI_COMMAND = wrapper;
 
-	// Pre-fix the run FAILS (schema sees "empty output") and execute throws;
-	// catch it so the checks report evidence instead of crashing the suite.
+	// Antes del fix el run FALLA (schema ve "empty output") y execute hace throw;
+	// atrapalo para que los checks reporten evidencia en vez de crashear la suite.
 	let result;
 	let executeError;
 	try {
@@ -186,9 +186,9 @@ async function main() {
 		JSON.stringify({ data: data == null ? data : { tail: data.tail, fillerLen: (data.filler || "").length } }),
 	);
 
-	// Focus metrics must be folded from the complete stream too: the small
-	// message_end (with usage) precedes the giant line, so turns/output tokens
-	// are only visible when parsing goes beyond the in-memory tail.
+	// Las focus metrics también deben foldarse desde el stream completo: el
+	// message_end pequeño (con usage) precede la línea gigante, así que turns/output tokens
+	// solo son visibles cuando el parseo va más allá del tail en memoria.
 	let agentMetrics;
 	try {
 		const runsDir = path.join(project, ".pi", "workflows", "runs");
@@ -196,7 +196,7 @@ async function main() {
 		const metrics = JSON.parse(await fs.readFile(path.join(runsDir, runs[0], "metrics.json"), "utf8"));
 		agentMetrics = metrics?.agents?.[0];
 	} catch {
-		// leave agentMetrics undefined; checks below fail with evidence
+		// dejá agentMetrics undefined; los checks de abajo fallan con evidencia
 	}
 	check(
 		"focus metrics count the message_end turn (turns === 1)",

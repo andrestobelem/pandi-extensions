@@ -1,30 +1,30 @@
 /**
- * Behavioral contract test: bare tier aliases (haiku/sonnet/opus) survive
- * non-Anthropic sessions (#24).
+ * Test de contrato conductual: los aliases de tier pelados (haiku/sonnet/opus) sobreviven
+ * sesiones no-Anthropic (#24).
  *
- * Finding: the runtime pins a bare alias to the session provider on spawn
- * (--provider <session> --model <alias>), which resolves on Anthropic but fails
- * fast on providers whose catalog has no such alias (verified empirically:
+ * Hallazgo: el runtime pinea un alias pelado al provider de sesión al spawnear
+ * (--provider <session> --model <alias>), lo que resuelve en Anthropic pero falla
+ * rápido en providers cuyo catálogo no tiene ese alias (verificado empíricamente:
  * `--provider openai-codex --model haiku` → "model is not supported", exit 1).
- * So the scaffolds' cheap/balanced/deep tiering silently degraded to "every
- * tiered branch fails" cross-provider.
+ * Así el tiering cheap/balanced/deep de los scaffolds se degradaba silenciosamente a
+ * "todo branch con tier falla" cross-provider.
  *
- * This pins the per-provider tier table:
- *  1. In an openai-codex session, haiku/sonnet/opus map to the provider's
- *     cheap/balanced/deep ids (gpt-5.4-mini / gpt-5.4 / gpt-5.5), the mapping is
- *     confirmed against ctx.modelRegistry, recorded on the SubagentResult, and
- *     logged.
- *  2. Qualified provider/id models and omitted models are untouched.
- *  3. If the registry does NOT confirm the mapped id (catalog moved), the alias
- *     is pinned verbatim (today's fail-fast behavior) with a warning log — the
- *     session model is NEVER silently substituted.
- *  4. Providers without a table entry (anthropic) keep today's verbatim pinning.
- *  5. PI_DYNAMIC_WORKFLOWS_TIER_MODELS (JSON) overrides/extends the builtin table.
- *  6. Resume-cache stability: the cache key sees the RAW alias (mapping happens
- *     after key computation), so a completed run resumes with cached agents even
- *     when the registry stops confirming the mapping.
+ * Esto pinea la tabla de tiers por provider:
+ *  1. En una sesión openai-codex, haiku/sonnet/opus mapean a los ids
+ *     cheap/balanced/deep del provider (gpt-5.4-mini / gpt-5.4 / gpt-5.5), el mapping se
+ *     confirma contra ctx.modelRegistry, se registra en SubagentResult y
+ *     se loguea.
+ *  2. Los modelos provider/id qualified y modelos omitidos quedan intactos.
+ *  3. Si el registry NO confirma el id mapeado (catálogo movido), el alias
+ *     se pinea verbatim (comportamiento fail-fast de hoy) con warning log: el
+ *     modelo de sesión NUNCA se sustituye silenciosamente.
+ *  4. Providers sin entrada de tabla (anthropic) mantienen el pinning verbatim actual.
+ *  5. PI_DYNAMIC_WORKFLOWS_TIER_MODELS (JSON) overridea/extiende la tabla builtin.
+ *  6. Estabilidad de resume-cache: la cache key ve el alias RAW (el mapping ocurre
+ *     después del cómputo de key), así un run completado reanuda con agentes cacheados incluso
+ *     cuando el registry deja de confirmar el mapping.
  *
- * Run it:
+ * Ejecutalo:
  *   node extensions/pandi-dynamic-workflows/tests/integration/tier-alias-mapping.test.mjs
  */
 import * as fs from "node:fs/promises";
@@ -177,7 +177,7 @@ async function main() {
 
 	const codexRegistry = new Set([...CODEX_IDS].map((id) => `openai-codex/${id}`));
 
-	// --- 1+2) codex session: tier aliases map (registry-confirmed); qualified/omitted untouched.
+	// --- 1+2) sesión codex: aliases de tier mapean (confirmado por registry); qualified/omitted intactos.
 	{
 		const { project, wrapper } = await makeProject(THREE_TIER_WORKFLOW);
 		const { pi, tools } = makePi();
@@ -228,7 +228,7 @@ async function main() {
 		);
 	}
 
-	// --- 3) registry does NOT confirm the mapped id -> verbatim pin + warning, never the session model.
+	// --- 3) registry NO confirma el id mapeado -> pin verbatim + warning, nunca el modelo de sesión.
 	{
 		const { project, wrapper } = await makeProject(THREE_TIER_WORKFLOW);
 		const { pi, tools } = makePi();
@@ -253,7 +253,7 @@ async function main() {
 		);
 	}
 
-	// --- 4) anthropic session (no table entry): verbatim pinning as today.
+	// --- 4) sesión anthropic (sin entrada de tabla): pinning verbatim como hoy.
 	{
 		const { project, wrapper } = await makeProject(THREE_TIER_WORKFLOW);
 		const { pi, tools } = makePi();
@@ -267,7 +267,7 @@ async function main() {
 		);
 	}
 
-	// --- 5) env override extends/overrides the builtin table.
+	// --- 5) override por env extiende/overridea la tabla builtin.
 	{
 		const { project, wrapper } = await makeProject(THREE_TIER_WORKFLOW);
 		const { pi, tools } = makePi();
@@ -295,8 +295,8 @@ async function main() {
 		}
 	}
 
-	// --- 6) resume-cache stability: the key sees the RAW alias, so a completed run
-	//        resumes with cached agents even when the registry stops confirming.
+	// --- 6) estabilidad de resume-cache: la key ve el alias RAW, así un run completado
+	//        reanuda con agentes cacheados incluso cuando el registry deja de confirmar.
 	{
 		const CACHED_WORKFLOW = [
 			"export const meta = { name: 'tiered', description: 'tier alias cache', phases: [{ title: 'P' }] };",
@@ -313,8 +313,8 @@ async function main() {
 		});
 		check("cache: first run completes", first.result?.ok === true, first.executeError ?? first.result?.error);
 		const { runId } = await readRun(project);
-		// Resume with a registry that no longer confirms the mapping: the journal must
-		// still HIT (key = raw alias), so the agent is replayed as cached, not re-run.
+		// Reanudá con un registry que ya no confirma el mapping: el journal debe
+		// seguir HIT (key = alias raw), así el agente se reproduce como cached, no se re-corre.
 		const resumed = await runWorkflow(
 			tools.get("dynamic_workflow"),
 			project,

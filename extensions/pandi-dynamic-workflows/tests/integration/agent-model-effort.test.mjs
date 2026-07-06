@@ -1,21 +1,21 @@
 /**
- * Behavioral contract test: the monitor shows WHICH MODEL and EFFORT each subagent ran with.
+ * Test de contrato conductual: el monitor muestra QUÉ MODEL y EFFORT usó cada subagente.
  *
- * Finding: the effective model/thinking of a subagent was resolved only inside
- * buildAgentArgs (index.ts) and never persisted — not in the events.jsonl `agent`
- * events, not in SubagentResult, not in AgentMonitorModel — so the dashboard could
- * not display it and post-mortems could not tell a haiku scout from an opus judge.
+ * Hallazgo: el model/thinking efectivo de un subagente solo se resolvía dentro de
+ * buildAgentArgs (index.ts) y nunca se persistía: ni en los eventos `agent` de events.jsonl,
+ * ni en SubagentResult, ni en AgentMonitorModel. Por eso, el dashboard no podía
+ * mostrarlo y los post-mortems no podían distinguir un scout haiku de un judge opus.
  *
- * This pins the new end-to-end contract:
- *  1. ENGINE: a real agent() run journals the resolved model/thinking on the
- *     SubagentResult, the events.jsonl agent events, and the .md artifact.
- *  2. PARSER: readRunEvents lifts model/thinking into AgentMonitorModel and
- *     mergeAgentMonitor preserves them across event merges.
- *  3. DASHBOARD: agent rows carry `model:` / `effort:` chips (omitted when unknown)
- *     and the Selected agent detail renders a `model: … • effort: …` line,
- *     byte-identical across the Monitor and Agents tabs.
+ * Esto pinea el nuevo contrato end-to-end:
+ *  1. ENGINE: un run agent() real journalea el model/thinking resuelto en
+ *     SubagentResult, los eventos agent de events.jsonl y el artifact .md.
+ *  2. PARSER: readRunEvents levanta model/thinking a AgentMonitorModel y
+ *     mergeAgentMonitor los preserva entre merges de eventos.
+ *  3. DASHBOARD: las filas de agentes llevan chips `model:` / `effort:` (omitidos si se desconocen)
+ *     y el detail de Selected agent renderiza una línea `model: … • effort: …`,
+ *     byte-idéntica entre las tabs Monitor y Agents.
  *
- * Run it:
+ * Ejecutalo:
  *   node extensions/pandi-dynamic-workflows/tests/integration/agent-model-effort.test.mjs
  */
 import * as fs from "node:fs/promises";
@@ -37,22 +37,22 @@ const MODEL = "prov/mod-x";
 const THINKING = "high";
 
 // ---------------------------------------------------------------------------
-// Scenario 1: engine end-to-end — agent() persists resolved model/thinking.
+// Escenario 1: engine end-to-end — agent() persiste model/thinking resuelto.
 // ---------------------------------------------------------------------------
 
 const WORKFLOW = [
 	"export const meta = { name: 'model-effort', description: 'model/effort observability', phases: [{ title: 'P' }] };",
 	"phase('P');",
 	`const [r] = await agents([{ prompt: 'say hi', name: 'modeled', model: ${JSON.stringify(MODEL)}, thinking: ${JSON.stringify(THINKING)}, cache: false }], { settle: true });`,
-	// Issue #22: per-item effort on the agents() host path must be honored (max -> xhigh).
+	// Issue #22: effort por item en la ruta host agents() debe respetarse (max -> xhigh).
 	"const [e] = await agents([{ prompt: 'say effort', name: 'efforted', effort: 'max', cache: false }], { settle: true });",
-	// Shared-option effort applies to every item.
+	// El effort de opción compartida aplica a cada item.
 	"const [s] = await agents([{ prompt: 'say shared', name: 'shared-effort', cache: false }], { settle: true, effort: 'high' });",
-	// Explicit thinking wins when both are given (mirrors the worker agent() global).
+	// El thinking explícito gana cuando se dan ambos (espeja el agent() global del worker).
 	"const [w] = await agents([{ prompt: 'say both', name: 'both', effort: 'low', thinking: 'high', cache: false }], { settle: true });",
-	// Explicit per-item effort overrides a persona's thinking default (reviewer = high).
+	// El effort explícito por item overridea el thinking default de una persona (reviewer = high).
 	"const [p] = await agents([{ prompt: 'say persona', name: 'persona-effort', agentType: 'reviewer', effort: 'low', cache: false }], { settle: true });",
-	// Issue #23: per-item label on the agents() host path becomes the subagent name.
+	// Issue #23: label por item en la ruta host agents() se vuelve el nombre del subagente.
 	"const [l] = await agents([{ prompt: 'say label', label: 'scout-x', cache: false }], { settle: true });",
 	"return { model: r?.model ?? null, thinking: r?.thinking ?? null, ok: r?.ok ?? null, effortThinking: e?.thinking ?? null, sharedThinking: s?.thinking ?? null, bothThinking: w?.thinking ?? null, personaThinking: p?.thinking ?? null, labeledName: l?.name ?? null };",
 ].join("\n");
@@ -118,7 +118,7 @@ async function makeProject() {
 	const project = await fs.mkdtemp(path.join(os.tmpdir(), "pi-dw-model-effort-"));
 	await fs.mkdir(path.join(project, ".pi", "workflows"), { recursive: true });
 	await fs.writeFile(path.join(project, ".pi", "workflows", "model-effort.js"), `${WORKFLOW}\n`, "utf8");
-	// Fake `pi`: emit one message_end and exit 0 (a successful, instant agent).
+	// `pi` fake: emitir un message_end y exit 0 (agente exitoso e instantáneo).
 	const event = JSON.stringify({
 		type: "message_end",
 		message: { role: "assistant", content: [{ type: "text", text: "hi" }], usage: { input: 1, output: 1 } },
@@ -196,7 +196,7 @@ async function scenarioEngine() {
 		JSON.stringify(out),
 	);
 
-	// events.jsonl: both the start (running) and end events carry model/thinking.
+	// events.jsonl: tanto el evento start (running) como el end llevan model/thinking.
 	let events = [];
 	let md = "";
 	let runDir = "";
@@ -212,7 +212,7 @@ async function scenarioEngine() {
 		const mdName = (await fs.readdir(agentsDir)).find((f) => f.endsWith("-modeled.md"));
 		md = await fs.readFile(path.join(agentsDir, mdName), "utf8");
 	} catch {
-		// events/md stay empty; checks fail with evidence
+		// events/md quedan vacíos; los checks fallan con evidencia
 	}
 	const agentEvents = events.filter((e) => e.type === "agent");
 	const startEvent = agentEvents.find((e) => e.state === "running" && e.name === "modeled");
@@ -240,7 +240,7 @@ async function scenarioEngine() {
 		JSON.stringify(effortedStart),
 	);
 
-	// Parser round-trip on the REAL run dir: the monitor model carries model/thinking.
+	// Round-trip del parser sobre el run dir REAL: el modelo de monitor lleva model/thinking.
 	const parsed = await mod.readRunEvents(runDir);
 	const monitored = parsed.agents.find((a) => a.name === "modeled");
 	check(
@@ -249,7 +249,7 @@ async function scenarioEngine() {
 		JSON.stringify(monitored),
 	);
 
-	// mergeAgentMonitor: values survive a later patch without them, and a patch can set them.
+	// mergeAgentMonitor: los valores sobreviven un patch posterior sin ellos, y un patch puede setearlos.
 	const kept = mod.mergeAgentMonitor(
 		{ id: 1, name: "a", state: "running", model: MODEL, thinking: THINKING },
 		{ id: 1, name: "a", state: "completed" },
@@ -277,7 +277,7 @@ async function scenarioEngine() {
 }
 
 // ---------------------------------------------------------------------------
-// Scenario 2: dashboard — row chips + Selected agent detail line.
+// Escenario 2: dashboard — chips de fila + línea de detail de Selected agent.
 // ---------------------------------------------------------------------------
 
 const theme = { fg: (_c, v) => v, bg: (_c, v) => v, bold: (v) => v };
@@ -382,7 +382,7 @@ async function scenarioDashboard() {
 	const monitorLines = build("monitor", withModel).render(WIDTH);
 	const agentsLines = build("agents", withModel).render(WIDTH);
 
-	// Row chips: short model (last path segment) + effort, present in BOTH tabs.
+	// Chips de fila: model corto (último segmento de path) + effort, presentes en AMBAS tabs.
 	for (const [tab, lines] of [
 		["Monitor", monitorLines],
 		["Agents", agentsLines],
@@ -400,7 +400,7 @@ async function scenarioDashboard() {
 		);
 	}
 
-	// Selected agent detail: full model + effort on one line, byte-identical across tabs.
+	// Detail de Selected agent: model completo + effort en una línea, byte-idéntico entre tabs.
 	const monitorModelLine = detailField(monitorLines, "model");
 	const agentsModelLine = detailField(agentsLines, "model");
 	check(
@@ -416,7 +416,7 @@ async function scenarioDashboard() {
 		`monitor=${JSON.stringify(monitorModelLine)} agents=${JSON.stringify(agentsModelLine)}`,
 	);
 
-	// Unknown model/effort (old runs): chips are OMITTED, detail falls back to `default`.
+	// Model/effort desconocidos (runs viejos): los chips se OMITEN, detail cae a `default`.
 	const bareRow = agentRow(build("monitor", {}).render(WIDTH));
 	check(
 		"dashboard: row omits model/effort chips when unknown",
