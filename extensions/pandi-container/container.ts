@@ -172,10 +172,14 @@ export function describeMachine(m: MachineEntry): string {
 	return `${star}${m.id}  (${bits.join(", ")})`;
 }
 
+function renderMachineList(lines: string[]): string {
+	return lines.join("\n");
+}
+
 export function formatMachineList(entries: MachineEntry[]): string {
 	if (entries.length === 0) return "No hay máquinas de contenedor.";
 	const lines = entries.map(describeMachine);
-	return lines.join("\n");
+	return renderMachineList(lines);
 }
 
 // --------------------------------------------------------------------------
