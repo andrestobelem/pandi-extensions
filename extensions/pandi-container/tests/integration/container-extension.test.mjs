@@ -328,10 +328,11 @@ async function scenarioBareActionSelector(url) {
 		const out = await mod.resolveContainerInput("", ctx);
 		check("bare + UI opens the action selector once", selectCalls.length === 1, `calls=${selectCalls.length}`);
 		const items = selectCalls[0]?.items ?? [];
-		const has = (v) => items.some((i) => String(i).toLowerCase().startsWith(v));
+		const expectedItems = mod.CONTAINER_SELECT_ITEMS ?? [];
+		check("selector expected items are exported", expectedItems.length === 6, JSON.stringify(expectedItems));
 		check(
-			"selector offers all six actions",
-			["status", "list", "create", "run", "stop", "remove"].every(has),
+			"selector offers exactly the exported action labels",
+			JSON.stringify(items) === JSON.stringify(expectedItems),
 			JSON.stringify(items),
 		);
 		check("returns the chosen action token", out === "stop", String(out));
