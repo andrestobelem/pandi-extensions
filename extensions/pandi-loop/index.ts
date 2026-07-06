@@ -1210,6 +1210,14 @@ async function handleToolCall(
 	return { block: true, reason };
 }
 
+function toolResult(text: string, details: Record<string, unknown>) {
+	return { content: [{ type: "text" as const, text }], details };
+}
+
+function toolError(text: string) {
+	return toolResult(text, { isError: true });
+}
+
 // ---------------------------------------------------------------------------
 // Punto de entrada de la extensión
 // ---------------------------------------------------------------------------
@@ -1243,15 +1251,7 @@ export default function loopExtension(pi: ExtensionAPI): void {
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const running = [...activeLoops.values()].filter((l) => l.status === "running");
 			if (running.length === 0) {
-				return {
-					content: [
-						{
-							type: "text" as const,
-							text: "No hay ningún loop activo para reprogramar. No hay nada que reprogramar.",
-						},
-					],
-					details: { isError: true },
-				};
+				return toolError("No hay ningún loop activo para reprogramar. No hay nada que reprogramar.");
 			}
 			// Apuntar al loop cuyo turno autopilot está llamando realmente esta tool: el que
 			// tiene autopilot seteado. Esto importa cuando coexisten un loop fixed y uno dynamic —
@@ -1263,15 +1263,10 @@ export default function loopExtension(pi: ExtensionAPI): void {
 			// decide continuar (no hacer nada) vs detenerse (loop_stop) en un intervalo fijo.
 			if (loop.mode === "fixed") {
 				const periodSec = Math.round((loop.intervalMs ?? 0) / 1000);
-				return {
-					content: [
-						{
-							type: "text" as const,
-							text: `El loop ${loop.loopId} corre en un intervalo fijo (cada ${formatInterval(periodSec)}); la cadencia es fija y loop_schedule es un no-op. Razón registrada: ${params.reason}.`,
-						},
-					],
-					details: { loopId: loop.loopId, mode: "fixed", noop: true, intervalSeconds: periodSec },
-				};
+				return toolResult(
+					`El loop ${loop.loopId} corre en un intervalo fijo (cada ${formatInterval(periodSec)}); la cadencia es fija y loop_schedule es un no-op. Razón registrada: ${params.reason}.`,
+					{ loopId: loop.loopId, mode: "fixed", noop: true, intervalSeconds: periodSec },
+				);
 			}
 			// Clampear DENTRO de execute() — nunca confíes en el valor del modelo. Un valor no finito
 			// (NaN/Infinity) hace fallback a la cadencia de safety-net en vez de
@@ -1281,19 +1276,14 @@ export default function loopExtension(pi: ExtensionAPI): void {
 				? Math.min(MAX_DELAY_SECONDS, Math.max(MIN_DELAY_SECONDS, Math.round(raw)))
 				: SAFETY_NET_DELAY_SECONDS;
 			scheduleWake(pi, ctx, loop, delaySec, params.reason);
-			return {
-				content: [
-					{
-						type: "text" as const,
-						text: `Próxima iteración del loop ${loop.loopId} programada en ${delaySec}s (razón: ${params.reason}).`,
-					},
-				],
-				details: {
+			return toolResult(
+				`Próxima iteración del loop ${loop.loopId} programada en ${delaySec}s (razón: ${params.reason}).`,
+				{
 					loopId: loop.loopId,
 					delaySeconds: delaySec,
 					clampedFrom: raw !== delaySec ? raw : undefined,
 				},
-			};
+			);
 		},
 	});
 
@@ -1309,25 +1299,14 @@ export default function loopExtension(pi: ExtensionAPI): void {
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const running = [...activeLoops.values()].filter((l) => l.status === "running");
 			if (running.length === 0) {
-				return {
-					content: [{ type: "text" as const, text: "No hay ningún loop activo para detener." }],
-					details: { isError: true },
-				};
+				return toolError("No hay ningún loop activo para detener.");
 			}
 			// Resolver el loop que POSEE el turno actual (su flag autopilot está seteado), así
 			// con N loops coexistentes un loop_stop disparado por wake termina el loop CORRECTO en vez
 			// de un running[0] arbitrario. Si no, hacer fallback al único loop corriendo.
 			const loop = running.find((l) => l.autopilot) ?? running[0];
 			stopLoop(pi, ctx, loop.loopId, params.reason || "detenido por loop_stop", "stopped");
-			return {
-				content: [
-					{
-						type: "text" as const,
-						text: `Loop ${loop.loopId} detenido (razón: ${params.reason}).`,
-					},
-				],
-				details: { loopId: loop.loopId },
-			};
+			return toolResult(`Loop ${loop.loopId} detenido (razón: ${params.reason}).`, { loopId: loop.loopId });
 		},
 	});
 
