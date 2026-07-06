@@ -1,25 +1,25 @@
 /**
- * Durable behavioral integration test proving a dynamic workflow can decide, PER
- * CALL, which model/provider to use and with which thinking (reasoning) level to
- * launch each subagent.
+ * Test de integración conductual durable que prueba que un dynamic workflow puede decidir, POR
+ * LLAMADA, qué model/provider usar y con qué nivel de thinking (reasoning) lanzar
+ * cada subagente.
  *
- * This pins the user-facing contract:
- *   - ctx.agent(prompt, { model, thinking })   -> spawns `pi --model <m> --thinking <t>`.
- *   - ctx.agent(prompt, { provider, thinking }) -> spawns `pi --provider <p> --thinking <t>`
- *                                                  WITHOUT a --model (provider-only branch).
- *   - ctx.agents([{ prompt, model, thinking }, { prompt }]) -> per-spec model/thinking
- *     override on one branch; the other branch INHERITS the orchestrator model
- *     (ctx.model -> `provider/id`) and the session thinking level
+ * Esto pinea el contrato de cara al usuario:
+ *   - ctx.agent(prompt, { model, thinking })   -> spawnea `pi --model <m> --thinking <t>`.
+ *   - ctx.agent(prompt, { provider, thinking }) -> spawnea `pi --provider <p> --thinking <t>`
+ *                                                  SIN un --model (branch provider-only).
+ *   - ctx.agents([{ prompt, model, thinking }, { prompt }]) -> override model/thinking
+ *     por spec en un branch; el otro branch HEREDA el modelo del orquestador
+ *     (ctx.model -> `provider/id`) y el thinking level de la sesión
  *     (pi.getThinkingLevel()).
  *
- * Self-bootstrapping: esbuilds the CURRENT extension to a tempdir (never stale),
- * aliasing typebox/SDK/tui to local stubs so it runs with no `npm install`. The
- * agent subprocess boundary is faked via PI_DYNAMIC_WORKFLOWS_PI_COMMAND: a tiny
- * node script that (a) records its full argv to a per-call JSON file keyed by a
- * marker embedded in the prompt and (b) emits one JSON-mode message_update line so
- * the agent result parses. No real model is called.
+ * Self-bootstrapping: esbuild de la extensión ACTUAL a un tempdir (nunca stale),
+ * con alias typebox/SDK/tui a stubs locales para que corra sin `npm install`. El
+ * frontera del subprocess de agente se fakea vía PI_DYNAMIC_WORKFLOWS_PI_COMMAND: un script node
+ * mínimo que (a) registra su argv completo en un archivo JSON por llamada keyeado por un
+ * marcador embebido en el prompt y (b) emite una línea message_update JSON-mode para que
+ * el resultado del agente parsee. No se llama ningún modelo real.
  *
- * Run it:
+ * Ejecutalo:
  *   node extensions/pandi-dynamic-workflows/tests/integration/model-thinking-selection.test.mjs
  */
 
@@ -32,8 +32,8 @@ import { createChecker, sdkStub, buildExtension as sharedBuildExtension } from "
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 
-// Workflow under test: makes four agent calls with distinct model/thinking intent.
-// Each prompt carries a CALL_* marker the fake `pi` uses to name its argv record.
+// Workflow bajo test: hace cuatro llamadas de agente con intención model/thinking distinta.
+// Cada prompt lleva un marcador CALL_* que el `pi` fake usa para nombrar su record argv.
 const WORKFLOW = [
 	"module.exports = async function workflow(ctx, input) {",
 	"  const a = await ctx.agent('CALL_A scout', { name: 'a', model: 'test-prov/model-a', thinking: 'high', tools: ['read'] });",
@@ -87,7 +87,7 @@ function makePi() {
 		},
 		appendEntry: () => {},
 		sendUserMessage: () => {},
-		// Session thinking level the workflow should INHERIT when a call omits `thinking`.
+		// Thinking level de sesión que el workflow debe HEREDAR cuando una llamada omite `thinking`.
 		getThinkingLevel: () => "medium",
 		getActiveTools: () => activeTools,
 		getAllTools: () => [...tools.values()],
@@ -105,7 +105,7 @@ function makeCtx(cwd) {
 		mode: "print",
 		hasUI: false,
 		cwd,
-		// Orchestrator model the workflow should INHERIT when a call omits model/provider.
+		// Modelo del orquestador que el workflow debe HEREDAR cuando una llamada omite model/provider.
 		model: { provider: "ctx-prov", id: "ctx-model" },
 		isIdle: () => true,
 		isProjectTrusted: () => true,
@@ -136,9 +136,9 @@ async function runTool(tool, ctx, params) {
 	return await tool.execute("tc-integration", params, new AbortController().signal, undefined, ctx);
 }
 
-// Fake `pi` agent subprocess. Records its full argv to <RECORD_DIR>/<marker>.json,
-// where <marker> is the CALL_* token from the prompt (last argv), then emits one
-// JSON-mode message_update so the agent result parses.
+// Subprocess de agente `pi` fake. Registra su argv completo en <RECORD_DIR>/<marker>.json,
+// donde <marker> es el token CALL_* del prompt (último argv), luego emite un
+// message_update JSON-mode para que el resultado del agente parsee.
 async function writeFakePi(outDir, recordDir) {
 	const fakePi = path.join(outDir, `fake-pi-${instance}.mjs`);
 	await fs.writeFile(
@@ -190,9 +190,9 @@ async function main() {
 			const ext = await freshExtension(url);
 			const { pi, tools } = makePi();
 			ext(pi);
-			// #3.4 (research §3e): the tool must teach a stable KV-cache prompt prefix
-			// (shared framing first, volatile per-item content last) so identical prefixes
-			// reuse the provider prompt/KV cache across calls.
+			// #3.4 (research §3e): la tool debe enseñar un prefijo de prompt KV-cache estable
+			// (framing compartido primero, contenido volátil por item al final) para que prefijos idénticos
+			// reutilicen la prompt/KV cache del provider entre llamadas.
 			const guide = (tools.get("dynamic_workflow").promptGuidelines ?? []).join("\n");
 			check(
 				"promptGuidelines: teaches stable KV-cache prefix (stable framing first, volatile content to the END)",
@@ -219,18 +219,18 @@ async function main() {
 
 		const readArgv = async (marker) => JSON.parse(await fs.readFile(path.join(recordDir, `${marker}.json`), "utf8"));
 
-		// CALL_A: explicit model + thinking win.
+		// CALL_A: model + thinking explícitos ganan.
 		const a = await readArgv("CALL_A");
 		check("A: explicit model passed as --model", flagValue(a, "--model") === "test-prov/model-a", JSON.stringify(a));
 		check("A: explicit thinking passed as --thinking", flagValue(a, "--thinking") === "high", JSON.stringify(a));
 
-		// CALL_B: provider-only branch -> --provider set, NO --model synthesized.
+		// CALL_B: branch provider-only -> --provider seteado, NO se sintetiza --model.
 		const b = await readArgv("CALL_B");
 		check("B: explicit provider passed as --provider", flagValue(b, "--provider") === "test-prov", JSON.stringify(b));
 		check("B: provider-only call omits --model", hasFlag(b, "--model") === false, JSON.stringify(b));
 		check("B: explicit thinking passed as --thinking", flagValue(b, "--thinking") === "low", JSON.stringify(b));
 
-		// CALL_C1: per-spec override inside ctx.agents().
+		// CALL_C1: override por spec dentro de ctx.agents().
 		const c1 = await readArgv("CALL_C1");
 		check(
 			"C1: per-spec model passed as --model",
@@ -239,7 +239,7 @@ async function main() {
 		);
 		check("C1: per-spec thinking passed as --thinking", flagValue(c1, "--thinking") === "xhigh", JSON.stringify(c1));
 
-		// CALL_C2: inherits ctx model + session thinking when omitted.
+		// CALL_C2: hereda modelo de ctx + thinking de sesión cuando se omiten.
 		const c2 = await readArgv("CALL_C2");
 		check(
 			"C2: inherits orchestrator model (ctx.model -> provider/id)",
@@ -252,12 +252,12 @@ async function main() {
 			JSON.stringify(c2),
 		);
 
-		// CALL_A: a provider-qualified model (has a "/") must NOT get a synthesized --provider.
+		// CALL_A: un modelo provider-qualified (tiene "/") NO debe recibir un --provider sintetizado.
 		check("A: qualified model does not add --provider", hasFlag(a, "--provider") === false, JSON.stringify(a));
 
-		// CALL_D: a BARE pattern alias ("sonnet", no "provider/") must be pinned to the session
-		// provider via --provider, so pi does not route it to an UNauthenticated provider
-		// (e.g. amazon-bedrock -> "No API key found"). The alias itself is forwarded unchanged.
+		// CALL_D: un alias pelado de patrón ("sonnet", sin "provider/") debe pinearse al provider
+		// de sesión vía --provider, para que pi no lo rutee a un provider SIN autenticar
+		// (p. ej. amazon-bedrock -> "No API key found"). El alias en sí se forwardea sin cambios.
 		const d = await readArgv("CALL_D");
 		check("D: bare alias forwarded as --model", flagValue(d, "--model") === "sonnet", JSON.stringify(d));
 		check(
@@ -266,8 +266,8 @@ async function main() {
 			JSON.stringify(d),
 		);
 
-		// #3.6 focus observability: the completed run must write focus-metrics artifacts
-		// (the fake pi emits no usage, so token totals are 0 — we verify shape + coverage).
+		// #3.6 observabilidad de focus: el run completado debe escribir artifacts focus-metrics
+		// (el pi fake no emite usage, así que los totales de tokens son 0; verificamos shape + cobertura).
 		let metrics = null;
 		try {
 			metrics = JSON.parse(await fs.readFile(path.join(result.runDir, "metrics.json"), "utf8"));

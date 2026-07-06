@@ -1,28 +1,28 @@
 #!/usr/bin/env node
 /**
- * Regression (#28): workflow-factory's codegen/refine agent nodes ran on the silent
- * DEFAULT_AGENT_TIMEOUT_MS (10min/600000ms — config.ts:19), even though they generate
- * 15-25KB of code at sonnet/medium. On timeout the agent() call returns null, and
- * `extractJs(null)` silently degrades to an EMPTY STRING that then flowed straight
- * into the Review phase — burying the real timeout under a wasted opus review turn
+ * Regresión (#28): los nodos de agente codegen/refine de workflow-factory corrían con el silencioso
+ * DEFAULT_AGENT_TIMEOUT_MS (10min/600000ms — config.ts:19), aunque generan
+ * 15-25KB de código en sonnet/medium. Al timeoutear, la llamada agent() devuelve null, y
+ * `extractJs(null)` se degrada silenciosamente a un STRING VACÍO que luego fluía directo
+ * a la fase Review, enterrando el timeout real bajo un turno opus de review desperdiciado
  * ("the workflow code block is completely empty").
  *
- * This pins three things, purely by reading the canonical scaffold source (no model
- * calls, no mutation):
+ * Esto pinea tres cosas, puramente leyendo la fuente canónica del scaffold (sin llamadas a modelo,
+ * sin mutación):
  *
- *   1. node("workflow-codegen", …) carries an explicit `timeoutMs` well above the
- *      10-min default (>= 20*60000 = 1,200,000ms).
- *   2. node("workflow-refine", …) likewise carries an explicit `timeoutMs` above the
+ *   1. node("workflow-codegen", …) lleva un `timeoutMs` explícito muy por encima del
+ *      default de 10 min (>= 20*60000 = 1,200,000ms).
+ *   2. node("workflow-refine", …) también lleva un `timeoutMs` explícito por encima del
  *      default.
- *   3. A fail-fast guard — a `throw` whose message cites the timeout/empty evidence —
- *      sits AFTER `let code = extractJs(implement)` but BEFORE `phase("Review")` /
- *      the review agent call, verified by string index ordering. A null or
- *      whitespace-only codegen result can therefore never reach the review prompt.
+ *   3. Un guard fail-fast — un `throw` cuyo mensaje cita la evidencia de timeout/empty —
+ *      queda DESPUÉS de `let code = extractJs(implement)` pero ANTES de `phase("Review")` /
+ *      la llamada al agente reviewer, verificado por orden de índices de string. Así, un resultado
+ *      codegen null o solo-whitespace nunca puede llegar al prompt de review.
  *
- * Mutation-free: reads extensions/pandi-dynamic-workflows/scaffolds/workflow-factory.js
- * and pattern-matches; does not execute the workflow or call any agent.
+ * Libre de mutación: lee extensions/pandi-dynamic-workflows/scaffolds/workflow-factory.js
+ * y hace pattern-match; no ejecuta el workflow ni llama ningún agente.
  *
- * Run it:
+ * Ejecutalo:
  *   node extensions/pandi-dynamic-workflows/tests/integration/scaffold-codegen-guard.test.mjs
  */
 import * as fs from "node:fs";
@@ -35,13 +35,13 @@ const SCAFFOLDS_DIR = path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflow
 const FACTORY_PATH = path.join(SCAFFOLDS_DIR, "workflow-factory.js");
 const src = fs.readFileSync(FACTORY_PATH, "utf8");
 
-// Minimum acceptable per-agent timeout for the codegen/refine roles: well above the
-// 600000ms (10min) DEFAULT_AGENT_TIMEOUT_MS, per the issue's "20-30min" guidance.
+// Timeout mínimo aceptable por agente para los roles codegen/refine: bastante por encima del
+// DEFAULT_AGENT_TIMEOUT_MS de 600000ms (10min), según la guía "20-30min" del issue.
 const MIN_TIMEOUT_MS = 20 * 60_000; // 1_200_000
 
-/** Evaluate a numeric-literal-or-simple-multiplication timeoutMs expression, e.g.
- * "1_200_000" or "20 * 60_000". Returns null when the expression isn't recognized
- * (never throws — an unparsable value should surface as a failing check, not a crash). */
+/** Evalúa una expresión timeoutMs de literal numérico o multiplicación simple, p. ej.
+ * "1_200_000" o "20 * 60_000". Devuelve null cuando no reconoce la expresión
+ * (nunca hace throw: un valor no parseable debe aparecer como check fallido, no como crash). */
 function evalTimeoutExpr(raw) {
 	if (raw == null) return null;
 	const cleaned = String(raw).replace(/_/g, "").trim();
@@ -51,9 +51,9 @@ function evalTimeoutExpr(raw) {
 	return null;
 }
 
-/** Find `node("<role>", { ...options... })` and return the options-literal text, or
- * null if the call site isn't found. Options objects in this scaffold are flat
- * (no nested braces), so a non-greedy match up to the first `}` is sufficient. */
+/** Encontrá `node("<role>", { ...options... })` y devolvé el texto del literal de opciones, o
+ * null si no se encuentra el call site. Los objetos de opciones en este scaffold son planos
+ * (sin braces anidadas), así que alcanza con un match no-greedy hasta el primer `}`. */
 function findNodeOptions(role) {
 	const re = new RegExp(`node\\(\\s*"${role}"\\s*,\\s*(\\{[\\s\\S]*?\\})\\s*\\)`);
 	const m = re.exec(src);
@@ -78,18 +78,18 @@ function checkExplicitTimeout(role) {
 }
 
 // ---------------------------------------------------------------------------
-// 1) codegen node: explicit timeoutMs above the default.
+// 1) Nodo codegen: timeoutMs explícito por encima del default.
 // ---------------------------------------------------------------------------
 checkExplicitTimeout("workflow-codegen");
 
 // ---------------------------------------------------------------------------
-// 2) refine node: explicit timeoutMs above the default.
+// 2) Nodo refine: timeoutMs explícito por encima del default.
 // ---------------------------------------------------------------------------
 checkExplicitTimeout("workflow-refine");
 
 // ---------------------------------------------------------------------------
-// 3) fail-fast guard: a throw citing timeout/empty evidence sits strictly between
-//    `let code = extractJs(implement)` and `phase("Review")`.
+// 3) Guard fail-fast: un throw que cita evidencia timeout/empty queda estrictamente entre
+//    `let code = extractJs(implement)` y `phase("Review")`.
 // ---------------------------------------------------------------------------
 const EXTRACT_MARK = "let code = extractJs(implement);";
 const REVIEW_PHASE_MARK = 'phase("Review");';

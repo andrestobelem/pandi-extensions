@@ -1,32 +1,31 @@
 /**
- * Behavioral contract test: the tier DECISION (cheap vs strong model + effort per node)
- * is made correctly wherever workflows are CREATED, not just where they run (#25).
+ * Test de contrato conductual: la DECISIÓN de tier (modelo barato vs fuerte + effort por nodo)
+ * se toma correctamente donde se CREAN workflows, no solo donde corren (#25).
  *
- * Finding: workflow-factory — the path that generates NEW workflows — never decided
- * tiers: the planner's PLAN schema had no per-node budget field, the codegen contract
- * listed `{ label, schema, phase, effort }` (omitting `model`) with no tiering
- * requirement, and the reviewer checked generic "cost" with no explicit tier item.
- * Generated workflows therefore inherited the session model on every node (scouts at
- * opus prices, silently).
+ * Hallazgo: workflow-factory — la ruta que genera workflows NUEVOS — nunca decidía
+ * tiers: el schema PLAN del planner no tenía campo budget por nodo, el contrato codegen
+ * listaba `{ label, schema, phase, effort }` (omitiendo `model`) sin requisito de tiering,
+ * y el reviewer chequeaba "cost" genérico sin item explícito de tier. Por eso, los workflows
+ * generados heredaban silenciosamente el modelo de sesión en cada nodo (scouts a precios opus).
  *
- * This pins:
- *  1. FACTORY PLAN: the PLAN schema requires `budget` entries of
- *     { role, model, effort, why }, and the planner prompt carries the same normative
- *     ladder policy as contract-gate (single policy text in the repo).
- *  2. FACTORY CODEGEN: the call-contract line includes `model`, and a hard requirement
- *     demands explicit per-node model+effort from the plan's budget with the
- *     node(role)/input.models/input.efforts override convention.
- *  3. FACTORY REVIEW: the reviewer checklist has an explicit TIERING item (wide fan-out
- *     on the deep tier / judge-synthesis on the cheap tier / nodes missing explicit
- *     model+effort are findings).
- *  4. CATALOG INVARIANT: in EVERY scaffold, each call-site that sets `model` on agent
- *     options also sets `effort` nearby, and both come from the known ladder
- *     (haiku|sonnet|opus x low|medium|high|xhigh|max) — pinning the audited tiering
- *     of the catalog so an untiered or inverted node cannot silently land.
+ * Esto pinea:
+ *  1. FACTORY PLAN: el schema PLAN requiere entradas `budget` de
+ *     { role, model, effort, why }, y el prompt del planner lleva la misma política normativa
+ *     de ladder que contract-gate (un único texto de política en el repo).
+ *  2. FACTORY CODEGEN: la línea de contrato de llamada incluye `model`, y un requisito hard
+ *     exige model+effort explícitos por nodo desde el budget del plan con la convención de override
+ *     node(role)/input.models/input.efforts.
+ *  3. FACTORY REVIEW: el checklist del reviewer tiene un item TIERING explícito (fan-out amplio
+ *     en el tier deep / judge-synthesis en el tier cheap / nodos sin model+effort explícitos
+ *     son hallazgos).
+ *  4. CATALOG INVARIANT: en CADA scaffold, cada call-site que setea `model` en opciones de agente
+ *     también setea `effort` cerca, y ambos vienen de la ladder conocida
+ *     (haiku|sonnet|opus x low|medium|high|xhigh|max), pineando el tiering auditado del catálogo
+ *     para que un nodo sin tier o invertido no pueda aterrizar silenciosamente.
  *
- * Mutation-free: reads the scaffold sources and pattern-matches.
+ * Libre de mutación: lee las fuentes de scaffolds y hace pattern-match.
  *
- * Run it:
+ * Ejecutalo:
  *   node extensions/pandi-dynamic-workflows/tests/integration/scaffold-model-tiering.test.mjs
  */
 import * as fs from "node:fs";
@@ -39,16 +38,16 @@ const SCAFFOLDS_DIR = path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflow
 const factorySrc = fs.readFileSync(path.join(SCAFFOLDS_DIR, "workflow-factory.js"), "utf8");
 const gateSrc = fs.readFileSync(path.join(SCAFFOLDS_DIR, "contract-gate.js"), "utf8");
 
-// The normative ladder policy: both fragments must appear wherever the tier decision
-// is delegated to a model (contract-gate's resource-plan AND the factory's planner).
+// Política normativa de ladder: ambos fragmentos deben aparecer donde sea que la decisión de tier
+// se delegue a un modelo (resource-plan de contract-gate Y planner de factory).
 const LADDER = "haiku < sonnet < opus";
 const KEEP_CHEAP = "baratos";
 
 // ---------------------------------------------------------------------------
-// 1) FACTORY PLAN: budget field + ladder policy in the planner prompt.
+// 1) FACTORY PLAN: campo budget + política de ladder en el prompt del planner.
 // ---------------------------------------------------------------------------
 
-// The PLAN schema (the required array that also lists promptContracts) includes budget.
+// El schema PLAN (el array required que también lista promptContracts) incluye budget.
 const planRequired = factorySrc.match(/required:\s*\[[^\]]*"promptContracts"[^\]]*\]/s)?.[0] ?? "";
 check(
 	'factory plan: PLAN schema requires "budget"',
@@ -77,7 +76,7 @@ check(
 );
 
 // ---------------------------------------------------------------------------
-// 2) FACTORY CODEGEN: call contract includes model; tiering is a hard requirement.
+// 2) FACTORY CODEGEN: el contrato de llamada incluye model; tiering es requisito hard.
 // ---------------------------------------------------------------------------
 
 check(
@@ -92,14 +91,14 @@ check(
 );
 check(
 	"factory codegen: the tiering requirement itself demands the input.models[role] override convention",
-	// Anchored to the SAME bullet line as TIER EVERY NODE, so the factory's own node()
-	// helper comment (which also mentions input.models[role]) cannot vacuously satisfy it.
+	// Anclado a la MISMA línea de bullet que TIER EVERY NODE, para que el comentario helper node()
+	// propio de factory (que también menciona input.models[role]) no pueda satisfacerlo vacuamente.
 	/TIER EVERY NODE[^\n]*input\.models\[role\]/.test(factorySrc),
 	"codegen does not require the per-role override convention in the tiering bullet",
 );
 
 // ---------------------------------------------------------------------------
-// 3) FACTORY REVIEW: explicit tier-check item in the reviewer checklist.
+// 3) FACTORY REVIEW: item tier-check explícito en el checklist del reviewer.
 // ---------------------------------------------------------------------------
 
 check(
@@ -109,12 +108,12 @@ check(
 );
 
 // ---------------------------------------------------------------------------
-// 4) CATALOG INVARIANT: every model call-site is paired with a ladder effort.
+// 4) CATALOG INVARIANT: cada call-site de model está emparejado con un effort de ladder.
 // ---------------------------------------------------------------------------
 
 const MODELS = new Set(["haiku", "sonnet", "opus"]);
 const EFFORTS = new Set(["low", "medium", "high", "xhigh", "max"]);
-// Only string-literal model options match (schema property definitions use `model: {`).
+// Solo matchean opciones model de string-literal (las definiciones de propiedades de schema usan `model: {`).
 const MODEL_SITE = /model:\s*"([^"]+)"/g;
 const EFFORT_SITE = /effort:\s*"([^"]+)"/;
 const WINDOW_LINES = 5;
@@ -137,8 +136,8 @@ for (const file of scaffolds) {
 				problems.push(`${file}:${i + 1} model "${model}" is not on the ladder (haiku|sonnet|opus)`);
 				continue;
 			}
-			// The paired effort must sit in the same options literal; scaffold style keeps
-			// them within a few lines (same line or adjacent lines of the object literal).
+			// El effort emparejado debe estar en el mismo literal de opciones; el estilo de scaffold los mantiene
+			// dentro de pocas líneas (misma línea o líneas adyacentes del literal de objeto).
 			const lo = Math.max(0, i - WINDOW_LINES);
 			const hi = Math.min(lines.length, i + WINDOW_LINES + 1);
 			const windowText = lines.slice(lo, hi).join("\n");

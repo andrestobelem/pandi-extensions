@@ -1,47 +1,47 @@
 /**
- * Guard: scaffolds carry NO hardcoded model names at call-sites.
+ * Guard: los scaffolds NO llevan nombres de modelo hardcodeados en call-sites.
  *
- * Why this file exists
- * --------------------
- * The model×effort guidance (L1 system-prompt bullet + L2 ultracode skill) treats
- * model and effort as two independent dials the AUTHORING AGENT decides per task.
- * Scaffolds are the recommendation-by-example layer: if their call-sites hardcode
- * `model: "haiku"`, agents pattern-match the literal pairing instead of deciding.
+ * Por qué existe este archivo
+ * ---------------------------
+ * La guía model×effort (bullet L1 del system-prompt + skill ultracode L2) trata
+ * model y effort como dos diales independientes que el AGENTE AUTOR decide por tarea.
+ * Los scaffolds son la capa de recomendación-por-ejemplo: si sus call-sites hardcodean
+ * `model: "haiku"`, los agentes pattern-matchean el pairing literal en vez de decidir.
  *
- * Policy (design spec, run 2026-07-05T11-51-48-660Z-model-effort-guidance):
- *   - Each scaffold that spawns tiered agents declares ONE canonical table:
+ * Política (spec de diseño, run 2026-07-05T11-51-48-660Z-model-effort-guidance):
+ *   - Cada scaffold que spawnea agentes con tiers declara UNA tabla canónica:
  *       const TIERS = { cheap: "haiku", balanced: "sonnet", deep: "opus" };
- *     with a comment telling the authoring agent to re-decide tiers per task.
- *   - Call-sites use the symbolic `tier: "cheap"|"balanced"|"deep"` (resolved by
- *     the scaffold's node() helper via TIERS) — never a model name.
- *   - `effort` stays explicit at every call-site (a separate dial; omission would
- *     inherit the raw session reasoning level, since scaffolds set no agentType).
+ *     con un comentario que le pide al agente autor redecidir tiers por tarea.
+ *   - Los call-sites usan el `tier: "cheap"|"balanced"|"deep"` simbólico (resuelto por
+ *     el helper node() del scaffold vía TIERS), nunca un nombre de modelo.
+ *   - `effort` sigue explícito en cada call-site (un dial separado; omitirlo heredaría
+ *     el reasoning level raw de la sesión, ya que los scaffolds no setean agentType).
  *
- * Checks per extensions/pandi-dynamic-workflows/scaffolds/*.js:
- *   1. Outside the canonical TIERS line, no `model: "haiku|sonnet|opus"` and no
- *      provider-qualified `model: "<provider>/…"` literal appears.
- *   2. Any file using `tier:` or `TIERS` contains the canonical TIERS line exactly
- *      (byte-identical, so mirrors and docs can quote one form).
- *   3. Every `tier: "<value>"` is one of cheap|balanced|deep — a typo fails HERE,
- *      statically, instead of silently inheriting the orchestrator model at runtime
- *      (node()'s `log("unknown tier …")` is the last-resort net, not the only one).
- *   4. large-migration.js gate nodes that judge the CALLER-supplied `verifyCmd`
- *      output (baseline / recheck / final-verify) default to effort >= medium:
- *      interpreting arbitrary, possibly flaky command output to call {green} is
- *      judgment, not transcription — the L2 floor table sets medium as the
- *      default for user-verifyCmd gates (override per run via input.efforts.*).
- *      bug-verify.js tree-baseline/tree-check stay `low` on purpose: they
- *      transcribe `git status --porcelain` literally, zero judgment.
- *   5. orchestrator-workers.js worker nodes default to effort high because the
- *      integrator only merges/preserves evidence and gaps; it does not rerun an
- *      explicit verification step. Callers may pass mutating tools via input.tools
- *      / toolsByRole.worker, so this is a worker-without-guaranteed-net default.
+ * Checks por extensions/pandi-dynamic-workflows/scaffolds/*.js:
+ *   1. Fuera de la línea TIERS canónica, no aparece `model: "haiku|sonnet|opus"` ni
+ *      ningún literal `model: "<provider>/…"` provider-qualified.
+ *   2. Todo archivo que usa `tier:` o `TIERS` contiene exactamente la línea TIERS canónica
+ *      (byte-idéntica, para que mirrors y docs puedan citar una sola forma).
+ *   3. Cada `tier: "<value>"` es uno de cheap|balanced|deep: un typo falla ACÁ,
+ *      estáticamente, en vez de heredar silenciosamente el modelo del orquestador en runtime
+ *      (`log("unknown tier …")` de node() es la red de último recurso, no la única).
+ *   4. Los nodos gate de large-migration.js que juzgan el output de `verifyCmd`
+ *      PROVISTO POR EL CALLER (baseline / recheck / final-verify) default a effort >= medium:
+ *      interpretar output arbitrario de comandos, posiblemente flaky, para decidir {green} es
+ *      juicio, no transcripción; la tabla de piso L2 fija medium como default para gates
+ *      user-verifyCmd (override por run vía input.efforts.*). bug-verify.js
+ *      tree-baseline/tree-check quedan en `low` a propósito: transcriben literalmente
+ *      `git status --porcelain`, cero juicio.
+ *   5. Los nodos worker de orchestrator-workers.js default a effort high porque el
+ *      integrator solo mergea/preserva evidencia y gaps; no vuelve a correr un paso
+ *      de verificación explícito. Los callers pueden pasar tools mutantes vía input.tools
+ *      / toolsByRole.worker, así que este es un default worker-without-guaranteed-net.
  *
- * The 5 generated mirrors (.claude/workflows, .pi/skills/ultracode/reference/…,
- * extensions/…/skills/…, .claude/skills/…) are covered transitively by the
- * format:claude / vendor / ultracode parity checks.
+ * Los 5 mirrors generados (.claude/workflows, .pi/skills/ultracode/reference/…,
+ * extensions/…/skills/…, .claude/skills/…) quedan cubiertos transitivamente por los
+ * checks de paridad format:claude / vendor / ultracode.
  *
- * Run directly:
+ * Corrida directa:
  *   node extensions/pandi-dynamic-workflows/tests/integration/scaffold-model-literals.test.mjs
  */
 
