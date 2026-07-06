@@ -27,6 +27,13 @@ const THRESHOLD_PRESETS = [
 ].sort((a, b) => a - b);
 export const THRESHOLD_OPTIONS = [...THRESHOLD_PRESETS.map(String), "personalizado\u2026"];
 
+function describeThresholdPreset(percent: number): string {
+	if (percent === DEFAULT_THRESHOLD_PERCENT) return `Configurar el umbral al ${percent}% (predeterminado)`;
+	if (percent === CODEX_DEFAULT_THRESHOLD_PERCENT)
+		return `Configurar el umbral al ${percent}% (predeterminado de Codex)`;
+	return `Configurar el umbral al ${percent}%`;
+}
+
 // Items de autocompletado de argumentos. `value` se inserta en el editor al aceptar.
 export const ARG_COMPLETIONS: { value: string; label: string; description: string }[] = [
 	{ value: "status", label: "status", description: "Mostrar la configuración actual" },
@@ -58,7 +65,7 @@ export const ARG_COMPLETIONS: { value: string; label: string; description: strin
 	...THRESHOLD_PRESETS.map((p) => ({
 		value: String(p),
 		label: `${p}%`,
-		description: `Configurar el umbral al ${p}%${p === DEFAULT_THRESHOLD_PERCENT ? " (predeterminado)" : p === CODEX_DEFAULT_THRESHOLD_PERCENT ? " (predeterminado de Codex)" : ""}`,
+		description: describeThresholdPreset(p),
 	})),
 ];
 
