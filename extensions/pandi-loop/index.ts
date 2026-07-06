@@ -500,6 +500,16 @@ function rearmFixed(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): 
 // Inicio / stop
 // ---------------------------------------------------------------------------
 
+function refuseIfLoopLimitReached(ctx: ExtensionContext): boolean {
+	if (activeLoops.size < MAX_CONCURRENT_LOOPS) return false;
+	notify(
+		ctx,
+		`Demasiados loops activos (${activeLoops.size}/${MAX_CONCURRENT_LOOPS}). Detené uno con /loop stop antes de iniciar otro.`,
+		"error",
+	);
+	return true;
+}
+
 function startLoop(pi: ExtensionAPI, ctx: ExtensionContext, task: string): ActiveLoop | undefined {
 	// Gate por modo: solo TUI/RPC puede sostener una sesión persistente de loop.
 	if (!canLoopInMode(ctx)) {
@@ -511,14 +521,7 @@ function startLoop(pi: ExtensionAPI, ctx: ExtensionContext, task: string): Activ
 		notify(ctx, "Uso: /loop [--ultracode] <task> [interval]", "warning");
 		return undefined;
 	}
-	if (activeLoops.size >= MAX_CONCURRENT_LOOPS) {
-		notify(
-			ctx,
-			`Demasiados loops activos (${activeLoops.size}/${MAX_CONCURRENT_LOOPS}). Detené uno con /loop stop antes de iniciar otro.`,
-			"error",
-		);
-		return undefined;
-	}
+	if (refuseIfLoopLimitReached(ctx)) return undefined;
 
 	const loopId = crypto.randomBytes(4).toString("hex");
 	const loop = createActiveLoop({
@@ -584,14 +587,7 @@ async function startAutonomousLoop(
 		notify(ctx, "El loop autónomo no se inició (no se confirmó).", "info");
 		return undefined;
 	}
-	if (activeLoops.size >= MAX_CONCURRENT_LOOPS) {
-		notify(
-			ctx,
-			`Demasiados loops activos (${activeLoops.size}/${MAX_CONCURRENT_LOOPS}). Detené uno con /loop stop antes de iniciar otro.`,
-			"error",
-		);
-		return undefined;
-	}
+	if (refuseIfLoopLimitReached(ctx)) return undefined;
 
 	const loopId = crypto.randomBytes(4).toString("hex");
 	const loop = createActiveLoop({
