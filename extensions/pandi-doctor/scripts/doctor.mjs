@@ -257,26 +257,88 @@ if (!SUITE_ROOT) {
 	report("optional", WARN, "sync Claude global", "ausente — scripts/sync-claude-global.mjs no encontrado");
 }
 
-// vendor skills (extensión): ¿los skills que pandi-extensions vendoriza en su propio dir
-// (extensions/pandi-dynamic-workflows/skills/) siguen byte-idénticos a la fuente .pi/skills? Delegamos
-// en el propio generador vía --check. Opcional a propósito: avisa, no rompe el doctor. Standalone
-// (fuera del repo) no aplica: el árbol vendorizado ya viene fijado en el paquete instalado.
-const vendorScript = SUITE_ROOT ? path.join(SUITE_ROOT, "scripts", "vendor-extension-skills.mjs") : null;
-const vendorLabel = "vendor skills (extensión)";
-if (!SUITE_ROOT) {
-	report("optional", dim("·"), vendorLabel, "N/A (fuera del repo pandi-extensions)");
-} else if (existsSync(vendorScript)) {
-	const vendor = spawnSync(process.execPath, [vendorScript, "--check"], { encoding: "utf8", timeout: 20000 });
-	if (vendor.error || typeof vendor.status !== "number") {
-		report("optional", WARN, vendorLabel, "no se pudo verificar — corré `npm run sync:skills:vendor:check`");
-	} else if (vendor.status === 0) {
-		report("optional", OK, vendorLabel, "espejo al día de .pi/skills");
-	} else {
-		report("optional", WARN, vendorLabel, "desincronizado — corré `npm run sync:skills:vendor`");
+function checkRepoSync({ label, script, checkCommand, fixCommand, okDetail }) {
+	if (!SUITE_ROOT) {
+		report("optional", dim("·"), label, "N/A (fuera del repo pandi-extensions)");
+		return;
 	}
-} else {
-	report("optional", WARN, vendorLabel, "ausente — scripts/vendor-extension-skills.mjs no encontrado");
+	const scriptPath = path.join(SUITE_ROOT, script);
+	if (!existsSync(scriptPath)) {
+		report("optional", WARN, label, `ausente — ${script} no encontrado`);
+		return;
+	}
+	const check = spawnSync(process.execPath, [scriptPath, "--check"], {
+		cwd: SUITE_ROOT,
+		encoding: "utf8",
+		timeout: 20000,
+	});
+	if (check.error || typeof check.status !== "number") {
+		report("optional", WARN, label, `no se pudo verificar — corré \`${checkCommand}\``);
+	} else if (check.status === 0) {
+		report("optional", OK, label, okDetail);
+	} else {
+		report("optional", WARN, label, `desincronizado — corré \`${fixCommand}\``);
+	}
 }
+
+// Sync canónico repo-local: cada línea delega al script dueño del dominio vía --check.
+// Doctor permanece read-only: diagnostica drift y nombra el comando idempotente que lo arregla.
+checkRepoSync({
+	label: "root manifest",
+	script: path.join("scripts", "sync-root-manifest.mjs"),
+	checkCommand: "npm run sync:manifest:check",
+	fixCommand: "npm run sync:manifest",
+	okDetail: "package.json#pi al día desde subpackages",
+});
+checkRepoSync({
+	label: "project settings",
+	script: path.join("scripts", "sync-project-settings.mjs"),
+	checkCommand: "npm run sync:settings:check",
+	fixCommand: "npm run sync:settings",
+	okDetail: ".pi/settings*.json al día desde subpackages",
+});
+checkRepoSync({
+	label: "skill mirrors",
+	script: path.join("scripts", "sync-skill-mirrors.mjs"),
+	checkCommand: "npm run sync:skills:check",
+	fixCommand: "npm run sync:skills",
+	okDetail: "mirrors .claude al día de .pi/skills",
+});
+checkRepoSync({
+	label: "vendor skills (extensión)",
+	script: path.join("scripts", "vendor-extension-skills.mjs"),
+	checkCommand: "npm run sync:skills:vendor:check",
+	fixCommand: "npm run sync:skills:vendor",
+	okDetail: "espejo al día de .pi/skills",
+});
+checkRepoSync({
+	label: "agent guides",
+	script: path.join("scripts", "sync-agent-guides.mjs"),
+	checkCommand: "npm run sync:agents:check",
+	fixCommand: "npm run sync:agents",
+	okDetail: "CLAUDE.md al día de AGENTS.md",
+});
+checkRepoSync({
+	label: "Claude ultracode skills",
+	script: path.join("scripts", "generate-claude-ultracode-skills.mjs"),
+	checkCommand: "npm run sync:claude:ultracode:check",
+	fixCommand: "npm run sync:claude:ultracode",
+	okDetail: "skills Claude generados al día de .pi/skills/ultracode",
+});
+checkRepoSync({
+	label: "docs HTML mirror",
+	script: path.join("scripts", "sync-docs-html.mjs"),
+	checkCommand: "npm run sync:docs:html:check",
+	fixCommand: "npm run sync:docs:html",
+	okDetail: "docs/html al día de Markdown",
+});
+checkRepoSync({
+	label: "personas README",
+	script: path.join("scripts", "sync-personas-readme.mjs"),
+	checkCommand: "npm run sync:personas:check",
+	fixCommand: "npm run sync:personas",
+	okDetail: ".pi/personas/README al día de personas JSON",
+});
 
 // hook pre-commit: ¿core.hooksPath apunta al dir versionado scripts/git-hooks y el hook existe?
 // Es la verificación rápida local (typecheck + biome + markdownlint) que evita commits rotos en main.

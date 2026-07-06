@@ -5,7 +5,7 @@
  * Fuente de verdad = el objeto `BUILTIN_AGENT_PERSONAS` en agent-env-persona.ts. Cada key
  * de persona definida ahí DEBE exponerse 1:1 en todas las superficies donde aparece el menú
  * de personas, o agentes/personas usuarias reciben una lista inconsistente:
- *   - el string de prompt runtime en index.ts (la unión agentType:'…')
+ *   - el string de prompt runtime en workflow-tool-contract.ts (la unión agentType:'…')
  *   - la referencia primitives/agent.md y su mirror autocontenido del skill ultracode
  *   - la lista de personas del README
  *   - el skill ultracode: SKILL.md y su catálogo reference/personas.md
@@ -32,7 +32,7 @@ const SKILL_DIR = path.join(REPO_ROOT, ".pi", "skills", "ultracode");
 
 const PERSONA_SRC = path.join(EXT_DIR, "agent-env-persona.ts");
 const SURFACES = {
-	"index.ts prompt": path.join(EXT_DIR, "index.ts"),
+	"workflow tool prompt": path.join(EXT_DIR, "workflow-tool-contract.ts"),
 	"primitives/agent.md": path.join(EXT_DIR, "primitives", "agent.md"),
 	"skill mirror agent.md": path.join(SKILL_DIR, "reference", "primitives", "agent.md"),
 	README: path.join(REPO_ROOT, "README.md"),

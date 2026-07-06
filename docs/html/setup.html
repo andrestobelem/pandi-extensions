@@ -347,6 +347,76 @@ pi install ./                                                      <span class="
 </tr>
 </tbody></table>
 <p>Cada <code>extensions/pandi-&lt;ext&gt;/package.json</code> lleva su identidad pública <code>@pandi-coding-agent/pandi-&lt;ext&gt;</code> (npm workspaces; <code>npm pack -w @pandi-coding-agent/pandi-&lt;ext&gt;</code> para probar el tarball). El manifiesto raíz de <code>pi</code> se <strong>genera</strong> desde los subpackages (<code>npm run sync:manifest</code>); un test de paridad falla si hay drift. Horizonte: <strong>Pandi</strong> como distro sobre Pi (extensiones + theme + persona), no como un fork del CLI.</p>
+<h3>Fuentes canónicas y syncs generados</h3>
+<p>Regla simple: editá la fuente canónica, no el mirror generado. <code>npm run doctor</code> verifica estos dominios en modo read-only y muestra el comando de arreglo cuando detecta drift.</p>
+<table>
+<thead>
+<tr>
+<th>Dominio</th>
+<th>Fuente canónica</th>
+<th>Artifact/mirror generado</th>
+<th>Check</th>
+<th>Fix seguro</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Manifest raíz de Pi</td>
+<td><code>extensions/pandi*/package.json</code> (<code>pi.extensions</code>, <code>pi.themes</code>)</td>
+<td><code>package.json#pi</code></td>
+<td><code>npm run sync:manifest:check</code></td>
+<td><code>npm run sync:manifest</code></td>
+</tr>
+<tr>
+<td>Settings del repo</td>
+<td>Los mismos manifests de subpackages</td>
+<td><code>.pi/settings.json</code>, <code>.pi/settings.json.example</code></td>
+<td><code>npm run sync:settings:check</code></td>
+<td><code>npm run sync:settings</code></td>
+</tr>
+<tr>
+<td>Skill mirrors Pi↔Claude</td>
+<td><code>.pi/skills/&lt;name&gt;/SKILL.md</code> clasificado como <code>mirrored</code></td>
+<td><code>.claude/skills/&lt;name&gt;/SKILL.md</code></td>
+<td><code>npm run sync:skills:check</code></td>
+<td><code>npm run sync:skills</code></td>
+</tr>
+<tr>
+<td>Skills vendorizados por extensión</td>
+<td><code>.pi/skills/&lt;name&gt;/</code> clasificado como <code>vendoredBy</code></td>
+<td><code>extensions/&lt;ext&gt;/skills/&lt;name&gt;/</code></td>
+<td><code>npm run sync:skills:vendor:check</code></td>
+<td><code>npm run sync:skills:vendor</code></td>
+</tr>
+<tr>
+<td>Guía para agentes</td>
+<td><code>AGENTS.md</code></td>
+<td><code>CLAUDE.md</code></td>
+<td><code>npm run sync:agents:check</code></td>
+<td><code>npm run sync:agents</code></td>
+</tr>
+<tr>
+<td>Skills Claude de ultracode</td>
+<td><code>.pi/skills/ultracode/</code></td>
+<td><code>.claude/skills/{ultracode,dynamic-workflows}/</code></td>
+<td><code>npm run sync:claude:ultracode:check</code></td>
+<td><code>npm run sync:claude:ultracode</code></td>
+</tr>
+<tr>
+<td>Docs HTML</td>
+<td><code>README.md</code>, <code>docs/**/*.md</code></td>
+<td><code>docs/html/**</code></td>
+<td><code>npm run sync:docs:html:check</code></td>
+<td><code>npm run sync:docs:html</code></td>
+</tr>
+<tr>
+<td>Personas README</td>
+<td><code>.pi/personas/*.json</code></td>
+<td><code>.pi/personas/README.md</code> y HTML</td>
+<td><code>npm run sync:personas:check</code></td>
+<td><code>npm run sync:personas</code></td>
+</tr>
+</tbody></table>
+<p>Los fixes de la tabla son locales, idempotentes y commiteables. Estado global del usuario (por ejemplo <code>~/.claude</code> o instalaciones Pi globales) se reporta como diagnóstico/propose-only: <code>doctor</code> te dice qué correr, pero no lo muta por vos.</p>
 <h2>Estructura del repositorio (extensiones)</h2>
 <p>Cada extensión vive como un mini paquete npm bajo <code>extensions/&lt;name&gt;/</code>:</p>
 <pre><code class="hljs language-text">extensions/&lt;name&gt;/
