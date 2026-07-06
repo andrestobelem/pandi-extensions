@@ -51,6 +51,14 @@ type AgentPromptLinesInput = {
 	access: string | undefined;
 };
 
+type AgentArtifactSections = {
+	access: string | undefined;
+	prompt: string | undefined;
+	stdout: string | undefined;
+	stderr: string | undefined;
+	structuredOutput: string | undefined;
+};
+
 export function resolveAgentArtifactPath(run: WorkflowRunRecord, agent: AgentMonitorModel): string | undefined {
 	if (!agent.artifactPath) return undefined;
 	// artifactPath se origina en events.jsonl no confiable; conténlo dentro de runDir
@@ -321,6 +329,16 @@ async function readAgentArtifactBody(
 	}
 }
 
+function extractAgentArtifactSections(artifactBody: string): AgentArtifactSections {
+	return {
+		access: artifactBody ? extractMarkdownSection(artifactBody, "Access") : undefined,
+		prompt: artifactBody ? extractMarkdownSection(artifactBody, "Prompt") : undefined,
+		stdout: artifactBody ? extractMarkdownSection(artifactBody, "Stdout") : undefined,
+		stderr: artifactBody ? extractMarkdownSection(artifactBody, "Stderr") : undefined,
+		structuredOutput: artifactBody ? extractMarkdownSection(artifactBody, "Structured Output") : undefined,
+	};
+}
+
 // The agent detail document split into the base sub-tab views (Card / Prompt / Output) plus
 // the legacy single-document concatenation (`full`, used by print mode and non-TUI paths).
 export interface AgentViewParts {
@@ -333,11 +351,7 @@ export interface AgentViewParts {
 export async function buildAgentViewParts(run: WorkflowRunRecord, agent: AgentMonitorModel): Promise<AgentViewParts> {
 	const artifactPath = resolveAgentArtifactPath(run, agent);
 	const { artifactBody, artifactError } = await readAgentArtifactBody(artifactPath);
-	const access = artifactBody ? extractMarkdownSection(artifactBody, "Access") : undefined;
-	const prompt = artifactBody ? extractMarkdownSection(artifactBody, "Prompt") : undefined;
-	const stdout = artifactBody ? extractMarkdownSection(artifactBody, "Stdout") : undefined;
-	const stderr = artifactBody ? extractMarkdownSection(artifactBody, "Stderr") : undefined;
-	const structuredOutput = artifactBody ? extractMarkdownSection(artifactBody, "Structured Output") : undefined;
+	const { access, prompt, stdout, stderr, structuredOutput } = extractAgentArtifactSections(artifactBody);
 	const liveStdoutPath = resolveAgentLiveStreamPath(artifactPath, "stdout");
 	const liveStderrPath = resolveAgentLiveStreamPath(artifactPath, "stderr");
 	const liveStdout = await readLiveStreamIfSectionMissing(liveStdoutPath, stdout);
