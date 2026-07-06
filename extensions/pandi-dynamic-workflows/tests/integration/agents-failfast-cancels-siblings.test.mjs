@@ -1,31 +1,31 @@
 #!/usr/bin/env node
 /**
- * Regression: a fail-fast agents() rejection must not orphan its siblings.
+ * Regresión: un rechazo fail-fast de agents() no debe dejar huérfanos a sus siblings.
  *
- * Farley review 2026-07-03, finding #4: when a non-settle agents() branch
- * rejected, mapLimit rejected immediately but did nothing about the rest of
- * the fan-out — the in-flight sibling subagents kept RUNNING to completion
- * (their results discarded) and idle workers kept PICKING UP NEW items, all
- * unobserved, silently burning tokens and maxAgents budget. Visible whenever
- * the workflow catches the rejection and continues (fallback logic).
+ * Review Farley 2026-07-03, hallazgo #4: cuando una rama agents() non-settle
+ * rechazaba, mapLimit rechazaba de inmediato pero no hacía nada con el resto del
+ * fan-out: los subagentes sibling in-flight seguían CORRIENDO hasta completar
+ * (sus resultados se descartaban) y workers idle seguían TOMANDO items NUEVOS, todo
+ * sin observación, quemando tokens y presupuesto maxAgents en silencio. Visible siempre que
+ * el workflow captura el rechazo y continúa (lógica de fallback).
  *
- * Note a subagent that merely exits nonzero RESOLVES with ok:false (it does
- * not reject); the fan-out rejects on real throws — schema validation
- * (schemaOnInvalid "throw"), maxAgents budget, abort — which are exactly the
- * failure modes observed live (schema:bad, budget walls). The failing branch
- * here uses a schema the fake pi can never satisfy.
+ * Notá que un subagente que simplemente sale nonzero RESUELVE con ok:false (no
+ * rechaza); el fan-out rechaza en throws reales: validación de schema
+ * (schemaOnInvalid "throw"), presupuesto maxAgents, abort, que son exactamente los
+ * modos de falla observados en vivo (schema:bad, muros de presupuesto). La rama fallida
+ * acá usa un schema que el pi fake nunca puede satisfacer.
  *
- * Contract pinned here (real Worker + faked pi subprocess, same seam as
+ * Contrato pineado acá (Worker real + subprocess pi fake, la misma costura que
  * race-cancellation.test.mjs):
- *   - agents() still rejects with the ORIGINAL branch error.
- *   - the in-flight sibling receives SIGTERM at failure time (not at run end).
- *   - queued items are never started after the failure.
- *   - settle:true keeps its independent-branches semantics (all run, nulls).
+ *   - agents() todavía rechaza con el error de rama ORIGINAL.
+ *   - el sibling in-flight recibe SIGTERM al momento de falla (no al final del run).
+ *   - los items encolados nunca arrancan después de la falla.
+ *   - settle:true conserva su semántica de ramas independientes (todas corren, nulls).
  *
- * Determinism: the failing branch waits (filesystem barrier) until the sibling
- * has spawned before exiting 1; concurrency 2 with 4 items guarantees items
- * 2/3 are still queued at failure time. The run then sleeps so orphans would
- * have a window to complete/spawn before run-end teardown could mask the bug.
+ * Determinismo: la rama fallida espera (barrera de filesystem) hasta que el sibling
+ * haya spawneado antes de salir 1; concurrency 2 con 4 items garantiza que los items
+ * 2/3 sigan encolados al momento de falla. Luego el run duerme para que los huérfanos tuvieran
+ * una ventana para completar/spawnear antes de que el teardown de fin de run pudiera tapar el bug.
  */
 
 import * as fs from "node:fs/promises";
@@ -38,8 +38,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 const { check, counts } = createChecker();
 
-// The workflow CATCHES the fan-out rejection and keeps the run alive, so orphaned
-// siblings (the bug) have time to complete / spawn before run-end teardown.
+// El workflow CAPTURA el rechazo del fan-out y mantiene vivo el run, así los siblings
+// huérfanos (el bug) tienen tiempo para completar / spawnear antes del teardown de fin de run.
 const WORKFLOW = [
 	"let err = null;",
 	"try { await agents(args.items, { concurrency: 2 }); } catch (e) { err = String((e && e.message) || e); }",
@@ -52,18 +52,18 @@ const SETTLE_WORKFLOW = [
 	"return { nulls: results.filter((r) => r === null).length, total: results.length };",
 ].join("\n");
 
-// A schema the fake pi can never satisfy: the failing branch throws (schemaOnInvalid
-// defaults to "throw"); schemaRetries 0 keeps it to a single attempt.
+// Schema que el pi fake nunca puede satisfacer: la rama fallida hace throw (schemaOnInvalid
+// defaulta a "throw"); schemaRetries 0 lo deja en un único intento.
 const failingItem = (id, need) => ({
 	prompt: `[role:fail-barrier][id:${id}][need:${need}] dud`,
 	schema: { type: "object", properties: { x: { type: "number" } }, required: ["x"] },
 	schemaRetries: 0,
 });
 
-// Roles encoded in the prompt:
-//   [role:fail-barrier][id:X][need:N] -> wait until N `spawned-*` markers exist, then exit 1.
-//   [role:lose][id:X] -> write spawned-X; SIGTERM -> cancelled-X; else complete after 1s (completed-X).
-//   [role:ok][id:X]   -> write spawned-X, emit output, exit 0.
+// Roles codificados en el prompt:
+//   [role:fail-barrier][id:X][need:N] -> espera hasta que existan N marcadores `spawned-*`, luego sale 1.
+//   [role:lose][id:X] -> escribe spawned-X; SIGTERM -> cancelled-X; si no, completa después de 1s (completed-X).
+//   [role:ok][id:X]   -> escribe spawned-X, emite output, sale 0.
 async function writeFakePi(barrierDir, tag) {
 	const fakePi = path.join(barrierDir, `fake-pi-${tag}.cjs`);
 	await fs.writeFile(
