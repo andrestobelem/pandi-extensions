@@ -88,7 +88,7 @@ async function noopWhenAbsent(url) {
 	const handler = await loadHandler(url);
 	const cwd = await freshCwd();
 	const res = await handler(EVENT, { cwd });
-	check("absent: no-op when MEMORY.md missing", res === undefined, JSON.stringify(res));
+	check("absent: no-op cuando falta MEMORY.md", res === undefined, JSON.stringify(res));
 }
 
 async function noopWhenEmpty(url) {
@@ -96,7 +96,7 @@ async function noopWhenEmpty(url) {
 	const cwd = await freshCwd();
 	await writeIndex(cwd, "   \n\t\n");
 	const res = await handler(EVENT, { cwd });
-	check("empty: no-op when index is whitespace", res === undefined, JSON.stringify(res));
+	check("vacío: no-op cuando el índice solo tiene whitespace", res === undefined, JSON.stringify(res));
 }
 
 async function injectsWhenPresent(url) {
@@ -104,24 +104,28 @@ async function injectsWhenPresent(url) {
 	const cwd = await freshCwd();
 	await writeIndex(cwd, "Remember: prefer small commits.");
 	const res = await handler(EVENT, { cwd });
-	check("present: returns a systemPrompt patch", !!res && typeof res.systemPrompt === "string", JSON.stringify(res));
 	check(
-		"present: keeps the base prompt",
+		"presente: devuelve un parche de systemPrompt",
+		!!res && typeof res.systemPrompt === "string",
+		JSON.stringify(res),
+	);
+	check(
+		"presente: conserva el prompt base",
 		!!res && res.systemPrompt.startsWith("BASE_PROMPT"),
 		res?.systemPrompt?.slice(0, 40),
 	);
 	check(
-		"present: includes the memory content",
+		"presente: incluye el contenido de memoria",
 		!!res && res.systemPrompt.includes("prefer small commits"),
 		res?.systemPrompt,
 	);
 	check(
-		"present: wraps content in a single local_memory block",
+		"presente: envuelve el contenido en un único bloque local_memory",
 		!!res && (res.systemPrompt.match(/<\/local_memory>/g) || []).length === 1,
 		res?.systemPrompt,
 	);
 	check(
-		"present: block path points at the folder index",
+		"presente: la ruta del bloque apunta al índice de la carpeta",
 		!!res && res.systemPrompt.includes(`path="${path.join(cwd, ".pi", "memory", "MEMORY.md")}"`),
 		res?.systemPrompt,
 	);
@@ -133,12 +137,12 @@ async function fallsBackToLegacy(url) {
 	await writeLegacy(cwd, "legacy note: use TDD");
 	const res = await handler(EVENT, { cwd });
 	check(
-		"legacy: injects pre-folder .pi/MEMORY.md when folder index absent",
+		"legado: inyecta .pi/MEMORY.md previo a la carpeta cuando falta el índice de carpeta",
 		!!res && res.systemPrompt.includes("legacy note: use TDD"),
 		res?.systemPrompt,
 	);
 	check(
-		"legacy: block path points at the legacy file",
+		"legado: la ruta del bloque apunta al archivo legado",
 		!!res && res.systemPrompt.includes(`path="${path.join(cwd, ".pi", "MEMORY.md")}"`),
 		res?.systemPrompt,
 	);
@@ -151,12 +155,12 @@ async function folderIndexWinsOverLegacy(url) {
 	await writeIndex(cwd, "NEW folder content");
 	const res = await handler(EVENT, { cwd });
 	check(
-		"precedence: folder index injected",
+		"precedencia: se inyecta el índice de carpeta",
 		!!res && res.systemPrompt.includes("NEW folder content"),
 		res?.systemPrompt,
 	);
 	check(
-		"precedence: legacy NOT injected when folder index exists",
+		"precedencia: el legado NO se inyecta cuando existe el índice de carpeta",
 		!!res && !res.systemPrompt.includes("OLD legacy content"),
 		res?.systemPrompt,
 	);
@@ -169,32 +173,44 @@ async function capsIndexForInjection(url) {
 	for (let i = 1; i <= 300; i++) lines.push(`line-${i}`);
 	await writeIndex(cwd, lines.join("\n"));
 	const res = await handler(EVENT, { cwd });
-	check("cap: keeps the first line", !!res && res.systemPrompt.includes("line-1\n"), res?.systemPrompt?.slice(0, 80));
-	check("cap: drops lines past 200", !!res && !res.systemPrompt.includes("line-250"), "line-250 should be dropped");
-	check("cap: marks the index as truncated", !!res && /truncado para la inyección/.test(res.systemPrompt));
+	check(
+		"recorte: conserva la primera línea",
+		!!res && res.systemPrompt.includes("line-1\n"),
+		res?.systemPrompt?.slice(0, 80),
+	);
+	check(
+		"recorte: descarta las líneas posteriores a 200",
+		!!res && !res.systemPrompt.includes("line-250"),
+		"la línea 250 debería descartarse",
+	);
+	check("recorte: marca el índice como truncado", !!res && /truncado para la inyección/.test(res.systemPrompt));
 }
 
 async function listsTopicsButDoesNotInjectThem(url) {
 	const handler = await loadHandler(url);
 	const cwd = await freshCwd();
-	await writeIndex(cwd, "index entrypoint");
+	await writeIndex(cwd, "punto de entrada del índice");
 	await fs.writeFile(path.join(cwd, ".pi", "memory", "debugging.md"), "SECRET_TOPIC_DETAIL only-on-demand");
 	const res = await handler(EVENT, { cwd });
-	check("topics: index still injected", !!res && res.systemPrompt.includes("index entrypoint"), res?.systemPrompt);
 	check(
-		"topics: topic file path is listed",
+		"topics: el índice sigue inyectándose",
+		!!res && res.systemPrompt.includes("punto de entrada del índice"),
+		res?.systemPrompt,
+	);
+	check(
+		"topics: se lista la ruta del archivo de topic",
 		!!res && res.systemPrompt.includes(path.join(cwd, ".pi", "memory", "debugging.md")),
 		res?.systemPrompt,
 	);
 	check(
-		"topics: topic file CONTENT is not injected",
+		"topics: el CONTENIDO del archivo de topic no se inyecta",
 		!!res && !res.systemPrompt.includes("SECRET_TOPIC_DETAIL"),
-		"topic content must stay on-demand",
+		"el contenido del topic debe seguir siendo bajo demanda",
 	);
 }
 
 function requireSystemPrompt(label, res) {
-	check(`${label}: returns a systemPrompt patch`, typeof res?.systemPrompt === "string", JSON.stringify(res));
+	check(`${label}: devuelve un parche de systemPrompt`, typeof res?.systemPrompt === "string", JSON.stringify(res));
 	return typeof res?.systemPrompt === "string" ? res.systemPrompt : undefined;
 }
 
@@ -208,8 +224,8 @@ async function neutralizesFenceBreakout(url) {
 	const systemPrompt = requireSystemPrompt("breakout", res);
 	if (!systemPrompt) return;
 	const closes = (systemPrompt.match(/<\/local_memory>/g) || []).length;
-	check("breakout: exactly one real closing tag (payload neutralized)", closes === 1, `closes=${closes}`);
-	check("breakout: payload close tag is escaped", systemPrompt.includes("&lt;/local_memory"), systemPrompt);
+	check("breakout: exactamente un tag de cierre real (payload neutralizado)", closes === 1, `closes=${closes}`);
+	check("breakout: el tag de cierre del payload se escapa", systemPrompt.includes("&lt;/local_memory"), systemPrompt);
 }
 
 async function doesNotThrowOnDirectory(url) {
@@ -224,8 +240,8 @@ async function doesNotThrowOnDirectory(url) {
 	} catch {
 		threw = true;
 	}
-	check("eisdir: handler does not throw when index is a directory", !threw);
-	check("eisdir: handler no-ops on read failure", res === undefined, JSON.stringify(res));
+	check("eisdir: el handler no lanza cuando el índice es un directorio", !threw);
+	check("eisdir: el handler hace no-op ante un fallo de lectura", res === undefined, JSON.stringify(res));
 }
 
 // ===========================================================================
@@ -237,13 +253,13 @@ async function doesNotThrowOnDirectory(url) {
 async function rememberToolRegistered(url) {
 	const { tools } = await loadExtension(url);
 	const t = tools.get("remember");
-	check("remember: tool registered", !!t);
+	check("remember: tool registrada", !!t);
 	check(
-		"remember: has non-empty promptSnippet",
+		"remember: tiene promptSnippet no vacío",
 		!!t && typeof t.promptSnippet === "string" && t.promptSnippet.length > 0,
 	);
 	check(
-		"remember: has non-empty promptGuidelines",
+		"remember: tiene promptGuidelines no vacías",
 		!!t && Array.isArray(t.promptGuidelines) && t.promptGuidelines.length > 0,
 	);
 	// #3.5 (research §3a): la memoria es un canal de autoridad confiable y reinyectado, así
@@ -251,7 +267,7 @@ async function rememberToolRegistered(url) {
 	// tool/web/retrieved/pasted no confiable).
 	const guide = `${(t?.promptGuidelines ?? []).join("\n")}\n${t?.description ?? ""}`.toLowerCase();
 	check(
-		"remember: guidance carries the anti-injection non-goal (no untrusted/retrieved content)",
+		"remember: la guía incluye el no-objetivo anti-inyección (sin contenido no confiable/recuperado)",
 		/no confiable/.test(guide) && /(tool|web|pegado)/.test(guide) && /nunca/.test(guide),
 		guide.slice(0, 220),
 	);
@@ -263,21 +279,24 @@ async function rememberCreatesAndAppends(url) {
 	const res = await tools
 		.get("remember")
 		.execute("tc1", { note: "prefer small commits" }, undefined, undefined, { cwd });
-	check("remember: details.remembered=true on first save", !!res && res.details && res.details.remembered === true);
+	check(
+		"remember: details.remembered=true en el primer guardado",
+		!!res && res.details && res.details.remembered === true,
+	);
 	const mem = await readMem(cwd);
-	check("remember: managed block created", /pi:remember:begin[\s\S]*pi:remember:end/.test(mem));
-	check("remember: note written as a dated bullet", /- \d{4}-\d{2}-\d{2}: prefer small commits/.test(mem));
+	check("remember: se crea el bloque gestionado", /pi:remember:begin[\s\S]*pi:remember:end/.test(mem));
+	check("remember: la nota se escribe como viñeta con fecha", /- \d{4}-\d{2}-\d{2}: prefer small commits/.test(mem));
 
 	// Una segunda nota distinta se agrega DENTRO del mismo bloque gestionado (un encabezado, un par).
 	await tools.get("remember").execute("tc2", { note: "use TDD" }, undefined, undefined, { cwd });
 	const mem2 = await readMem(cwd);
 	check(
-		"remember: second note appended alongside the first",
+		"remember: la segunda nota se agrega junto a la primera",
 		/use TDD/.test(mem2) && /prefer small commits/.test(mem2),
 	);
-	check("remember: single managed heading", (mem2.match(/Memoria del agente/g) || []).length === 1);
+	check("remember: un solo encabezado gestionado", (mem2.match(/Memoria del agente/g) || []).length === 1);
 	check(
-		"remember: single begin/end marker pair",
+		"remember: un solo par de marcadores begin/end",
 		(mem2.match(/pi:remember:begin/g) || []).length === 1 && (mem2.match(/pi:remember:end/g) || []).length === 1,
 	);
 }
@@ -288,7 +307,7 @@ async function rememberRoundTripsToSystemPrompt(url) {
 	await tools.get("remember").execute("tc1", { note: "the build uses esbuild" }, undefined, undefined, { cwd });
 	const res = await handler(EVENT, { cwd });
 	check(
-		"remember: round-trips into the injected system prompt",
+		"remember: vuelve al system prompt inyectado",
 		!!res && res.systemPrompt.includes("the build uses esbuild"),
 		res?.systemPrompt,
 	);
@@ -302,14 +321,17 @@ async function rememberPreservesHumanContent(url) {
 	await tools.get("remember").execute("tc1", { note: "agent note" }, undefined, undefined, { cwd });
 	const mem = await readMem(cwd);
 	check(
-		"remember: preserves human-curated content",
+		"remember: preserva el contenido curado por humanos",
 		mem.includes("human-curated note") && mem.includes("## Preferences"),
 	);
 	check(
-		"remember: appends managed block AFTER human content",
+		"remember: agrega el bloque gestionado DESPUÉS del contenido humano",
 		mem.indexOf("human-curated note") < mem.indexOf("pi:remember:begin"),
 	);
-	check("remember: agent note recorded in the managed block", /- \d{4}-\d{2}-\d{2}: agent note/.test(mem));
+	check(
+		"remember: la nota del agente queda registrada en el bloque gestionado",
+		/- \d{4}-\d{2}-\d{2}: agent note/.test(mem),
+	);
 }
 
 // Migración de una sola vez: un índice nuevo se inicializa desde el .pi/MEMORY.md previo
@@ -321,12 +343,18 @@ async function rememberSeedsFromLegacy(url) {
 	await writeLegacy(cwd, human);
 	await tools.get("remember").execute("tc1", { note: "agent note" }, undefined, undefined, { cwd });
 	const mem = await readMem(cwd);
-	check("migrate: folder index seeded with legacy human note", mem.includes("legacy human note"));
-	check("migrate: agent note appended in the managed block", /- \d{4}-\d{2}-\d{2}: agent note/.test(mem));
-	const legacyStillThere = await fs.readFile(path.join(cwd, ".pi", "MEMORY.md"), "utf8");
-	check("migrate: legacy file left intact (not deleted)", legacyStillThere === human);
 	check(
-		"migrate: legacy file not mutated (no managed block written to it)",
+		"migración: el índice de carpeta se inicializa con la nota humana heredada",
+		mem.includes("legacy human note"),
+	);
+	check(
+		"migración: la nota del agente se agrega en el bloque gestionado",
+		/- \d{4}-\d{2}-\d{2}: agent note/.test(mem),
+	);
+	const legacyStillThere = await fs.readFile(path.join(cwd, ".pi", "MEMORY.md"), "utf8");
+	check("migración: el archivo legado queda intacto (no se borra)", legacyStillThere === human);
+	check(
+		"migración: el archivo legado no se muta (no se escribe un bloque gestionado)",
 		!/pi:remember:begin/.test(legacyStillThere),
 	);
 }
@@ -340,12 +368,15 @@ async function rememberWritesTopicFile(url) {
 		.execute("tc1", { note: "reproduce with --inspect", topic: "Debugging" }, undefined, undefined, { cwd });
 	check("topic: remembered=true", !!res && res.details && res.details.remembered === true);
 	check(
-		"topic: details.path points at .pi/memory/debugging.md",
+		"topic: details.path apunta a .pi/memory/debugging.md",
 		!!res && res.details.path === path.join(cwd, ".pi", "memory", "debugging.md"),
 	);
 	const topic = await fs.readFile(path.join(cwd, ".pi", "memory", "debugging.md"), "utf8");
-	check("topic: note written to the topic file", /- \d{4}-\d{2}-\d{2}: reproduce with --inspect/.test(topic));
-	check("topic: index NOT created by a topic write", !existsSync(path.join(cwd, ".pi", "memory", "MEMORY.md")));
+	check(
+		"topic: la nota se escribe en el archivo de topic",
+		/- \d{4}-\d{2}-\d{2}: reproduce with --inspect/.test(topic),
+	);
+	check("topic: una escritura con topic NO crea el índice", !existsSync(path.join(cwd, ".pi", "memory", "MEMORY.md")));
 }
 
 // Los slugs de topic nunca pueden escaparse de .pi/memory/ (el path traversal es estructuralmente imposible).
@@ -355,21 +386,24 @@ async function rememberTopicSlugIsSafe(url) {
 	const res = await tools
 		.get("remember")
 		.execute("tc1", { note: "x", topic: "../../etc/passwd" }, undefined, undefined, { cwd });
-	check("slug: traversal topic still remembered (sanitized)", !!res && res.details && res.details.remembered === true);
-	const memDir = path.join(cwd, ".pi", "memory");
-	check("slug: written path stays inside .pi/memory/", !!res && res.details.path.startsWith(memDir + path.sep));
 	check(
-		"slug: sanitized to a single-segment file (no separators)",
+		"slug: el topic con traversal igual se recuerda (sanitizado)",
+		!!res && res.details && res.details.remembered === true,
+	);
+	const memDir = path.join(cwd, ".pi", "memory");
+	check("slug: la ruta escrita queda dentro de .pi/memory/", !!res && res.details.path.startsWith(memDir + path.sep));
+	check(
+		"slug: se sanitiza a un archivo de un solo segmento (sin separadores)",
 		!!res && !path.relative(memDir, res.details.path).includes(path.sep),
 	);
 	check(
-		"slug: no file escaped to .pi/ root",
+		"slug: ningún archivo salió al root de .pi/",
 		!existsSync(path.join(cwd, ".pi", "passwd")) && !existsSync(path.join(cwd, "passwd")),
 	);
 	// Se rechaza un topic que se sanitiza hasta no dejar nada.
 	const bad = await tools.get("remember").execute("tc2", { note: "y", topic: "../" }, undefined, undefined, { cwd });
 	check(
-		"slug: empty-after-sanitize topic is rejected",
+		"slug: el topic vacío tras sanitizar se rechaza",
 		!!bad && bad.details && bad.details.isError === true && bad.details.remembered === false,
 	);
 }
@@ -381,16 +415,16 @@ async function rememberRejectsIndexTopicCollision(url) {
 		.get("remember")
 		.execute("tc1", { note: "x", topic: "memory" }, undefined, undefined, { cwd });
 	check(
-		"topic: reserved memory slug is rejected",
+		"topic: el slug reservado memory se rechaza",
 		!!res && res.details && res.details.isError === true && res.details.remembered === false,
 		JSON.stringify(res?.details),
 	);
 	check(
-		"topic: reserved memory slug does not create the injected index",
+		"topic: el slug reservado memory no crea el índice inyectado",
 		!existsSync(path.join(cwd, ".pi", "memory", "MEMORY.md")),
 	);
 	check(
-		"topic: reserved memory slug does not create a lowercase shadow index",
+		"topic: el slug reservado memory no crea un índice sombra en minúsculas",
 		!existsSync(path.join(cwd, ".pi", "memory", "memory.md")),
 	);
 }
@@ -402,12 +436,12 @@ async function rememberEscapesManagedBlockSentinel(url) {
 	await tools.get("remember").execute("tc1", { note: payload }, undefined, undefined, { cwd });
 	const mem = await readMem(cwd);
 	check(
-		"remember: literal managed END sentinel from note is escaped",
+		"remember: el sentinel END literal de la nota se escapa",
 		!mem.includes("safe note <!-- pi:remember:end --> stray tail") && mem.includes("&lt;!-- pi:remember:end --&gt;"),
 		mem,
 	);
 	check(
-		"remember: note sentinel cannot create an extra managed END marker",
+		"remember: el sentinel de la nota no puede crear un marcador END extra",
 		(mem.match(/<!-- pi:remember:end -->/g) || []).length === 1,
 		mem,
 	);
@@ -419,11 +453,14 @@ async function rememberIsIdempotent(url) {
 	await tools.get("remember").execute("tc1", { note: "dup note" }, undefined, undefined, { cwd });
 	const res2 = await tools.get("remember").execute("tc2", { note: "dup note" }, undefined, undefined, { cwd });
 	check(
-		"remember: duplicate is a no-op (remembered=false)",
+		"remember: el duplicado es no-op (remembered=false)",
 		!!res2 && res2.details && res2.details.remembered === false,
 	);
 	const mem = await readMem(cwd);
-	check("remember: duplicate note stored only once", (mem.match(/- \d{4}-\d{2}-\d{2}: dup note/g) || []).length === 1);
+	check(
+		"remember: la nota duplicada se guarda una sola vez",
+		(mem.match(/- \d{4}-\d{2}-\d{2}: dup note/g) || []).length === 1,
+	);
 }
 
 async function rememberFailsSafeOnDirectory(url) {
@@ -437,8 +474,11 @@ async function rememberFailsSafeOnDirectory(url) {
 	} catch {
 		threw = true;
 	}
-	check("remember: does not throw when index is a directory", !threw);
-	check("remember: reports an error result instead of crashing", !!res && res.details && res.details.isError === true);
+	check("remember: no lanza cuando el índice es un directorio", !threw);
+	check(
+		"remember: devuelve un resultado de error en lugar de crashear",
+		!!res && res.details && res.details.isError === true,
+	);
 }
 
 async function main() {

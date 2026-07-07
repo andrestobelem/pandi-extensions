@@ -1,11 +1,12 @@
 /**
- * Single-writer guard for a git worktree.
+ * Guard de un solo escritor para un worktree de git.
  *
- * The guard is intentionally conservative: the first mutating Pi action in a
- * worktree acquires a short-heartbeat lease under .pi/. A second active Pi
- * session in the same git worktree is blocked before built-in mutating tools (or
- * direct user bash) can run. Read-only actions and the `/worktree open` escape
- * hatch remain available so a person can continue in a separate worktree.
+ * El guard es intencionalmente conservador: la primera acción mutante de Pi en
+ * un worktree toma un lease con heartbeat corto bajo .pi/. Una segunda sesión
+ * activa de Pi en el mismo worktree queda bloqueada antes de que puedan correr
+ * tools mutantes internas (o bash directo del usuario). Las acciones de solo
+ * lectura y el escape `/worktree open` siguen disponibles para continuar en un
+ * worktree aparte.
  */
 
 import { randomUUID } from "node:crypto";
@@ -117,10 +118,10 @@ export async function ensureWorktreeWriterForCommand(
 	ctx: ExtensionContext,
 	intent: { action: string; command: string; dryRun?: boolean },
 ): Promise<LeaseDecision> {
-	// Slash commands are invoked in-process, so they need an explicit guard only
-	// when the opt-in writer guard is enabled. Keep list/set/help read-only,
-	// prune --dry-run read-only, and add/open as the documented escape hatch for
-	// moving work into a separate worktree.
+	// Los slash commands se invocan en proceso, así que necesitan un guard
+	// explícito solo cuando el guard opcional está activado. Mantené list/set/help
+	// como solo lectura, prune --dry-run también, y add/open como salida
+	// documentada para mover el trabajo a otro worktree.
 	if (!isWorktreeWriterGuardEnabled() || !isGuardedWorktreeCommand(intent.action, intent.dryRun)) {
 		return { allowed: true };
 	}
@@ -345,13 +346,16 @@ async function withLeaseLock(leasePath: string, fn: () => Promise<LeaseDecision>
 			break;
 		} catch (err) {
 			if (!isNodeErrno(err, "EEXIST")) {
-				return { allowed: false, reason: `No se pudo tomar el lock del writer de worktree: ${errorMessage(err)}` };
+				return {
+					allowed: false,
+					reason: `No se pudo tomar el bloqueo de escritura del worktree: ${errorMessage(err)}`,
+				};
 			}
 			if (await removeStaleLock(lockPath)) continue;
 			if (Date.now() >= deadline) {
 				return {
 					allowed: false,
-					reason: `El lock del writer de worktree está ocupado; reintentá en unos segundos o continuá en otro worktree con /worktree open <nombre>.`,
+					reason: `El bloqueo de escritura del worktree está ocupado; reintentá en unos segundos o seguí en otro worktree con /worktree open <nombre>.`,
 				};
 			}
 			await sleep(LOCK_RETRY_DELAY_MS);
@@ -477,13 +481,13 @@ function sessionIdentity(ctx: ExtensionContext): SessionIdentity {
 
 function conflictReason(lease: WriterLease, worktreeRoot: string, intent: MutationIntent): string {
 	const owner = lease.sessionName || lease.sessionId || lease.id;
-	const updated = lease.updatedAt ? ` last heartbeat ${lease.updatedAt}` : "";
+	const updated = lease.updatedAt ? ` último latido ${lease.updatedAt}` : "";
 	const action = intent.command ? `comando: ${intent.command}` : `tool: ${intent.toolName ?? intent.kind}`;
 	return [
-		`Single-writer guard: este worktree ya tiene un writer activo (${owner}, pid ${lease.pid};${updated}).`,
+		`Guard de un solo escritor: este worktree ya tiene un escritor activo (${owner}, pid ${lease.pid};${updated}).`,
 		`Worktree: ${worktreeRoot}`,
 		`Acción bloqueada: ${action}`,
-		'Para continuar sin contaminar cambios/tests/commits, abrí una sesión Pi en otro worktree: /worktree open <nombre> (o pedime usar git_worktree con action="open").',
+		'Para seguir sin contaminar cambios/tests/commits, abrí una sesión Pi en otro worktree: /worktree open <nombre> (o pedime usar git_worktree con action="open").',
 	].join("\n");
 }
 

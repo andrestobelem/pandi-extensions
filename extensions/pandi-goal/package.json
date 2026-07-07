@@ -1,7 +1,7 @@
 {
 	"name": "@pandi-coding-agent/pandi-goal",
 	"version": "0.2.6",
-	"description": "Pi extension for goal-directed persistent agent loops with verification.",
+	"description": "Extensión de Pi para loops persistentes dirigidos por objetivos con verificación.",
 	"license": "MIT",
 	"repository": {
 		"type": "git",

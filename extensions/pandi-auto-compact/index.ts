@@ -470,7 +470,7 @@ export default function autoCompact(pi: ExtensionAPI) {
 	});
 
 	pi.registerCommand("auto-compact", {
-		description: `Configurá la auto-compactación relativa de contexto (habilitada por default al ${DEFAULT_THRESHOLD_PERCENT}% para Claude/otros modelos, ${CODEX_DEFAULT_THRESHOLD_PERCENT}% para Codex). Corré el comando sin argumentos para elegir una configuración desde un menú, o pasá status|on|off|run|bar [on|off]|summary [on|off]|<1-99 percent>.`,
+		description: `Configurá la auto-compactación relativa de contexto (habilitada por defecto al ${DEFAULT_THRESHOLD_PERCENT}% para Claude/otros modelos, ${CODEX_DEFAULT_THRESHOLD_PERCENT}% para Codex). Corré el comando sin argumentos para elegir una configuración desde un menú, o pasá status|on|off|run|bar [on|off]|summary [on|off]|<1-99 percent>.`,
 		getArgumentCompletions: (prefix: string) => {
 			const needle = prefix.trim().toLowerCase();
 			const items = needle
@@ -485,7 +485,7 @@ export default function autoCompact(pi: ExtensionAPI) {
 				const thresholdSource = thresholdPercentOverride === undefined ? "predeterminado" : "personalizado";
 				notify(
 					ctx,
-					`La auto-compactación de contexto está ${enabled ? "habilitada" : "deshabilitada"}; threshold: ${thresholdPercent}% (${thresholdSource}); bar: ${showBar ? "on" : "off"}; summary: ${fastSummaryEnabled ? "on" : "off"} (modelo ${fastSummaryModelOverride ?? (isCodexModel(ctx.model) ? CODEX_FAST_SUMMARY_MODEL : DEFAULT_FAST_SUMMARY_MODEL)}, max ${fastSummaryMaxTokens} tokens); snapshots: ${snapshotsEnabled ? "on" : "off"} (mantiene ${snapshotKeep}); clear-tools: ${clearToolResults ? "on" : "off"} (mantiene ${clearKeepRecent}, >=${clearMinChars} caracteres)`,
+					`La auto-compactación de contexto está ${enabled ? "habilitada" : "deshabilitada"}; umbral: ${thresholdPercent}% (${thresholdSource}); barra (bar): ${showBar ? "on" : "off"}; resumen (summary): ${fastSummaryEnabled ? "on" : "off"} (modelo ${fastSummaryModelOverride ?? (isCodexModel(ctx.model) ? CODEX_FAST_SUMMARY_MODEL : DEFAULT_FAST_SUMMARY_MODEL)}, máximo ${fastSummaryMaxTokens} tokens); instantáneas (snapshot): ${snapshotsEnabled ? "on" : "off"} (mantiene ${snapshotKeep}); limpieza de tools (clear-tools): ${clearToolResults ? "on" : "off"} (mantiene ${clearKeepRecent}, >=${clearMinChars} caracteres)`,
 					"info",
 				);
 				return;

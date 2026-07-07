@@ -1,121 +1,114 @@
 # @pandi-coding-agent/pandi-container
 
-Run Linux commands in an isolated micro-VM instead of on your Mac directly. This
-extension wraps [Apple `container`](https://github.com/apple/container) so a Pi
-session can spin up disposable or persistent Linux sandboxes — handy for
-untrusted commands, one-off tooling, or anything you don't want touching your
-host filesystem. Two surfaces share the same argv-only spawn path (never a
-shell string), so image refs, machine names, and commands can never inject a
-shell: `/container` (interactive, human) and `container_sandbox` (explicit
-actions, model-callable, no surprise deletes).
+Ejecutá comandos Linux en una micro-VM aislada en lugar de hacerlo directo sobre tu Mac. Esta extensión envuelve [Apple `container`](https://github.com/apple/container) para que una sesión de Pi pueda crear sandboxes Linux desechables o persistentes: útil para comandos no confiables, herramientas puntuales o cualquier cosa que no quieras tocar en el filesystem del host. Las dos superficies comparten el mismo spawn con argv solamente (nunca un string de shell), así que las referencias de imagen, los nombres de máquina y los comandos no pueden inyectar shell: `/container` (interactivo, humano) y `container_sandbox` (acciones explícitas, invocable por el modelo, sin borrados sorpresivos).
 
-## Quickstart
+## Inicio rápido
 
 ```bash
-/container create alpine:latest dev --size small   # small 2cpu/1G Linux machine
-/container run dev -- uname -a                     # run a command inside it
-/container remove dev                              # clean up when done
+/container create alpine:latest dev --size small   # máquina Linux pequeña: 2 CPU / 1G
+/container run dev -- uname -a                      # ejecuta un comando dentro de ella
+/container remove dev                               # limpiá cuando termines
 ```
 
-## Install
+## Instalación
 
-From npm:
+Desde npm:
 
 ```bash
 pi install npm:@pandi-coding-agent/pandi-container
 ```
 
-From this repository:
+Desde este repositorio:
 
 ```bash
-pi install ./extensions/pandi-container          # global (your user)
-pi install -l ./extensions/pandi-container       # project-local
-pi --no-extensions -e ./extensions/pandi-container   # one-off trial, nothing else loaded
+pi install ./extensions/pandi-container             # global (tu usuario)
+pi install -l ./extensions/pandi-container          # local al proyecto
+pi --no-extensions -e ./extensions/pandi-container   # prueba puntual, sin cargar nada más
 ```
 
-## Commands
+## Comandos
 
-| Command | What it does |
+| Comando | Qué hace |
 | --- | --- |
-| `/container` | Bare invocation opens an interactive action selector (falls back to `status` off-TUI). |
-| `/container status` | Show subsystem + machine overview. |
-| `/container list` | List container machines. |
-| `/container create <image> [name] [--size <tier>]` | Create a machine (e.g. `alpine:latest dev --size small`). |
-| `/container run <machine> -- <cmd...>` | Run a command inside a machine, e.g. `/container run dev -- uname -a`. |
-| `/container stop [name]` | Stop a machine (the default machine if omitted). |
-| `/container remove <name>` | Delete a machine; asks for confirmation in a TUI first. |
-| `container_sandbox` | Model tool: same actions (`status`, `list`, `create`, `run`, `stop`, `remove`) — see below. |
+| `/container` | Sin argumentos abre un selector interactivo de acciones (si no hay TUI, cae a `status`). |
+| `/container status` | Muestra el resumen del subsistema y las máquinas. |
+| `/container list` | Lista las máquinas de contenedor. |
+| `/container create <image> [name] [--size <tier>]` | Crea una máquina (p. ej. `alpine:latest dev --size small`). |
+| `/container run <machine> -- <cmd...>` | Ejecuta un comando dentro de una máquina, p. ej. `/container run dev -- uname -a`. |
+| `/container stop [name]` | Detiene una máquina (la default si se omite). |
+| `/container remove <name>` | Elimina una máquina; pide confirmación en la TUI antes. |
+| `container_sandbox` | Tool para el modelo: mismas acciones (`status`, `list`, `create`, `run`, `stop`, `remove`) — ver abajo. |
 
-## How it works
+## Cómo funciona
 
-The `container_sandbox` tool takes an `action` plus:
+La tool `container_sandbox` recibe una acción (`action`) más:
 
-| Parameter | Meaning |
+| Parámetro | Significado |
 | --- | --- |
-| `name` | Machine name (create/stop/remove, or run target). |
-| `image` | OCI image (create, or ephemeral run), e.g. `alpine:latest`. |
-| `command` | Argv array for `run`, e.g. `["uname","-a"]`. |
-| `machine` | Existing machine to run inside (else ephemeral via `image`). |
-| `tier` | Named size preset for `create` or ephemeral `run` — see [Size tiers](#size-tiers). |
-| `workdir` | For `run` only: working directory inside the container. |
-| `cpus`, `memory` | For `create`, or for ephemeral `run` (`image`, not `machine`): explicit values override `tier`. Ignored when `run` targets an existing `machine`. |
-| `homeMount` (`ro`\|`rw`\|`none`), `setDefault` | For `create` only. |
-| `force` | Required for `remove`. |
+| `name` | Nombre de la máquina (create/stop/remove, o destino de run). |
+| `image` | Imagen OCI (create, o run efímero), por ejemplo `alpine:latest`. |
+| `command` | Array argv para `run`, por ejemplo `["uname", "-a"]`. |
+| `machine` | Máquina existente donde ejecutar (si no, se usa un contenedor efímero vía `image`). |
+| `tier` | Preset de tamaño con nombre para `create` o `run` efímero — ver [Niveles de tamaño](#niveles-de-tamaño). |
+| `workdir` | Solo para `run`: directorio de trabajo dentro del contenedor. |
+| `cpus`, `memory` | Para `create`, o para `run` efímero (`image`, no `machine`): los valores explícitos pisan `tier`. Se ignoran cuando `run` apunta a una `machine` existente. |
+| `homeMount` (`ro`\|`rw`\|`none`), `setDefault` | Solo para `create`. |
+| `force` | Requerido para `remove`. |
 
-It returns a text summary plus structured `details` (the parsed machine list, the created name, the run target/exit code, etc.).
+Devuelve un resumen en texto más `details` estructurados (la lista de máquinas parseada, el nombre creado, el destino/exit code del run, etc.).
 
-### Persistent machine vs. ephemeral container
+### Máquina persistente vs. contenedor efímero
 
-| Use... | When | `run` params |
+| Usá... | Cuándo | Parámetros de `run` |
 | --- | --- | --- |
-| a persistent machine | the sandbox should survive between commands; mirrors your macOS home/cwd into Linux (edit on macOS, run in Linux) | `machine` (created earlier via `create`) |
-| an ephemeral container | a one-shot command; equivalent to `container run --rm`, removed automatically after it exits (tool only — `/container run` targets a machine) | `image` |
+| una máquina persistente | la sandbox debe sobrevivir entre comandos; refleja tu home/cwd de macOS dentro de Linux (editás en macOS, ejecutás en Linux) | `machine` (creada antes con `create`) |
+| un contenedor efímero | un comando de una sola vez; equivalente a `container run --rm`, se elimina automáticamente al terminar (solo en la tool — `/container run` apunta a una máquina) | `image` |
 
 ```jsonc
-// run inside an existing persistent machine
+// ejecuta dentro de una máquina persistente existente
 { "action": "run", "machine": "dev", "command": ["uname", "-sr"] }
 
-// run in a fresh ephemeral container (removed after it exits)
+// ejecuta en un contenedor efímero nuevo (se elimina al terminar)
 { "action": "run", "image": "alpine:latest", "command": ["echo", "hello"] }
 ```
 
-## Size tiers
+## Niveles de tamaño
 
-Apple `container` v1.0.0 defaults `machine create --memory` to **half of the host's RAM** (e.g. ~18G on a 36GB machine) and leaves the `--cpus` default undocumented (`container machine create --help`); ephemeral `run`'s `-c`/`-m` defaults are likewise undocumented. Half the host RAM is a lot for a sandbox, so the extension ships named presets:
+Apple `container` v1.0.0 define `machine create --memory` por defecto en **la mitad de la RAM del host** (por ejemplo, ~18G en una máquina de 36GB) y deja sin documentar el valor por defecto de `--cpus` (`container machine create --help`); los valores por defecto de `run` efímero para `-c`/`-m` tampoco están documentados. La mitad de la RAM del host es mucho para una sandbox, así que la extensión trae presets con nombre:
 
-| Tier | CPUs | Memory | Valid for |
+| Nivel | CPUs | Memoria | Válido para |
 | --- | --- | --- | --- |
-| `micro` | 1 | 256M | ephemeral `run` only |
-| `tiny` | 2 | 512M | ephemeral `run` only |
-| `small` | 2 | 1G | `create` + ephemeral `run` |
-| `medium` | 4 | 2G | `create` + ephemeral `run` |
-| `large` | 8 | 4G | `create` + ephemeral `run` |
+| `micro` | 1 | 256M | solo `run` efímero |
+| `tiny` | 2 | 512M | solo `run` efímero |
+| `small` | 2 | 1G | `create` + `run` efímero |
+| `medium` | 4 | 2G | `create` + `run` efímero |
+| `large` | 8 | 4G | `create` + `run` efímero |
 
-The ladder is rebased on a 256M `micro`, doubling memory per tier. Apple's virtualization stack enforces a hard **200 MiB minimum** per VM (`minimum memory amount allowed is 200 MiB`); a real `npm i -g @earendil-works/pi-coding-agent` + `pi --version` was verified inside a 200M VM at ~114MB RSS, so 256M comfortably runs small Node/CLI workloads.
+La escalera arranca en `micro` con 256M y duplica la memoria en cada nivel. La stack de virtualización de Apple impone un mínimo duro de **200 MiB** por VM (`minimum memory amount allowed is 200 MiB`); se verificó un `npm i -g @earendil-works/pi-coding-agent` real y `pi --version` dentro de una VM de 200M con ~114MB de RSS, así que 256M alcanza cómodo para cargas chicas de Node/CLI.
 
-- **Opt-in**: with no `tier` and no explicit `cpus`/`memory`, no flags are emitted and the CLI keeps its own defaults (identical behavior to before tiers existed).
-- **Precedence**: explicit `cpus`/`memory` override the tier, field by field.
-- **Scope**: tiers apply to `create` (machine) and to ephemeral image `run`s only. They do **not** apply to `run` inside an existing machine — its resources are fixed at creation by the upstream CLI.
-- **Two different CLI floors** (both measured on v1.0.0): ephemeral `run` bottoms out at **200 MiB**, but `machine create` requires **at least 1G** (real error: `invalid memory value '256mb'. Must be greater than 1gb`). The extension refuses `micro`/`tiny` for `create` with a bounded error before spawning anything.
+- **Opt-in**: sin `tier` y sin `cpus`/`memory` explícitos, no se emite ninguna flag y la CLI conserva sus defaults (igual que antes de los niveles).
+- **Precedencia**: `cpus`/`memory` explícitos pisan al `tier`, campo por campo.
+- **Alcance**: los niveles aplican a `create` (máquina) y a `run` efímero por imagen solamente. No aplican a `run` dentro de una máquina existente: sus recursos quedan fijados al crearla con la CLI upstream.
+- **Dos pisos distintos de la CLI** (ambos medidos en v1.0.0): `run` efímero baja hasta **200 MiB**, pero `machine create` exige **al menos 1G** (error real: `invalid memory value '256mb'. Must be greater than 1gb`). La extensión rechaza `micro`/`tiny` para `create` con un error acotado antes de lanzar nada.
 
 ```jsonc
-// tool: create a small machine
+// tool: crea una máquina pequeña
 { "action": "create", "image": "alpine:latest", "name": "dev", "tier": "small" }
 
-// tool: ephemeral run with a tier (emits --cpus 2 --memory 1G)
+// tool: run efímero con nivel (emite --cpus 2 --memory 1G)
 { "action": "run", "image": "alpine:latest", "tier": "small", "command": ["uname", "-a"] }
 ```
 
-Command equivalent: `/container create alpine:latest dev --size small` (alias `--tier`).
+Equivalente en comando: `/container create alpine:latest dev --size small` (alias `--tier`).
 
-## Limitations & safety notes
+## Limitaciones y notas de seguridad
 
-- Apple `container` requires **macOS on Apple Silicon** (arm64); macOS 26 recommended. On an unsupported host the extension returns a single bounded message instead of failing obscurely.
-- Setup needed before use: the CLI (`brew install container`), a configured kernel (`container system kernel set --recommended`), and a booted subsystem (`container system start`).
-- The tool never deletes by default: `remove` only proceeds when `force: true` is passed explicitly. The `/container remove` command confirms in a TUI first.
-- Commands run inside the VM are passed as an argv array — no shell interpolation on the host.
-- Each Apple `container` CLI call is bounded by a 120s timeout. Override with `PI_CONTAINER_TIMEOUT_MS` for slow image pulls or long-running sandbox commands.
+- Apple `container` requiere **macOS en Apple Silicon** (arm64); macOS 26 está recomendado. En un host no compatible, la extensión devuelve un solo mensaje acotado en vez de fallar de forma opaca.
+- Antes de usarla hay que preparar la CLI (`brew install container`), un kernel configurado (`container system kernel set --recommended`) y un subsistema iniciado (`container system start`).
+- La tool nunca borra por defecto: `remove` solo avanza cuando se pasa `force: true` de forma explícita. El comando `/container remove` confirma primero en la TUI.
+- Los comandos que corren dentro de la VM se pasan como array argv: no hay interpolación de shell en el host.
+- Cada llamada a la CLI de Apple `container` tiene un timeout de 120s. Se puede sobreescribir con `PI_CONTAINER_TIMEOUT_MS` para pulls lentos o comandos largos dentro del sandbox.
 
-## Related
+## Relacionado
 
-For the full bundle of extensions and skills, install the repository root instead.
+Para instalar todo el paquete de extensiones y skills, instalá en su lugar la raíz del repositorio.

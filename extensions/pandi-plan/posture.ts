@@ -1,7 +1,7 @@
 /**
  * Postura de ejecución de `/plan`.
  *
- * Estas banderas no son el estado completo del plan: son los knobs que cambian
+ * Estas banderas no son el estado completo del plan: son los controles que cambian
  * cómo se planifica y qué ocurre después de `submit_plan`. Mantenerlas en un
  * módulo leaf evita que prompts/flags/index compartan el concepto vía imports
  * accidentales entre sí.
@@ -19,13 +19,13 @@ export interface PlanPosture {
 /** Alias histórico: en las superficies de comando/tool estas posturas se reciben como flags. */
 export type PlanFlags = PlanPosture;
 
-/** Postura resuelta: todos los knobs tienen un valor concreto. */
+/** Postura resuelta: todos los controles tienen un valor concreto. */
 export type ResolvedPlanPosture = Required<PlanPosture>;
 
 /**
  * En sesiones con aprobación humana disponible, plan-only no aplica.
  *
- * Preserva los knobs ultracode y devuelve una copia para que el llamador no dependa
+ * Preserva los controles ultracode y devuelve una copia para que el llamador no dependa
  * de mutar el objeto resuelto por `resolvePlanFlags`.
  */
 export function forceInteractiveApprovalPosture(posture: ResolvedPlanPosture): ResolvedPlanPosture {

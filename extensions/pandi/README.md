@@ -1,51 +1,51 @@
 # @pandi-coding-agent/pandi
 
-Pandi 🐼 is a panda mascot for Pi: a themed splash header, an animated "thinking" indicator, and a gentle persona — in the spirit of Claude Code's character, but as a panda. Reach for it when you want your terminal session to feel more alive without changing how Pi actually works.
+Pandi 🐼 es la mascota panda de Pi: agrega un encabezado de presentación temático, un indicador animado de “pensando” y una persona suave. Es útil cuando querés que la terminal se sienta más viva sin cambiar cómo funciona Pi.
 
 ```text
 /pandi face
 ```
 
-That cycles the working indicator to the next of 5 panda faces (persisted across sessions) and shows a live sample, e.g. `ʕ ◕ᴥ◕ ʔ Estilo ojitos (guardado).`
+Ese comando pasa el indicador al siguiente de los 5 rostros panda (se conserva entre sesiones) y muestra una muestra en vivo, por ejemplo: `ʕ ◕ᴥ◕ ʔ Estilo ojitos (guardado).`
 
-## What you get
+## Qué incluye
 
-- Startup splash header: a block-art panda face with name and tagline beside it. The palette adapts to your theme (light/dark) so the face stays visible on any terminal background.
-- Animated working indicator while Pi thinks, with 5 face styles cycled via `/pandi face`: `claude` alternates `(●  ●)` with `ʕ •ᴥ• ʔ` (plus `◆` glints), `kaomoji` `ʕ •ᴥ• ʔ`, `ojitos` `ʕ ◕ᴥ◕ ʔ`, `decidido` `ʕ •̀ᴥ•́ ʔ`, and `gatuno` `(=◕ᴥ◕=)`. Eyes use semantic theme colors (`ojitos`→`success`, the rest→`accent`).
-- A playful verb that rotates each turn, plus an occasional meme-quote easter egg.
-- A `◆ Pandi` status entry in the footer.
-- A persona in the system prompt: while Pandi is on, a `<pandi_persona>` block (gentle/zen tone; creative, didactic and concise character; an occasional 🐼 signature) is appended to the system prompt. `/pandi off` removes it and restores the default persona.
+- Encabezado de arranque: una cara panda en block-art, con nombre y frase al lado. La paleta se adapta al tema claro/oscuro para que la cara siga viéndose sobre cualquier fondo de terminal.
+- Indicador de trabajo animado mientras Pi piensa, con 5 estilos de cara que se recorren con `/pandi face`: `claude` alterna `(●  ●)` con `ʕ •ᴥ• ʔ` (más destellos `◆`), `kaomoji` `ʕ •ᴥ• ʔ`, `ojitos` `ʕ ◕ᴥ◕ ʔ`, `decidido` `ʕ •̀ᴥ•́ ʔ` y `gatuno` `(=◕ᴥ◕=)`. Los ojos usan colores semánticos del tema (`ojitos`→`success`, el resto→`accent`).
+- Un verbo juguetón que rota en cada turno, más un guiño ocasional con la cita del meme.
+- Una entrada de estado `◆ Pandi` en el pie.
+- Una persona en el system prompt: mientras Pandi está activo, se agrega un bloque `<pandi_persona>` (tono suave/zen; carácter creativo, didáctico y conciso; firma 🐼 ocasional). `/pandi off` lo quita y restaura la persona por defecto.
 
-## Install
+## Instalación
 
-From npm:
+Desde npm:
 
 ```bash
 pi install npm:@pandi-coding-agent/pandi
 ```
 
-From this repository:
+Desde este repositorio:
 
 ```bash
-pi install ./extensions/pandi          # global (your user)
-pi install -l ./extensions/pandi       # project-local
-pi --no-extensions -e ./extensions/pandi   # one-off trial, nothing else loaded
+pi install ./extensions/pandi          # global (tu usuario)
+pi install -l ./extensions/pandi       # local al proyecto
+pi --no-extensions -e ./extensions/pandi   # prueba única, sin cargar nada más
 ```
 
-## Commands
+## Comandos
 
-| Command | What it does |
+| Comando | Qué hace |
 | --- | --- |
-| `/pandi` | Show status and a greeting (with no args in an interactive UI, opens a small menu). |
-| `/pandi art` | Show or hide the panda splash header. |
-| `/pandi face` | Cycle to the next of the 5 indicator face styles (persisted across sessions). |
-| `/pandi off` | Turn Pandi off and restore the default header, spinner, and persona. |
-| `/pandi on` | Turn Pandi back on. |
+| `/pandi` | Muestra el estado y un saludo (sin argumentos, en una UI interactiva, abre un menú pequeño). |
+| `/pandi art` | Muestra u oculta el encabezado panda. |
+| `/pandi face` | Pasa al siguiente de los 5 estilos de cara del indicador (se conserva entre sesiones). |
+| `/pandi off` | Apaga Pandi y restaura el encabezado, el spinner y la persona por defecto. |
+| `/pandi on` | Vuelve a encender Pandi. |
 
-## Details
+## Detalles
 
-The face style chosen with `/pandi face` is saved to `pandi-style.local.json` next to the extension (git-ignored).
+El estilo de cara elegido con `/pandi face` se guarda en `pandi-style.local.json` junto a la extensión (ignorado por git).
 
-## Related
+## Relacionado
 
-For the full bundle of extensions and skills, install the repository root instead.
+Si querés el paquete completo de extensiones y skills, instalá la raíz del repositorio.

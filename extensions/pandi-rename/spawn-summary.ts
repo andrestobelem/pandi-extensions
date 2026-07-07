@@ -2,8 +2,8 @@
  * El runner real del LLM para el resumen de `/rename`: ejecuta el CLI `pi` en modo print
  * (`pi -p "<prompt>"`, "print response and exit") y devuelve su stdout.
  *
- * El SDK de pi no expone una API de completion/generate-text, así que un subprocess de un solo tiro es el
- * mecanismo (refleja cómo pandi-dynamic-workflows llama al modelo). El subprocess está
+ * El SDK de pi no expone una API de completion/generate-text, así que un subproceso de un solo tiro es el
+ * mecanismo (refleja cómo pandi-dynamic-workflows llama al modelo). El subproceso está
  * aislado — `--no-extensions/--no-skills/--no-context-files` lo mantiene rápido y evita
  * cargar recursivamente esta misma extensión. El binario es `pi` en PATH salvo que
  * PI_RENAME_PI_COMMAND lo sobrescriba; el modelo es el predeterminado del usuario salvo que PI_RENAME_MODEL esté definido.
@@ -97,7 +97,7 @@ export async function runPiSummary(prompt: string, opts: PiSummaryOptions = {}):
 		child.on("error", (err) => finish(() => reject(err instanceof Error ? err : new Error(String(err)))));
 		child.on("close", (code) =>
 			finish(() =>
-				code === 0 ? resolve(stdout) : reject(new Error(`pi -p exited ${code}: ${stderr.slice(0, 200)}`)),
+				code === 0 ? resolve(stdout) : reject(new Error(`pi -p salió con código ${code}: ${stderr.slice(0, 200)}`)),
 			),
 		);
 	});

@@ -2,7 +2,7 @@
  * Presentación de línea de estado para la extensión `/plan`.
  *
  * Renderizado puro del estado de un plan único a la línea de estado de Pi, más el
- * resumen de estado textual usado por `/plan status`. Sin dueo del gate, sin selección
+ * resumen de estado textual usado por `/plan status`. Sin dueño del gate, sin selección
  * "qué plan está activo", sin I/O más allá de ctx.ui. La selección "qué plan está activo actualmente" se queda
  * en index.ts (refreshPlanStatus), que lee el mapa activePlans y llama estos
  * renderers.
@@ -25,11 +25,11 @@ function planFlagSuffix(plan: PlanState): string {
 export function setPlanStatus(ctx: ExtensionContext, plan: PlanState): void {
 	if (!ctx.hasUI) return;
 	const theme = ctx.ui.theme;
-	const subs = plan.submissions > 0 ? ` · ${plan.submissions} submitted` : "";
-	const rej = plan.rejections > 0 ? `/${plan.rejections} rejected` : "";
+	const subs = plan.submissions > 0 ? ` · ${plan.submissions} envíos` : "";
+	const rej = plan.rejections > 0 ? `/${plan.rejections} rechazos` : "";
 	ctx.ui.setStatus(
 		PLAN_STATUS_KEY,
-		`${theme.fg("accent", "▣ plan")} ${theme.fg("dim", `read-only${subs}${rej}${planFlagSuffix(plan)}`)}`,
+		`${theme.fg("accent", "▣ plan")} ${theme.fg("dim", `solo lectura${subs}${rej}${planFlagSuffix(plan)}`)}`,
 	);
 }
 

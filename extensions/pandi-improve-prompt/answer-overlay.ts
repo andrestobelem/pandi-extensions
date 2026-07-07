@@ -1,11 +1,12 @@
 /**
- * The dismissible, scrollable overlay that shows an `/improve-prompt` result in the TUI.
+ * El overlay desplazable y descartable que muestra un resultado de `/improve-prompt` en la TUI.
  *
- * Vendored from pandi-btw's answer-overlay.ts (cross-extension duplication is allowed so each
- * extension can be published standalone): same scroll model, same Markdown rendering, same
- * q/Esc-to-close. Rendered via ctx.ui.custom(), so nothing is persisted just by showing it —
- * closing the overlay only returns control to the editor; sending the result (if any) is a
- * separate, explicit step the caller drives afterwards.
+ * Copiado de answer-overlay.ts de pandi-btw (la duplicación entre extensiones está permitida
+ * para que cada una pueda publicarse de forma autónoma): mismo modelo de desplazamiento,
+ * mismo render de Markdown, mismo cerrar con q/Esc. Se renderiza mediante ctx.ui.custom(),
+ * así que no queda nada persistido solo por mostrarlo — cerrar el overlay solo devuelve el
+ * control al editor; enviar el resultado (si hay alguno) es un paso aparte y explícito que
+ * maneja el llamador después.
  */
 
 import type { ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
@@ -20,7 +21,7 @@ import {
 } from "@earendil-works/pi-tui";
 
 const VIEWER_MIN_BODY_LINES = 3;
-const VIEWER_FIXED_LINES = 5; // top border, title, spacer, footer, bottom border
+const VIEWER_FIXED_LINES = 5; // borde superior, título, espacio, pie, borde inferior
 
 function padToWidth(text: string, width: number): string {
 	return text + " ".repeat(Math.max(0, width - visibleWidth(text)));
@@ -103,7 +104,7 @@ class AnswerViewComponent implements Component {
 		const label = this.theme.fg("dim", this.label);
 		const footer = this.theme.fg(
 			"dim",
-			`↑/↓ j/k scroll • PgUp/PgDn page • q/Esc close • ${start + 1}-${end}/${bodyLines.length}`,
+			`↑/↓ j/k desplazar • PgUp/PgDn página • q/Esc cerrar • ${start + 1}-${end}/${bodyLines.length}`,
 		);
 
 		const border = this.theme.fg("border", "─".repeat(safeWidth));
@@ -127,7 +128,7 @@ class AnswerViewComponent implements Component {
 	}
 }
 
-/** Open the interactive result overlay; resolves when the user closes it (q/Esc). */
+/** Abre el overlay interactivo de resultados; resuelve cuando el usuario lo cierra (q/Esc). */
 export function openAnswerOverlay(ctx: ExtensionContext, label: string, body: string): Promise<void> {
 	return ctx.ui.custom<void>((tui, theme, _keybindings, done) => {
 		return new AnswerViewComponent(tui, theme, label, body, () => done(undefined));

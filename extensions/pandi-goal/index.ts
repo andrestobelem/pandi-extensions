@@ -194,7 +194,7 @@ function fireGoal(pi: ExtensionAPI, ctx: ExtensionContext, goal: ActiveGoal): vo
 	try {
 		wake(pi, ctx, prompt);
 	} catch (err) {
-		stopGoal(pi, ctx, goal.goalId, `failed: falló la entrega del wake: ${(err as Error).message}`, "stopped");
+		stopGoal(pi, ctx, goal.goalId, `falló la entrega del wake: ${(err as Error).message}`, "stopped");
 		notify(ctx, `Goal ${goal.goalId} detenido: falló la entrega del wake.`, "error");
 	}
 }
@@ -304,7 +304,7 @@ async function beginIndependentVerification(pi: ExtensionAPI, ctx: ExtensionCont
 		stopGoal(pi, ctx, goal.goalId, "done: verificado de forma independiente contra los criterios de éxito", "done");
 		notify(
 			ctx,
-			`Goal ${goal.goalId} DONE: verificado de forma independiente (subagente con ojos frescos confirmó). 🐼`,
+			`Goal ${goal.goalId} DONE: verificado de forma independiente (un subagente aparte lo confirmó). 🐼`,
 			"info",
 		);
 		return;
@@ -626,7 +626,7 @@ async function handleGoalCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
 export default function goalExtension(pi: ExtensionAPI): void {
 	pi.registerTool({
 		name: "goal_progress",
-		label: "Goal Progress",
+		label: "Progreso del goal",
 		description:
 			"Reporta el progreso del /goal activo después de autoevaluar contra sus criterios de éxito. Es la ÚNICA forma de avanzar, terminar o bloquear un goal.",
 		promptSnippet:
@@ -634,7 +634,7 @@ export default function goalExtension(pi: ExtensionAPI): void {
 		promptGuidelines: [
 			"Antes de declarar `done`, confrontá CADA criterio de éxito con evidencia concreta y verificable (un comando que corriste, un test que pasó, un archivo que existe). Nunca declares `done` por intuición.",
 			"Después de un primer `done`, vas a recibir un turno de VERIFICACIÓN: revisá tu propio trabajo de forma adversarial. Confirmá `done` solo si la evidencia respalda cada criterio; si no, devolvé `continue` con el nextStep que falta.",
-			"Confirmar `done` desde el turno de verificación NO cierra el goal: después, un verificador INDEPENDIENTE (un subagente aparte, escéptico, con ojos frescos y acceso de solo lectura) juzga el objetivo contra los criterios usando tu evidencia registrada. Cierra solo si ese verificador independiente devuelve PASS. Por eso dejá evidencia durable e inspeccionable (archivos commiteados, tests que pasan, artifacts) — no solo afirmaciones en tu assessment — porque un tercero tiene que poder confirmar cada criterio sin confiar en vos.",
+			"Confirmar `done` desde el turno de verificación NO cierra el goal: después, un verificador INDEPENDIENTE (un subagente aparte, escéptico y con acceso de solo lectura) juzga el objetivo contra los criterios usando tu evidencia registrada. Cierra solo si ese verificador independiente devuelve PASS. Por eso dejá evidencia durable e inspeccionable (archivos commiteados, tests que pasan, artefactos) — no solo afirmaciones en tu assessment — porque un tercero tiene que poder confirmar cada criterio sin confiar en vos.",
 			"Si el verificador independiente devuelve FAIL, vas a recibir una iteración `continue` con sus hallazgos como nextStep; arreglá exactamente lo que marcó antes de volver a declarar done. FAILs independientes repetidos van a bloquear el goal para un humano.",
 			"`continue` requiere un `nextStep` accionable. Si no hay próximo paso, estás `done` o `blocked`.",
 			"`blocked` es para lo que ninguna cantidad de iteraciones propias puede resolver (una decisión humana, una credencial o un acceso). Explicá el `blocker` en una oración.",
@@ -757,7 +757,7 @@ export default function goalExtension(pi: ExtensionAPI): void {
 						content: [
 							{
 								type: "text" as const,
-								text: `Registramos tu 'done' confirmado para el goal ${goal.goalId}. TODAVÍA NO se cerró — un verificador INDEPENDIENTE (subagente con ojos frescos) está juzgando el objetivo contra los criterios con la evidencia disponible. El goal se cierra solo si ese verificador independiente devuelve PASS.`,
+								text: `Registramos tu 'done' confirmado para el goal ${goal.goalId}. TODAVÍA NO se cerró — un verificador INDEPENDIENTE (subagente aparte) está juzgando el objetivo contra los criterios con la evidencia disponible. El goal se cierra solo si ese verificador independiente devuelve PASS.`,
 							},
 						],
 						details: { goalId: goal.goalId, status: "verifying-independent" },

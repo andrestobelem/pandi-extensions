@@ -1,43 +1,43 @@
 # @pandi-coding-agent/pandi-exit
 
-Leave Pi with a Claude-style `/exit` command — a thin alias for the native `/quit` clean shutdown. Reach for it when Claude Code muscle memory makes you type `/exit` and Pi only knows `/quit`.
+Agregá a Pi un comando `/exit` al estilo Claude: un alias liviano de `/quit` para cerrar la sesión de forma limpia. Úsalo cuando la memoria muscular de Claude Code te haga escribir `/exit` y Pi solo conozca `/quit`.
 
-## Quickstart
+## Inicio rápido
 
 ```bash
 pi install npm:@pandi-coding-agent/pandi-exit
 ```
 
-Then, in any session:
+Luego, en cualquier sesión:
 
 ```text
 > /exit
 ```
 
-That runs the same clean shutdown as `/quit`. Arguments are ignored.
+Eso ejecuta el mismo cierre limpio que `/quit`. Los argumentos se ignoran.
 
-## Other ways to install
+## Otras formas de instalar
 
-From this repository:
+Desde este repositorio:
 
 ```bash
-pi install ./extensions/pandi-exit          # global (your user)
-pi install -l ./extensions/pandi-exit       # project-local
-pi --no-extensions -e ./extensions/pandi-exit   # one-off trial, nothing else loaded
+pi install ./extensions/pandi-exit          # global (tu usuario)
+pi install -l ./extensions/pandi-exit       # local al proyecto
+pi --no-extensions -e ./extensions/pandi-exit   # prueba puntual, sin cargar nada más
 ```
 
-## Commands
+## Comandos
 
-| Command | What it does |
+| Comando | Qué hace |
 | --- | --- |
-| `/exit` | Exit Pi cleanly via `ctx.shutdown()` — the same clean shutdown as the native `/quit`. Arguments are ignored. |
+| `/exit` | Sale de Pi limpiamente vía `ctx.shutdown()` — el mismo cierre limpio que `/quit`. Los argumentos se ignoran. |
 
-## How it works
+## Cómo funciona
 
-- `/exit` mirrors Claude Code, where `/exit` (and `/quit`) leaves the session. It coexists with Pi's native `/quit` and never overrides it — use whichever verb you prefer.
-- Success is strictly silent, in both the TUI and print mode: no confirmation notification either way.
-- `ctx.shutdown()` delegates to a mode-provided shutdown handler that can throw synchronously. That call is guarded, so a throwing `ctx.shutdown()` is reported as an error notification (TUI) or printed to stderr (print mode) — `exit failed: ...` — instead of crashing or leaking a generic extension error.
+- `/exit` replica Claude Code, donde `/exit` (y `/quit`) sale de la sesión. Convive con el `/quit` nativo de Pi y nunca lo reemplaza; usá el verbo que prefieras.
+- El éxito es estrictamente silencioso, tanto en la TUI como en modo print: no hay notificación de confirmación.
+- `ctx.shutdown()` delega en un handler de cierre provisto por el modo, que puede lanzar de forma síncrona. Esa llamada está protegida, así que un `ctx.shutdown()` que falla se informa como notificación de error (TUI) o se imprime en stderr (modo print) — `exit failed: ...` — en lugar de tumbar la extensión o filtrar un error genérico.
 
-## Related
+## Relacionado
 
-For the full bundle of extensions and skills, install the repository root instead.
+Para instalar el paquete completo de extensiones y skills, instalá la raíz del repositorio.

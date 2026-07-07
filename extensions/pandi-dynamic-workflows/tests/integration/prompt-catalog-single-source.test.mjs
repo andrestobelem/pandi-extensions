@@ -8,9 +8,9 @@
  * El mismo bloque "Research-backed templates" se espeja, para docs humanas, en dos
  * sabores:
  *   Inglés (byte-idéntico al bloque canónico, salvo nivel de heading):
- *   - extensions/pandi-dynamic-workflows/README.md   (## Research-backed templates)
  *   - .pi/skills/ultracode/SKILL.md                (## Research-backed templates)
  *   Español (las docs humanas están en español desde la traducción 2026-07):
+ *   - extensions/pandi-dynamic-workflows/README.md (### Plantillas apoyadas en research)
  *   - README.md (repo root)                        (### Plantillas apoyadas en research)
  *   - docs/dynamic-workflows.md                    (### Plantillas apoyadas en research)
  *
@@ -107,7 +107,7 @@ async function main() {
 	}
 	const canonical = canonicalize(canonicalBlock);
 
-	const englishDocs = ["extensions/pandi-dynamic-workflows/README.md", ".pi/skills/ultracode/SKILL.md"];
+	const englishDocs = [".pi/skills/ultracode/SKILL.md"];
 	for (const rel of englishDocs) {
 		const text = await fs.readFile(path.join(REPO_ROOT, rel), "utf8");
 		const block = sliceBlock(text);
@@ -123,7 +123,7 @@ async function main() {
 
 	// Mirrors en español: un canon español (README raíz es la referencia) + paridad
 	// estructural de los nombres de patterns en bold contra el bloque canónico inglés.
-	const spanishDocs = ["README.md", "docs/dynamic-workflows.md"];
+	const spanishDocs = ["extensions/pandi-dynamic-workflows/README.md", "README.md", "docs/dynamic-workflows.md"];
 	const boldNames = (block) => block.match(/\*\*[^*]+\*\*/g) ?? [];
 	const canonicalNames = boldNames(canonical).join(" | ");
 	let spanishRef = null;

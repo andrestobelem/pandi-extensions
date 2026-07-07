@@ -9,7 +9,7 @@
  *
  * `/btw` (igual que en Claude Code) hace una pregunta lateral rápida que usa la
  * conversación actual como contexto, devuelve una única respuesta sin tools y nunca se
- * persiste en el historial de la conversación. Este archivo arma ese request one-shot y
+ * persiste en el historial de la conversación. Este archivo arma esa petición de una sola vez y
  * extrae el texto de la respuesta; deliberadamente no sabe nada sobre persistencia
  * (quien llama simplemente nunca escribe nada de vuelta).
  *
@@ -25,8 +25,8 @@ type AgentMessage = SessionMessageEntry["message"];
 
 /**
  * System prompt para la pregunta lateral. Enmarca al modelo para responder una pregunta
- * rápida SOBRE la conversación hasta ahora: concisa, apoyada en el contexto existente y
- * explícitamente no como un pedido de tomar acciones o usar tools (el request igual no
+ * rápida sobre la conversación hasta ahora: concisa, apoyada en el contexto existente y
+ * explícitamente no como un pedido de tomar acciones o usar tools (la petición igual no
  * lleva tools).
  */
 export const BTW_SYSTEM_PROMPT =
@@ -45,7 +45,7 @@ export interface BtwContextInput {
 	question: string;
 }
 
-/** Un request one-shot listo para enviar: un prompt de sistema + mensajes, y deliberadamente sin tools. */
+/** Una petición de una sola vez lista para enviar: un prompt de sistema + mensajes, y deliberadamente sin tools. */
 export interface BtwContext {
 	systemPrompt: string;
 	messages: Message[];
@@ -67,7 +67,7 @@ export function extractMessages(entries: readonly SessionEntry[]): AgentMessage[
 }
 
 /**
- * Armá el request one-shot de la pregunta lateral: la conversación existente (convertida
+ * Armá la petición de una sola vez de la pregunta lateral: la conversación existente (convertida
  * a mensajes LLM) seguida por la pregunta como mensaje final del usuario, más el system
  * prompt de btw. No se incluyen tools, así que el modelo solo puede responder en texto.
  * Puro y determinista salvo por el timestamp del mensaje agregado.

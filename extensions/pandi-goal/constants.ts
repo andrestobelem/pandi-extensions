@@ -47,29 +47,29 @@ export const SAFETY_NET_DELAY_SECONDS = 1500;
 export const DEFAULT_CONTEXT_PERCENT_CAP = 90;
 // Cuántas assessments recientes conservar en el log de progreso (continuidad acotada).
 export const PROGRESS_LOG_KEEP = 12;
-// Cuántos chequeos de completitud SELF fallidos (done → verifying → continue) toleramos
+// Cuántos chequeos de completitud propios fallidos (done → verifying → continue) toleramos
 // antes de detener el goal como blocked. Defiende contra un ping-pong de "se autodeclara
 // done, falla el chequeo, sigue" que consume silenciosamente todo el presupuesto de
 // iteraciones sin progreso. DISTINTO de DEFAULT_MAX_INDEPENDENT_VERIFICATIONS abajo: esto
-// limita al modelo juzgándose A SÍ MISMO (verifying); aquello limita al juez independiente
+// limita al modelo juzgándose a sí mismo (verifying); aquello limita al juez independiente
 // de solo lectura (verifying-independent).
 export const MAX_VERIFY_ATTEMPTS = 3;
 
 // --- P1: verificación adversarial independiente (defaults) -------------------
-// El subagente verificador (proceso `pi -p` separado) recibe solo tools READ-ONLY: juzga,
+// El subagente verificador (proceso `pi -p` separado) recibe solo tools de solo lectura: juzga,
 // nunca muta el workspace.
 export const DEFAULT_VERIFIER_TOOLS = ["read", "grep", "find", "ls"] as const;
-// Presupuesto de wall-clock para una verificación independiente (ms). Generoso: el
+// Presupuesto de tiempo real para una verificación independiente (ms). Generoso: el
 // subagente puede leer archivos y correr algunos greps antes de emitir su veredicto.
 export const DEFAULT_VERIFIER_TIMEOUT_MS = 120_000;
-// Cuántas verificaciones independientes FAILED toleramos antes de detener como blocked.
+// Cuántas verificaciones independientes fallidas toleramos antes de detener como blocked.
 // Bajo a propósito: un modelo que sigue afirmando done mientras un juez independiente lo
 // sigue fallando necesita un humano, no más turnos. DISTINTO de MAX_VERIFY_ATTEMPTS
-// arriba: aquello limita el chequeo SELF (verifying); esto limita al juez independiente
+// arriba: aquello limita el autochequeo (verifying); esto limita al juez independiente
 // (verifying-independent). Cada ronda independiente spawnea un proceso `pi -p` separado,
-// así que este gate no es gratis: mantenerlo bajo.
+// así que esta compuerta no es gratis: mantenerla baja.
 export const DEFAULT_MAX_INDEPENDENT_VERIFICATIONS = 2;
-// Comando pi usado para spawnear el subagente verificador (refleja dynamic-workflows.ts).
+// Comando pi usado para lanzar el subagente verificador (refleja dynamic-workflows.ts).
 // Por default usa el binario propio de la distribución HOST (bin name === piConfig.name)
 // para que el verificador independiente corra la misma distribución; el override de env
 // sigue ganando.

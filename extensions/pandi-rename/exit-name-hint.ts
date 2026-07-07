@@ -2,12 +2,12 @@
  * Pista del nombre de la sesión al salir.
  *
  * pi core imprime `To resume this session: pi --session <uuid>` justo antes de
- * `process.exit(0)` — siempre el UUID, nunca el nombre visible (upstream FR:
+ * `process.exit(0)` — siempre el UUID, nunca el nombre visible (FR upstream:
  * https://github.com/earendil-works/pi/issues/6296). Un hook de `exit` del proceso corre
  * sincrónicamente DESPUÉS de esa escritura de core, así que este módulo usa uno para agregar una sola línea tenue
  * justo debajo cuando la sesión tiene nombre:
  *
- *   Session name: docs-html-mirror-sync (resume by name: pi -r)
+ *   Nombre de sesión: docs-html-mirror-sync (reanudar por nombre: pi -r)
  *
  * El estado mutable (nombre actual) vive en un holder registrado bajo un
  * Symbol global: `/reload` reimporta la extensión en un scope de módulo nuevo, y reutilizar
@@ -32,7 +32,7 @@ interface Holder {
 /** La línea tenue de una sola línea impresa debajo de la pista de reanudación al salir de pi core. */
 export function formatExitNameHint(name: string): string {
 	const dim = (text: string) => `\x1b[2m${text}\x1b[22m`;
-	return `${dim("Session name:")} ${name} ${dim("(resume by name: pi -r)")}\n`;
+	return `${dim("Nombre de sesión:")} ${name} ${dim("(reanudar por nombre: pi -r)")}\n`;
 }
 
 /**

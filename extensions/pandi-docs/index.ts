@@ -160,7 +160,7 @@ export default function docsExtension(pi: ExtensionAPI): void {
 	// Contraparte invocable por el modelo de `/docs` (el agente no puede tipear un comando con slash).
 	pi.registerTool({
 		name: "markdown_to_html",
-		label: "Markdown to HTML",
+		label: "Markdown a HTML",
 		description:
 			"Convertí un archivo Markdown en un artifact HTML autocontenido con el estilo " +
 			"pandi-artifact-style (layout Claude-design, paleta Panda Syntax, claro+oscuro). Escribe " +

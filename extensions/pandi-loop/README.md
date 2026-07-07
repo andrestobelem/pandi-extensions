@@ -1,11 +1,11 @@
 # @pandi-coding-agent/pandi-loop
 
-Keep a task running turn after turn without re-prompting it yourself: `/loop`
-re-injects the next iteration on its own, at a cadence the model picks or one
-you fix, until it (or you) calls it done. Reach for it for multi-pass jobs —
-polling a CI run, iterating on a fix, watching a slow process.
+Mantené una tarea corriendo vuelta tras vuelta sin re-promptearla a mano: `/loop`
+reinyecta la próxima iteración solo, con una cadencia que el modelo elige o que
+tú fijás, hasta que ella (o vos) la dé por terminada. Servirá para trabajos de
+varias pasadas: mirar un CI, iterar una corrección, seguir un proceso lento.
 
-## Quickstart
+## En 30 segundos
 
 ```bash
 pi install npm:@pandi-coding-agent/pandi-loop
@@ -15,52 +15,55 @@ pi install npm:@pandi-coding-agent/pandi-loop
 /loop "watch the CI run and tell me when it's green"
 ```
 
-This starts a **dynamic** loop: it runs one pass immediately, then the model
-calls the `loop_schedule` tool to pick the next wakeup (clamped to 60s-1h) —
-no fixed timer, no manual re-prompting. Stop it anytime with `/loop stop`.
+Esto inicia un loop **dynamic**: hace una pasada inmediata y después el modelo
+llama a la tool `loop_schedule` para elegir el próximo wakeup (clamp a 60s-1h) —
+sin timer fijo y sin re-prompt manual. Podés frenarlo en cualquier momento con
+`/loop stop`.
 
-From this repo instead of npm: `pi install ./extensions/pandi-loop` (add `-l`
-for project-local, or `pi --no-extensions -e ./extensions/pandi-loop` to trial it
-alone).
+Desde este repo, en vez de npm: `pi install ./extensions/pandi-loop` (sumá `-l`
+para instalarlo local al proyecto, o `pi --no-extensions -e ./extensions/pandi-loop`
+para probarlo solo).
 
-## Choosing a mode
+## Elegir un modo
 
-| Mode | Start with | Cadence | Use when |
+| Modo | Empezá con | Cadencia | Cuándo usarlo |
 | --- | --- | --- | --- |
-| Dynamic | `/loop <task>` | Model picks each wakeup (60s-1h) | Pace is unpredictable |
-| Fixed | `/loop <task> <interval>` | You set the period, e.g. `10m` | You know how often to check |
-| Autonomous | `/loop auto <objective> [interval]` | Same as above | Unattended, on a trusted project, after you confirm once |
+| Dynamic | `/loop <task>` | El modelo elige cada wakeup (60s-1h) | El ritmo es impredecible |
+| Fixed | `/loop <task> <interval>` | Vos fijás el período, p. ej. `10m` | Sabés cada cuánto revisar |
+| Autonomous | `/loop auto <objective> [interval]` | Igual que arriba | Sin supervisión, en un proyecto trusted, después de confirmar una vez |
 
-## Commands
+## Comandos
 
-| Command | What it does |
+| Comando | Qué hace |
 | --- | --- |
-| `/loop [--ultracode] <task>` | Start a dynamic loop; the model schedules each wakeup. |
-| `/loop [--ultracode] <task> <interval>` | Start a fixed-interval loop, e.g. `10m` or `1h`. |
-| `/loop auto [--ultracode] <objective> [interval]` | Start a trusted autonomous loop after you confirm. |
-| `/loop status\|pause\|resume\|stop [id]` | Manage running loops. |
-| `loop_schedule` | Model tool: schedule the next wakeup in dynamic mode (no-op in fixed mode). |
-| `loop_stop` | Model tool: stop the loop that owns the current turn. |
+| `/loop [--ultracode] <task>` | Inicia un loop dynamic; el modelo programa cada wakeup. |
+| `/loop [--ultracode] <task> <interval>` | Inicia un loop de intervalo fijo, por ejemplo `10m` o `1h`. |
+| `/loop auto [--ultracode] <objective> [interval]` | Inicia un loop autónomo trusted después de que confirmes. |
+| `/loop status\|pause\|resume\|stop [id]` | Administra los loops en ejecución. |
+| `loop_schedule` | Tool del modelo: programa el próximo wakeup en modo dynamic (no-op en fixed). |
+| `loop_stop` | Tool del modelo: detiene el loop dueño del turno actual. |
 
-`--ultracode` (alias `--uc`) is parsed before the trailing interval token, so
-`--ultracode <task> 5m` keeps both; it only nudges iterations to lean on
-dynamic workflows when that earns its cost, never forcing one.
+`--ultracode` (alias `--uc`) se parsea antes del token final de intervalo, así
+`--ultracode <task> 5m` conserva ambos; solo empuja las iteraciones a apoyarse
+en dynamic workflows cuando eso justifica el costo, nunca por obligación.
 
-## How it works & safety
+## Cómo funciona y seguridad
 
-- State persists across reloads; wakeups are serialized to one autopilot turn
-  at a time, even with several loops active.
-- Caps stop a loop before it re-arms: max iterations (25 default), a
-  wall-clock deadline (6h default), a context-usage cap (90% default) — and a
-  25h watchdog backstop beyond that. The deadline uses `Date.now()`, not a
-  monotonic clock, so a backward clock jump only delays it.
-- During an autopilot turn, a destructive-action gate confirms (with a UI) or
-  blocks (without one) calls matching a conservative allowlist: recursive
-  `rm`, force pushes, `git reset --hard`, SQL drops, out-of-project writes.
-- `/loop auto` needs a trusted project **and** an explicit confirmation;
-  sessions without a UI refuse it, and a rehydrated autonomous loop is
-  retired (not resumed) if the project has since lost trust.
+- El estado persiste entre recargas; los wakeups se serializan para que haya
+  un solo turno de piloto automático a la vez, incluso con varios loops activos.
+- Los caps detienen un loop antes de que se rearme: máximo de iteraciones (25
+  por defecto), deadline de wall-clock (6h por defecto), tope de uso de contexto
+  (90% por defecto) — y un watchdog de respaldo de 25h por encima de eso. El
+  deadline usa `Date.now()`, no un reloj monotónico, así que un salto hacia atrás
+  solo lo demora.
+- Durante un turno de piloto automático, una compuerta de acciones destructivas
+  confirma (con UI) o bloquea (sin UI) llamadas que matchean una allowlist
+  conservadora: `rm` recursivo, force pushes, `git reset --hard`, drops SQL y
+  escrituras fuera del proyecto.
+- `/loop auto` necesita un proyecto trusted **y** una confirmación explícita;
+  las sesiones sin UI lo rechazan, y un loop autónomo rehidratado se retira (no
+  se reanuda) si el proyecto perdió trust.
 
-## Related
+## Relacionado
 
-For the full bundle of extensions and skills, install the repository root instead.
+Para instalar el paquete completo de extensiones y skills, instalá la raíz del repositorio.

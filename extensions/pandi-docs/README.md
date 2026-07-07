@@ -1,60 +1,47 @@
 # @pandi-coding-agent/pandi-docs
 
-Turns a Markdown file into a self-contained, styled HTML artifact — one file,
-no build step, light + dark themes baked in via the pandi-artifact-style
-skill (Claude-design layout, Panda Syntax palette). Reach for it whenever you
-need to hand someone a report or informe as a single `.html` they can open
-straight from disk or email.
+Convierte un archivo Markdown en un artifact HTML autocontenido y con estilo: un solo archivo, sin build step, con temas claro y oscuro integrados vía el skill `pandi-artifact-style` (layout Claude-design, paleta Panda Syntax). Usalo cuando necesites entregar un informe o reporte como un `.html` único, listo para abrir desde disco o enviar por mail.
 
 ```bash
 /docs README.md --kicker "Informe"
-# → Wrote README.html
+# → Se escribió README.html
 ```
 
-## Install
+## Instalación
 
-From npm:
+Desde npm:
 
 ```bash
 pi install npm:@pandi-coding-agent/pandi-docs
 ```
 
-From this repository:
+Desde este repositorio:
 
 ```bash
-pi install ./extensions/pandi-docs          # global (your user)
-pi install -l ./extensions/pandi-docs       # project-local
-pi --no-extensions -e ./extensions/pandi-docs   # one-off trial, nothing else loaded
+pi install ./extensions/pandi-docs            # global (tu usuario)
+pi install -l ./extensions/pandi-docs         # local al proyecto
+pi --no-extensions -e ./extensions/pandi-docs # prueba puntual, sin cargar nada más
 ```
 
-## Reference
+## Referencia
 
-| Surface | Signature | Notes |
+| Superficie | Firma | Notas |
 | --- | --- | --- |
-| `/docs` command | `/docs <in.md> [more.md…] [-o\|--out out.html] [--kicker "Text"] [--tokens tokens.css] [--css style.css] [-h\|--help]` | Output defaults to the input with `.md` swapped for `.html`; `-o`/`--out` is only valid with a single input. |
-| `markdown_to_html` tool | `path`, optional `out`, `kicker`, `tokens`, `css` | Model-callable counterpart of `/docs` (agents can't type slash commands). |
-| CLI | `node extensions/pandi-docs/scripts/markdown-to-html.mjs in.md -o out.html --kicker "Informe"` | Same converter, usable outside a pi session. |
-| Mirror engine | `node extensions/pandi-docs/scripts/sync-doc-mirrors.mjs --config mirrors.json [--root dir] [--check]` | Manifest-driven md ↔ html mirrors for any repo: write-only-on-change, artifact redeploy reminders, orphan pruning, in-set `.md → .html` link rewriting. Guided by the [sync-doc-mirrors skill](./skills/sync-doc-mirrors/SKILL.md). |
+| Comando `/docs` | `/docs <in.md> [more.md…] [-o\|--out out.html] [--kicker "Text"] [--tokens tokens.css] [--css style.css] [-h\|--help]` | Por defecto la salida usa la misma ruta de entrada con `.md` reemplazado por `.html`; `-o`/`--out` solo es válido con una única entrada. |
+| Tool `markdown_to_html` | `path`, opcional `out`, `kicker`, `tokens`, `css` | Contraparte invocable por el modelo de `/docs` (los agentes no pueden tipear comandos con slash). |
+| CLI | `node extensions/pandi-docs/scripts/markdown-to-html.mjs in.md -o out.html --kicker "Informe"` | El mismo conversor, usable fuera de una sesión de pi. |
+| Motor de mirrors | `node extensions/pandi-docs/scripts/sync-doc-mirrors.mjs --config mirrors.json [--root dir] [--check]` | Mirrors md ↔ html guiados por manifiesto para cualquier repo: escribe solo si cambia, recuerda redeploy de artifacts y poda huérfanos. Guiado por el skill [sync-doc-mirrors](./skills/sync-doc-mirrors/SKILL.md). |
 
-The first three surfaces share one implementation (`scripts/markdown-to-html.mjs`);
-`/docs` and `markdown_to_html` add path resolution (`~`, cwd) and writing
-feedback on top of it. The mirror engine composes the same converter with a
-mirrors manifest (`{source, out?, kicker?, tokens?, css?, artifact?}` entries).
+Las tres primeras superficies comparten una sola implementación (`scripts/markdown-to-html.mjs`); `/docs` y `markdown_to_html` agregan resolución de rutas (`~`, cwd) y feedback de escritura. El motor de mirrors compone el mismo conversor con un manifiesto de mirrors (`{source, out?, kicker?, tokens?, css?, artifact?}` en cada entrada).
 
-**Own look per project:** `--tokens`/`tokens` swaps only the color palette
-(keeps the pandi layout); `--css`/`css` replaces the entire stylesheet.
+**Look propio por proyecto:** `--tokens`/`tokens` reemplaza solo la paleta de colores (conserva el layout pandi); `--css`/`css` reemplaza la hoja de estilos completa.
 
-Details on mermaid support, GitHub alerts → labeled callouts, and title/kicker
-rules are in the [pandi-artifact-style skill](./skills/pandi-artifact-style/SKILL.md).
+Los detalles sobre soporte de mermaid, alertas de GitHub → callouts etiquetados y reglas de título/kicker están en el skill [pandi-artifact-style](./skills/pandi-artifact-style/SKILL.md).
 
-## Details
+## Detalles
 
-The converter reads pandi tokens from `skills/pandi-artifact-style/reference/pandi-tokens.css`
-at call time, so the package is self-contained even when installed standalone.
-In-repo, that vendored skill tree is a GENERATED mirror of
-`.pi/skills/pandi-artifact-style/` (`npm run sync:skills:vendor`) — edit the
-`.pi` source, not the copy.
+El conversor lee los tokens pandi desde `skills/pandi-artifact-style/reference/pandi-tokens.css` en tiempo de ejecución, así que el paquete sigue siendo autocontenido incluso instalado de forma standalone. En el repo, esa copia del skill vendoreado es un espejo GENERADO de `.pi/skills/pandi-artifact-style/` (`npm run sync:skills:vendor`) — editá la fuente `.pi`, no la copia.
 
-## Related
+## Relacionado
 
-For the full bundle of extensions and skills, install the repository root instead.
+Para obtener el bundle completo de extensiones y skills, instalá la raíz del repositorio en su lugar.

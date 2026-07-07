@@ -68,14 +68,14 @@ export function classifyRunCleanup(
 	return runs.map((run) => {
 		const state = getRunState(run);
 		const base = { target: "runs" as const, path: run.runDir, id: run.runId, state };
-		if (state === "running") return { ...base, action: "keep" as const, reason: "run is running" };
+		if (state === "running") return { ...base, action: "keep" as const, reason: "el run está corriendo" };
 		if (opts.activeIds.has(run.runId))
-			return { ...base, action: "keep" as const, reason: "run is active in this process" };
+			return { ...base, action: "keep" as const, reason: "el run está activo en este proceso" };
 		if (stateFilter && !stateFilter.has(state))
-			return { ...base, action: "keep" as const, reason: `state ${state} not selected` };
+			return { ...base, action: "keep" as const, reason: `state ${state} no seleccionado` };
 		if (retained.has(run.runId))
-			return { ...base, action: "keep" as const, reason: `within retention window (keep=${keep})` };
-		return { ...base, action: "delete" as const, reason: `terminal ${state} outside retention window` };
+			return { ...base, action: "keep" as const, reason: `dentro de la ventana de retención (keep=${keep})` };
+		return { ...base, action: "delete" as const, reason: `terminal ${state} fuera de la ventana de retención` };
 	});
 }
 
@@ -88,19 +88,27 @@ export function classifyDraftCleanup(
 	return entries.map((entry) => {
 		const base = { target: "drafts" as const, path: entry.path, id: entry.name };
 		if (entry.name === "INDEX.md")
-			return { ...base, action: "keep" as const, reason: "draft index is regenerated, not a workflow draft" };
+			return {
+				...base,
+				action: "keep" as const,
+				reason: "el índice de drafts se regenera; no es un draft de workflow",
+			};
 		if (entry.isSymbolicLink)
-			return { ...base, action: "keep" as const, reason: "symlink in drafts directory is not a workflow draft" };
-		if (!entry.isFile) return { ...base, action: "keep" as const, reason: "not a workflow draft file" };
+			return {
+				...base,
+				action: "keep" as const,
+				reason: "el symlink en el directorio de drafts no es un draft de workflow",
+			};
+		if (!entry.isFile) return { ...base, action: "keep" as const, reason: "no es un archivo draft de workflow" };
 		const stem = workflowStem(entry.name);
-		if (!stem) return { ...base, action: "keep" as const, reason: "not a workflow draft file" };
+		if (!stem) return { ...base, action: "keep" as const, reason: "no es un archivo draft de workflow" };
 		if (referenced.has(stem) || referenced.has(`drafts/${stem}`)) {
-			return { ...base, action: "keep" as const, reason: "draft is referenced by a run" };
+			return { ...base, action: "keep" as const, reason: "el draft está referenciado por un run" };
 		}
 		if (ageMs(opts.now, entry.mtimeMs) <= opts.olderThanMs) {
-			return { ...base, action: "keep" as const, reason: "draft is recent" };
+			return { ...base, action: "keep" as const, reason: "el draft es reciente" };
 		}
-		return { ...base, action: "delete" as const, reason: "old unused draft" };
+		return { ...base, action: "delete" as const, reason: "draft viejo sin uso" };
 	});
 }
 
@@ -111,12 +119,12 @@ export function classifyTmpCleanup(
 	return entries.map((entry) => {
 		const base = { target: "tmp" as const, path: entry.path, id: entry.name };
 		if (ageMs(opts.now, entry.mtimeMs) <= opts.olderThanMs) {
-			return { ...base, action: "keep" as const, reason: "tmp entry is recent" };
+			return { ...base, action: "keep" as const, reason: "la entrada tmp es reciente" };
 		}
-		if (entry.isSymbolicLink) return { ...base, action: "delete" as const, reason: "old symlink link in tmp" };
-		if (entry.isFile) return { ...base, action: "delete" as const, reason: "old file in tmp" };
-		if (entry.isDirectory) return { ...base, action: "delete" as const, reason: "old directory in tmp" };
-		return { ...base, action: "keep" as const, reason: "unsupported tmp entry type" };
+		if (entry.isSymbolicLink) return { ...base, action: "delete" as const, reason: "symlink viejo en tmp" };
+		if (entry.isFile) return { ...base, action: "delete" as const, reason: "archivo viejo en tmp" };
+		if (entry.isDirectory) return { ...base, action: "delete" as const, reason: "directorio viejo en tmp" };
+		return { ...base, action: "keep" as const, reason: "tipo de entrada tmp no soportado" };
 	});
 }
 
@@ -166,7 +174,7 @@ async function removeCleanupItems(items: CleanupInventoryItem[]): Promise<string
 			await fs.rm(item.path, { recursive: true, force: false });
 			removed.push(item.path);
 		} catch {
-			// Already gone or lost a race — cleanup remains idempotent.
+			// Ya se fue o perdió una carrera: cleanup sigue siendo idempotente.
 		}
 	}
 	return removed;

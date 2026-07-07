@@ -15,32 +15,28 @@ function makeWorkflowRoutingHandler(
 	return async (args: string, ctx: ExtensionContext) => {
 		const task = args.trim();
 		if (!task) {
-			notify(ctx, `Usage: /${commandName} ${usageTarget}`, "warning");
+			notify(ctx, `Uso: /${commandName} ${usageTarget}`, "warning");
 			return;
 		}
 		if (!ensureDynamicWorkflowToolActive(pi))
-			notify(
-				ctx,
-				`dynamic_workflow tool is not active; ${commandName} will only provide routing guidance.`,
-				"warning",
-			);
+			notify(ctx, `La tool dynamic_workflow no está activa; ${commandName} solo dará guía de routing.`, "warning");
 		sendWorkflowPrompt(pi, ctx, makeUltracodePrompt(task, promptMode, contractGateEnabled()));
 	};
 }
 
 export function registerWorkflowRoutingCommands(pi: ExtensionAPI, contractGateEnabled: () => boolean): void {
 	pi.registerCommand("dynamic-workflow", {
-		description: "Ask Pi to solve a complex task using dynamic workflows when warranted",
+		description: "Pedile a Pi que resuelva una tarea compleja con dynamic workflows cuando valga la pena",
 		handler: makeWorkflowRoutingHandler(pi, "dynamic-workflow", contractGateEnabled),
 	});
 
 	pi.registerCommand("ultracode", {
-		description: "Alias for /dynamic-workflow: solve a complex task using dynamic workflows when warranted",
+		description: "Alias de /dynamic-workflow: resolvé una tarea compleja con dynamic workflows cuando valga la pena",
 		handler: makeWorkflowRoutingHandler(pi, "ultracode", contractGateEnabled),
 	});
 
 	pi.registerCommand("deep-research", {
-		description: "Ask Pi to create/run a dynamic workflow for deep research",
+		description: "Pedile a Pi que cree/corra un dynamic workflow para deep research",
 		handler: makeWorkflowRoutingHandler(pi, "deep-research", contractGateEnabled, {
 			promptMode: "deep-research",
 			usageTarget: "<research question>",

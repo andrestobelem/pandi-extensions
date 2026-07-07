@@ -196,7 +196,9 @@ async function main() {
 			const guide = (tools.get("dynamic_workflow").promptGuidelines ?? []).join("\n");
 			check(
 				"promptGuidelines: teaches stable KV-cache prefix (stable framing first, volatile content to the END)",
-				/stable prefix/i.test(guide) && /provider prompt\/KV cache/i.test(guide) && /to the END/.test(guide),
+				/(stable prefix|prefijo estable)/i.test(guide) &&
+					/(provider prompt\/KV cache|prompt\/KV cache del provider)/i.test(guide) &&
+					/(to the END|al FINAL)/.test(guide),
 				guide.slice(0, 240),
 			);
 			const ctx = makeCtx(project);

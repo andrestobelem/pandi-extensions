@@ -1,15 +1,17 @@
 /**
- * Agente environment, persona, y kernel default-access para pandi-dynamic-workflows.
+ * Entorno de agente, personas y acceso default al runtime para pandi-dynamic-workflows.
  *
- * Construye el env wrapper para agent subprocesses (key allow-listing, isolation,
- * value sanitization), resuelve personas built-in/project, y aplica default
- * tool/skill/extension access (web-search + context7). 14 de 20 decls son
- * module-private; index.ts importa de vuelta los 6 que aún llama.
+ * Construye el wrapper de env para subprocesses de agentes (allow-list de keys,
+ * aislamiento, sanitización de valores), resuelve personas built-in/del proyecto
+ * y aplica el acceso default a tools/skills/extensions (web-search + context7).
+ * 14 de 20 declaraciones son privadas del módulo; index.ts reimporta las 6 que
+ * todavía invoca.
  *
- * Deferred runtime cycle con index.ts: los consts persona/default se importan
- * desde ./index.js pero se leen solo dentro de cluster function bodies; AgentOptions
- * cruza como import type (erased). CONFIG_DIR_NAME/getAgentDir/ExtensionContext vienen
- * del framework package (sin cycle). Extraído byte-idénticamente desde index.ts.
+ * Ciclo runtime diferido con index.ts: las constantes de persona/default se importan
+ * desde ./index.js, pero se leen solo dentro de cuerpos de función; AgentOptions
+ * cruza como import type (se borra). CONFIG_DIR_NAME/getAgentDir/ExtensionContext
+ * vienen del package del framework (sin ciclo). Extraído byte-idénticamente desde
+ * index.ts.
  */
 import { createHash } from "node:crypto";
 import { existsSync, realpathSync } from "node:fs";
@@ -30,37 +32,37 @@ export const BUILTIN_AGENT_PERSONAS: Record<string, AgentOptions> = {
 		tools: READ_ONLY_AGENT_TOOLS,
 		thinking: "medium",
 		systemPrompt:
-			"Explore broadly but stay evidence-based. Prefer read-only inspection, cite files/lines, and call out uncertainty.",
+			"Explorá amplio, pero mantenete basado en evidencia. Preferí inspección read-only, citá archivos/líneas y explicitá la incertidumbre.",
 	},
 	reviewer: {
 		tools: READ_ONLY_AGENT_TOOLS,
 		thinking: "high",
 		systemPrompt:
-			"Act as a skeptical code reviewer. Look for correctness, security, concurrency, and maintainability risks. Do not edit files; cite concrete evidence.",
+			"Actuá como reviewer de código escéptico. Buscá riesgos de corrección, seguridad, concurrencia y mantenibilidad. No edites archivos; citá evidencia concreta.",
 	},
 	planner: {
 		tools: READ_ONLY_AGENT_TOOLS,
 		thinking: "high",
 		systemPrompt:
-			"Act as a careful planner. Decompose the task, identify dependencies and risks, and propose a minimal verifiable plan with clear trade-offs.",
+			"Actuá como planner cuidadoso. Descomponé la tarea, identificá dependencias y riesgos, y proponé un plan mínimo verificable con trade-offs claros.",
 	},
 	architect: {
 		tools: READ_ONLY_AGENT_TOOLS,
 		thinking: "high",
 		systemPrompt:
-			"Act as a software architect. Shape the solution design: define components, interfaces, boundaries, and data flow; weigh trade-offs and constraints; and justify the design against requirements. Do not edit files; cite concrete evidence.",
+			"Actuá como arquitecto de software. Diseñá la solución: definí componentes, interfaces, límites y flujo de datos; evaluá trade-offs y restricciones; y justificá el diseño contra los requisitos. No edites archivos; citá evidencia concreta.",
 	},
 	implementer: {
 		tools: READ_ONLY_AGENT_TOOLS,
 		thinking: "medium",
 		systemPrompt:
-			"Act as an implementer designing a concrete patch. Prefer minimal changes, preserve existing behavior, and explain verification steps. Do not edit files unless explicitly allowed by the caller.",
+			"Actuá como implementer que diseña un patch concreto. Preferí cambios mínimos, preservá el comportamiento existente y explicá los pasos de verificación. No edites archivos salvo autorización explícita del caller.",
 	},
 	researcher: {
 		tools: READ_ONLY_AGENT_TOOLS,
 		thinking: "high",
 		systemPrompt:
-			"Act as a researcher. Gather independent evidence, compare alternatives, cite sources or files, and separate facts from assumptions.",
+			"Actuá como researcher. Reuní evidencia independiente, compará alternativas, citá fuentes o archivos y separá hechos de supuestos.",
 	},
 };
 
@@ -115,7 +117,7 @@ function uniqueStringList(values: Iterable<string | undefined>): string[] {
 		if (typeof value !== "string") continue;
 		const trimmed = value.trim();
 		if (!trimmed) continue;
-		if (!AGENT_ENV_NAME_RE.test(trimmed)) throw new Error(`Invalid agent key/env name: ${trimmed}`);
+		if (!AGENT_ENV_NAME_RE.test(trimmed)) throw new Error(`Nombre de key/env de agente inválido: ${trimmed}`);
 		if (!seen.has(trimmed)) {
 			seen.add(trimmed);
 			out.push(trimmed);
@@ -128,7 +130,7 @@ export function normalizeAgentEnvAccess(options: AgentOptions): AgentEnvAccess {
 	const inlineEnv = options.env ?? {};
 	const inlineKeys = Object.keys(inlineEnv);
 	for (const key of inlineKeys) {
-		if (!AGENT_ENV_NAME_RE.test(key)) throw new Error(`Invalid agent env name: ${key}`);
+		if (!AGENT_ENV_NAME_RE.test(key)) throw new Error(`Nombre de env de agente inválido: ${key}`);
 	}
 	const keyNames = uniqueStringList([...(options.keys ?? []), ...inlineKeys]);
 	const hasScopedEnv = keyNames.length > 0 || options.inheritEnv === false;
@@ -152,25 +154,26 @@ export function normalizeAgentEnvAccess(options: AgentOptions): AgentEnvAccess {
 }
 
 export function formatAgentAccessMarkdown(options: AgentOptions, envAccess: AgentEnvAccess): string {
-	const list = (values: string[] | undefined, fallback = "default") => (values?.length ? values.join(", ") : fallback);
+	const list = (values: string[] | undefined, fallback = "predeterminado") =>
+		values?.length ? values.join(", ") : fallback;
 	const skillAccess = options.skills?.length
-		? `${options.skills.join(", ")}${options.includeSkills === true ? " + discovery" : " (explicit only)"}`
+		? `${options.skills.join(", ")}${options.includeSkills === true ? " + descubrimiento" : " (solo explícitas)"}`
 		: options.includeSkills === false
-			? "disabled"
-			: "default discovery";
+			? "deshabilitado"
+			: "descubrimiento predeterminado";
 	const extensionAccess = options.extensions?.length
-		? `${options.extensions.join(", ")}${options.includeExtensions === true ? " + discovery" : " (explicit only)"}`
+		? `${options.extensions.join(", ")}${options.includeExtensions === true ? " + descubrimiento" : " (solo explícitas)"}`
 		: options.includeExtensions === true
-			? "default discovery"
-			: "disabled";
+			? "descubrimiento predeterminado"
+			: "deshabilitado";
 	return [
 		`- tools: ${list(options.tools)}`,
-		`- excludeTools: ${list(options.excludeTools, "none")}`,
+		`- excludeTools: ${list(options.excludeTools, "ninguno")}`,
 		`- skills: ${skillAccess}`,
 		`- extensions: ${extensionAccess}`,
-		`- keys: ${envAccess.keyNames.length ? `${envAccess.keyNames.join(", ")} (values redacted)` : envAccess.useEnvCommand ? "none selected" : "default inherited environment"}`,
+		`- keys: ${envAccess.keyNames.length ? `${envAccess.keyNames.join(", ")} (valores ocultos)` : envAccess.useEnvCommand ? "ninguna seleccionada" : "entorno heredado predeterminado"}`,
 		...(envAccess.missingKeys.length ? [`- missingKeys: ${envAccess.missingKeys.join(", ")}`] : []),
-		`- env: ${envAccess.useEnvCommand ? (envAccess.isolatedEnv ? "isolated + selected keys" : "inherited + selected overrides") : "process default"}`,
+		`- env: ${envAccess.useEnvCommand ? (envAccess.isolatedEnv ? "aislado + keys seleccionadas" : "heredado + overrides seleccionados") : "default del proceso"}`,
 	].join("\n");
 }
 
@@ -212,7 +215,7 @@ export async function createAgentEnvWrapper(envAccess: AgentEnvAccess): Promise<
 
 function sanitizePersonaOptions(value: unknown): AgentOptions {
 	if (!value || typeof value !== "object" || Array.isArray(value))
-		throw new Error("Persona files must contain a JSON object.");
+		throw new Error("Los archivos de persona deben contener un objeto JSON.");
 	const source = value as Record<string, unknown>;
 	const out: AgentOptions = {};
 	for (const key of PERSONA_OPTION_KEYS) {
@@ -235,7 +238,7 @@ function mergePersonaOptions(persona: AgentOptions, options: AgentOptions): Agen
 function normalizePersonaName(agentType: string): string {
 	const name = agentType.trim();
 	if (!/^[a-zA-Z0-9._-]+$/.test(name))
-		throw new Error("agentType may only contain letters, numbers, '.', '_', and '-'.");
+		throw new Error("agentType solo puede contener letras, números, '.', '_' y '-'.");
 	return name;
 }
 
@@ -247,9 +250,12 @@ async function loadProjectPersona(ctx: ExtensionContext, agentType: string): Pro
 		return sanitizePersonaOptions(JSON.parse(await fs.readFile(file, "utf8")));
 	} catch (err) {
 		if ((err as NodeJS.ErrnoException).code === "ENOENT") return undefined;
-		throw new Error(`Failed to load persona ${agentType}: ${err instanceof Error ? err.message : String(err)}`, {
-			cause: err,
-		});
+		throw new Error(
+			`No se pudo cargar la persona ${agentType}: ${err instanceof Error ? err.message : String(err)}`,
+			{
+				cause: err,
+			},
+		);
 	}
 }
 
@@ -258,7 +264,7 @@ export async function applyPersonaOptions(ctx: ExtensionContext, options: AgentO
 	const name = normalizePersonaName(options.agentType);
 	const projectPersona = await loadProjectPersona(ctx, name);
 	const persona = projectPersona ?? BUILTIN_AGENT_PERSONAS[name.toLowerCase()];
-	if (!persona) throw new Error(`Unknown agentType: ${options.agentType}`);
+	if (!persona) throw new Error(`agentType desconocido: ${options.agentType}`);
 	return mergePersonaOptions(persona, options);
 }
 

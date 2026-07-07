@@ -189,12 +189,12 @@ async function scenarioParseHelpers(url) {
 	);
 	check(
 		"describeWorktree: locked suffix",
-		/\[locked\]/.test(mod.describeWorktree(locked)),
+		/\[bloqueado\]/.test(mod.describeWorktree(locked)),
 		mod.describeWorktree(locked),
 	);
 	check(
 		"describeWorktree: prunable suffix",
-		/\[prunable\]/.test(mod.describeWorktree(prunable)),
+		/\[limpiable\]/.test(mod.describeWorktree(prunable)),
 		mod.describeWorktree(prunable),
 	);
 

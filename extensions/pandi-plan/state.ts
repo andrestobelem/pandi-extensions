@@ -11,19 +11,19 @@ export type PlanStatus = "planning" | "approved" | "rejected" | "exited" | "plan
 
 export interface PlanState {
 	planId: string;
-	/** The task the user handed to /plan. */
+	/** La tarea que el usuario le pasó a /plan. */
 	task: string;
-	/** True while the read-only GATE is armed (the mode is active). */
+	/** Vale true mientras el GATE de solo lectura está armado (el modo sigue activo). */
 	active: boolean;
 	status: PlanStatus;
 	/** Cuántas veces el modelo llamó submit_plan. */
 	submissions: number;
 	/** Cuántos de esos fueron rechazados por el usuario. */
 	rejections: number;
-	/** El último texto de plan que el modelo sumitó (para status + reinyección de aprobación). */
+	/** El último texto de plan que el modelo envió (para status + reinyección de aprobación). */
 	lastPlan?: string;
 	/**
-	 * Banderas de postura resueltas al entry (param -> env -> default). Sintonizán el wording del prompt
+	 * Banderas de postura resueltas en la entrada (param -> env -> default). Sintonizan el texto del prompt
 	 * y, para nonInteractive, el ciclo de vida submit_plan (solo plan: sin aprobación,
 	 * sin implementación, gate nunca se levanta). Persistidas así que dashboard/status las reflejan.
 	 */

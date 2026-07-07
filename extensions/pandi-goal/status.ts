@@ -13,12 +13,16 @@ import { formatEta } from "./time.js";
 import type { GoalState } from "./types.js";
 
 function formatGoalStatusPhase(goal: GoalState): string {
-	return goal.gstatus === "verifying" ? " verifying" : goal.gstatus === "verifying-independent" ? " verifying⊥" : "";
+	return goal.gstatus === "verifying"
+		? " verificando"
+		: goal.gstatus === "verifying-independent"
+			? " verificación⊥"
+			: "";
 }
 
 function formatGoalStatusEta(goal: GoalState): string {
 	return (goal.gstatus === "pursuing" || goal.gstatus === "verifying") && goal.nextFireAt
-		? ` next ${formatEta(goal.nextFireAt)}`
+		? ` próximo ${formatEta(goal.nextFireAt)}`
 		: "";
 }
 
@@ -40,7 +44,7 @@ function formatGoalStatusDetails(goal: GoalState): string {
 
 function formatGoalStatusLine(ctx: ExtensionContext, goal: GoalState): string {
 	const theme = ctx.ui.theme;
-	return `${theme.fg("accent", "◎ goal")} ${theme.fg("dim", formatGoalStatusDetails(goal))}`;
+	return `${theme.fg("accent", "◎ /goal")} ${theme.fg("dim", formatGoalStatusDetails(goal))}`;
 }
 
 export function setGoalStatus(ctx: ExtensionContext, goal: GoalState): void {

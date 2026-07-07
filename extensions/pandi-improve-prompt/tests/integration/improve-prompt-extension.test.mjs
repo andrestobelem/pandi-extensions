@@ -1,24 +1,24 @@
 #!/usr/bin/env node
 /**
- * Durable behavioral integration test for extensions/pandi-improve-prompt/index.ts and its
- * pure helper (build-improve-context.ts).
+ * Prueba de integración conductual persistente para extensions/pandi-improve-prompt/index.ts y su
+ * ayudante puro (build-improve-context.ts).
  *
- * Pins the public /improve-prompt contract:
- * - /improve-prompt is registered with a description
- * - /improve-prompt with no argument prints a usage hint and does NOT call the model
- * - no model selected / unusable credentials are reported, and the model is not called
- * - /improve-prompt builds a one-shot request from JUST the draft (no conversation
- *   context), with a system prompt and NO tools, and surfaces the model's rewrite
- * - reasoning is passed ONLY for reasoning-capable models
- * - model error / aborted / empty rewrites are reported, not thrown
- * - print/json: the rewrite is printed and NOTHING is sent (no interactive confirm exists)
- * - TUI: the scrollable overlay shows before the confirm; confirming SENDS the rewrite via
- *   pi.sendUserMessage (idle -> direct, mid-stream -> followUp); declining sends nothing
- * - rpc (hasUI, no TUI overlay): notify() carries the rewrite, then the same confirm/send
- * - the pure helper (buildImproveContext / extractImprovedText) behaves
+ * Deja fijado el contrato público de /improve-prompt:
+ * - /improve-prompt queda registrado con una descripción
+ * - /improve-prompt sin argumento imprime una ayuda de uso y NO llama al modelo
+ * - se informan el modelo no seleccionado / las credenciales inutilizables, y el modelo no se llama
+ * - /improve-prompt arma una solicitud de una sola pasada solo con el borrador (sin contexto
+ *   de conversación), con un prompt del sistema y SIN herramientas, y expone la reescritura del modelo
+ * - reasoning se pasa SOLO para modelos compatibles con reasoning
+ * - los errores del modelo / los abortos / las reescrituras vacías se informan, no se lanzan
+ * - print/json: la reescritura se imprime y NO se envía nada (no existe confirmación interactiva)
+ * - TUI: el overlay desplazable se muestra antes de la confirmación; al confirmar ENVÍA la reescritura vía
+ *   pi.sendUserMessage (idle -> directo, mid-stream -> followUp); al rechazar no envía nada
+ * - rpc (hasUI, sin overlay de TUI): notify() lleva la reescritura, luego el mismo confirm/send
+ * - el ayudante puro (buildImproveContext / extractImprovedText) se comporta
  *
- * The model call is stubbed by aliasing "@earendil-works/pi-ai/compat" to a fake
- * completeSimple that records its arguments and returns a configurable AssistantMessage.
+ * La llamada al modelo se stubbea aliasando "@earendil-works/pi-ai/compat" a un completeSimple falso
+ * que registra sus argumentos y devuelve un AssistantMessage configurable.
  */
 
 import * as fs from "node:fs/promises";
@@ -50,7 +50,7 @@ const DEFAULT_ANSWER = {
 	timestamp: 0,
 };
 
-/** Fake completeSimple: records every call and returns globalThis.__improveResponse or a default. */
+/** completeSimple falso: registra cada llamada y devuelve globalThis.__improveResponse o un valor por defecto. */
 const COMPAT_STUB =
 	"export async function completeSimple(model, context, options) {\n" +
 	"  (globalThis.__improveCalls ??= []).push({ model, context, options });\n" +
@@ -59,7 +59,7 @@ const COMPAT_STUB =
 	"}\n" +
 	"export function streamSimple() {}\n";
 
-/** A theme whose styling helpers are identity functions, so render output is inspectable. */
+/** Un tema cuyos helpers de estilo son funciones identidad, así el resultado del render se puede inspeccionar. */
 function fakeTheme() {
 	const id = (_color, text) => (text === undefined ? _color : text);
 	return {
@@ -90,7 +90,7 @@ function makeCtx({
 	hasUI = true,
 	model = { provider: "anthropic", id: "claude", reasoning: false },
 	authOk = true,
-	authError = "no key",
+	authError = "sin credenciales",
 	idle = true,
 	confirmResult = true,
 } = {}) {
@@ -139,12 +139,12 @@ async function testPureHelper(pureUrl) {
 
 	const ctx = buildImproveContext("fix the bug in the parser");
 	check(
-		"buildImproveContext uses the improve-prompt system prompt",
+		"buildImproveContext usa el prompt del sistema de improve-prompt",
 		ctx.systemPrompt === IMPROVE_PROMPT_SYSTEM_PROMPT && typeof IMPROVE_PROMPT_SYSTEM_PROMPT === "string",
 	);
-	check("buildImproveContext carries NO tools", !("tools" in ctx));
+	check("buildImproveContext no lleva herramientas", !("tools" in ctx));
 	check(
-		"buildImproveContext sends ONLY the draft as a single user message",
+		"buildImproveContext envía SOLO el borrador como un único mensaje de usuario",
 		ctx.messages.length === 1 &&
 			ctx.messages[0]?.role === "user" &&
 			ctx.messages[0]?.content === "fix the bug in the parser",
@@ -158,9 +158,13 @@ async function testPureHelper(pureUrl) {
 			{ type: "text", text: "b" },
 		],
 	});
-	check("extractImprovedText joins text blocks, ignores others", answer === "a\n\nb", JSON.stringify(answer));
 	check(
-		"extractImprovedText trims empties to ''",
+		"extractImprovedText une los bloques de texto e ignora los demás",
+		answer === "a\n\nb",
+		JSON.stringify(answer),
+	);
+	check(
+		"extractImprovedText recorta los vacíos a ''",
 		extractImprovedText({ content: [{ type: "thinking", thinking: "x" }] }) === "",
 	);
 }
@@ -170,8 +174,8 @@ async function testRegistration(url) {
 	const { pi, commands } = makePi();
 	ext(pi);
 	const cmd = commands.get("improve-prompt");
-	check("/improve-prompt command is registered", typeof cmd?.handler === "function");
-	check("/improve-prompt has a description", typeof cmd?.description === "string" && cmd.description.length > 0);
+	check("/improve-prompt queda registrado", typeof cmd?.handler === "function");
+	check("/improve-prompt tiene una descripción", typeof cmd?.description === "string" && cmd.description.length > 0);
 }
 
 async function testEmptyDraft(url) {
@@ -182,11 +186,11 @@ async function testEmptyDraft(url) {
 	const { ctx, notes } = makeCtx({ mode: "tui", hasUI: true });
 	await commands.get("improve-prompt").handler("   ", ctx);
 	check(
-		"empty /improve-prompt shows a usage hint",
-		notes.some((n) => n.type === "info" && /usage:\s*\/improve-prompt/i.test(n.message)),
+		"un /improve-prompt vacío muestra una ayuda de uso",
+		notes.some((n) => n.type === "info" && /uso:\s*\/improve-prompt/i.test(n.message)),
 		JSON.stringify(notes),
 	);
-	check("empty /improve-prompt does not call the model", (globalThis.__improveCalls ?? []).length === 0);
+	check("un /improve-prompt vacío no llama al modelo", (globalThis.__improveCalls ?? []).length === 0);
 }
 
 async function testNoModel(url) {
@@ -197,11 +201,11 @@ async function testNoModel(url) {
 	const { ctx, notes } = makeCtx({ model: null });
 	await commands.get("improve-prompt").handler("fix the bug", ctx);
 	check(
-		"no model selected is reported",
-		notes.some((n) => n.type === "error" && /no model/i.test(n.message)),
+		"se informa que no hay modelo seleccionado",
+		notes.some((n) => n.type === "error" && /no hay modelo/i.test(n.message)),
 		JSON.stringify(notes),
 	);
-	check("no model does not call the model", (globalThis.__improveCalls ?? []).length === 0);
+	check("sin modelo no se llama al modelo", (globalThis.__improveCalls ?? []).length === 0);
 }
 
 async function testJsonModeNotifyReachesConsole(url) {
@@ -220,8 +224,8 @@ async function testJsonModeNotifyReachesConsole(url) {
 		console.error = origErr;
 	}
 	check(
-		"json mode: an error notify is written to the console (not silently dropped)",
-		errOut.some((m) => /no model/i.test(m)),
+		"modo json: una notificación de error se escribe en la consola (no se descarta en silencio)",
+		errOut.some((m) => /no hay modelo/i.test(m)),
 		JSON.stringify(errOut),
 	);
 }
@@ -231,14 +235,14 @@ async function testAuthFailure(url) {
 	const ext = await loadDefault(url);
 	const { pi, commands } = makePi();
 	ext(pi);
-	const { ctx, notes } = makeCtx({ authOk: false, authError: "no creds" });
+	const { ctx, notes } = makeCtx({ authOk: false, authError: "sin credenciales" });
 	await commands.get("improve-prompt").handler("fix the bug", ctx);
 	check(
-		"auth failure is reported with the error",
-		notes.some((n) => n.type === "error" && /no creds/.test(n.message)),
+		"el fallo de autenticación se informa con el error",
+		notes.some((n) => n.type === "error" && /sin credenciales/.test(n.message)),
 		JSON.stringify(notes),
 	);
-	check("auth failure does not call the model", (globalThis.__improveCalls ?? []).length === 0);
+	check("el fallo de autenticación no llama al modelo", (globalThis.__improveCalls ?? []).length === 0);
 }
 
 async function testHappyPathPrintMode(url) {
@@ -262,32 +266,32 @@ async function testHappyPathPrintMode(url) {
 	}
 
 	const callList = globalThis.__improveCalls ?? [];
-	check("/improve-prompt calls completeSimple once", callList.length === 1, `calls=${callList.length}`);
+	check("/improve-prompt llama a completeSimple una vez", callList.length === 1, `calls=${callList.length}`);
 	const call = callList[0];
-	check("/improve-prompt passes the current model", call?.model?.id === "claude");
+	check("/improve-prompt pasa el modelo actual", call?.model?.id === "claude");
 	check(
-		"/improve-prompt sends a system prompt",
+		"/improve-prompt envía un prompt del sistema",
 		typeof call?.context?.systemPrompt === "string" && call.context.systemPrompt.length > 0,
 	);
-	check("/improve-prompt sends NO tools", !("tools" in (call?.context ?? {})));
+	check("/improve-prompt no envía herramientas", !("tools" in (call?.context ?? {})));
 	check(
-		"/improve-prompt sends only the draft as the (single) user message",
+		"/improve-prompt envía solo el borrador como el (único) mensaje de usuario",
 		call?.context?.messages?.length === 1 && call.context.messages[0]?.content === "fix the bug in the parser",
 	);
-	check("/improve-prompt passes resolved apiKey", call?.options?.apiKey === "test-key");
-	check("/improve-prompt caps maxTokens", typeof call?.options?.maxTokens === "number" && call.options.maxTokens > 0);
+	check("/improve-prompt pasa la apiKey resuelta", call?.options?.apiKey === "test-key");
+	check("/improve-prompt acota maxTokens", typeof call?.options?.maxTokens === "number" && call.options.maxTokens > 0);
 	check(
-		"/improve-prompt omits reasoning for non-reasoning model",
+		"/improve-prompt omite reasoning para un modelo sin reasoning",
 		!("reasoning" in (call?.options ?? {})),
 		JSON.stringify(call?.options),
 	);
 	check(
-		"/improve-prompt prints the rewrite in print mode",
+		"/improve-prompt imprime la reescritura en modo print",
 		out.some((l) => l.includes("IMPROVED PROMPT")),
 		JSON.stringify(out),
 	);
 	check(
-		"print mode NEVER sends the rewrite (no interactive confirm exists)",
+		"el modo print NUNCA envía la reescritura (no existe confirmación interactiva)",
 		sendCalls.length === 0,
 		JSON.stringify(sendCalls),
 	);
@@ -307,7 +311,7 @@ async function testReasoningModel(url) {
 	await commands.get("improve-prompt").handler("ping", ctx);
 	const call = (globalThis.__improveCalls ?? [])[0];
 	check(
-		"/improve-prompt passes reasoning for reasoning-capable model",
+		"/improve-prompt pasa reasoning para un modelo con reasoning",
 		call?.options?.reasoning === "high",
 		JSON.stringify(call?.options),
 	);
@@ -329,11 +333,11 @@ async function testModelErrors(url) {
 	let r = makeCtx({ mode: "tui", hasUI: true });
 	await commands.get("improve-prompt").handler("q", r.ctx);
 	check(
-		"model error is reported with the message",
+		"el error del modelo se informa con el mensaje",
 		r.notes.some((n) => n.type === "error" && /boom/.test(n.message)),
 		JSON.stringify(r.notes),
 	);
-	check("model error opens no overlay", r.overlays.length === 0);
+	check("el error del modelo no abre overlay", r.overlays.length === 0);
 
 	resetModelCalls();
 	globalThis.__improveResponse = {
@@ -345,19 +349,19 @@ async function testModelErrors(url) {
 	r = makeCtx({ mode: "tui", hasUI: true });
 	await commands.get("improve-prompt").handler("q", r.ctx);
 	check(
-		"empty rewrite is reported as a warning",
-		r.notes.some((n) => n.type === "warning" && /no rewrite/i.test(n.message)),
+		"la reescritura vacía se informa como advertencia",
+		r.notes.some((n) => n.type === "warning" && /ninguna reescritura/i.test(n.message)),
 		JSON.stringify(r.notes),
 	);
-	check("empty rewrite opens no overlay", r.overlays.length === 0);
+	check("la reescritura vacía no abre overlay", r.overlays.length === 0);
 
 	resetModelCalls();
 	globalThis.__improveResponse = { content: [], stopReason: "aborted", role: "assistant", usage: {} };
 	r = makeCtx({ mode: "tui", hasUI: true });
 	await commands.get("improve-prompt").handler("q", r.ctx);
 	check(
-		"aborted is reported as info",
-		r.notes.some((n) => n.type === "info" && /cancel/i.test(n.message)),
+		"aborted se informa como info",
+		r.notes.some((n) => n.type === "info" && /cancelado/i.test(n.message)),
 		JSON.stringify(r.notes),
 	);
 }
@@ -370,22 +374,22 @@ async function testTuiOverlayThenSendConfirmed(url) {
 	const { ctx, overlays, confirmCalls } = makeCtx({ mode: "tui", hasUI: true, idle: true, confirmResult: true });
 	await commands.get("improve-prompt").handler("fix the bug", ctx);
 
-	check("/improve-prompt opens exactly one overlay in the TUI", overlays.length === 1);
+	check("/improve-prompt abre exactamente un overlay en la TUI", overlays.length === 1);
 	const comp = overlays[0]?.component;
-	check("overlay component has render()", typeof comp?.render === "function");
+	check("el componente overlay tiene render()", typeof comp?.render === "function");
 	let lines;
 	try {
 		lines = comp.render(80);
 	} catch (e) {
 		lines = e;
 	}
-	check("overlay render() returns lines without throwing", Array.isArray(lines), String(lines));
+	check("render() del overlay devuelve líneas sin lanzar", Array.isArray(lines), String(lines));
 	comp?.handleInput?.("q");
-	check("overlay closes on q", overlays[0]?.getClosed() === true);
+	check("el overlay se cierra con q", overlays[0]?.getClosed() === true);
 
-	check("confirm is asked exactly once", confirmCalls.length === 1, JSON.stringify(confirmCalls));
+	check("se pide confirmación exactamente una vez", confirmCalls.length === 1, JSON.stringify(confirmCalls));
 	check(
-		"confirming SENDS the rewrite via pi.sendUserMessage (idle -> direct call)",
+		"al confirmar, ENVÍA la reescritura vía pi.sendUserMessage (idle -> llamada directa)",
 		sendCalls.length === 1 && sendCalls[0]?.content === "IMPROVED PROMPT" && sendCalls[0]?.options === undefined,
 		JSON.stringify(sendCalls),
 	);
@@ -399,7 +403,7 @@ async function testTuiSendWhileBusyUsesFollowUp(url) {
 	const { ctx } = makeCtx({ mode: "tui", hasUI: true, idle: false, confirmResult: true });
 	await commands.get("improve-prompt").handler("fix the bug", ctx);
 	check(
-		"mid-stream confirm sends as a followUp (not a direct steer)",
+		"la confirmación en medio del flujo envía como followUp (no como steer directo)",
 		sendCalls.length === 1 && sendCalls[0]?.options?.deliverAs === "followUp",
 		JSON.stringify(sendCalls),
 	);
@@ -412,10 +416,10 @@ async function testTuiDeclineNeverSends(url) {
 	ext(pi);
 	const { ctx, notes } = makeCtx({ mode: "tui", hasUI: true, confirmResult: false });
 	await commands.get("improve-prompt").handler("fix the bug", ctx);
-	check("declining the confirm sends nothing", sendCalls.length === 0, JSON.stringify(sendCalls));
+	check("rechazar la confirmación no envía nada", sendCalls.length === 0, JSON.stringify(sendCalls));
 	check(
-		"declining is reported (not sent)",
-		notes.some((n) => n.type === "info" && /not sent/i.test(n.message)),
+		"el rechazo se informa (no enviado)",
+		notes.some((n) => n.type === "info" && /no enviado/i.test(n.message)),
 		JSON.stringify(notes),
 	);
 }
@@ -427,14 +431,14 @@ async function testRpcNotifiesThenSends(url) {
 	ext(pi);
 	const { ctx, notes, overlays, confirmCalls } = makeCtx({ mode: "rpc", hasUI: true, confirmResult: true });
 	await commands.get("improve-prompt").handler("fix the bug", ctx);
-	check("rpc mode opens no TUI overlay (custom())", overlays.length === 0);
+	check("el modo rpc no abre overlay de TUI (custom())", overlays.length === 0);
 	check(
-		"rpc mode notifies the rewrite before confirming",
+		"el modo rpc notifica la reescritura antes de confirmar",
 		notes.some((n) => n.type === "info" && /IMPROVED PROMPT/.test(n.message)),
 		JSON.stringify(notes),
 	);
-	check("rpc mode still asks to confirm", confirmCalls.length === 1);
-	check("rpc mode sends on confirm", sendCalls.length === 1, JSON.stringify(sendCalls));
+	check("el modo rpc igual pide confirmación", confirmCalls.length === 1);
+	check("el modo rpc envía al confirmar", sendCalls.length === 1, JSON.stringify(sendCalls));
 }
 
 async function main() {

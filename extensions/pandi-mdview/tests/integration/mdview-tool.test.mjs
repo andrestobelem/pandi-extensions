@@ -6,14 +6,14 @@
  * Por qué existe: `/mdview` es un COMMAND del usuario (el agente no puede invocarlo). Para que
  * el propio agente "muestre un archivo Markdown", la extensión también expone una TOOL que el LLM
  * puede llamar. Esta suite fija ese contrato:
- * - la tool se registra con un parámetro `path` y una descripción consciente de Markdown
- * - en modo TUI abre el mismo visor con scroll personalizado y devuelve un ack breve
+ * - la herramienta se registra con un parámetro `path` y una descripción consciente de Markdown
+ * - en modo TUI abre el mismo visor con scroll personalizado y devuelve un acuse breve
  * - en modos no interactivos devuelve el contenido Markdown del archivo (no se abre UI)
- * - rutas faltantes/sobredimensionadas/vacías devuelven un error de tool acotado (details.isError), sin UI
+ * - rutas faltantes/sobredimensionadas/vacías devuelven un error de herramienta acotado (details.isError), sin UI
  *
- * Auto-bootstrap (mismo patrón que mdview-extension.test.mjs): hace esbuild del
+ * Arranque automático (mismo patrón que mdview-extension.test.mjs): hace esbuild del
  * extensions/pandi-mdview/index.ts actual en un directorio temporal del OS en tiempo de ejecución para que nunca
- * pruebe un bundle obsoleto, y luego usa la TOOL real registrada.
+ * pruebe un bundle obsoleto, y luego usa la herramienta real registrada.
  */
 
 import * as fs from "node:fs/promises";
@@ -114,11 +114,11 @@ async function loadTool(url) {
 
 async function scenarioRegistered(url) {
 	const tool = await loadTool(url);
-	check("view_markdown tool registered", !!tool, String(!!tool));
-	check("view_markdown describes Markdown", /markdown/i.test(tool?.description || ""), tool?.description);
+	check("view_markdown registrada", !!tool, String(!!tool));
+	check("view_markdown menciona Markdown", /markdown/i.test(tool?.description || ""), tool?.description);
 	const props = tool?.parameters?.properties || {};
-	check("view_markdown has a `path` parameter", "path" in props, JSON.stringify(Object.keys(props)));
-	check("view_markdown execute is a function", typeof tool?.execute === "function");
+	check("view_markdown tiene parámetro `path`", "path" in props, JSON.stringify(Object.keys(props)));
+	check("view_markdown execute es una función", typeof tool?.execute === "function");
 }
 
 async function scenarioTuiOpensViewer(url) {
@@ -128,14 +128,18 @@ async function scenarioTuiOpensViewer(url) {
 	const ctx = makeCtx({ cwd, mode: "tui", rows: 10, width: 72 });
 
 	const result = await tool.execute("call-1", { path: "doc.md" }, undefined, undefined, ctx);
-	check("tui: opens the custom viewer exactly once", ctx._customCalls.length === 1, String(ctx._customCalls.length));
+	check(
+		"tui: abre el visor personalizado una sola vez",
+		ctx._customCalls.length === 1,
+		String(ctx._customCalls.length),
+	);
 	const rendered = stripAnsi((ctx._customCalls[0]?.firstRender || []).join("\n"));
-	check("tui: viewer renders the heading", /Tool Heading/.test(rendered), rendered);
+	check("tui: el visor renderiza el título", /Tool Heading/.test(rendered), rendered);
 	const text = result?.content?.[0]?.text || "";
-	check("tui: returns an ack mentioning the viewer", /visor/i.test(text), text);
-	check("tui: ack mentions the relative path", /doc\.md/.test(text), text);
-	check("tui: details.opened is true", result?.details?.opened === true, JSON.stringify(result?.details));
-	check("tui: not an error", !result?.details?.isError, JSON.stringify(result?.details));
+	check("tui: devuelve un acuse que menciona el visor", /visor/i.test(text), text);
+	check("tui: el acuse menciona la ruta relativa", /doc\.md/.test(text), text);
+	check("tui: details.opened es true", result?.details?.opened === true, JSON.stringify(result?.details));
+	check("tui: no es un error", !result?.details?.isError, JSON.stringify(result?.details));
 }
 
 async function scenarioNonTuiReturnsContent(url) {
@@ -145,10 +149,10 @@ async function scenarioNonTuiReturnsContent(url) {
 	const ctx = makeCtx({ cwd, mode: "print" });
 
 	const result = await tool.execute("call-2", { path: "doc.md" }, undefined, undefined, ctx);
-	check("non-tui: opens no viewer", ctx._customCalls.length === 0, String(ctx._customCalls.length));
+	check("sin TUI: no abre visor", ctx._customCalls.length === 0, String(ctx._customCalls.length));
 	const text = result?.content?.[0]?.text || "";
-	check("non-tui: returns the document content", text.includes("UNIQUE_BODY_42"), text.slice(0, 120));
-	check("non-tui: details.opened is false", result?.details?.opened === false, JSON.stringify(result?.details));
+	check("sin TUI: devuelve el contenido del documento", text.includes("UNIQUE_BODY_42"), text.slice(0, 120));
+	check("sin TUI: details.opened es false", result?.details?.opened === false, JSON.stringify(result?.details));
 }
 
 async function scenarioMissingFile(url) {
@@ -157,10 +161,10 @@ async function scenarioMissingFile(url) {
 	const ctx = makeCtx({ cwd, mode: "tui" });
 
 	const result = await tool.execute("call-3", { path: "missing.md" }, undefined, undefined, ctx);
-	check("missing: opens no viewer", ctx._customCalls.length === 0, String(ctx._customCalls.length));
-	check("missing: returns a tool error", result?.details?.isError === true, JSON.stringify(result?.details));
+	check("faltante: no abre visor", ctx._customCalls.length === 0, String(ctx._customCalls.length));
+	check("faltante: devuelve un error de tool", result?.details?.isError === true, JSON.stringify(result?.details));
 	check(
-		"missing: error mentions read failure",
+		"faltante: el error menciona la lectura fallida",
 		/no se pudo leer/i.test(result?.content?.[0]?.text || ""),
 		result?.content?.[0]?.text,
 	);
@@ -173,10 +177,10 @@ async function scenarioRejectsNonMarkdownExtension(url) {
 	const ctx = makeCtx({ cwd, mode: "print" });
 
 	const result = await tool.execute("call-non-md", { path: "secret.txt" }, undefined, undefined, ctx);
-	check("non-md: opens no viewer", ctx._customCalls.length === 0, String(ctx._customCalls.length));
-	check("non-md: returns a tool error", result?.details?.isError === true, JSON.stringify(result?.details));
+	check("no Markdown: no abre visor", ctx._customCalls.length === 0, String(ctx._customCalls.length));
+	check("no Markdown: devuelve un error de tool", result?.details?.isError === true, JSON.stringify(result?.details));
 	check(
-		"non-md: rejects by extension before returning content",
+		"no Markdown: rechaza por extensión antes de devolver contenido",
 		/\.md|\.markdown/i.test(result?.content?.[0]?.text || "") &&
 			!/NOT_MARKDOWN_SECRET/.test(result?.content?.[0]?.text || ""),
 		result?.content?.[0]?.text,
@@ -190,10 +194,14 @@ async function scenarioOversized(url) {
 	const ctx = makeCtx({ cwd, mode: "tui" });
 
 	const result = await tool.execute("call-4", { path: "big.md" }, undefined, undefined, ctx);
-	check("oversized: opens no viewer", ctx._customCalls.length === 0, String(ctx._customCalls.length));
-	check("oversized: returns a tool error", result?.details?.isError === true, JSON.stringify(result?.details));
+	check("sobredimensionado: no abre visor", ctx._customCalls.length === 0, String(ctx._customCalls.length));
 	check(
-		"oversized: error mentions size limit",
+		"sobredimensionado: devuelve un error de tool",
+		result?.details?.isError === true,
+		JSON.stringify(result?.details),
+	);
+	check(
+		"sobredimensionado: el error menciona el límite de tamaño",
 		/demasiado grande/i.test(result?.content?.[0]?.text || ""),
 		result?.content?.[0]?.text,
 	);
@@ -205,8 +213,8 @@ async function scenarioEmptyPath(url) {
 	const ctx = makeCtx({ cwd, mode: "tui" });
 
 	const result = await tool.execute("call-5", { path: "" }, undefined, undefined, ctx);
-	check("empty: opens no viewer", ctx._customCalls.length === 0, String(ctx._customCalls.length));
-	check("empty: returns a tool error", result?.details?.isError === true, JSON.stringify(result?.details));
+	check("vacío: no abre visor", ctx._customCalls.length === 0, String(ctx._customCalls.length));
+	check("vacío: devuelve un error de tool", result?.details?.isError === true, JSON.stringify(result?.details));
 }
 
 async function main() {

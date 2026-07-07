@@ -171,7 +171,7 @@ async function scenarioDynamicWorkflowCommand(url) {
 	await dynamicWorkflow.handler("   ", makeCtx({ notifications }));
 	check(
 		"/dynamic-workflow with no task shows usage",
-		notifications.at(-1)?.message === "Usage: /dynamic-workflow <task>",
+		notifications.at(-1)?.message === "Uso: /dynamic-workflow <task>",
 		JSON.stringify(notifications.at(-1)),
 	);
 }

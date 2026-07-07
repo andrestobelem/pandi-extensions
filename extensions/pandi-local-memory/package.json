@@ -1,7 +1,7 @@
 {
 	"name": "@pandi-coding-agent/pandi-local-memory",
 	"version": "0.2.4",
-	"description": "Pi extension that injects a project-local .pi/memory/ folder (capped MEMORY.md index plus on-demand topic files) into the system prompt.",
+	"description": "Extensión de Pi que inyecta una carpeta local `.pi/memory/` del proyecto (índice `MEMORY.md` capado más archivos de topic bajo demanda) en el system prompt.",
 	"license": "MIT",
 	"repository": {
 		"type": "git",

@@ -1,13 +1,13 @@
 /**
- * AgentLiveViewComponent — el componente TUI que renderiza la salida live de ejecución
- * de un solo agente (log scrolleable con encabezado de status), opcionalmente con SUB-TABS
- * (Card / Prompt / Graph / Output / Definition / Run) para que la pantalla de detalle Enter
+ * AgentLiveViewComponent — el componente TUI que renderiza la salida en vivo de
+ * un solo agente (log con scroll y encabezado de estado), opcionalmente con SUB-TABS
+ * (Card / Prompt / Graph / Output / Definition / Run) para que la pantalla de detalle
  * del Monitor permita moverse entre vistas sin volver al dashboard.
  *
- * Presentación pura sobre contenido string plano; agent-view.ts le entrega el Markdown
+ * Presentación pura sobre contenido string plano; agent-view.ts entrega el Markdown
  * por tab y lo construye solo dentro del callback showLiveAgentView ctx.ui.custom.
  * Modo tabs: `tabs` etiqueta las subvistas, `setTabContent(key, content)` las llena,
- * ←/→ Tab/Shift+Tab/dígitos cambian (el scroll se recuerda POR TAB), y `onTabChange`
+ * ←/→ Tab/Shift+Tab/dígitos cambian (el scroll se recuerda POR TAB) y `onTabChange`
  * permite que el abridor cargue de inmediato el tab recién enfocado en vez de esperar el
  * poll de 1s. Sin `tabs` se comporta exactamente como el visor legacy de documento único.
  * Ciclo diferido: lee liveAgentHeaderStatus desde ./agent-view.js solo dentro de
@@ -129,13 +129,13 @@ export class AgentLiveViewComponent {
 		const page = this.pageSize();
 		const key = this.getActiveTab();
 		const markdown = this.markdownByTab.get(key);
-		const bodyLines = markdown ? markdown.render(w) : ["Loading agent execution…"];
+		const bodyLines = markdown ? markdown.render(w) : ["Cargando ejecución del agente…"];
 		const maxScroll = Math.max(0, bodyLines.length - page);
 		const scroll = Math.max(0, Math.min(this.scrollByTab.get(key) ?? 0, maxScroll));
 		this.scrollByTab.set(key, scroll);
 		const line = (textValue: string) => truncateToWidth(textValue, w, "…");
 		const end = Math.min(bodyLines.length, scroll + page);
-		const tabsHint = this.tabs.length > 0 ? "←→ tabs • " : "";
+		const tabsHint = this.tabs.length > 0 ? "←→ pestañas • " : "";
 		const hints =
 			tabsHint +
 			formatViewerHints({
@@ -145,7 +145,7 @@ export class AgentLiveViewComponent {
 				total: bodyLines.length,
 			});
 		const header =
-			this.theme.fg("accent", "Live workflow agent") +
+			this.theme.fg("accent", "Agente en vivo del workflow") +
 			this.theme.fg("dim", ` • ${liveAgentHeaderStatus(this.agentState)} • ${hints}`);
 		const chrome = [line(header)];
 		if (this.tabs.length > 0) chrome.push(line(this.renderTabBar()));

@@ -1,14 +1,14 @@
 # @pandi-coding-agent/pandi-theme
 
-Panda Syntax themes for Pi 🐼, the visual companion to the Pandi mascot
-(`pandi`): a TUI port of the classic editor theme
-[Panda Syntax](https://github.com/PandaTheme), in dark and light variants.
-Reach for it when you want Pi's terminal UI to match that palette instead of
-the default theme.
+Temas Panda Syntax para Pi 🐼, el compañero visual de la mascota Pandi
+(`pandi`): una versión TUI del tema clásico de editor
+[Panda Syntax](https://github.com/PandaTheme), en variantes oscura y clara.
+Usalo cuando quieras que la terminal de Pi adopte esa paleta en lugar del tema
+predeterminado.
 
-## Quickstart
+## Inicio rápido
 
-Install it, then pick the theme:
+Instalalo y elegí el tema:
 
 ```bash
 pi install npm:@pandi-coding-agent/pandi-theme
@@ -18,31 +18,31 @@ pi install npm:@pandi-coding-agent/pandi-theme
 { "theme": "panda-syntax-light/panda-syntax-dark" }
 ```
 
-That's it — no commands, no tools, no config beyond `settings.json`. This
-package is themes only: it declares `pi.themes` in `package.json` and ships
-no code extension.
+Eso es todo: no hay comandos, herramientas ni configuración más allá de
+`settings.json`. Este paquete trae solo temas: declara `pi.themes` en
+`package.json` y no incluye una extensión de código.
 
-## What you get
+## Qué trae
 
-- `panda-syntax-dark` — `#292A2B` background with `#19F9D8` (panda green),
-  `#FF75B5` (pink), and `#45A9F9` (blue) accents.
-- `panda-syntax-light` — the same palette adapted to light terminals.
+- `panda-syntax-dark` — fondo `#292A2B` con acentos `#19F9D8` (panda green),
+  `#FF75B5` (pink) y `#45A9F9` (blue).
+- `panda-syntax-light` — la misma paleta adaptada a terminales claras.
 
-## Install
+## Instalación
 
-| Source | Command |
+| Origen | Comando |
 | --- | --- |
 | npm | `pi install npm:@pandi-coding-agent/pandi-theme` |
-| repo, global (your user) | `pi install ./extensions/pandi-theme` |
-| repo, project-local | `pi install -l ./extensions/pandi-theme` |
-| repo, one-off trial | `pi --no-extensions -e ./extensions/pandi-theme` |
+| repositorio, global (tu usuario) | `pi install ./extensions/pandi-theme` |
+| repositorio, local al proyecto | `pi install -l ./extensions/pandi-theme` |
+| repositorio, prueba puntual | `pi --no-extensions -e ./extensions/pandi-theme` |
 
-The one-off trial loads nothing else, useful for previewing the theme
-without touching your installed extensions.
+La prueba puntual no carga nada más; sirve para previsualizar el tema sin
+tocar las extensiones instaladas.
 
-## Usage
+## Uso
 
-Pick the theme via `/settings`, or set it directly in `settings.json`:
+Elegí el tema desde `/settings`, o fijalo directo en `settings.json`:
 
 ```json
 {
@@ -50,17 +50,17 @@ Pick the theme via `/settings`, or set it directly in `settings.json`:
 }
 ```
 
-The `light/dark` form lets Pi choose the variant from your terminal's
-detected background. To pin a single variant instead, use
-`"theme": "panda-syntax-dark"` (or `panda-syntax-light`).
+La forma `light/dark` le permite a Pi elegir la variante según el fondo
+que detecte en tu terminal. Si querés fijar una sola variante, usá
+`"theme": "panda-syntax-dark"` (o `panda-syntax-light`).
 
-## Details
+## Detalles
 
-- The two theme JSON files live in `themes/` and each declare all 51 color
-  tokens required by Pi's theme schema.
-- If you edit the active theme file on disk, Pi hot-reloads it.
+- Los dos archivos JSON de tema viven en `themes/` y cada uno declara los 51
+  tokens de color que exige el esquema de temas de Pi.
+- Si editás el archivo de tema activo en disco, Pi lo recarga en caliente.
 
-## Related
+## Relacionado
 
-For the full bundle of extensions and skills, install the repository root
-instead.
+Para instalar el paquete completo de extensiones y skills, instalá la raíz del
+repositorio.

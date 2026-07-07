@@ -117,7 +117,7 @@ const HELP_TEXT = [
 	"",
 	"Pasá --copy-ignored/--copy-untracked (o --no-copy-ignored/--no-copy-untracked) para sobrescribirlo en esta llamada.",
 	"O definí un valor por defecto de la sesión con `set` (también vía las env vars PI_WORKTREE_COPY_IGNORED / PI_WORKTREE_COPY_UNTRACKED).",
-	"El single-writer guard está desactivado por defecto; activalo con `/worktree set writer-guard on` o PI_WORKTREE_WRITER_GUARD=1.",
+	"El guard de un solo escritor está desactivado por defecto; activalo con `/worktree set writer-guard on` o PI_WORKTREE_WRITER_GUARD=1.",
 	"",
 	`Un <name> simple (sin slash) se crea en ${CONFIG_DIR_NAME}/worktrees/<name> (gitignored).`,
 	"Usá ./x, ../x, /abs o ~/x para una ubicación explícita.",
@@ -780,7 +780,7 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 
 	pi.registerTool({
 		name: "git_worktree",
-		label: "Git Worktree",
+		label: "Worktree de Git",
 		description:
 			"Gestiona los worktrees de git en el repositorio actual. Acciones: 'list' (enumerar worktrees), 'add' (crear un worktree en un path, opcionalmente en una rama nueva), 'open' (crear el worktree si falta y luego iniciar una sesión NUEVA de Pi en él: una pestaña nueva de Supacode cuando se ejecuta bajo Supacode; si no, informa el comando cd+pi; el cwd de la sesión actual nunca cambia), 'remove' (eliminar un worktree; se niega a eliminar uno con cambios o bloqueado salvo que force=true), 'prune' (limpiar metadatos obsoletos de worktrees). git se invoca con un array argv, nunca con un shell.",
 		promptSnippet: "Gestioná worktrees de git con las acciones list/add/open/remove/prune.",

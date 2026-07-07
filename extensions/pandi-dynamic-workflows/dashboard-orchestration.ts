@@ -131,17 +131,17 @@ async function loadRerunInput(
 	try {
 		textValue = await fs.readFile(inputPath, "utf8");
 	} catch {
-		const edited = await ctx.ui.editor(`Workflow input JSON: ${run.workflow}`, "{}");
+		const edited = await ctx.ui.editor(`JSON de input del workflow: ${run.workflow}`, "{}");
 		if (edited === undefined) return undefined;
 		textValue = edited;
-		source = "editor JSON (input.json missing)";
+		source = "JSON del editor (falta input.json)";
 	}
 	try {
 		return { input: parseCliJsonOrText(textValue, { strictJson: true }), source };
 	} catch {
-		const edited = await ctx.ui.editor(`Fix workflow input JSON: ${run.workflow}`, textValue);
+		const edited = await ctx.ui.editor(`Corregí el JSON de input del workflow: ${run.workflow}`, textValue);
 		if (edited === undefined) return undefined;
-		return { input: parseCliJsonOrText(edited, { strictJson: true }), source: "editor JSON" };
+		return { input: parseCliJsonOrText(edited, { strictJson: true }), source: "JSON del editor" };
 	}
 }
 
@@ -152,15 +152,15 @@ async function createWorkflowDraftFromPattern(
 	ctx: ExtensionContext,
 	pattern: WorkflowPattern,
 ): Promise<WorkflowDefinition | undefined> {
-	const nameText = await ctx.ui.editor("Workflow name", pattern.defaultName);
+	const nameText = await ctx.ui.editor("Nombre del workflow", pattern.defaultName);
 	const name = nameText?.trim();
 	if (!name) return undefined;
 	const code = await loadWorkflowPatternCode(pattern);
-	const edited = await ctx.ui.editor(`New workflow from pattern: ${pattern.key}`, code);
+	const edited = await ctx.ui.editor(`Workflow nuevo desde el pattern: ${pattern.key}`, code);
 	if (edited === undefined) return undefined;
 	const workflow = await resolveWorkflow(ctx, name, "project", "draft");
 	if (existsSync(workflow.path)) {
-		const ok = await ctx.ui.confirm("Overwrite existing workflow?", `${workflow.name}\n${workflow.path}`);
+		const ok = await ctx.ui.confirm("¿Sobrescribir el workflow existente?", `${workflow.name}\n${workflow.path}`);
 		if (!ok) return undefined;
 	}
 	await ensureDir(path.dirname(workflow.path));
@@ -208,12 +208,12 @@ export async function switchToPiSession(
 ): Promise<void> {
 	const sessionFile = session.sessionFile;
 	if (!sessionFile) {
-		notify(ctx, "Cannot switch: selected Pi session did not record a session file.", "warning");
+		notify(ctx, "No se puede cambiar: la sesión de Pi seleccionada no registró un archivo de sesión.", "warning");
 		return;
 	}
 	const currentFile = sessionManagerMetadata(ctx).sessionFile;
 	if (currentFile && path.resolve(currentFile) === path.resolve(sessionFile)) {
-		notify(ctx, "Already in the selected Pi session.", "info");
+		notify(ctx, "Ya estás en la sesión de Pi seleccionada.", "info");
 		return;
 	}
 	const switchSession = (ctx as SwitchableSessionContext).switchSession;
@@ -224,13 +224,13 @@ export async function switchToPiSession(
 		}
 		notify(
 			ctx,
-			"Cannot switch from this dashboard context. Open it from the prompt with /workflow sessions.",
+			"No se puede cambiar desde este contexto del dashboard. Abrilo desde el prompt con /workflow sessions.",
 			"warning",
 		);
 		return;
 	}
 	if (!existsSync(sessionFile)) {
-		notify(ctx, `Cannot switch: session file no longer exists: ${sessionFile}`, "warning");
+		notify(ctx, `No se puede cambiar: el archivo de sesión ya no existe: ${sessionFile}`, "warning");
 		return;
 	}
 	const label = session.sessionName || session.sessionId || path.basename(sessionFile);
@@ -238,15 +238,15 @@ export async function switchToPiSession(
 	if (activeRuns > 0)
 		notify(
 			ctx,
-			`Switching Pi session; ${activeRuns} active workflow run(s) in this Pi will be cancelled.`,
+			`Cambiando de sesión de Pi; ${activeRuns} workflow run(s) activos en este Pi se cancelarán.`,
 			"warning",
 		);
 	const result = await switchSession(sessionFile, {
 		withSession: async (nextCtx) => {
-			nextCtx.ui.notify?.(`Switched to Pi session: ${label}`, "info");
+			nextCtx.ui.notify?.(`Se cambió a la sesión de Pi: ${label}`, "info");
 		},
 	});
-	if (result.cancelled) notify(ctx, "Session switch cancelled.", "warning");
+	if (result.cancelled) notify(ctx, "Cambio de sesión cancelado.", "warning");
 }
 
 export async function openWorkflowDashboard(
@@ -258,7 +258,7 @@ export async function openWorkflowDashboard(
 	if (ctx.mode !== "tui") {
 		notify(
 			ctx,
-			"Workflow dashboard requires TUI mode. Use /workflow list, /workflow graph, /workflow runs, or /workflow view.",
+			"El dashboard de workflows requiere modo TUI. Usá /workflow list, /workflow graph, /workflow runs o /workflow view.",
 			"warning",
 		);
 		return;
@@ -353,7 +353,7 @@ async function handleDashboardChoice(
 		if (workflow) {
 			notify(
 				ctx,
-				`Wrote ${workflow.path}\nRun it with /workflow start ${workflow.name} ${choice.pattern.inputHint}`,
+				`Se escribió ${workflow.path}\nCorrélo con /workflow start ${workflow.name} ${choice.pattern.inputHint}`,
 				"info",
 			);
 		}
@@ -362,7 +362,7 @@ async function handleDashboardChoice(
 	if (choice.type === "graph") {
 		const workflow = choice.workflow ?? (choice.run ? await resolveWorkflowForRun(ctx, choice.run) : undefined);
 		if (!workflow) {
-			notify(ctx, "Cannot open graph: workflow file not found.", "warning");
+			notify(ctx, "No se puede abrir el graph: no se encontró el archivo del workflow.", "warning");
 			return "reopen";
 		}
 		const code = await fs.readFile(workflow.path, "utf8");
@@ -379,8 +379,8 @@ async function handleDashboardChoice(
 	}
 	if (choice.type === "cancel" && choice.run) {
 		const ok = await ctx.ui.confirm(
-			"Cancel workflow run?",
-			`Workflow: ${choice.run.workflow}\nRun: ${choice.run.runId}\n\nThis aborts the active background run. Artifacts already written remain on disk.`,
+			"¿Cancelar el workflow run?",
+			`Workflow: ${choice.run.workflow}\nRun: ${choice.run.runId}\n\nEsto aborta el run activo en background. Los artifacts ya escritos quedan en disco.`,
 		);
 		if (ok) {
 			const message = await cancelWorkflowRun(ctx, choice.run.runId);
@@ -393,42 +393,50 @@ async function handleDashboardChoice(
 		if (target === "sessions") {
 			const preview = await prunePiSessionFiles(ctx, { dryRun: true });
 			if (preview.removed.length === 0) {
-				notify(ctx, "No stale session files to clean up.", "info");
+				notify(ctx, "No hay archivos de sesión stale para limpiar.", "info");
 				return "reopen";
 			}
 			const ok = await ctx.ui.confirm(
-				"Clean up stale session files?",
-				`This removes ${preview.removed.length} stale Pi session file(s) whose process has exited. Live and current sessions are never touched.`,
+				"¿Limpiar archivos de sesión stale?",
+				`Esto elimina ${preview.removed.length} archivo(s) de sesión de Pi stale cuyo proceso ya salió. Las sesiones live y la actual nunca se tocan.`,
 			);
 			if (ok) {
 				const res = await prunePiSessionFiles(ctx);
-				notify(ctx, `Removed ${res.removed.length} stale session file(s); kept ${res.kept}.`, "info");
+				notify(
+					ctx,
+					`Se eliminaron ${res.removed.length} archivo(s) de sesión stale; se conservaron ${res.kept}.`,
+					"info",
+				);
 			}
 			return "reopen";
 		}
 		const preview = await cleanupWorkflowRuns(ctx, { dryRun: true });
 		if (preview.removed.length === 0) {
-			notify(ctx, `No terminal runs to clean up (keeping the ${DEFAULT_CLEANUP_KEEP} most recent).`, "info");
+			notify(
+				ctx,
+				`No hay runs terminales para limpiar (se conservan los ${DEFAULT_CLEANUP_KEEP} más recientes).`,
+				"info",
+			);
 			return "reopen";
 		}
 		const ok = await ctx.ui.confirm(
-			"Clean up terminal workflow runs?",
-			`This permanently deletes ${preview.removed.length} terminal run director(ies), keeping the ${DEFAULT_CLEANUP_KEEP} most recent. Running and active runs are never touched.`,
+			"¿Limpiar workflow runs terminales?",
+			`Esto elimina de forma permanente ${preview.removed.length} directorio(s) de runs terminales y conserva los ${DEFAULT_CLEANUP_KEEP} más recientes. Los runs running y activos nunca se tocan.`,
 		);
 		if (ok) {
 			const res = await cleanupWorkflowRuns(ctx);
-			notify(ctx, `Removed ${res.removed.length} terminal run(s); kept ${res.kept}.`, "info");
+			notify(ctx, `Se eliminaron ${res.removed.length} run(s) terminales; se conservaron ${res.kept}.`, "info");
 		}
 		return "reopen";
 	}
 	if (choice.type === "deleteRun" && choice.run) {
 		if (canCancelRun(choice.run)) {
-			notify(ctx, `Run is still active; cancel it before deleting artifacts: ${choice.run.runId}`, "warning");
+			notify(ctx, `El run sigue activo; cancelalo antes de borrar artifacts: ${choice.run.runId}`, "warning");
 			return "reopen";
 		}
 		const ok = await ctx.ui.confirm(
-			"Delete workflow run artifacts?",
-			`Workflow: ${choice.run.workflow}\nRun: ${choice.run.runId}\nState: ${getRunStatusLabel(choice.run)}\nDirectory: ${choice.run.runDir}\n\nThis permanently deletes this run directory and its artifacts. The workflow file is not deleted.`,
+			"¿Borrar los artifacts del workflow run?",
+			`Workflow: ${choice.run.workflow}\nRun: ${choice.run.runId}\nState: ${getRunStatusLabel(choice.run)}\nDirectory: ${choice.run.runDir}\n\nEsto elimina de forma permanente este directorio de run y sus artifacts. El archivo del workflow no se borra.`,
 		);
 		if (ok) {
 			const message = await deleteWorkflowRun(ctx, choice.run.runId);
@@ -443,41 +451,41 @@ async function handleDashboardChoice(
 				run.workflowDefinition.name === choice.workflow?.name,
 		);
 		const ok = await ctx.ui.confirm(
-			"Delete workflow?",
-			`Workflow: ${choice.workflow.name}\nScope: ${choice.workflow.scope}\nPath: ${choice.workflow.path}\n\nThis deletes only the workflow file, not previous run artifacts.${activeForWorkflow.length ? `\n\nWarning: ${activeForWorkflow.length} active run(s) from this workflow will keep running unless cancelled.` : ""}`,
+			"¿Borrar el workflow?",
+			`Workflow: ${choice.workflow.name}\nScope: ${choice.workflow.scope}\nPath: ${choice.workflow.path}\n\nEsto borra solo el archivo del workflow, no los artifacts de runs previos.${activeForWorkflow.length ? `\n\nAdvertencia: ${activeForWorkflow.length} run(s) activos de este workflow seguirán corriendo salvo que se cancelen.` : ""}`,
 		);
 		if (ok) {
 			await fs.unlink(choice.workflow.path);
-			notify(ctx, `Deleted workflow ${choice.workflow.name}: ${choice.workflow.path}`, "info");
+			notify(ctx, `Se borró el workflow ${choice.workflow.name}: ${choice.workflow.path}`, "info");
 		}
 		return "reopen";
 	}
 	if (choice.type === "rerun" && choice.run) {
 		if (canCancelRun(choice.run)) {
-			notify(ctx, `Run is still active; cancel or wait before rerunning: ${choice.run.runId}`, "warning");
+			notify(ctx, `El run sigue activo; cancelalo o esperá antes de relanzarlo: ${choice.run.runId}`, "warning");
 			return "reopen";
 		}
 		const workflow = await resolveWorkflowForRun(ctx, choice.run);
 		if (!workflow) {
-			notify(ctx, "Cannot rerun: workflow file not found.", "warning");
+			notify(ctx, "No se puede relanzar: no se encontró el archivo del workflow.", "warning");
 			return "reopen";
 		}
 		const loaded = await loadRerunInput(ctx, choice.run);
 		if (loaded) {
 			const ok = await ctx.ui.confirm(
-				"Rerun workflow?",
-				`Workflow: ${workflow.name}\nFrom run: ${choice.run.runId}\nInput: ${loaded.source}\n\n${stringify(loaded.input, 1200)}`,
+				"¿Relanzar el workflow?",
+				`Workflow: ${workflow.name}\nDesde run: ${choice.run.runId}\nInput: ${loaded.source}\n\n${stringify(loaded.input, 1200)}`,
 			);
 			if (ok) await runWorkflowFromUi(pi, ctx, workflow, loaded.input);
 		}
 		return "reopen";
 	}
 	if (choice.type === "run" && choice.workflow) {
-		const inputText = await ctx.ui.editor("Workflow input JSON", "{}");
+		const inputText = await ctx.ui.editor("JSON de input del workflow", "{}");
 		if (inputText !== undefined) {
 			const input = parseCliJsonOrText(inputText, { strictJson: true });
 			const ok = await ctx.ui.confirm(
-				"Run workflow?",
+				"¿Correr el workflow?",
 				`Workflow: ${choice.workflow.name}\n\n${stringify(input, 1200)}`,
 			);
 			if (ok) await runWorkflowFromUi(pi, ctx, choice.workflow, input);

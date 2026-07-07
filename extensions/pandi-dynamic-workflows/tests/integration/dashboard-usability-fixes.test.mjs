@@ -361,17 +361,17 @@ async function scenarioHelpOverlay(url) {
 	const helpText = renderedText(open.customCalls[0]);
 	check(
 		"? opens a keyboard help overlay",
-		helpText.includes("keyboard help") && helpText.includes("PgUp"),
+		helpText.includes("ayuda de teclado") && helpText.includes("PgUp"),
 		helpText.split("\n")[0],
 	);
-	check("help overlay documents close", helpText.toLowerCase().includes("close"), helpText.split("\n").slice(-1)[0]);
+	check("help overlay documents close", helpText.toLowerCase().includes("cierra"), helpText.split("\n").slice(-1)[0]);
 
 	const dismissed = await bootExtension(url, project, { customInputs: ["?", "x"] });
 	await dismissed.commands.get("workflow").handler("dashboard", dismissed.ctx);
 	const after = renderedText(dismissed.customCalls[0]);
 	check(
 		"any key dismisses the help overlay",
-		!after.includes("keyboard help") && after.includes("[Monitor]"),
+		!after.includes("ayuda de teclado") && after.includes("[Monitor]"),
 		after.split("\n")[0],
 	);
 
@@ -379,7 +379,7 @@ async function scenarioHelpOverlay(url) {
 	await hint.commands.get("workflow").handler("dashboard", hint.ctx);
 	check(
 		"dashboard advertises the ? help shortcut",
-		renderedText(hint.customCalls[0]).includes("? help"),
+		renderedText(hint.customCalls[0]).includes("? ayuda"),
 		renderedText(hint.customCalls[0]).split("\n")[1],
 	);
 }
@@ -649,7 +649,7 @@ async function scenarioRefreshFreshnessAndErrors(url) {
 	const initial = component.render(100).join("\n");
 	check(
 		"dashboard header advertises refresh recency",
-		initial.includes("updated") && initial.includes("ago"),
+		initial.includes("actualizado hace"),
 		initial.split("\n").slice(0, 2).join(" | "),
 	);
 
@@ -657,7 +657,7 @@ async function scenarioRefreshFreshnessAndErrors(url) {
 	const errored = component.render(100).join("\n");
 	check(
 		"refresh failure is surfaced in the header",
-		errored.includes("refresh failed") && errored.includes("BOOM_REFRESH_SENTINEL"),
+		errored.includes("falló el refresh") && errored.includes("BOOM_REFRESH_SENTINEL"),
 		errored.split("\n").slice(0, 2).join(" | "),
 	);
 
@@ -665,7 +665,7 @@ async function scenarioRefreshFreshnessAndErrors(url) {
 	const recovered = component.render(100).join("\n");
 	check(
 		"a healthy refresh clears the failure marker",
-		recovered.includes("updated") && !recovered.includes("refresh failed"),
+		recovered.includes("actualizado hace") && !recovered.includes("falló el refresh"),
 		recovered.split("\n").slice(0, 2).join(" | "),
 	);
 }

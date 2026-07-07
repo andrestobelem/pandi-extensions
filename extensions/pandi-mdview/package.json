@@ -1,7 +1,7 @@
 {
 	"name": "@pandi-coding-agent/pandi-mdview",
 	"version": "0.1.5",
-	"description": "Pi extension that adds a TUI Markdown viewer command.",
+	"description": "Extensión de Pi que agrega un comando para ver Markdown en la TUI.",
 	"license": "MIT",
 	"repository": {
 		"type": "git",

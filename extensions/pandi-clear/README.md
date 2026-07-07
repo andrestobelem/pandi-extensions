@@ -1,44 +1,44 @@
 # @pandi-coding-agent/pandi-clear
 
-Adds a Claude-style `/clear` command to Pi. If your fingers type `/clear` out of Claude Code habit, this extension makes it work: it starts a fresh session, exactly like Pi's native `/new`. No config, no flags — install it and the muscle memory just works.
+Agrega a Pi el comando `/clear` al estilo Claude. Si por costumbre de Claude Code escribís `/clear`, esta extensión lo hace funcionar: inicia una sesión nueva, igual que el `/new` nativo de Pi. Sin configuración ni flags: instalala y la memoria muscular hace el resto.
 
-## Usage
+## Uso
 
 ```text
 /clear
 ```
 
-Any arguments you pass are ignored; the session is simply reset. On success it is completely silent — no confirmation message, just a clean slate.
+Cualquier argumento se ignora; la sesión simplemente se reinicia. Si sale bien, no dice nada: sin confirmación, solo una pizarra limpia.
 
-## Install
+## Instalación
 
-From npm:
+Desde npm:
 
 ```bash
 pi install npm:@pandi-coding-agent/pandi-clear
 ```
 
-From this repository:
+Desde este repositorio:
 
 ```bash
-pi install ./extensions/pandi-clear          # global (your user)
-pi install -l ./extensions/pandi-clear       # project-local
-pi --no-extensions -e ./extensions/pandi-clear   # one-off trial, nothing else loaded
+pi install ./extensions/pandi-clear          # global (tu usuario)
+pi install -l ./extensions/pandi-clear       # local al proyecto
+pi --no-extensions -e ./extensions/pandi-clear   # prueba puntual, sin cargar nada más
 ```
 
-## Commands
+## Comandos
 
-| Command | What it does |
+| Comando | Qué hace |
 | --- | --- |
-| `/clear` | Start a fresh session, clearing the conversation. Calls `ctx.newSession()` — the same fresh session as the native `/new`. |
+| `/clear` | Inicia una sesión nueva y limpia la conversación. Llama a `ctx.newSession()` — la misma sesión nueva que `/new`. |
 
-## How it works
+## Cómo funciona
 
-- `/clear` coexists with Pi's native `/new` and never overrides it — use whichever verb you prefer.
-- Success is strictly silent, in both the TUI and print mode: no confirmation notification either way.
-- A cancelled new session (an extension vetoed it via `session_before_switch`) also stays silent; the host already handled the interaction.
-- If `newSession` throws, the failure is reported as an error notification (TUI) or printed to stderr (print mode) instead of crashing.
+- `/clear` convive con el `/new` nativo de Pi y nunca lo reemplaza: usá el verbo que prefieras.
+- El éxito es estrictamente silencioso, tanto en la TUI como en `print`: no hay notificación de confirmación.
+- Una sesión nueva cancelada (una extensión la vetó vía `session_before_switch`) también queda en silencio; el host ya resolvió esa interacción.
+- Si `newSession` falla, el error se informa como notificación de error (TUI) o se imprime en stderr (`print`) en lugar de romper la ejecución.
 
-## Related
+## Relacionado
 
-For the full bundle of extensions and skills, install the repository root instead.
+Para instalar el paquete completo de extensiones y skills, instalá la raíz del repositorio.

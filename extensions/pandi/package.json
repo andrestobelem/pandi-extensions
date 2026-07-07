@@ -1,7 +1,7 @@
 {
 	"name": "@pandi-coding-agent/pandi",
 	"version": "0.1.5",
-	"description": "Pi extension that adds Pandi, a panda mascot: a startup splash header, an animated working indicator, and a /pandi command.",
+	"description": "Extensión de Pi que agrega a Pandi, una mascota panda: un encabezado de arranque, un indicador animado de trabajo y el comando /pandi.",
 	"license": "MIT",
 	"repository": {
 		"type": "git",

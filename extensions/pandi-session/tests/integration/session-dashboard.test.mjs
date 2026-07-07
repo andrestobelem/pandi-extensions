@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * Behavioral contract for the standalone Pandi session dashboard component.
+ * Contrato de comportamiento del componente independiente del dashboard de sesiones Pandi.
  *
- * It is intentionally a focused sessions UI, not a tab inside the workflow
- * dashboard. The component renders session rows/details and emits semantic
- * actions; orchestration handles switching and cleanup.
+ * Es intencionalmente una UI de sesiones enfocada, no una pestaña dentro del
+ * dashboard de workflows. El componente renderiza filas/detalles de sesión y emite
+ * acciones semánticas; la orquestación se encarga del cambio y la limpieza.
  */
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
@@ -44,7 +44,7 @@ function mkSession(id, overrides = {}) {
 		ageMs: overrides.ageMs ?? 50,
 		sessionId: overrides.sessionId ?? `${id}-sid`,
 		sessionFile: overrides.sessionFile ?? `/project/.pi/sessions/${id}.jsonl`,
-		sessionName: overrides.sessionName ?? `Session ${id}`,
+		sessionName: overrides.sessionName ?? `Sesión ${id}`,
 		trusted: overrides.trusted ?? true,
 		idle: overrides.idle ?? true,
 		...(overrides.staleReason ? { staleReason: overrides.staleReason } : {}),
@@ -58,7 +58,7 @@ async function main() {
 		let renders = 0;
 		let captured = null;
 		const component = new PandiSessionDashboard(
-			[mkSession("current", { current: true }), mkSession("other", { live: false, staleReason: "pid exited" })],
+			[mkSession("current", { current: true }), mkSession("other", { live: false, staleReason: "PID finalizado" })],
 			theme,
 			() => {
 				renders += 1;
@@ -69,19 +69,19 @@ async function main() {
 		);
 
 		const text = component.render(120).join("\n");
-		check("dashboard header names Pandi sessions", text.includes("Pandi sessions"), text);
-		check("dashboard renders live/stale counts", text.includes("live:1") && text.includes("stale:1"), text);
+		check("el encabezado del dashboard nombra Sesiones Pandi", text.includes("Sesiones Pandi"), text);
+		check("el dashboard renderiza los conteos live/stale", text.includes("live:1") && text.includes("stale:1"), text);
 		check(
-			"dashboard renders selected session detail",
-			text.includes("Selected Pandi session") && text.includes("current-sid"),
+			"el dashboard renderiza el detalle de la sesión seleccionada",
+			text.includes("Sesión Pandi seleccionada") && text.includes("current-sid"),
 			text,
 		);
 
 		component.handleInput("down");
-		check("down key requests rerender", renders > 0, String(renders));
+		check("la tecla down pide redibujar", renders > 0, String(renders));
 		component.handleInput("enter");
 		check(
-			"Enter emits switchSession for selected row",
+			"Enter emite switchSession para la fila seleccionada",
 			captured?.type === "switchSession" && captured.session?.id === "other",
 			JSON.stringify(captured),
 		);
@@ -90,13 +90,13 @@ async function main() {
 		component.setSessions([mkSession("fresh"), mkSession("other", { live: true })]);
 		component.handleInput("enter");
 		check(
-			"setSessions preserves selected row by session id",
+			"setSessions preserva la fila seleccionada por session id",
 			captured?.type === "switchSession" && captured.session?.id === "other",
 			JSON.stringify(captured),
 		);
 		let ss3Captured = null;
 		const ss3Down = new PandiSessionDashboard(
-			[mkSession("current", { current: true }), mkSession("other", { live: false, staleReason: "pid exited" })],
+			[mkSession("current", { current: true }), mkSession("other", { live: false, staleReason: "PID finalizado" })],
 			theme,
 			() => {},
 			(result) => {
@@ -106,14 +106,14 @@ async function main() {
 		ss3Down.handleInput("\x1bOB");
 		ss3Down.handleInput("enter");
 		check(
-			"SS3 down-arrow sequence selects the next row",
+			"la secuencia de flecha abajo SS3 selecciona la fila siguiente",
 			ss3Captured?.type === "switchSession" && ss3Captured.session?.id === "other",
 			JSON.stringify(ss3Captured),
 		);
 
 		let ss3UpCaptured = null;
 		const ss3Up = new PandiSessionDashboard(
-			[mkSession("current", { current: true }), mkSession("other", { live: false, staleReason: "pid exited" })],
+			[mkSession("current", { current: true }), mkSession("other", { live: false, staleReason: "PID finalizado" })],
 			theme,
 			() => {},
 			(result) => {
@@ -124,14 +124,14 @@ async function main() {
 		ss3Up.handleInput("\x1bOA");
 		ss3Up.handleInput("enter");
 		check(
-			"SS3 up-arrow sequence selects the previous row",
+			"la secuencia de flecha arriba SS3 selecciona la fila anterior",
 			ss3UpCaptured?.type === "switchSession" && ss3UpCaptured.session?.id === "current",
 			JSON.stringify(ss3UpCaptured),
 		);
 
 		let rightCaptured = null;
 		const rightDashboard = new PandiSessionDashboard(
-			[mkSession("current", { current: true }), mkSession("other", { live: false, staleReason: "pid exited" })],
+			[mkSession("current", { current: true }), mkSession("other", { live: false, staleReason: "PID finalizado" })],
 			theme,
 			() => {},
 			(result) => {
@@ -140,31 +140,38 @@ async function main() {
 		);
 		rightDashboard.handleInput("down");
 		rightDashboard.handleInput("\x1bOC");
-		check("SS3 right-arrow sequence does not switch sessions", rightCaptured === null, JSON.stringify(rightCaptured));
+		check(
+			"la secuencia de flecha derecha SS3 no cambia de sesión",
+			rightCaptured === null,
+			JSON.stringify(rightCaptured),
+		);
 		rightDashboard.handleInput("right");
-		check("named right key does not switch sessions", rightCaptured === null, JSON.stringify(rightCaptured));
+		check("la tecla right nombrada no cambia de sesión", rightCaptured === null, JSON.stringify(rightCaptured));
 		rightDashboard.handleInput("enter");
 		check(
-			"Enter still switches to the selected row",
+			"Enter sigue cambiando a la fila seleccionada",
 			rightCaptured?.type === "switchSession" && rightCaptured.session?.id === "other",
 			JSON.stringify(rightCaptured),
 		);
 
 		component.markRefreshError("collector failed noisily");
 		check(
-			"refresh errors are visible in the dashboard",
-			component.render(120).join("\n").includes("refresh warning"),
+			"los errores de actualización se ven en el dashboard",
+			component.render(120).join("\n").includes("advertencia de actualización"),
 		);
 		component.markRefreshOk();
-		check("refresh ok clears dashboard warning", !component.render(120).join("\n").includes("refresh warning"));
+		check(
+			"refresh ok limpia la advertencia del dashboard",
+			!component.render(120).join("\n").includes("advertencia de actualización"),
+		);
 
 		captured = null;
 		component.handleInput("C");
-		check("C emits cleanup action", captured?.type === "cleanup", JSON.stringify(captured));
+		check("C emite la acción cleanup", captured?.type === "cleanup", JSON.stringify(captured));
 
 		captured = "not-null";
 		component.handleInput("q");
-		check("q closes with null", captured === null, JSON.stringify(captured));
+		check("q cierra con null", captured === null, JSON.stringify(captured));
 	} finally {
 		await fs.rm(outDir, { recursive: true, force: true }).catch(() => {});
 	}

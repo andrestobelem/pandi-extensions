@@ -46,7 +46,7 @@ export type WorkflowDashboardTab = (typeof WORKFLOW_DASHBOARD_TABS)[number];
 // Fuente única de verdad para la guía "¿cómo creo la primera ejecución?" así que
 // toda lista vacía con ejecuciones (Monitor, Runs, Agents, Activity) da
 // al usuario primerizo el comando exacto en lugar de una línea muerta "nada aquí".
-const START_WORKFLOW_HINT = "Start one with /workflow start <name> {json} or dynamic_workflow action=start.";
+const START_WORKFLOW_HINT = "Iniciá uno con /workflow start <name> {json} o dynamic_workflow action=start.";
 
 // Mantén el cursor en el mismo elemento cuando una lista se reconstruye/reordena debajo
 // (las listas están ordenadas por mtime y se actualizan cada 1.5s, así que un índice fijo
@@ -108,8 +108,8 @@ export class WorkflowDashboard {
 	}
 
 	private refreshStatus(muted: (s: string) => string, error: (s: string) => string): string {
-		if (this.lastRefreshError) return error(`⚠ refresh failed: ${this.lastRefreshError}`);
-		return muted(`updated ${formatElapsedMs(Math.max(0, Date.now() - this.lastRefreshAt))} ago`);
+		if (this.lastRefreshError) return error(`⚠ falló el refresh: ${this.lastRefreshError}`);
+		return muted(`actualizado hace ${formatElapsedMs(Math.max(0, Date.now() - this.lastRefreshAt))}`);
 	}
 
 	constructor(
@@ -562,25 +562,25 @@ export class WorkflowDashboard {
 		muted: (s: string) => string,
 	): string[] {
 		return [
-			line(accent("Pi Dynamic Workflows — keyboard help")),
-			line(muted("Press any key to close")),
+			line(accent("Pi Dynamic Workflows — ayuda de teclado")),
+			line(muted("Presioná cualquier tecla para cerrar")),
 			line(muted("─".repeat(Math.min(w, 120)))),
 			line(accent("Tabs")),
-			line("  Tab / ← / → cycle tabs · Shift+Tab previous"),
+			line("  Tab / ← / → cambia de tab · Shift+Tab anterior"),
 			line("  m Monitor · A Agents · a Activity · s Sessions · w Workflows · p Patterns · R Runs"),
-			line(accent("Navigate")),
-			line("  ↑ ↓ / j k move · PgUp / PgDn page · Home / End / G first / last"),
-			line("  [ ] active run — Monitor: cycle focus · Runs/Activity: jump to next/prev running"),
-			line(accent("Actions")),
-			line("  Enter / o agent detail — sub-tabs: Card · Prompt · Graph · Output · Definition · Run (←→/1-6)"),
-			line("  v run view · g graph"),
-			line("  f next failed agent (Agents tab)"),
-			line("  c / x cancel active · r rerun (confirm) · d / Del delete (confirm)"),
-			line("  C clean up (Runs: terminal runs · Sessions: stale session files) — confirm"),
-			line("  Patterns: Enter / n / u use pattern · Workflows: Enter / g graph, r run, d delete"),
-			line("  Sessions: Enter switch session · C clean up stale session files"),
-			line(accent("Other")),
-			line("  ? toggle this help · q / Esc close dashboard"),
+			line(accent("Navegación")),
+			line("  ↑ ↓ / j k mueve · PgUp / PgDn página · Home / End / G primero / último"),
+			line("  [ ] run activo — Monitor: rota el foco · Runs/Activity: salta al running sig./ant."),
+			line(accent("Acciones")),
+			line("  Enter / o detalle del agente — sub-tabs: Card · Prompt · Graph · Output · Definition · Run (←→/1-6)"),
+			line("  v vista de run · g graph"),
+			line("  f siguiente agente failed (tab Agents)"),
+			line("  c / x cancela el activo · r rerun (confirmación) · d / Del borra (confirmación)"),
+			line("  C cleanup (Runs: runs terminales · Sessions: archivos de sesión stale) — confirmación"),
+			line("  Patterns: Enter / n / u usa el pattern · Workflows: Enter / g graph, r run, d delete"),
+			line("  Sessions: Enter cambia de sesión · C cleanup de archivos de sesión stale"),
+			line(accent("Otros")),
+			line("  ? alterna esta ayuda · q / Esc cierra el dashboard"),
 		];
 	}
 
@@ -662,7 +662,7 @@ export class WorkflowDashboard {
 					activityTab +
 					(activeCount ? accent(`  ▶ ${activeCount} active`) : ""),
 			),
-			line(muted("? help • ") + this.refreshStatus(muted, error) + muted(` • ${help}`)),
+			line(muted("? ayuda • ") + this.refreshStatus(muted, error) + muted(` • ${help}`)),
 			line(border("─".repeat(Math.min(w, 120)))),
 		];
 
@@ -693,7 +693,7 @@ export class WorkflowDashboard {
 		};
 		const model = this.selectedMonitor();
 		if (!model) {
-			lines.push(line(warning("No workflow runs found.")));
+			lines.push(line(warning("No se encontraron workflow runs.")));
 			lines.push(line(muted(START_WORKFLOW_HINT)));
 			return;
 		}
@@ -1234,7 +1234,7 @@ export class WorkflowDashboard {
 		error: (s: string) => string,
 	): void {
 		if (this.runs.length === 0) {
-			lines.push(line(muted("No workflow runs found.")));
+			lines.push(line(muted("No se encontraron workflow runs.")));
 			lines.push(line(muted(START_WORKFLOW_HINT)));
 			return;
 		}

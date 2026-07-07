@@ -139,7 +139,7 @@ export const PLAN_MODE_GUARD: PlanModeGuard = {
 };
 (globalThis as Record<symbol, PlanModeGuard | undefined>)[PLAN_MODE_GUARD_SYMBOL] = PLAN_MODE_GUARD;
 
-/** The single currently-active plan (gate armed), or undefined. */
+/** El único plan actualmente activo (gate armado), o undefined. */
 function currentPlan(): PlanState | undefined {
 	return findActivePlan(activePlans.values());
 }
@@ -414,7 +414,7 @@ export default function planExtension(pi: ExtensionAPI): void {
 	// La tool de artefacto del plan (≈ ExitPlanMode). La ÚNICA forma de presentar un plan + salir del modo.
 	pi.registerTool({
 		name: "submit_plan",
-		label: "Submit Plan",
+		label: "Enviar plan",
 		description:
 			"Presentale al usuario tu plan de implementación terminado para que lo apruebe (≈ ExitPlanMode). Es la ÚNICA forma de terminar el modo plan. Si se aprueba, salís del modo plan e implementás; si se rechaza, seguís en modo plan y revisás.",
 		promptSnippet: "Enviále al usuario tu plan de implementación de /plan para que lo apruebe.",
@@ -572,7 +572,7 @@ export default function planExtension(pi: ExtensionAPI): void {
 	// aprueba vía submit_plan + ctx.ui.confirm.
 	pi.registerTool({
 		name: "enter_plan_mode",
-		label: "Enter Plan Mode",
+		label: "Entrar en modo plan",
 		description:
 			"Entrá vos mismo en modo plan de solo lectura antes de implementar un cambio no trivial, de varios pasos, o riesgoso. Arma un gate de solo lectura (write/edit y los comandos de shell mutantes quedan bloqueados de forma dura) para que investigues en solo lectura y redactes un plan, y después lo presentes vía submit_plan para la aprobación explícita del usuario antes de cualquier edición. Necesita una sesión TUI/RPC.",
 		promptSnippet: "Entrá en modo plan de solo lectura para investigar y presentar un plan antes de implementar.",
@@ -611,14 +611,14 @@ export default function planExtension(pi: ExtensionAPI): void {
 		executionMode: "sequential",
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const resolvedFlags = resolvePlanFlags(params);
-			// CONSISTENCY: nonInteractive (plan-only) only makes sense where approval CANNOT run.
-			// In tui/rpc the human approval handshake is available, so force it off there — otherwise
-			// a stray param or an exported PI_PLAN_NONINTERACTIVE would silently bypass approval and
-			// never implement. This keeps plan-only confined to print/json (e.g. workflow subagents).
+			// CONSISTENCIA: nonInteractive (plan-only) solo tiene sentido donde la aprobación NO puede correr.
+			// En tui/rpc el protocolo de aprobación humana sí está disponible, así que acá se fuerza a false:
+			// de otro modo, un param colgado o un PI_PLAN_NONINTERACTIVE exportado saltearía la aprobación
+			// en silencio y nunca implementaría. Así plan-only queda confinado a print/json (p. ej. subagentes de workflow).
 			const flags = canApproveInMode(ctx) ? forceInteractiveApprovalPosture(resolvedFlags) : resolvedFlags;
-			// Mode gate (HARD RULE): interactive sessions can always enter. A non-interactive session
-			// (print/json) can enter ONLY in plan-only mode (nonInteractive) — there the plan is the
-			// deliverable and nothing is approved or implemented, so no handshake is needed.
+			// Gate de modo (REGLA DURA): las sesiones interactivas siempre pueden entrar. Una sesión no interactiva
+			// (print/json) puede entrar SOLO en modo plan-only (nonInteractive): ahí el plan es el
+			// entregable y no se aprueba ni se implementa nada, así que no hace falta handshake.
 			if (!canEnterPlanMode(ctx, flags)) {
 				notify(
 					ctx,

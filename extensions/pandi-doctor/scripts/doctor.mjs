@@ -218,7 +218,7 @@ report(
 	"skill karpathy-guidelines",
 	karpathySkill
 		? "instalado (global, externo)"
-		: "ausente — instalalo global desde multica-ai/andrej-karpathy-skills (ver Quickstart)",
+		: "ausente — instalalo global desde multica-ai/andrej-karpathy-skills (ver Inicio rápido)",
 );
 
 // Apple container: solo relevante en macOS Apple Silicon.
@@ -234,7 +234,7 @@ if (process.platform === "darwin" && process.arch === "arm64") {
 	report("optional", dim("·"), "Apple container", "N/A (solo macOS Apple Silicon)");
 }
 
-// sync Claude global: ¿el home global de Claude (default ~/.claude) es un espejo al día del repo?
+// Sincronización global de Claude: ¿el home global de Claude (default ~/.claude) es un espejo al día del repo?
 // Delegamos en el propio script (fuente de verdad del "qué es drift") vía --check; hereda
 // CLAUDE_GLOBAL_DIR, así que doctor y sync miran exactamente el mismo destino. Opcional a
 // propósito: en un clon fresco sin sync previo esto avisa, no rompe el doctor.
@@ -243,11 +243,11 @@ const globalDir = process.env.CLAUDE_GLOBAL_DIR || path.join(home, ".claude");
 // Sólo colapsá a "~" en el borde de segmento, no por prefijo textual (/Users/foo vs /Users/foobar).
 const shortDir = globalDir === home || globalDir.startsWith(home + path.sep) ? globalDir.replace(home, "~") : globalDir;
 const syncScript = SUITE_ROOT ? path.join(SUITE_ROOT, "scripts", "sync-claude-global.mjs") : null;
-const syncLabel = `sync Claude global (${shortDir})`;
+const syncLabel = `sincronización global de Claude (${shortDir})`;
 if (!SUITE_ROOT) {
 	// Instalación independiente: el espejo es una preocupación de desarrollo del repo de
-	// la suite, no de esta máquina — N/A, no un warning falso de "out of sync".
-	report("optional", dim("·"), "sync Claude global", "N/A (fuera del repo pandi-extensions)");
+	// la suite, no de esta máquina — N/A, no un falso aviso de desincronización.
+	report("optional", dim("·"), "sincronización global de Claude", "N/A (fuera del repo pandi-extensions)");
 } else if (existsSync(syncScript)) {
 	const sync = spawnSync(process.execPath, [syncScript, "--check"], { encoding: "utf8", timeout: SYNC_TIMEOUT_MS });
 	if (sync.error || typeof sync.status !== "number") {
@@ -263,7 +263,12 @@ if (!SUITE_ROOT) {
 		report("optional", WARN, syncLabel, `desincronizado${count} — corré \`npm run sync:claude:global\``);
 	}
 } else {
-	report("optional", WARN, "sync Claude global", "ausente — scripts/sync-claude-global.mjs no encontrado");
+	report(
+		"optional",
+		WARN,
+		"sincronización global de Claude",
+		"ausente — scripts/sync-claude-global.mjs no encontrado",
+	);
 }
 
 function checkRepoSync({ label, script, checkCommand, fixCommand, okDetail }) {
@@ -293,56 +298,56 @@ function checkRepoSync({ label, script, checkCommand, fixCommand, okDetail }) {
 // Sync canónico repo-local: cada línea delega al script dueño del dominio vía --check.
 // Doctor permanece read-only: diagnostica drift y nombra el comando idempotente que lo arregla.
 checkRepoSync({
-	label: "root manifest",
+	label: "manifiesto raíz",
 	script: path.join("scripts", "sync-root-manifest.mjs"),
 	checkCommand: "npm run sync:manifest:check",
 	fixCommand: "npm run sync:manifest",
 	okDetail: "package.json#pi al día desde subpackages",
 });
 checkRepoSync({
-	label: "project settings",
+	label: "configuración del proyecto",
 	script: path.join("scripts", "sync-project-settings.mjs"),
 	checkCommand: "npm run sync:settings:check",
 	fixCommand: "npm run sync:settings",
 	okDetail: ".pi/settings*.json al día desde subpackages",
 });
 checkRepoSync({
-	label: "skill mirrors",
+	label: "espejos de skills",
 	script: path.join("scripts", "sync-skill-mirrors.mjs"),
 	checkCommand: "npm run sync:skills:check",
 	fixCommand: "npm run sync:skills",
-	okDetail: "mirrors .claude al día de .pi/skills",
+	okDetail: "espejos de .claude al día de .pi/skills",
 });
 checkRepoSync({
-	label: "vendor skills (extensión)",
+	label: "skills vendorizadas (extensión)",
 	script: path.join("scripts", "vendor-extension-skills.mjs"),
 	checkCommand: "npm run sync:skills:vendor:check",
 	fixCommand: "npm run sync:skills:vendor",
 	okDetail: "espejo al día de .pi/skills",
 });
 checkRepoSync({
-	label: "agent guides",
+	label: "guías de agentes",
 	script: path.join("scripts", "sync-agent-guides.mjs"),
 	checkCommand: "npm run sync:agents:check",
 	fixCommand: "npm run sync:agents",
 	okDetail: "CLAUDE.md al día de AGENTS.md",
 });
 checkRepoSync({
-	label: "Claude ultracode skills",
+	label: "skills ultracode de Claude",
 	script: path.join("scripts", "generate-claude-ultracode-skills.mjs"),
 	checkCommand: "npm run sync:claude:ultracode:check",
 	fixCommand: "npm run sync:claude:ultracode",
-	okDetail: "skills Claude generados al día de .pi/skills/ultracode",
+	okDetail: "skills de Claude generados al día de .pi/skills/ultracode",
 });
 checkRepoSync({
-	label: "docs HTML mirror",
+	label: "espejo HTML de docs",
 	script: path.join("scripts", "sync-docs-html.mjs"),
 	checkCommand: "npm run sync:docs:html:check",
 	fixCommand: "npm run sync:docs:html",
 	okDetail: "docs/html al día de Markdown",
 });
 checkRepoSync({
-	label: "personas README",
+	label: "README de personas",
 	script: path.join("scripts", "sync-personas-readme.mjs"),
 	checkCommand: "npm run sync:personas:check",
 	fixCommand: "npm run sync:personas",

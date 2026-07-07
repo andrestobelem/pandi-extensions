@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-// sync-doc-mirrors.mjs — motor genérico de doc mirrors md ↔ html para cualquier repo.
+// sync-doc-mirrors.mjs — motor genérico de mirrors md ↔ html para cualquier repo.
 //
 // El caller declara entries {source, out?, kicker?, tokens?, css?, artifact?} (a mano, vía un
-// manifest mirrors.json, o computadas por un wrapper con su propia política de discovery)
-// y este módulo es dueño del mecanismo: renderiza cada fuente con el conversor pandi
+// manifest mirrors.json, o calculadas por un wrapper con su propia política de discovery)
+// y este módulo se encarga del mecanismo: renderiza cada fuente con el conversor pandi
 // (markdown-to-html.mjs), reescribe los links .md dentro del set hacia sus mirrors .html,
-// remapea asset srcs cuando el out vive en otro directorio, escribe SOLO si el contenido
+// remapea los srcs de assets cuando el out vive en otro directorio, escribe SOLO si el contenido
 // cambió (así el recordatorio de redeploy de artifacts no se repite en no-ops), reporta
 // drift en modo --check sin tocar el disco, y poda .html huérfanos en pruneDirs.
 //
@@ -39,7 +39,7 @@ function defaultOut(source) {
 }
 
 // Reescribe hrefs relativos a .md dentro del set hacia el out de su mirror, relativo al
-// out del documento actual. Anchors preservados; URLs externas y targets fuera del set intactos.
+// out del documento actual. Los anchors se preservan; las URLs externas y los targets fuera del set, también.
 export function rewriteHrefs(html, fromSource, mapping) {
 	const fromOut = mapping.get(toPosix(fromSource));
 	if (!fromOut) return html;
@@ -56,7 +56,7 @@ export function rewriteHrefs(html, fromSource, mapping) {
 }
 
 // Remapea srcs relativos (imágenes, etc.) para que sigan resolviendo desde la ubicación
-// del out; cuando el out es hermano de la fuente el remapeo es la identidad.
+// del out; cuando el out es hermano de la fuente, el remapeo es identidad.
 export function rewriteAssetSrcs(html, fromSource, fromOut) {
 	const fromDir = path.posix.dirname(toPosix(fromSource));
 	const outDir = path.posix.dirname(toPosix(fromOut));
@@ -221,7 +221,7 @@ function main() {
 			console.error(`[sync-doc-mirrors]   ${b.file}: ${b.href} -> linkeá la fuente (${b.twin})`);
 		process.exit(1);
 	}
-	for (const s of report.skipped) console.warn(`[sync-doc-mirrors] skip: ${s} (no existe)`);
+	for (const s of report.skipped) console.warn(`[sync-doc-mirrors] salto: ${s} (no existe)`);
 	if (args.check) {
 		if (report.stale.length) {
 			console.error(`[sync-doc-mirrors] ✗ drift (${report.stale.length}): ${report.stale.join(", ")}`);
@@ -231,8 +231,8 @@ function main() {
 		console.log("[sync-doc-mirrors] ✓ mirrors en sync");
 		return;
 	}
-	for (const f of report.written) console.log(`[sync-doc-mirrors] wrote ${f}`);
-	for (const f of report.deleted) console.log(`[sync-doc-mirrors] pruned ${f}`);
+	for (const f of report.written) console.log(`[sync-doc-mirrors] escribí ${f}`);
+	for (const f of report.deleted) console.log(`[sync-doc-mirrors] podé ${f}`);
 	for (const r of report.redeploys)
 		console.log(`[sync-doc-mirrors]   ↳ redeploy artifact ${r.artifact.favicon ?? ""} ${r.artifact.url}`);
 	if (!report.written.length && !report.deleted.length) console.log("[sync-doc-mirrors] mirrors ya en sync");

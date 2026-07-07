@@ -1,9 +1,9 @@
 /**
  * Comando `/effort` estilo Claude para Pi.
  *
- * Pi ya tiene niveles de thinking internos (`off`, `minimal`, `low`, `medium`,
+ * Pi ya tiene niveles internos de pensamiento (`off`, `minimal`, `low`, `medium`,
  * `high`, `xhigh`) y controles integrados de teclado/configuración. Esta extensión agrega una
- * interfaz de slash-command que refleja el cambio de esfuerzo estilo Claude:
+ * interfaz de comando slash que refleja el cambio de esfuerzo estilo Claude:
  *
  *   /effort high       -> pi.setThinkingLevel("high")
  *   /effort xhigh      -> pi.setThinkingLevel("xhigh")
@@ -21,7 +21,7 @@ import { parseEffortTarget, THINKING_LEVELS } from "./parse.js";
 
 const EFFORT_STATUS_KEY = "effort";
 // Mantené este string sincronizado con extensions/dynamic-workflows/index.ts. El evento es
-// intencionalmente best-effort: `/effort` igual funciona como comando de nivel de thinking
+// intencionalmente de esfuerzo parcial: `/effort` igual funciona como comando de nivel de pensamiento
 // cuando la extensión dynamic-workflows no está cargada.
 const ULTRACODE_MODE_EVENT = "pandi-dynamic-workflows:ultracode-mode";
 
@@ -82,7 +82,7 @@ function setThinkingEffort(
 		} else {
 			notify(
 				ctx,
-				`Se pidió el esfuerzo ${level}; el esfuerzo activo es ${actual} (el modelo actual puede limitar el thinking).`,
+				`Se pidió el esfuerzo ${level}; el esfuerzo activo es ${actual} (el modelo actual puede limitar el pensamiento).`,
 				"warning",
 			);
 		}
@@ -108,8 +108,8 @@ function enableUltracodeEffort(pi: ExtensionAPI, ctx: ExtensionContext): void {
 	const workflowToolActive = ensureToolActive(pi, "dynamic_workflow");
 	pi.events.emit(ULTRACODE_MODE_EVENT, { enabled: true, source: "/effort" });
 	const routerStatus = workflowToolActive
-		? "router de dynamic workflow habilitado"
-		: "se pidió el router de dynamic workflow, pero dynamic_workflow no está disponible en esta sesión";
+		? "router de dynamic_workflow habilitado"
+		: "se pidió el router de dynamic_workflow, pero dynamic_workflow no está disponible en esta sesión";
 	notify(ctx, `Esfuerzo ultracode habilitado (${actual}); ${routerStatus}.`, workflowToolActive ? "info" : "warning");
 }
 

@@ -1,9 +1,9 @@
 /**
- * Comando `/clear` estilo Claude para Pi.
+ * Comando `/clear` al estilo Claude para Pi.
  *
- * El `/clear` de Claude Code limpia la conversación y empieza de cero. Pi ya trae un
+ * En Claude Code, `/clear` limpia la conversación y empieza de cero. Pi ya trae un
  * `/new` nativo que inicia una sesión nueva, pero no `/clear`. Esta extensión agrega
- * `/clear` como alias fino para que la memoria muscular de Claude funcione en Pi
+ * `/clear` como alias para que la memoria muscular de Claude funcione en Pi
  * (convive con `/new`; nunca lo sobrescribe):
  *
  *   /clear   -> ctx.newSession()   (misma sesión nueva que /new)
@@ -34,12 +34,12 @@ function errorMessage(error: unknown): string {
 }
 
 function formatClearFailure(error: unknown): string {
-	return `clear falló: ${errorMessage(error)} — probá /new en su lugar.`;
+	return `/clear falló: ${errorMessage(error)} — probá /new en su lugar.`;
 }
 
 export default function clearExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("clear", {
-		description: "Iniciá una sesión nueva, limpiando la conversación (alias estilo Claude para /new).",
+		description: "Inicia una sesión nueva y limpia la conversación (alias al estilo Claude para /new).",
 		handler: async (_args, ctx) => {
 			try {
 				await ctx.newSession();

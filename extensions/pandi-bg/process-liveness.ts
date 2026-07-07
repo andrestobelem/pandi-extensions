@@ -13,7 +13,7 @@ import { readFileSync } from "node:fs";
 export type Liveness = "alive" | "dead" | "unknown";
 
 // Chequeo de liveness sincrónico de mejor esfuerzo. process.kill(pid, 0) NO envía señal; solo
-// pregunta al SO si existe un proceso con ese pid. Cross-platform (Windows incluido). NOTE: un
+// pregunta al SO si existe un proceso con ese pid. Multiplataforma (Windows incluido). Nota: un
 // pid puede reutilizarse después de que el proceso original fue reaped, así que "alive" significa
 // "algún proceso tiene este pid", no "nuestro job sigue corriendo"; por eso solo usamos esto
 // para ETIQUETAR una lectura, nunca para enviar señal a un pid persistido.

@@ -2,18 +2,18 @@
 
 ## En 30 segundos
 
-`pandi-session` agrega `/sessions`: un menú estilo `/workflow` para abrir un dashboard TUI propio, listar sesiones Pi vivas de este proyecto, detectar registros stale y cambiar a otra sesión cuando Pi expone `ctx.switchSession`.
+`pandi-session` agrega `/sessions`: un menú al estilo `/workflow` para abrir un dashboard TUI propio, listar las sesiones Pi vivas de este proyecto, detectar registros stale y cambiar a otra sesión cuando Pi expone `ctx.switchSession`.
 
-Es independiente del runtime de workflows. Por ahora existe como superficie separada; cualquier consolidación futura se decidirá con evidencia después.
+Es independiente del runtime de workflows. Por ahora vive como una superficie separada; cualquier consolidación futura se decidirá con evidencia después.
 
 ## Uso
 
 | Comando | Qué hace |
 | --- | --- |
 | `/sessions` | En UI abre un menú interactivo; en headless imprime la lista textual. |
-| `/sessions dashboard` | Abre el dashboard TUI si hay UI; en headless imprime la lista textual. |
+| `/sessions dashboard` | Abre el dashboard TUI si hay UI; en modo headless imprime la lista textual. |
 | `/sessions list` | Imprime la lista textual de sesiones del proyecto. |
-| `/sessions cleanup` | Limpia registros stale seguros; en UI pide confirmación y en headless requiere `--yes`. |
+| `/sessions cleanup` | Limpia registros stale seguros; con UI pide confirmación y en headless requiere `--yes`. |
 | `/sessions cleanup --dry-run` | Lista cada archivo con acción (`delete`/`keep`) y razón, sin borrar nada. |
 | `/sessions cleanup --all-stale --yes` | También permite borrar heartbeats stale con PID vivo; nunca borra la sesión actual. |
 
@@ -32,7 +32,7 @@ La extensión escribe heartbeats propios en `.pi/pandi-session/live/` para proye
 
 Cada registro incluye `pid`, `mode`, `cwd`, timestamps, metadata de `sessionManager` y flags livianos (`trusted`, `idle`). Una sesión se considera live cuando el PID existe y el heartbeat sigue fresco.
 
-## Instalación standalone
+## Instalación independiente
 
 ```bash
 pi install ./extensions/pandi-session
@@ -40,4 +40,4 @@ pi install ./extensions/pandi-session
 
 El paquete publica sus archivos TypeScript de primer nivel y no depende de otros paquetes de este monorepo en runtime.
 
-> Nota: Pi ya tiene un comando interactivo built-in llamado `/session`; por eso esta extensión usa el plural `/sessions` para no pisarlo.
+> Nota: Pi ya tiene un comando interactivo integrado llamado `/session`; por eso esta extensión usa el plural `/sessions` para no pisarlo.

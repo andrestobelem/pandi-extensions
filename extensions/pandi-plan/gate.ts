@@ -524,15 +524,15 @@ export const DYNAMIC_WORKFLOW_READONLY_ACTIONS = new Set([
  */
 const ALWAYS_BLOCKED_BUILTIN_TOOLS = new Set(["write", "edit", "notebook-edit"]);
 
-/** Built-ins de solo lectura que siempre se permiten mientras se planifica. */
+/** Herramientas built-in de solo lectura que siempre se permiten mientras se planifica. */
 const READONLY_BUILTIN_TOOLS = new Set(["read", "grep", "find", "ls"]);
 
 export function blockedReason(event: ToolCallEvent): string | undefined {
 	const name = event.toolName;
-	// submit_plan is the one permitted "output" (writing the plan). enter_plan_mode is the
-	// model's autonomous ENTRY into plan mode; it never mutates the workspace (it only arms the
-	// gate), so it is always allowed — calling it while a plan is already active is a harmless
-	// idempotent no-op handled by the tool itself.
+	// submit_plan es la única "salida" permitida (escribir el plan). enter_plan_mode es la
+	// entrada AUTÓNOMA del modelo al modo plan; nunca muta el workspace (solo arma el
+	// gate), así que siempre se permite. Si se llama cuando ya hay un plan activo, cae en un
+	// no-op idempotente e inocuo que la propia tool maneja.
 	if (name === "submit_plan" || name === "enter_plan_mode") return undefined;
 	// Mutadores built-in estructurados que SIEMPRE se bloquean. notebook-edit se matchea por string
 	// compare (defensivo — no es un nombre de tool built-in en este SDK, pero bloquear un
@@ -540,7 +540,7 @@ export function blockedReason(event: ToolCallEvent): string | undefined {
 	if (ALWAYS_BLOCKED_BUILTIN_TOOLS.has(name)) {
 		return `el modo plan es de SOLO LECTURA: la tool "${name}" está bloqueada mientras planificás. Presentá tu plan vía submit_plan; podés editar después de que el usuario apruebe.`;
 	}
-	// Built-ins de solo lectura siempre se permiten.
+	// Los built-ins de solo lectura siempre se permiten.
 	if (READONLY_BUILTIN_TOOLS.has(name)) return undefined;
 	// bash: bloquea solo comandos mutantes; permite de solo lectura (cat, git ls-files, grep...).
 	if (name === "bash") {

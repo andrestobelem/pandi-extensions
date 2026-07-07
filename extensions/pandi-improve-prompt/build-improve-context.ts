@@ -1,41 +1,42 @@
 /**
- * Pure, deterministic helpers for the `/improve-prompt` command.
+ * Ayudantes puros y deterministas para el comando `/improve-prompt`.
  *
- * Like pandi-btw's build-btw-context.ts, this module never touches the LLM, the network, or
- * any Pi runtime API: it only builds the one-shot request and reads the model's answer, so
- * it can be unit-tested in isolation, leaving index.ts as the thin orchestration layer
- * (call the model, show the result, optionally send it).
+ * Igual que build-btw-context.ts de pandi-btw, este módulo no toca el LLM, la red ni
+ * ninguna API de runtime de Pi: solo arma la solicitud de una pasada y lee la respuesta
+ * del modelo, así que puede probarse de forma aislada, dejando index.ts como la capa fina
+ * de orquestación (llamar al modelo, mostrar el resultado, enviar opcionalmente).
  *
- * Deliberately STANDALONE (unlike /btw): the draft prompt is judged on its own text, not
- * grounded in the current conversation branch, so a "mejora este prompt" utility works the
- * same whether or not there is prior chat history.
+ * Deliberadamente AUTÓNOMO (a diferencia de /btw): el borrador de prompt se juzga por su
+ * propio texto, no anclado a la rama actual de conversación, así que una utilidad de
+ * "mejorá este prompt" funciona igual haya o no historial previo.
  */
 
 import type { AssistantMessage, Message, TextContent } from "@earendil-works/pi-ai";
 
 /**
- * System prompt for the rewrite. Frames the model as a prompt editor for an AI coding
- * agent: resolve ambiguity, make success verifiable, keep the user's language and intent,
- * stay concise, and — critically — output ONLY the rewritten prompt so the caller can
- * reuse it verbatim (as a message) with no extra parsing.
+ * Prompt del sistema para la reescritura. Presenta al modelo como editor de prompts para
+ * un agente de programación con IA: resolver ambigüedades, volver verificable el éxito,
+ * conservar el idioma y la intención del usuario, mantenerse conciso y —crucialmente—
+ * devolver SOLO el prompt reescrito para que el llamador pueda reutilizarlo tal cual (como
+ * mensaje) sin parseo extra.
  */
 export const IMPROVE_PROMPT_SYSTEM_PROMPT =
-	"You rewrite DRAFT PROMPTS for an AI coding agent so they are clearer and more actionable. " +
-	"Resolve ambiguity, add concrete/verifiable success criteria when it helps, and keep the " +
-	"original language, intent, and scope — do not invent new requirements. Keep it concise: " +
-	"a clearer prompt, not a longer one. " +
-	"Output ONLY the rewritten prompt text — no preamble, no explanation, no quotes, no markdown fences.";
+	"Reescribí BORRADORES DE PROMPT para un agente de programación con IA de modo que queden más claros y accionables. " +
+	"Resolvé ambigüedades, agregá criterios de éxito concretos y verificables cuando aporte valor, y mantené el idioma, la intención y el alcance originales — no inventes requisitos nuevos. " +
+	"Mantenelo conciso: un prompt más claro, no más largo. " +
+	"Devolvé SOLO el texto reescrito — sin preámbulo, sin explicación, sin comillas, sin fences de Markdown.";
 
-/** A ready-to-send one-shot request: a system prompt + messages, and deliberately NO tools. */
+/** Solicitud lista para enviar: prompt de sistema + mensajes, y deliberadamente SIN herramientas. */
 export interface ImproveContext {
 	systemPrompt: string;
 	messages: Message[];
 }
 
 /**
- * Build the one-shot rewrite request: the draft as the only user message, plus the
- * improve-prompt system prompt. No tools are included, so the model can only answer in
- * text. Pure and deterministic apart from the message timestamp.
+ * Arma la solicitud de reescritura de una pasada: el borrador como único mensaje de
+ * usuario, más el prompt del sistema de improve-prompt. No se incluyen herramientas,
+ * así que el modelo solo puede responder en texto. Pura y determinista salvo por la marca
+ * temporal del mensaje.
  */
 export function buildImproveContext(draft: string): ImproveContext {
 	return {
@@ -45,8 +46,8 @@ export function buildImproveContext(draft: string): ImproveContext {
 }
 
 /**
- * Join the text blocks of an assistant message into a single string, ignoring non-text
- * blocks (thinking, tool calls). Trimmed; returns "" when there is no text content.
+ * Une los bloques de texto de un mensaje de asistente en una sola cadena, ignorando los
+ * bloques no textuales (thinking, tool calls). Hace trim; devuelve "" cuando no hay texto.
  */
 export function extractImprovedText(message: AssistantMessage): string {
 	return message.content

@@ -1,53 +1,41 @@
 # @pandi-coding-agent/pandi-improve-prompt
 
-Rewrite a rough prompt draft into a clearer, more actionable one before you send it — a small
-`/improve-prompt` command for Pi.
+Reescribe un borrador de prompt torpe en uno más claro y accionable antes de enviarlo: un pequeño comando `/improve-prompt` para Pi.
 
 ```
 /improve-prompt fix the bug in the parser
 ```
 
-One-shot model call (no tools) rewrites the draft: resolves ambiguity, adds concrete/verifiable
-success criteria when it helps, and keeps your language and intent. The rewrite is shown for
-review — a scrollable overlay in the TUI, a plain notify in RPC — and then you're asked whether
-to **send it** as your next message. Confirm and it is injected as a real user turn (like
-`/plan`'s approval wake); decline and nothing is sent, the rewrite just stayed on screen.
+Una sola llamada al modelo (sin herramientas) reescribe el borrador: resuelve ambigüedades, agrega criterios de éxito concretos y verificables cuando aporta valor, y conserva tu idioma e intención. La reescritura se muestra para revisión — un overlay desplazable en la TUI, una notificación simple en RPC — y después te pregunta si querés **enviarla** como tu próximo mensaje. Si confirmás, se inyecta como un turno de usuario real (como el wake de aprobación de `/plan`); si rechazás, no se envía nada: la reescritura solo quedó en pantalla.
 
-In `--print`/`json` (headless, one-shot) mode there is no way to ask for confirmation, so the
-rewrite is printed and nothing is sent — sending it unreviewed would be a silent side effect.
+En `--print`/`json` (modo headless, de una sola pasada) no hay forma de pedir confirmación, así que la reescritura se imprime y no se envía nada — enviarla sin revisar sería un efecto secundario silencioso.
 
-## Install
+## Instalación
 
-From npm:
+Desde npm:
 
 ```bash
 pi install npm:@pandi-coding-agent/pandi-improve-prompt
 ```
 
-From this repository:
+Desde este repositorio:
 
 ```bash
-pi install ./extensions/pandi-improve-prompt          # global (your user)
-pi install -l ./extensions/pandi-improve-prompt        # project-local
-pi --no-extensions -e ./extensions/pandi-improve-prompt   # one-off trial, nothing else loaded
+pi install ./extensions/pandi-improve-prompt          # global (tu usuario)
+pi install -l ./extensions/pandi-improve-prompt        # local al proyecto
+pi --no-extensions -e ./extensions/pandi-improve-prompt   # prueba de una sola vez, no se carga nada más
 ```
 
-## Commands
+## Comandos
 
-| Command | What it does |
+| Comando | Qué hace |
 | --- | --- |
-| `/improve-prompt <draft>` | Rewrite the draft clearer, show it for review, then ask whether to send it as your next message. |
-| `/improve-prompt` | With no draft, shows a usage notification. |
+| `/improve-prompt <draft>` | Reescribe el borrador con más claridad, lo muestra para revisión y luego pregunta si querés enviarlo como tu próximo mensaje. |
+| `/improve-prompt` | Sin borrador, muestra una notificación de uso. |
 
-## How it works
+## Cómo funciona
 
-- Deliberately **standalone**: unlike `/btw`, the draft is judged on its own text, not grounded
-  in the current conversation branch, so it rewrites a loose draft the same whether or not there
-  is prior chat history.
-- The request is built with `completeSimple()` and carries **no tools**, so the model can only
-  answer in text — the pure request/answer logic lives in `build-improve-context.ts`.
-- The overlay is vendored from `pandi-btw`'s (cross-extension duplication is intentional, so each
-  extension can be published standalone); it scrolls with `↑/↓` `j/k` and `PgUp/PgDn`, closes with
-  `q`/`Esc`.
-- Sending is the one deliberate write: `pi.sendUserMessage()` — a direct steer when idle, a
-  `followUp` mid-stream — fires **only** after you confirm via `ctx.ui.confirm`.
+- Diseñado para funcionar de forma **autónoma**: a diferencia de `/btw`, el borrador se evalúa solo, sin apoyarse en la conversación actual, así que reescribe un draft flojo igual haya o no historial previo.
+- La solicitud se arma con `completeSimple()` y lleva **cero herramientas**, así que el modelo solo puede responder en texto — la lógica pura de pedido/respuesta vive en `build-improve-context.ts`.
+- El overlay está copiado de `pandi-btw` (la duplicación entre extensiones es intencional, para que cada una pueda publicarse de forma autónoma); se desplaza con `↑/↓` `j/k` y `PgUp/PgDn`, y se cierra con `q`/`Esc`.
+- Enviar es la única escritura deliberada: `pi.sendUserMessage()` — un steer directo cuando está idle, un `followUp` en medio de una corriente — se dispara **solo** después de que confirmás con `ctx.ui.confirm`.

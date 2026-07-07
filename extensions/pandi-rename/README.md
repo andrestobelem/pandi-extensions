@@ -1,62 +1,62 @@
 # @pandi-coding-agent/pandi-rename
 
-Give the current Pi session a short, memorable name instead of a UUID, so `/resume`, `pi -r`, and the exit hint are easy to scan. Pass a name to use it as-is, or call `/rename` with nothing and it summarizes your most recent activity into one — a Claude-style `/rename` for Pi.
+Dale a la sesión actual un nombre corto y fácil de leer en lugar de un UUID, para que `/resume`, `pi -r` y la pista de salida sean más simples de escanear. Si pasás un nombre, se usa tal cual; si llamás `/rename` sin argumento, resume tu actividad más reciente y lo convierte en uno — un `/rename` al estilo Claude para Pi.
 
 ```text
 /rename Refactor auth module   ->  refactor-auth-module
 /rename "Hello World!"         ->  hello-world
 /rename Café                   ->  cafe
-/rename                        ->  (LLM summarizes recent activity, e.g. debug-flaky-test)
+/rename                        ->  (el LLM resume la actividad reciente, p. ej. debug-flaky-test)
 ```
 
-## `/rename` vs Pi's native `/name`
+## `/rename` frente al `/name` nativo de Pi
 
-| Want to...                              | Use                                              |
-| ---------------------------------------- | ------------------------------------------------- |
-| Set an exact session name                | `/rename <name>` or `/name <name>` (same effect) |
-| Auto-generate a name from recent work    | `/rename` with no argument — `/name` has no equivalent |
+| Qué querés hacer                       | Usá                                               |
+| -------------------------------------- | ------------------------------------------------- |
+| Fijar un nombre exacto de sesión      | `/rename <name>` o `/name <name>` (mismo efecto)  |
+| Autogenerar un nombre desde el trabajo | `/rename` sin argumento — `/name` no tiene equivalente |
 
-`/rename` is a functional **superset** of `/name`: same naming target (`pi.setSessionName`), plus the auto-generate path. It coexists with `/name` and never overrides it.
+`/rename` es un **superconjunto** funcional de `/name`: apunta al mismo destino (`pi.setSessionName`) y suma la ruta de autogeneración. Coexiste con `/name` y nunca lo sobrescribe.
 
-Every name is stored as a **slug**: lowercase ASCII, hyphen-separated, diacritics stripped, max 4 words / 60 chars. The current name shows as an inverted-color pill in the editor's top border, and as a `Session name:` hint on exit.
+Cada nombre se guarda como un **slug**: ASCII en minúscula, separado por guiones, sin diacríticos, con un máximo de 4 palabras / 60 caracteres. El nombre actual se muestra como una pastilla de color invertido en el borde superior del editor y como una pista `Nombre de sesión:` al salir.
 
-## Install
+## Instalación
 
-From npm:
+Desde npm:
 
 ```bash
 pi install npm:@pandi-coding-agent/pandi-rename
 ```
 
-From this repository:
+Desde este repositorio:
 
 ```bash
-pi install ./extensions/pandi-rename          # global (your user)
-pi install -l ./extensions/pandi-rename       # project-local
-pi --no-extensions -e ./extensions/pandi-rename   # one-off trial, nothing else loaded
+pi install ./extensions/pandi-rename             # global (tu usuario)
+pi install -l ./extensions/pandi-rename          # local al proyecto
+pi --no-extensions -e ./extensions/pandi-rename  # prueba puntual, sin cargar nada más
 ```
 
-## Commands
+## Comandos
 
-| Command | What it does |
+| Comando | Qué hace |
 | --- | --- |
-| `/rename <name>` | Slugify `<name>` and set it as the session display name (instant, no LLM). |
-| `/rename` | Summarize your most recent activity via the LLM into a slug and apply it directly, no dialog. |
+| `/rename <name>` | Convierte `<name>` en slug y lo fija como nombre visible de la sesión (instantáneo, sin LLM). |
+| `/rename` | Resume tu actividad más reciente con el LLM en un slug y lo aplica directo, sin diálogo. |
 
-## How it works
+## Cómo funciona
 
-- **Auto-naming:** a one-shot `pi -p` subprocess summarizes the most recent part of the conversation into a short title, which is slugified. Re-running `/rename` as work evolves replaces the name with a fresh, current one.
-- **Subprocess isolation:** the summary run uses `--no-extensions --no-skills --no-context-files --no-approve`, is bounded by a ~12s timeout, and uses your configured model. Override the binary with `PI_RENAME_PI_COMMAND` and the model with `PI_RENAME_MODEL`.
-- **Deterministic fallback:** if the LLM is unavailable (offline, no API key, timeout), `/rename` slugifies the most recent non-empty user message (leading slash-command dropped, truncated on a word boundary). It always produces a name and never blocks indefinitely.
-- **Border pill:** a thin outer editor layer overrides only rendering, so it needs no dependency on dynamic-workflows and composes with that extension's label as `ultracode auto ── <slug>` when both are present. The name is rendered in reverse video (inverted fg/bg).
-- **Same channel as `/name`:** names are set via `pi.setSessionName`, so `/resume`, the resume selector (`pi -r`), and `/name` with no arguments all show the same slug.
+- **Autonombre:** un subproceso `pi -p` de una sola pasada resume la parte más reciente de la conversación en un título corto, y luego se lo convierte en slug. Volver a ejecutar `/rename` a medida que avanza el trabajo reemplaza el nombre por uno nuevo y actualizado.
+- **Aislamiento del subproceso:** la ejecución de resumen usa `--no-extensions --no-skills --no-context-files --no-approve`, tiene un timeout de ~12s y usa tu modelo configurado. Podés sobrescribir el binario con `PI_RENAME_PI_COMMAND` y el modelo con `PI_RENAME_MODEL`.
+- **Fallback determinístico:** si el LLM no está disponible (offline, sin API key, timeout), `/rename` convierte en slug el mensaje de usuario no vacío más reciente (se descarta el slash-command inicial y se corta en límite de palabra). Siempre produce un nombre y nunca queda bloqueado indefinidamente.
+- **Pastilla del borde:** una capa externa fina del editor sobreescribe solo el render, así que no depende de dynamic-workflows y se compone con la etiqueta de esa extensión como `ultracode auto ── <slug>` cuando ambas están presentes. El nombre se renderiza en video inverso (fg/bg invertidos).
+- **Mismo canal que `/name`:** los nombres se fijan vía `pi.setSessionName`, así que `/resume`, el selector de reanudación (`pi -r`) y `/name` sin argumentos muestran el mismo slug.
 
-## Limitations & safety notes
+## Limitaciones y notas de seguridad
 
-- Empty history or no usable text falls back to the default name `session`; if `setSessionName` fails, `/rename` reports an error instead of crashing.
-- The exit-time `Session name: <slug> (resume by name: pi -r)` line prints only in the TUI on a TTY, and stays silent when the session is unnamed.
-- Pi core's own exit hint (`To resume this session: pi --session <uuid>`) is UUID-only by design — `--session` resolves paths/partial UUIDs, not names. Upstream FR to include the name: [earendil-works/pi#6296](https://github.com/earendil-works/pi/issues/6296).
+- Si no hay historial o no queda texto útil, se usa el nombre por defecto `session`; si `setSessionName` falla, `/rename` reporta un error en vez de romper.
+- La línea de salida `Nombre de sesión: <slug> (reanudar por nombre: pi -r)` solo se imprime en la TUI sobre un TTY, y se mantiene en silencio cuando la sesión no tiene nombre.
+- La pista de salida propia de Pi core (`To resume this session: pi --session <uuid>`) sigue siendo solo UUID por diseño — `--session` resuelve rutas/UUID parciales, no nombres. FR upstream para incluir el nombre: [earendil-works/pi#6296](https://github.com/earendil-works/pi/issues/6296).
 
-## Related
+## Relacionado
 
-For the full bundle of extensions and skills, install the repository root instead.
+Para instalar el paquete completo de extensiones y skills, instalá la raíz del repositorio.

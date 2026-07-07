@@ -253,6 +253,7 @@ details .body { border-top:1px solid var(--line); padding:14px 16px; color:var(-
 details.fail-card { border-color:var(--error); }
 pre { background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:10px 12px; overflow-x:auto;
   font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; color:var(--ink); white-space:pre-wrap; word-break:break-word; }
+pre.json-output { white-space:pre; }
 .md-body { color:var(--ink2); }
 .md-body p, .md-body ul, .md-body ol, .md-body blockquote, .md-body table { margin:0 0 10px; }
 .md-body h1, .md-body h2, .md-body h3, .md-body h4, .md-body h5, .md-body h6 { color:var(--ink); margin:14px 0 8px; }
@@ -285,6 +286,25 @@ function truncNote(t: RunReportText): string {
 	return t.truncated ? ` <span class="muted">…[truncated]</span>` : "";
 }
 
+function prettyJsonOutput(text: string): string | undefined {
+	const trimmed = text.trim();
+	const first = trimmed[0];
+	if (first !== "{" && first !== "[") return undefined;
+	try {
+		return JSON.stringify(JSON.parse(trimmed), null, 2);
+	} catch {
+		return undefined;
+	}
+}
+
+function renderTextBody(text: string, render: "pre" | "markdown"): string {
+	const json = prettyJsonOutput(text);
+	if (json !== undefined) return `<pre class="json-output">${escapeHtml(json)}</pre>`;
+	return render === "markdown"
+		? `<div class="md-body">${renderRunReportMarkdown(text)}</div>`
+		: `<pre>${escapeHtml(text)}</pre>`;
+}
+
 function textBlock(
 	title: string,
 	t: RunReportText | undefined,
@@ -292,10 +312,7 @@ function textBlock(
 	render: "pre" | "markdown" = "pre",
 ): string {
 	if (!t) return "";
-	const body =
-		render === "markdown"
-			? `<div class="md-body">${renderRunReportMarkdown(t.text)}</div>`
-			: `<pre>${escapeHtml(t.text)}</pre>`;
+	const body = renderTextBody(t.text, render);
 	return (
 		`<details${open ? " open" : ""}><summary>${escapeHtml(title)}${truncNote(t)}</summary>` +
 		`<div class="body">${body}</div></details>`

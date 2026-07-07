@@ -38,7 +38,7 @@ const SET_PROVIDER = "__piRenameSetBorderProvider";
 /** El editor envuelto creado más recientemente, al que se le pide redibujado tras un rename. */
 let latestEditor: { invalidate?: () => void } | undefined;
 
-/** Setter que alimenta la pista de salida "Session name: <slug>" (undefined fuera de TTY). */
+/** Setter que alimenta la pista de salida "Nombre de sesión: <slug>" (undefined fuera de TTY). */
 let setExitHintName: ((name: string | undefined) => void) | undefined;
 
 function readEntries(ctx: ExtensionCommandContext): unknown[] {

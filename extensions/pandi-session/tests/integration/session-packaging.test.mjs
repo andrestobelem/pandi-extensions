@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** Packaging contract for the standalone pandi-session extension. */
+/** Contrato de empaquetado para la extensión independiente pandi-session. */
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -16,19 +16,23 @@ function readJson(file) {
 
 const pkg = readJson(path.join(EXT_DIR, "package.json"));
 check(
-	"package name uses the scoped pandi-session identity",
+	"el nombre del paquete usa la identidad con scope de pandi-session",
 	pkg.name === "@pandi-coding-agent/pandi-session",
 	pkg.name,
 );
-check("package publishes depth-one runtime TS files", pkg.files?.includes("*.ts"), JSON.stringify(pkg.files));
-check("package publishes its README", pkg.files?.includes("README.md"), JSON.stringify(pkg.files));
 check(
-	"package registers index.ts as the Pi extension entrypoint",
+	"el paquete publica archivos TS de runtime a profundidad uno",
+	pkg.files?.includes("*.ts"),
+	JSON.stringify(pkg.files),
+);
+check("el paquete publica su README", pkg.files?.includes("README.md"), JSON.stringify(pkg.files));
+check(
+	"el paquete registra index.ts como el punto de entrada de la extensión Pi",
 	pkg.pi?.extensions?.includes("./index.ts"),
 	JSON.stringify(pkg.pi),
 );
 check(
-	"package pins the current Pi peer floor",
+	"el paquete fija el piso actual de peers de Pi",
 	pkg.peerDependencies?.["@earendil-works/pi-coding-agent"] === "^0.80.3" &&
 		pkg.peerDependencies?.["@earendil-works/pi-tui"] === "^0.80.3",
 	JSON.stringify(pkg.peerDependencies),

@@ -7,8 +7,8 @@
  *
  * Pins:
  *   1. `pickViewerForPath` routes .md/.markdown → "markdown", everything else → "text".
- *   2. `WorkflowMarkdownViewComponent` renders heading + body text and a `q/Esc close` hint,
- *      scrolls, and (when enabled) advertises an `f` files affordance + signals "openFiles".
+ *   2. `WorkflowMarkdownViewComponent` renders heading + body text and a `q/Esc cerrar` hint,
+ *      scrolls, and (when enabled) advertises an `f` archivos affordance + signals "openFiles".
  *   3. `showMarkdown` in print mode emits the content via console.log and opens no UI.
  *
  * Built with REAL deps (no stubs) like the pandi-mdview suite, so the actual Markdown renderer
@@ -78,8 +78,8 @@ async function main() {
 	const rendered = comp.render(80).join("\n");
 	check("renders the heading text", /Hello Heading/.test(rendered), rendered);
 	check("renders the body text", /Some body text here\./.test(rendered), rendered);
-	check("shows q/Esc close hint", /q\/Esc close/i.test(rendered) || /q\/esc/i.test(rendered), rendered);
-	check("advertises the files affordance when enabled", /files/i.test(rendered), rendered);
+	check("shows q/Esc close hint", /q\/Esc cerrar/i.test(rendered) || /q\/esc/i.test(rendered), rendered);
+	check("advertises the files affordance when enabled", /archivos/i.test(rendered), rendered);
 
 	// scroll changes the visible window (long content + small terminal so it overflows)
 	const longBody = `# Hello Heading\n\n${Array.from({ length: 60 }, (_, i) => `line ${i}`).join("\n")}`;
@@ -99,7 +99,7 @@ async function main() {
 	const noFiles = new WorkflowMarkdownViewComponent(makeTui(), makeTheme(), "t", "# x\n\nbody", () => {}, false)
 		.render(80)
 		.join("\n");
-	check("files affordance hidden when disabled", !/f files|f open|open file/i.test(noFiles), noFiles);
+	check("files affordance hidden when disabled", !/f archivos|f files|f open|open file/i.test(noFiles), noFiles);
 
 	// 3) showMarkdown print mode
 	check("showMarkdown is exported", typeof showMarkdown === "function");

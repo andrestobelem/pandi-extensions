@@ -2,7 +2,7 @@
  * Overlay cerrable y desplazable que muestra una respuesta de `/btw` en la TUI.
  *
  * Este es el análogo en Pi del overlay `/btw` de Claude Code: la respuesta aparece sobre
- * la sesión SIN escribirse en la conversación. Se renderiza con ctx.ui.custom() (que
+ * la sesión sin escribirse en la conversación. Se renderiza con ctx.ui.custom() (que
  * toma el control del editor temporalmente y resuelve cuando el usuario lo cierra), así
  * que no se persiste nada: al cerrarlo solo vuelve el control al editor.
  *

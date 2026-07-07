@@ -26,85 +26,88 @@ const WORKFLOW_SCOPE_INPUTS = ["auto", "project", "global"] as const;
 export const workflowToolSchema = Type.Object({
 	action: StringEnum(TOOL_ACTIONS, {
 		description:
-			"Workflow operation to perform: list/scaffold/read/check/write/run/start/resume/cancel/delete/graph/runs/view/report. check validates a workflow and input before creating a run. scaffold with no name lists the pattern catalog; scaffold with name=<key> returns a pattern scaffold. resume re-runs an interrupted run (stale/failed/cancelled) in place, reusing cached completed subagent/bash calls so they are not re-executed. report renders a run (default: latest) into a self-contained <runDir>/report.html; pass watch=true to regenerate it while the run is running.",
+			"Operación de workflow a realizar: list/scaffold/read/check/write/run/start/resume/cancel/delete/graph/runs/view/report. check valida un workflow y su input antes de crear un run. scaffold sin name lista el catálogo de patterns; scaffold con name=<key> devuelve un pattern scaffold. resume vuelve a correr un run interrumpido (stale/failed/cancelled) in-place, reutilizando llamadas completas de subagente/bash cacheadas para no reejecutarlas. report renderiza un run (default: latest) en un <runDir>/report.html autocontenido; pasá watch=true para regenerarlo mientras el run sigue corriendo.",
 	}),
 	name: Type.Optional(
 		Type.String({
 			description:
-				"Workflow name/path relative to the workflow directory (.js is added when omitted), run id for view/cancel/resume (defaults to latest for resume), or pattern key for action=scaffold.",
+				"Nombre/path del workflow relativo al directorio de workflows (.js se agrega si se omite), run id para view/cancel/resume (en resume el default es latest), o pattern key para action=scaffold.",
 		}),
 	),
 	scope: Type.Optional(
 		StringEnum(WORKFLOW_SCOPE_INPUTS, {
-			description: `Use project ${CONFIG_DIR_NAME}/workflows, global agent-dir workflows, or auto resolution.`,
+			description: `Usá ${CONFIG_DIR_NAME}/workflows del proyecto, workflows globales del agent-dir o resolución auto.`,
 		}),
 	),
-	code: Type.Optional(Type.String({ description: "JavaScript workflow source for action=write." })),
+	code: Type.Optional(Type.String({ description: "Fuente JavaScript del workflow para action=write." })),
 	input: Type.Optional(
 		Type.Any({
-			description: "JSON-serializable input passed to action=run/start workflow(ctx, input).",
+			description: "Input JSON-serializable que se pasa a action=run/start workflow(ctx, input).",
 		}),
 	),
 	background: Type.Optional(
 		Type.Boolean({
 			description:
-				"Compatibility flag for action=run/resume. In persistent TUI/RPC sessions, workflows always start in background; print/json mode falls back to foreground because no background session stays alive.",
+				"Flag de compatibilidad para action=run/resume. En sesiones TUI/RPC persistentes, los workflows siempre arrancan en background; el modo print/json cae a foreground porque no existe una sesión de background que quede viva.",
 		}),
 	),
 	force: Type.Optional(
 		Type.Boolean({
-			description: "For action=resume, allow resuming an already completed run (re-runs only uncached calls).",
+			description:
+				"Para action=resume, permite reanudar un run ya completado (solo reejecuta llamadas no cacheadas).",
 		}),
 	),
 	watch: Type.Optional(
 		Type.Boolean({
 			description:
-				"For action=report, keep regenerating <runDir>/report.html while the run is running; the final report removes browser auto-refresh.",
+				"Para action=report, seguí regenerando <runDir>/report.html mientras el run esté corriendo; el reporte final quita el auto-refresh del navegador.",
 		}),
 	),
 	concurrency: Type.Optional(
 		Type.Integer({
 			minimum: 1,
 			maximum: HARD_MAX_CONCURRENCY,
-			description: "Default subagent concurrency.",
+			description: "Concurrency default de subagentes.",
 		}),
 	),
 	maxAgents: Type.Optional(
 		Type.Integer({
 			minimum: 1,
 			maximum: HARD_MAX_AGENTS,
-			description: "Maximum subagents a workflow may spawn.",
+			description: "Máximo de subagentes que un workflow puede lanzar.",
 		}),
 	),
-	timeoutMs: Type.Optional(Type.Integer({ minimum: 1_000, description: "Overall workflow timeout in milliseconds." })),
+	timeoutMs: Type.Optional(
+		Type.Integer({ minimum: 1_000, description: "Timeout total del workflow en milisegundos." }),
+	),
 	agentTimeoutMs: Type.Optional(
 		Type.Integer({
 			minimum: 1_000,
-			description: "Default timeout for each subagent in milliseconds.",
+			description: "Timeout default de cada subagente en milisegundos.",
 		}),
 	),
 });
 
 export function makeWorkflowPromptGuidelines(): string[] {
 	return [
-		"Step zero before orchestrating: decide whether the task prompt needs improvement. If ambiguity blocks routing or implementation, infer concise success criteria when safe or ask only blocking questions. Use that improved prompt for the routing/scouting decision.",
-		"Decide in three steps before orchestrating. (1) Trivial gate: if the task is conversational, single-step, or solvable with a few direct tool calls, answer normally — do NOT build a workflow. (2) Scout inline first: if it may be large, run a cheap probe inline (git ls-files, read the diff, grep/glob candidates) to discover the real work-list and size. (3) Orchestrate only for exhaustiveness (many independent items), confidence (independent perspectives + adversarial verification), or scale (more context than one window: migrations, audits, broad sweeps).",
-		"Scale effort to the ask. 'Find some' / 'quick check' -> small fan-out (~3-5) + light synthesis. 'Review this plan' -> a few perspective-diverse reviewers + synthesis-as-judge. 'Audit thoroughly' / 'be exhaustive' -> larger pool, adversarial checks per finding, synthesis, and another round only if new findings keep appearing.",
-		"Scale parallelism to the discovered work-list and constraints. Raise concurrency/maxAgents above low defaults for many independent, read-only, low-risk branches when the limits global and provider budget/rate limits allow; keep them low for side effects, expensive models, shared-state edits, sequential dependencies, or uncertain rate limits. Log requested/effective concurrency, maxAgents, and any limits clamp.",
-		"Author a workflow with injected GLOBALS only — no ctx, no import/require: an optional `export const meta = { name, description, phases }` plus `export default async function main()` (or a top-level script ending in `return <value>`). Read input via the `args` global (JSON-stringified; parse defensively). Globals: agent, agents, parallel, pipeline, workflow, phase, log, args, bash, readFile/writeFile/appendFile/listFiles, writeArtifact, sleep, json, compact, and the read-only limits/runId/runDir/cwd. NEVER name your function after a global (use main); naming it `workflow` shadows the workflow() composition helper and self-recurses.",
+		"Paso cero antes de orquestar: decidí si el prompt de la tarea necesita mejora. Si la ambigüedad bloquea el routing o la implementación, inferí criterios de éxito concisos cuando sea seguro o hacé solo preguntas bloqueantes. Usá ese prompt mejorado para la decisión de routing/scouting.",
+		"Decidí en tres pasos antes de orquestar. (1) Gate trivial: si la tarea es conversacional, de un solo paso o resoluble con unas pocas tool calls directas, respondé normal; NO construyas un workflow. (2) Scout inline primero: si puede ser grande, hacé una probe barata inline (git ls-files, leer el diff, grep/glob de candidatos) para descubrir la work-list real y su tamaño. (3) Orquestá solo por exhaustividad (muchos ítems independientes), confianza (perspectivas independientes + verificación adversarial) o escala (más contexto que una ventana: migraciones, auditorías, sweeps amplios).",
+		"Escalá effort a la tarea. 'Find some' / 'quick check' -> fan-out chico (~3-5) + síntesis liviana. 'Review this plan' -> unos pocos reviewers con perspectivas diversas + synthesis-as-judge. 'Audit thoroughly' / 'be exhaustive' -> pool más grande, checks adversariales por hallazgo, síntesis y otra ronda solo si siguen apareciendo hallazgos nuevos.",
+		"Escalá el paralelismo según la work-list descubierta y las restricciones. Subí concurrency/maxAgents por encima de defaults bajos para muchas ramas independientes, read-only y de bajo riesgo cuando los límites globales y el presupuesto/rate limits del provider lo permitan; mantenelos bajos para efectos laterales, modelos caros, ediciones con estado compartido, dependencias secuenciales o rate limits inciertos. Logueá concurrency solicitada/efectiva, maxAgents y cualquier clamp de límites.",
+		"Escribí un workflow solo con GLOBALS inyectadas — sin ctx, sin import/require: `export const meta = { name, description, phases }` opcional más `export default async function main()` (o un script top-level que termine en `return <value>`). Leé el input vía la global `args` (JSON-stringified; parseá a la defensiva). Globals: agent, agents, parallel, pipeline, workflow, phase, log, args, bash, readFile/writeFile/appendFile/listFiles, writeArtifact, sleep, json, compact y los límites read-only limits/runId/runDir/cwd. NUNCA nombres tu función como una global (usá main); llamarla `workflow` sombrea el helper de composición workflow() y recursa sobre sí misma.",
 		formatWorkflowPatternKeyList(),
 		formatWorkflowCompositionPromptSummary(),
-		"Choose primitives by data dependency. Use agents(items,{concurrency}) for one independent step per item. Use pipeline(items,...stages) by default for >=2 dependent steps per item with no cross-item merge; include a stable item id/index in prompts generated inside stages. Use agents(items,{concurrency,settle:true}) for large fan-out or reviewer panels where one branch failure should return null. Use parallel([()=>...]) only for a true barrier where a later step needs all branch results at once (dedup/merge, early-exit if total=0, cross-branch ranking). Use workflow(name,args) for reusable sub-steps with no decision gate; sequence separate runs when a decision depends on prior output.",
-		"Use agent(prompt,{schema}) when a subagent must return JSON: agent() returns the parsed object directly with {schema} (the text output otherwise) and null on a failed subagent. The plural agents()/parallel()/pipeline() return result objects/arrays (read .output/.data; null per failed branch under settle). Use agentType:'explore'|'reviewer'|'planner'|'architect'|'implementer'|'researcher' for persona defaults; explicit options override the persona. Scope each subagent's access with tools/excludeTools, skills/includeSkills, extensions/includeExtensions, and keys/env when it needs specific capabilities; never put secret values in prompts. Subagents get web_search via pi-codex-web-search and context7-cli when installed; include web_search in read-only allowlists when web/docs/current evidence may help, and only use includeExtensions:false/includeSkills:false as an explicit opt-out.",
-		"Decide model and effort per call as two independent dials, not one cheap↔deep slider: pass model ('haiku'|'sonnet'|'opus' or a full 'provider/id') and effort (low|medium|high|xhigh|max) on agent/agents/pipeline calls or any per-item spec (the node(role,extra) helper threads input.models/efforts/toolsByRole per role). model multiplies the price of every token; effort only caps thinking (low~2k/medium~8k/high~16k) and unused budget is free — don't couple cheap model to cheap thinking. Keep low for mechanical nodes (one pinned command/read, flat schema, output transcribed literally, verified downstream) and for small/crisp ranking scouts whose misses are cheap and visible; raise effort>=medium for ambiguous output, fuzzy judgment, long context, high cost of omission, or hard ranking. If a local A/B shows effort does not help but stronger models do, raise model instead. Use a strong model + high/xhigh only for final synthesis, adversarial verification, planning, and hard reasoning. ALWAYS set model on wide fan-out nodes — omitting it inherits the orchestrator model (an opus session prices every branch as opus); omitting effort inherits the raw session reasoning level unless an agentType persona raises it (reviewer/planner/architect/researcher=high, explore/implementer=medium), and explicit options win. model and effort are part of the cache key, so changing them re-runs that call on resume.",
-		"Handle partial failure visibly: filter nulls from settling agents/pipeline/parallel, log() how many branches failed, and make synthesis prompts mention failed, empty, cancelled, or timed-out branches instead of hiding them. In synthesis/judge prompts, restate the task + success criteria at BOTH the start and the end (after the evidence block), most-important findings first, to counter lost-in-the-middle.",
-		"Never cap coverage silently. Whenever a workflow uses slice/head/top-N/sampling/no-retry, clamps concurrency to limits.concurrency, or lowers maxAgents below the discovered work-list, log() exactly what was excluded, delayed, or clamped.",
-		`When creating a workflow, inspect the pattern catalog first (optionally action=scaffold name=<key> for a scaffold), reuse an existing workflow only when it exactly matches the task, otherwise write a clear gitignored ${CONFIG_DIR_NAME}/workflows/drafts/<task-slug>.js project draft and launch it in background with explicit limits (action=start in persistent TUI/RPC; action=run only as the print/non-persistent fallback). If a workflow is warranted for complex workflow/prompt/contract design, use the workflow-factory scaffold so a workflow generates and reviews the task-specific workflow. After a useful run, tell the user the path and offer to keep/promote it to a stable workflow name.`,
-		"Workflows in persistent TUI/RPC sessions always run in background: use dynamic_workflow action=start (or action=run, which the extension backgrounds there), then inspect with action=runs/view and stop with action=cancel if needed.",
-		"Do NOT busy-poll a background run (no sleep/loop re-checking status.json or repeated action=view): the harness already tracks it and injects a completion notice when it finishes, so let it report back and inspect ONCE when notified (or when the user asks). While it runs, do other useful work instead of watching it.",
-		"If a run was interrupted (state stale/failed/cancelled), use dynamic_workflow action=resume name=<runId> to continue it in place; completed subagent/bash calls are reused from the run journal and are not re-executed, so resuming is cheap. agent() output is cached by default (opt out with {cache:false}); bash() is cached only with {cache:true}. Calls whose arguments depend on Date.now()/Math.random() will not be cached and will re-run on resume.",
-		"Build subagent prompts with a stable prefix: put shared/stable framing (role, task, success criteria, output format) FIRST and push volatile per-item content (the item text, ids, retrieved snippets) to the END, so identical prefixes reuse the provider prompt/KV cache across calls. Avoid Date.now()/Math.random() or other nondeterministic values inside prompts — they bust that cache and make the resume journal miss, re-running the call.",
-		"Workflow scripts are trusted code. Keep subagent prompts scoped, use read-only tool lists for audit/research tasks, and persist intermediate outputs with writeArtifact().",
-		"Use dynamic_workflow action=graph to explain a workflow before running it, and action=view/runs to inspect execution timelines and artifacts after running it.",
+		"Elegí primitives por dependencia de datos. Usá agents(items,{concurrency}) para un paso independiente por ítem. Usá pipeline(items,...stages) por default para >=2 etapas dependientes por ítem sin merge entre ítems; incluí un id/index estable del ítem en los prompts generados dentro de las etapas. Usá agents(items,{concurrency,settle:true}) para fan-out ancho o paneles de reviewers donde una rama fallida debe devolver null. Usá parallel([()=>...]) solo para una barrera real en la que un paso posterior necesita todos los resultados juntos (dedup/merge, early-exit si total=0, ranking cross-branch). Usá workflow(name,args) para subpasos reutilizables sin gate de decisión; secuenciá runs separados cuando una decisión dependa de la salida previa.",
+		"Usá agent(prompt,{schema}) cuando un subagente deba devolver JSON: agent() retorna directamente el objeto parseado con {schema} (o el texto, en otro caso) y null si el subagente falla. Los plurales agents()/parallel()/pipeline() retornan objetos/arreglos de resultado (leé .output/.data; null por rama fallida bajo settle). Usá agentType:'explore'|'reviewer'|'planner'|'architect'|'implementer'|'researcher' para defaults de persona; las opciones explícitas pisan la persona. Acotá el acceso de cada subagente con tools/excludeTools, skills/includeSkills, extensions/includeExtensions y keys/env cuando necesite capacidades específicas; nunca pongas secretos en prompts. Los subagentes reciben web_search vía pi-codex-web-search y context7-cli cuando están instalados; incluí web_search en allowlists read-only cuando puedan servir web/docs/evidencia actual, y usá includeExtensions:false/includeSkills:false solo como opt-out explícito.",
+		"Decidí model y effort por llamada como dos diales independientes, no como un slider barato↔profundo: pasá model ('haiku'|'sonnet'|'opus' o un 'provider/id' completo) y effort (low|medium|high|xhigh|max) en llamadas agent/agents/pipeline o en cualquier spec por ítem (el helper node(role,extra) propaga input.models/efforts/toolsByRole por rol). model multiplica el precio de cada token; effort solo limita thinking (low~2k/medium~8k/high~16k) y el presupuesto no usado es gratis: no acoples modelo barato con thinking barato. Mantené low para nodos mecánicos (un comando/read pineado, schema plano, output transcripto literalmente, verificado downstream) y para scouts de ranking chicos y nítidos cuyos misses son baratos y visibles; subí effort>=medium para output ambiguo, juicio difuso, contexto largo, alto costo de omisión o ranking difícil. Si un A/B local muestra que effort no ayuda pero modelos más fuertes sí, subí model en cambio. Usá un modelo fuerte + high/xhigh solo para síntesis final, verificación adversarial, planning y razonamiento difícil. SIEMPRE seteá model en nodos de fan-out ancho: si lo omitís hereda el modelo del orquestador (una sesión opus cobra cada rama como opus); si omitís effort hereda el reasoning level crudo de la sesión salvo que una persona agentType lo eleve (reviewer/planner/architect/researcher=high, explore/implementer=medium), y las opciones explícitas ganan. model y effort forman parte de la cache key, así que cambiarlos reejecuta esa llamada al reanudar.",
+		"Hacé visible la falla parcial: filtrá nulls de agents/pipeline/parallel con settle, logueá cuántas ramas fallaron y hacé que los prompts de síntesis mencionen ramas fallidas, vacías, canceladas o timed-out en vez de esconderlas. En prompts de synthesis/judge, reafirmá la tarea + criterios de éxito al PRINCIPIO y al FINAL (después del bloque de evidencia), con los hallazgos más importantes primero, para contrarrestar lost-in-the-middle.",
+		"Nunca limites cobertura en silencio. Siempre que un workflow use slice/head/top-N/sampling/no-retry, ajuste concurrency a limits.concurrency o baje maxAgents por debajo de la work-list descubierta, log() exactamente qué quedó excluido, demorado o clampeado.",
+		`Al crear un workflow, inspeccioná primero el catálogo de patterns (opcionalmente action=scaffold name=<key> para un scaffold), reutilizá un workflow existente solo cuando calce exactamente con la tarea; si no, escribí un draft de proyecto claro y gitignored en ${CONFIG_DIR_NAME}/workflows/drafts/<task-slug>.js y lanzalo en background con límites explícitos (action=start en TUI/RPC persistente; action=run solo como fallback print/no persistente). Si un workflow se justifica para diseño complejo de workflow/prompt/contract, usá el scaffold workflow-factory para que un workflow genere y revise el workflow específico de la tarea. Después de un run útil, decile a la persona usuaria la ruta y ofrecé conservarlo/promoverlo a un nombre estable de workflow.`,
+		"Los workflows en sesiones TUI/RPC persistentes siempre corren en background: usá dynamic_workflow action=start (o action=run, que la extensión manda a background ahí), luego inspeccioná con action=runs/view y detenelo con action=cancel si hace falta.",
+		"NO busy-pollees un run en background (nada de sleep/loop re-chequeando status.json ni action=view repetido): el harness ya lo sigue e inyecta una notificación de finalización cuando termina, así que dejá que reporte y miralo UNA sola vez cuando avise (o cuando lo pida la persona usuaria). Mientras corre, hacé otro trabajo útil en vez de vigilarlo.",
+		"Si un run fue interrumpido (state stale/failed/cancelled), usá dynamic_workflow action=resume name=<runId> para continuarlo in-place; las llamadas completas de subagente/bash se reutilizan desde el run journal y no se reejecutan, así que reanudar es barato. La salida de agent() se cachea por default (opt-out con {cache:false}); bash() solo se cachea con {cache:true}. Las llamadas cuyos argumentos dependen de Date.now()/Math.random() no se cachearán y se reejecutarán al reanudar.",
+		"Construí prompts de subagentes con un prefijo estable: poné PRIMERO el framing compartido/estable (rol, tarea, criterios de éxito, formato de salida) y empujá al FINAL el contenido volátil por ítem (texto del ítem, ids, snippets recuperados), así los prefijos idénticos reutilizan la prompt/KV cache del provider entre llamadas. Evitá Date.now()/Math.random() u otros valores no determinísticos dentro de prompts: rompen esa cache y hacen que el journal de resume falle y reejecute la llamada.",
+		"Los scripts de workflow son código confiable. Mantené los prompts de subagentes acotados, usá listas read-only de tools para tareas de auditoría/investigación y persistí outputs intermedios con writeArtifact().",
+		"Usá dynamic_workflow action=graph para explicar un workflow antes de correrlo, y action=view/runs para inspeccionar timelines de ejecución y artifacts después de correrlo.",
 	];
 }

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Test de integración de comportamiento duradero para extensions/pandi-effort/index.ts.
+ * Prueba de integración de comportamiento duradero para extensions/pandi-effort/index.ts.
  *
  * Fija el contrato público de /effort:
  * - los niveles nombrados llaman a pi.setThinkingLevel e informan el nivel activo limitado
@@ -186,7 +186,7 @@ async function scenarioSelectorAndStatusEvent(url) {
 	const harness = makePi({ initialLevel: "medium" });
 	effortExtension(harness.pi);
 	const command = harness.commands.get("effort");
-	const ctx = makeCtx({ selectResult: "low — low thinking" });
+	const ctx = makeCtx({ selectResult: "low — esfuerzo bajo" });
 
 	await command.handler("", ctx);
 	check("/effort no args uses selector choice", harness.level === "low", harness.level);
@@ -375,7 +375,7 @@ async function scenarioUltracodeToolProbeDegradation(url) {
 	check("already-active router: no redundant setActiveTools", setCalls === 0, `setCalls=${setCalls}`);
 	check(
 		"already-active router: reports enabled (info)",
-		ctx2._notes.some((n) => n.type === "info" && /router de dynamic workflow habilitado/i.test(n.msg)),
+		ctx2._notes.some((n) => n.type === "info" && /router de dynamic_workflow habilitado/i.test(n.msg)),
 		JSON.stringify(ctx2._notes),
 	);
 }
@@ -392,7 +392,7 @@ async function scenarioNoArgsEdges(url) {
 	const ctx = makeCtx({ mode: "print", hasUI: false });
 	ctx.ui.select = async () => {
 		selectCalls += 1;
-		return "high — high thinking";
+		return "high — esfuerzo alto";
 	};
 	const { out: logs } = await withCapturedConsole(() => headless.commands.get("effort").handler("", ctx));
 	check("headless no-args: selector never opens", selectCalls === 0, `selectCalls=${selectCalls}`);
@@ -488,9 +488,9 @@ async function main() {
 		await fs.rm(outDir, { recursive: true, force: true });
 	}
 
-	console.log(`\n${counts.passed} passed, ${counts.failed} failed`);
+	console.log(`\n${counts.passed} aprobadas, ${counts.failed} fallidas`);
 	if (counts.failed) {
-		console.log("Failures:");
+		console.log("Fallos:");
 		for (const failure of counts.failures) console.log(`- ${failure}`);
 		process.exit(1);
 	}

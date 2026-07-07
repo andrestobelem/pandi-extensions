@@ -142,7 +142,7 @@ async function main() {
 	check("/ultracode with empty task sends no message", g.sentMessages.length === 0, JSON.stringify(g.sentMessages));
 	check(
 		"/ultracode with empty task notifies usage",
-		guardCtx.notifications.some((n) => /usage/i.test(n.message)),
+		guardCtx.notifications.some((n) => /usage|uso/i.test(n.message)),
 		JSON.stringify(guardCtx.notifications),
 	);
 

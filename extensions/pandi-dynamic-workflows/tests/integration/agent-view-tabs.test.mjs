@@ -62,7 +62,7 @@ async function main() {
 	check("tab bar lists the other tabs", /Prompt/.test(rendered) && /Definition/.test(rendered), rendered);
 	check("active tab content renders", /Card body/.test(rendered), rendered);
 	check("inactive tab content does not render", !/Prompt body/.test(rendered), rendered);
-	check("hints advertise tab switching", /←→ tabs/.test(rendered), rendered);
+	check("hints advertise tab switching", /←→ pestañas/.test(rendered), rendered);
 
 	// Scroll down on Card, then switch: scroll is remembered per tab.
 	view.handleInput("pageDown");
@@ -92,7 +92,7 @@ async function main() {
 
 	const empty = view.render(80).join("\n");
 	view.handleInput("3");
-	check("tab without content renders a loading placeholder", /Loading/.test(view.render(80).join("\n")), empty);
+	check("tab without content renders a loading placeholder", /Cargando/.test(view.render(80).join("\n")), empty);
 
 	// Existing affordances keep working in tabs mode.
 	let intent = "UNSET";
@@ -121,7 +121,7 @@ async function main() {
 	legacy.setContent("# Solo doc", "running");
 	const legacyRendered = legacy.render(80).join("\n");
 	check("legacy mode renders content", /Solo doc/.test(legacyRendered), legacyRendered);
-	check("legacy mode shows no tab bar", !/\[Card\]|←→ tabs/.test(legacyRendered), legacyRendered);
+	check("legacy mode shows no tab bar", !/\[Card\]|←→ pestañas/.test(legacyRendered), legacyRendered);
 	legacy.handleInput("right");
 	check("legacy mode ignores tab keys", /Solo doc/.test(legacy.render(80).join("\n")));
 

@@ -5,7 +5,7 @@
  * En cambio, este módulo arma un prompt a partir de la parte MÁS RECIENTE de la conversación y
  * le pide a un LLM (vía un runner inyectado) que la resuma en un título corto, que luego se
  * convierte en slug. El runner se inyecta para que este módulo nunca toque un proceso ni la red
- * por sí mismo — el subprocess real vive en ./spawn-summary, y los tests pasan un stub. Ante cualquier
+ * por sí mismo — el subproceso real vive en ./spawn-summary, y los tests pasan un stub. Ante cualquier
  * falla (offline, sin API key, timeout, salida vacía/basura o sin historial) vuelve al resultado
  * determinístico de ./derive-name, así que `/rename` siempre produce un nombre.
  *

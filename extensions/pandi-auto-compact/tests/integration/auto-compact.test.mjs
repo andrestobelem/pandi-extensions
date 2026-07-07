@@ -54,7 +54,7 @@ function sameList(actual, expected) {
 
 const DEFAULT_FAST_SUMMARY_RESPONSE = {
 	role: "assistant",
-	content: [{ type: "text", text: "## Goal\nResumen rápido\n\n## Next Steps\n1. Seguir" }],
+	content: [{ type: "text", text: "## Objetivo\nResumen rápido\n\n## Próximos pasos\n1. Seguir" }],
 	model: "summary-model",
 	usage: {},
 	stopReason: "stop",
@@ -937,7 +937,7 @@ async function fastSummaryProvidesCustomCompaction(url) {
 	);
 	check(
 		"fast-summary: prompt preserves previous summary, custom instructions and file ops",
-		prompt.includes("Resumen anterior importante") &&
+		prompt.includes("Resumen de compactación anterior") &&
 			prompt.includes("Enfatizá próximos pasos accionables") &&
 			prompt.includes("extensions/pandi-auto-compact/index.ts") &&
 			prompt.includes("extensions/pandi-auto-compact/fast-summary.ts"),

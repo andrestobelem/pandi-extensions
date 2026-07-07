@@ -398,7 +398,7 @@ export default function typescriptLspExtension(pi: ExtensionAPI): void {
 	// --- herramienta: typescript_diagnostics (pull / a demanda) ---------------------
 	pi.registerTool({
 		name: "typescript_diagnostics",
-		label: "TypeScript Diagnostics",
+		label: "Diagnósticos de TypeScript",
 		description:
 			"Ejecutá diagnósticos de TypeScript (tsc --noEmit) a pedido y devolvé los errores. scope='touched' (default) chequea solo los archivos escritos/editados en este turno; scope='project' tipa-chequea el proyecto completo (<cwd>/tsconfig.json). Esto es solo feedback de diagnósticos — no un language server completo (sin hover/go-to-definition). tsc se invoca con un array argv, nunca con un shell.",
 		promptSnippet: "Tipa-chequeá los archivos tocados o el proyecto con typescript_diagnostics.",

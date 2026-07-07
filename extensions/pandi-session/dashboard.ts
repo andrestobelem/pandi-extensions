@@ -63,44 +63,44 @@ function formatCleanupItem(item: PandiSessionCleanupItem): string {
 }
 
 function formatCleanupDryRun(items: PandiSessionCleanupItem[], removed: string[], kept: number): string {
-	const lines = [`Pandi session cleanup dry-run: ${removed.length} delete candidate(s), ${kept} kept.`];
-	if (items.length === 0) lines.push("No Pandi session files found for this project.");
+	const lines = [`Ensayo de limpieza de sesiones Pandi: ${removed.length} candidatas delete, ${kept} conservadas.`];
+	if (items.length === 0) lines.push("No se encontraron archivos de sesión Pandi para este proyecto.");
 	else lines.push(...items.map(formatCleanupItem));
-	lines.push(removed.length ? "Run /sessions cleanup --yes to delete candidates." : "Nothing to delete.");
+	lines.push(removed.length ? "Ejecutá /sessions cleanup --yes para borrar las candidatas." : "Nada para borrar.");
 	return lines.join("\n");
 }
 
 export async function switchToPandiSession(ctx: ExtensionCommandContext, session: PandiSessionModel): Promise<void> {
 	const sessionFile = session.sessionFile;
 	if (!sessionFile) {
-		notify(ctx, "Cannot switch: selected Pandi session did not record a session file.", "warning");
+		notify(ctx, "No se puede cambiar: la sesión Pandi seleccionada no registró un archivo de sesión.", "warning");
 		return;
 	}
 	const currentFile = sessionManagerMetadata(ctx as ExtensionContext).sessionFile;
 	if (currentFile && path.resolve(currentFile) === path.resolve(sessionFile)) {
-		notify(ctx, "Already in the selected Pandi session.", "info");
+		notify(ctx, "Ya estás en la sesión Pandi seleccionada.", "info");
 		return;
 	}
 	const switchSession = (ctx as SwitchableSessionContext).switchSession;
 	if (typeof switchSession !== "function") {
 		notify(
 			ctx,
-			`Cannot switch from this context. Reopen manually with: pi -r ${quoteShellish(sessionFile)}`,
+			`No se puede cambiar desde este contexto. Reabrí manualmente con: pi -r ${quoteShellish(sessionFile)}`,
 			"warning",
 		);
 		return;
 	}
 	if (!existsSync(sessionFile)) {
-		notify(ctx, `Cannot switch: session file no longer exists: ${sessionFile}`, "warning");
+		notify(ctx, `No se puede cambiar: el archivo de sesión ya no existe: ${sessionFile}`, "warning");
 		return;
 	}
 	const label = session.sessionName || session.sessionId || path.basename(sessionFile);
 	const result = await switchSession(sessionFile, {
 		withSession: async (nextCtx) => {
-			nextCtx.ui.notify?.(`Switched to Pandi session: ${label}`, "info");
+			nextCtx.ui.notify?.(`Cambiado a la sesión Pandi: ${label}`, "info");
 		},
 	});
-	if (result && typeof result === "object" && result.cancelled) notify(ctx, "Session switch cancelled.", "warning");
+	if (result && typeof result === "object" && result.cancelled) notify(ctx, "Cambio de sesión cancelado.", "warning");
 }
 
 async function cleanupStaleSessions(ctx: ExtensionCommandContext, rawArgs = ""): Promise<void> {
@@ -114,23 +114,23 @@ async function cleanupStaleSessions(ctx: ExtensionCommandContext, rawArgs = ""):
 		return;
 	}
 	if (preview.removed.length === 0) {
-		notify(ctx, "No stale Pandi session files to clean up.", "info");
+		notify(ctx, "No hay archivos de sesión Pandi obsoletos para limpiar.", "info");
 		return;
 	}
 	if (!ctx.hasUI && !opts.yes) {
-		notify(ctx, "/sessions cleanup is destructive; pass --yes (or --dry-run) in no-UI mode.", "warning");
+		notify(ctx, "/sessions cleanup es destructivo; pasá --yes (o --dry-run) en modo sin UI.", "warning");
 		return;
 	}
 	let ok = opts.yes;
 	if (!opts.yes && ctx.hasUI && ctx.ui && typeof ctx.ui.confirm === "function") {
 		ok = await ctx.ui.confirm(
-			"Clean up stale Pandi session files?",
-			`This removes ${preview.removed.length} stale session file(s). Live and current sessions are never touched.`,
+			"¿Limpiar los archivos obsoletos de sesión Pandi?",
+			`Esto elimina ${preview.removed.length} archivo(s) de sesión obsoletos. Las sesiones live y current nunca se tocan.`,
 		);
 	} else if (!opts.yes) {
 		notify(
 			ctx,
-			"/sessions cleanup is destructive; pass --yes (or --dry-run) when confirmation is unavailable.",
+			"/sessions cleanup es destructivo; pasá --yes (o --dry-run) cuando no haya confirmación disponible.",
 			"warning",
 		);
 		return;
@@ -139,7 +139,11 @@ async function cleanupStaleSessions(ctx: ExtensionCommandContext, rawArgs = ""):
 	const result = await prunePandiSessionFiles(ctx as ExtensionContext, {
 		includeHeartbeatStale: opts.includeHeartbeatStale,
 	});
-	notify(ctx, `Removed ${result.removed.length} stale Pandi session file(s); kept ${result.kept}.`, "info");
+	notify(
+		ctx,
+		`Se eliminaron ${result.removed.length} archivo(s) de sesión Pandi obsoletos; se conservaron ${result.kept}.`,
+		"info",
+	);
 }
 
 async function handleDashboardResult(ctx: ExtensionCommandContext, result: PandiSessionDashboardResult): Promise<void> {

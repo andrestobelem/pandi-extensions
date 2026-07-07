@@ -1,47 +1,47 @@
 # @pandi-coding-agent/pandi-mdview
 
-Reading a `.md` file usually means leaving the terminal for an editor or a
-browser tab. `pandi-mdview` adds a scrollable Markdown viewer straight to Pi's
-TUI, plus a `view_markdown` tool so the agent can open a file for you (e.g.
-after writing a report). Reach for it whenever you or the model need to read
-a Markdown file without breaking flow.
+Leer un `.md` suele sacar al usuario del terminal hacia un editor o una pestaña
+del navegador. `pandi-mdview` agrega un visor de Markdown desplazable dentro
+de la TUI de Pi, más una herramienta `view_markdown` para que el agente pueda abrir
+un archivo por vos (por ejemplo, después de escribir un informe). Usalo cuando
+tú o el modelo necesiten leer Markdown sin cortar el flujo.
 
 ```text
 /mdview docs/scaffolds/map-reduce.md
 ```
 
-That opens the file in-place with `↑/↓`/`j/k` to scroll, `PgUp/PgDn` to
-page, and `q`/`Esc` to close. Outside a TUI (e.g. `--print`), it just prints
-the raw Markdown to the terminal.
+Eso abre el archivo en el mismo lugar, con `↑/↓` o `j/k` para desplazar,
+`PgUp/PgDn` para paginar y `q`/`Esc` para cerrar. Fuera de una TUI (por
+ejemplo `--print`), solo imprime el Markdown crudo en la terminal.
 
-## Install
+## Instalación
 
-From npm:
+Desde npm:
 
 ```bash
 pi install npm:@pandi-coding-agent/pandi-mdview
 ```
 
-From this repository:
+Desde este repositorio:
 
 ```bash
-pi install ./extensions/pandi-mdview          # global (your user)
-pi install -l ./extensions/pandi-mdview       # project-local
-pi --no-extensions -e ./extensions/pandi-mdview   # one-off trial, nothing else loaded
+pi install ./extensions/pandi-mdview          # global (tu usuario)
+pi install -l ./extensions/pandi-mdview       # local al proyecto
+pi --no-extensions -e ./extensions/pandi-mdview   # prueba puntual, sin cargar nada más
 ```
 
-## Reference
+## Referencia
 
-| Command | What it does |
+| Comando | Qué hace |
 | --- | --- |
-| `/mdview <path>` | Open a Markdown file in Pi's TUI with scroll controls (`↑/↓` or `j/k`, `PgUp/PgDn`, `q`/`Esc` to close). Paths are cwd-relative, `~`-expanded, or absolute. |
-| `view_markdown` | Model tool: same viewer, callable by the agent (e.g. "open README.md for me"); in non-interactive modes it returns the raw Markdown content instead. |
+| `/mdview <path>` | Abre un archivo Markdown en la TUI de Pi con controles de scroll (`↑/↓` o `j/k`, `PgUp/PgDn`, `q`/`Esc` para cerrar). Las rutas pueden ser relativas al cwd, expandidas con `~` o absolutas. |
+| `view_markdown` | Tool del modelo: usa el mismo visor y la puede invocar el agente (por ejemplo, "abrí README.md"); en modos no interactivos devuelve el contenido Markdown crudo. |
 
-## Limitations & safety notes
+## Límites y notas de seguridad
 
-- Files larger than 2 MB are refused — parsing a huge file would block the TUI event loop.
-- In non-TUI modes `/mdview` prints the Markdown to the terminal. Under `--print`/`--json`, pi reserves real stdout for the model response and routes extension output to stderr, so the content is **not** redirectable to a file (`pi /mdview f.md > out.md` captures nothing — use `cat` to dump raw Markdown).
+- Se rechazan archivos de más de 2 MB: parsear un archivo enorme bloquearía el loop de eventos de la TUI.
+- En modos sin TUI, `/mdview` imprime el Markdown en la terminal. Bajo `--print`/`--json`, pi reserva stdout real para la respuesta del modelo y manda la salida de la extensión a stderr, así que el contenido **no** se puede redirigir a un archivo (`pi /mdview f.md > out.md` no captura nada — usá `cat` para volcar Markdown crudo).
 
-## Related
+## Relacionado
 
-For the full bundle of extensions and skills, install the repository root instead.
+Para instalar el paquete completo de extensiones y skills, instalá la raíz del repositorio.

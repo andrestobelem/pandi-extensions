@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * Behavioral contract for pandi-session's standalone live-session registry.
+ * Contrato de comportamiento del registro independiente de sesiones vivas de pandi-session.
  *
- * The registry belongs to pandi-session:
- * it writes its own heartbeat records, collects only project-local Pi TUI/RPC
- * sessions, classifies stale rows, and cleans up the current heartbeat on shutdown.
+ * El registro pertenece a pandi-session:
+ * escribe sus propios registros de heartbeat, recopila solo sesiones Pi TUI/RPC
+ * locales del proyecto, clasifica filas obsoletas y limpia el heartbeat actual al apagarse.
  */
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
@@ -25,7 +25,7 @@ async function buildRegistry() {
 	});
 }
 
-function makeCtx(cwd, { mode = "tui", trusted = true, name = "Current session" } = {}) {
+function makeCtx(cwd, { mode = "tui", trusted = true, name = "Sesión actual" } = {}) {
 	return {
 		mode,
 		hasUI: mode === "tui" || mode === "rpc",
@@ -54,23 +54,23 @@ async function main() {
 
 		await registry.startPandiSessionHeartbeat({ reason: "startup" }, ctx);
 		const live = await registry.collectPandiSessions(ctx);
-		check("heartbeat creates one current live session", live.length === 1, JSON.stringify(live));
-		check("current heartbeat is marked current", live[0]?.current === true, JSON.stringify(live[0]));
-		check("current heartbeat is marked live", live[0]?.live === true, JSON.stringify(live[0]));
+		check("el heartbeat crea una sola sesión viva actual", live.length === 1, JSON.stringify(live));
+		check("el heartbeat actual se marca como current", live[0]?.current === true, JSON.stringify(live[0]));
+		check("el heartbeat actual se marca como live", live[0]?.live === true, JSON.stringify(live[0]));
 		check(
-			"current heartbeat records session metadata",
-			live[0]?.sessionName === "Current session",
+			"el heartbeat actual registra metadata de la sesión",
+			live[0]?.sessionName === "Sesión actual",
 			JSON.stringify(live[0]),
 		);
 
 		await registry.stopPandiSessionHeartbeat();
 		const afterStop = await registry.collectPandiSessions(ctx);
-		check("stop removes current heartbeat record", afterStop.length === 0, JSON.stringify(afterStop));
+		check("stop elimina el registro del heartbeat actual", afterStop.length === 0, JSON.stringify(afterStop));
 
 		await registry.startPandiSessionHeartbeat({ reason: "startup" }, makeCtx(project, { mode: "print" }));
 		const printSessions = await registry.collectPandiSessions(ctx);
 		check(
-			"print/json sessions do not write live heartbeats",
+			"las sesiones print/json no escriben heartbeats vivos",
 			printSessions.length === 0,
 			JSON.stringify(printSessions),
 		);
@@ -86,26 +86,26 @@ async function main() {
 			updatedAt: "2020-01-01T00:00:00.000Z",
 			sessionId: "stale-id",
 			sessionFile: path.join(project, ".pi", "sessions", "stale.jsonl"),
-			sessionName: "Stale session",
+			sessionName: "Sesión obsoleta",
 		});
 		await registry.startPandiSessionHeartbeat({ reason: "startup" }, ctx);
 		const mixed = await registry.collectPandiSessions(ctx);
 		check(
-			"current/live session sorts before stale rows",
+			"la sesión current/live se ordena antes que las filas stale",
 			mixed[0]?.current === true && mixed[1]?.id === "stale",
 			JSON.stringify(mixed),
 		);
 		check(
-			"stale row explains dead pid",
-			mixed[1]?.live === false && /pid exited/.test(mixed[1]?.staleReason ?? ""),
+			"la fila stale explica el PID muerto",
+			mixed[1]?.live === false && /PID finalizado/.test(mixed[1]?.staleReason ?? ""),
 			JSON.stringify(mixed[1]),
 		);
 
 		const formatted = registry.formatPandiSessionList(mixed);
-		check("text formatter identifies Pandi sessions", formatted.includes("Pandi sessions (2)"), formatted);
+		check("el formateador de texto identifica Sesiones Pandi", formatted.includes("Sesiones Pandi (2)"), formatted);
 		check(
-			"text formatter includes selected metadata",
-			formatted.includes("Stale session") && formatted.includes("Current session"),
+			"el formateador de texto incluye la metadata seleccionada",
+			formatted.includes("Sesión obsoleta") && formatted.includes("Sesión actual"),
 			formatted,
 		);
 
@@ -143,16 +143,22 @@ async function main() {
 			currentId: "current",
 		});
 		const actionByFile = Object.fromEntries(cleanup.map((item) => [item.file, item]));
-		check("cleanup inventory marks dead pid for delete", actionByFile["dead.json"]?.action === "delete");
-		check("cleanup inventory keeps live session", actionByFile["live.json"]?.action === "keep");
-		check("cleanup inventory keeps current session", actionByFile["current.json"]?.reason === "current session");
 		check(
-			"cleanup inventory keeps heartbeat-stale by default",
+			"el inventario de limpieza marca el PID muerto para delete",
+			actionByFile["dead.json"]?.action === "delete",
+		);
+		check("el inventario de limpieza conserva la sesión live", actionByFile["live.json"]?.action === "keep");
+		check(
+			"el inventario de limpieza conserva la sesión current",
+			actionByFile["current.json"]?.reason === "sesión actual",
+		);
+		check(
+			"el inventario de limpieza conserva heartbeat-stale por defecto",
 			actionByFile["heartbeat-stale.json"]?.action === "keep" &&
-				/heartbeat stale/.test(actionByFile["heartbeat-stale.json"]?.reason ?? ""),
+				/heartbeat obsoleto/.test(actionByFile["heartbeat-stale.json"]?.reason ?? ""),
 			JSON.stringify(actionByFile["heartbeat-stale.json"]),
 		);
-		check("cleanup inventory keeps malformed records", actionByFile["bad.json"]?.action === "keep");
+		check("el inventario de limpieza conserva registros malformados", actionByFile["bad.json"]?.action === "keep");
 		const cleanupAllStale = registry.classifyPandiSessionFilesForCleanup(cleanupEntries, {
 			now,
 			isPidAlive: (pid) => pid !== 999,
@@ -160,24 +166,36 @@ async function main() {
 			includeHeartbeatStale: true,
 		});
 		check(
-			"cleanup inventory can delete heartbeat-stale when requested",
+			"el inventario de limpieza puede borrar heartbeat-stale cuando se solicita",
 			cleanupAllStale.find((item) => item.file === "heartbeat-stale.json")?.action === "delete",
 			JSON.stringify(cleanupAllStale),
 		);
 
 		const preview = await registry.prunePandiSessionFiles(ctx, { dryRun: true });
-		check("dry-run reports per-file cleanup inventory", Array.isArray(preview.items), JSON.stringify(preview));
 		check(
-			"dry-run does not delete stale heartbeat file",
+			"el dry-run informa el inventario de limpieza por archivo",
+			Array.isArray(preview.items),
+			JSON.stringify(preview),
+		);
+		check(
+			"el dry-run no borra el archivo stale del heartbeat",
 			await fs.stat(staleFile).then(
 				() => true,
 				() => false,
 			),
 		);
 		const pruned = await registry.prunePandiSessionFiles(ctx);
-		check("cleanup deletes dead-pid stale file", pruned.removed.includes(staleFile), JSON.stringify(pruned));
+		check(
+			"la limpieza borra el archivo stale con PID muerto",
+			pruned.removed.includes(staleFile),
+			JSON.stringify(pruned),
+		);
 		const prunedAgain = await registry.prunePandiSessionFiles(ctx);
-		check("cleanup is idempotent after missing files", prunedAgain.removed.length === 0, JSON.stringify(prunedAgain));
+		check(
+			"la limpieza es idempotente después de archivos faltantes",
+			prunedAgain.removed.length === 0,
+			JSON.stringify(prunedAgain),
+		);
 	} finally {
 		try {
 			const registry = await import(`${url}?cleanup`);

@@ -74,12 +74,12 @@ async function main() {
 		check("running run is kept", byId(items, "running")?.action === "keep", JSON.stringify(items));
 		check(
 			"active terminal run is kept",
-			/active/.test(byId(items, "active-failed")?.reason ?? ""),
+			/activo/.test(byId(items, "active-failed")?.reason ?? ""),
 			JSON.stringify(items),
 		);
 		check(
 			"newest terminal run is retained by keep window",
-			/retention/.test(byId(items, "new-completed")?.reason ?? ""),
+			/retención/.test(byId(items, "new-completed")?.reason ?? ""),
 			JSON.stringify(items),
 		);
 		check(
@@ -109,12 +109,12 @@ async function main() {
 		check("INDEX.md is always kept", byPath(items, "/project/.pi/workflows/drafts/INDEX.md")?.action === "keep");
 		check(
 			"referenced draft is kept",
-			/referenced/.test(byPath(items, "/project/.pi/workflows/drafts/used.js")?.reason ?? ""),
+			/referenciado/.test(byPath(items, "/project/.pi/workflows/drafts/used.js")?.reason ?? ""),
 			JSON.stringify(items),
 		);
 		check(
 			"recent draft is kept",
-			/recent/.test(byPath(items, "/project/.pi/workflows/drafts/recent.js")?.reason ?? ""),
+			/reciente/.test(byPath(items, "/project/.pi/workflows/drafts/recent.js")?.reason ?? ""),
 			JSON.stringify(items),
 		);
 		check(
@@ -139,7 +139,7 @@ async function main() {
 		check(
 			"old tmp symlink is deletable as the link only",
 			byPath(items, "/project/.pi/tmp/old-link")?.action === "delete" &&
-				/symlink link/.test(byPath(items, "/project/.pi/tmp/old-link")?.reason ?? ""),
+				/symlink viejo/.test(byPath(items, "/project/.pi/tmp/old-link")?.reason ?? ""),
 			JSON.stringify(items),
 		);
 	}

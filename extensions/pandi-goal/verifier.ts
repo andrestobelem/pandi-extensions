@@ -27,7 +27,7 @@ function renderIndependentVerifierPrompt(lines: string[]): string {
 }
 
 /**
- * Prompt para el verificador INDEPENDENT. Ojos frescos, escéptico, READ-ONLY: se le dice que
+ * Prompt para el verificador INDEPENDIENTE. Ojos frescos, escéptico y de solo lectura: se le dice que
  * no es el autor, que no debe confiar en nada por fe, que debe juzgar EACH criterio contra
  * evidencia concreta (el progress log + lo que pueda leer/grep en el workspace), y que debe
  * terminar con una única línea de veredicto PARSEABLE. Pasamos la evidencia registrada para
@@ -85,13 +85,13 @@ function makeIndependentVerifierPrompt(goal: GoalState): string {
 	return renderIndependentVerifierPrompt(lines);
 }
 
-/** Construye el argv del subagente verificador, reflejando dynamic-workflows.ts buildAgentArgs (subset). */
+/** Construye el argv del subagente verificador, reflejando el subconjunto de buildAgentArgs de dynamic-workflows.ts. */
 function buildVerifierArgs(goal: ActiveGoal, model: string | undefined, prompt: string): string[] {
 	const args = ["-p", "--no-session", "--no-extensions"];
-	// Ignorar la config project-local para una corrida de juez limpia y reproducible. NOTE:
-	// --no-approve NO restringe tools; read-only se fuerza solo con el allowlist --tools abajo.
+	// Ignorar la config project-local para una corrida de juez limpia y reproducible. Nota:
+	// --no-approve NO restringe tools; el modo de solo lectura se fuerza solo con el allowlist --tools de abajo.
 	args.push("--no-approve");
-	// READ-ONLY: el allowlist es la garantía. Sin uno, pi arranca con el toolset DEFAULT
+	// Solo lectura: el allowlist es la garantía. Sin uno, pi arranca con el toolset default
 	// (que incluye write/edit/bash), así que una lista vacía debe DISABLE tools (--no-tools),
 	// nunca caer al default mutante.
 	if (goal.verifierTools.length) args.push("--tools", goal.verifierTools.join(","));
@@ -139,7 +139,7 @@ function parseVerdict(stdout: string): VerifierVerdict {
 		// Sin veredicto parseable → FAIL conservador (nunca cerrar silenciosamente con un juez malformado).
 		return {
 			pass: false,
-			feedback: text || "verifier produced no parseable verdict",
+			feedback: text || "el verificador no produjo un veredicto parseable",
 			unparsed: true,
 		};
 	}
@@ -153,13 +153,13 @@ function errorMessage(error: unknown): string {
 }
 
 function formatVerifierRunFailure(error: unknown): string {
-	return `verifier could not run: ${errorMessage(error)}`;
+	return `no se pudo ejecutar el verificador: ${errorMessage(error)}`;
 }
 
 /**
  * Corre UNA verificación independiente en un proceso SEPARADO. Solo lectura, escéptica,
- * ojos frescos. Devuelve un veredicto parseado. Corre OUTSIDE del turno del modelo: no toca
- * pi.sendUserMessage, así que no dispara ni el wake ni el gate agent_end mientras ejecuta.
+ * ojos frescos. Devuelve un veredicto parseado. Corre FUERA del turno del modelo: no toca
+ * pi.sendUserMessage, así que no dispara ni el wake ni la compuerta agent_end mientras ejecuta.
  * Cualquier falla de exec (salida non-zero, timeout/kill, error lanzado) se trata como FAIL
  * conservador con feedback: nunca cerramos un goal con un verificador que no devolvió PASS.
  */
@@ -179,7 +179,7 @@ export async function runIndependentVerifier(
 		if (result.killed) {
 			return {
 				pass: false,
-				feedback: `verifier timed out after ${goal.verifierTimeoutMs}ms`,
+				feedback: `el verificador agotó el tiempo tras ${goal.verifierTimeoutMs}ms`,
 				unparsed: true,
 			};
 		}
@@ -188,7 +188,7 @@ export async function runIndependentVerifier(
 		if (result.code !== 0 && verdict.pass) {
 			return {
 				pass: false,
-				feedback: `verifier exited ${result.code} despite a PASS line; treating as FAIL. ${verdict.feedback}`,
+				feedback: `el verificador salió con código ${result.code} pese a una línea PASS; se trata como FAIL. ${verdict.feedback}`,
 				unparsed: false,
 			};
 		}

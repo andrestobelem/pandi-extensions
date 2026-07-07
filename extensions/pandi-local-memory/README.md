@@ -1,72 +1,72 @@
 # @pandi-coding-agent/pandi-local-memory
 
-Give Pi a project-local memory folder (`.pi/memory/`) that survives across sessions. Without it, every new session starts from zero and has to rediscover your conventions and past decisions; with it, a capped `MEMORY.md` index is injected into the system prompt every turn, and Pi can persist durable notes on its own with a `remember` tool. Reach for this when you want stable preferences, conventions, and decisions to stick without hand-editing files.
+Dale a Pi una carpeta de memoria local del proyecto (`.pi/memory/`) que sobreviva entre sesiones. Sin ella, cada sesión nueva arranca desde cero y vuelve a descubrir tus convenciones y decisiones previas; con ella, un índice `MEMORY.md` capado se inyecta en el system prompt en cada turno, y Pi puede persistir notas durables por su cuenta con la tool `remember`. Usala cuando quieras que preferencias, convenciones y decisiones estables queden guardadas sin editar archivos a mano.
 
-## Example
+## Ejemplo
 
-Pi calls `remember` on its own when something is worth keeping:
+Pi llama a `remember` por su cuenta cuando vale la pena guardar algo:
 
 ```json
-{ "note": "This repo uses pnpm, not npm." }
+{ "note": "Este repo usa pnpm, no npm." }
 ```
 
-That appends a dated bullet inside a managed block of `.pi/memory/MEMORY.md`:
+Eso agrega una viñeta fechada dentro de un bloque gestionado de `.pi/memory/MEMORY.md`:
 
 ```md
 <!-- pi:remember:begin -->
-## Agent memory (auto-managed by the remember tool)
+## Memoria del agente (gestionada automáticamente por la tool remember)
 
-- 2026-07-04: This repo uses pnpm, not npm.
+- 2026-07-04: Este repo usa pnpm, no npm.
 <!-- pi:remember:end -->
 ```
 
-Next session, this file is injected into the system prompt automatically — no extra step.
+En la próxima sesión, ese archivo se inyecta automáticamente en el system prompt — sin pasos extra.
 
-## What you get
+## Qué incluye
 
-- `.pi/memory/MEMORY.md` — the index, auto-injected each turn (capped to the first 200 lines or 25 KB, whichever hits first).
-- `.pi/memory/<topic>.md` — topic files, never injected; the injected block lists their paths so Pi reads them on demand.
-- `remember` model tool — lets Pi save stable preferences, project conventions, and key decisions for future sessions.
-- Backward compatibility — falls back to the legacy `.pi/MEMORY.md` when the folder index is absent.
+- `.pi/memory/MEMORY.md` — el índice, inyectado automáticamente en cada turno (capado a las primeras 200 líneas o 25 KB, lo que llegue primero).
+- `.pi/memory/<topic>.md` — archivos de topic, nunca inyectados; el bloque inyectado lista sus rutas para que Pi los lea bajo demanda.
+- `remember` model tool — le permite a Pi guardar preferencias estables, convenciones del proyecto y decisiones clave para sesiones futuras.
+- Compatibilidad hacia atrás — cae al legado `.pi/MEMORY.md` cuando el índice de la carpeta no existe.
 
-## Install
+## Instalación
 
-From npm:
+Desde npm:
 
 ```bash
 pi install npm:@pandi-coding-agent/pandi-local-memory
 ```
 
-From this repository:
+Desde este repositorio:
 
 ```bash
-pi install ./extensions/pandi-local-memory          # global (your user)
-pi install -l ./extensions/pandi-local-memory       # project-local
-pi --no-extensions -e ./extensions/pandi-local-memory   # one-off trial, nothing else loaded
+pi install ./extensions/pandi-local-memory          # global (tu usuario)
+pi install -l ./extensions/pandi-local-memory       # local al proyecto
+pi --no-extensions -e ./extensions/pandi-local-memory   # prueba puntual, sin cargar nada más
 ```
 
-## Usage
+## Uso
 
-| Surface | What it does |
+| Superficie | Qué hace |
 | --- | --- |
-| `remember` (no `topic`) | Model tool: appends a durable note to the injected index `.pi/memory/MEMORY.md`. |
-| `remember` with `topic` | Model tool: appends the note to `.pi/memory/<topic>.md` (topic is slugified, so path traversal is impossible). |
-| Per-turn injection | Injects the index (or legacy `.pi/MEMORY.md`) as a tagged block into the system prompt and lists topic-file paths. |
+| `remember` (sin `topic`) | Tool del modelo: agrega una nota durable al índice inyectado `.pi/memory/MEMORY.md`. |
+| `remember` con `topic` | Tool del modelo: agrega la nota a `.pi/memory/<topic>.md` (el topic se convierte en slug, así que el path traversal es imposible). |
+| Inyección por turno | Inyecta el índice (o el legado `.pi/MEMORY.md`) como un bloque etiquetado en el system prompt y lista las rutas de los archivos de topic. |
 
-## How it works
+## Cómo funciona
 
-- `remember` appends only inside a managed block (`<!-- pi:remember:begin -->` … `<!-- pi:remember:end -->`), so human-curated notes are never touched.
-- Re-saving the same note is a no-op, and read/write errors fail safe: nothing is clobbered if the target could not be read.
-- The first index write seeds from any legacy `.pi/MEMORY.md` without deleting it; the note flows back into context next session via the injection above.
+- `remember` agrega solo dentro de un bloque gestionado (`<!-- pi:remember:begin -->` … `<!-- pi:remember:end -->`), así que las notas curadas por humanos nunca se tocan.
+- Volver a guardar la misma nota es un no-op, y los errores de lectura/escritura fallan en forma segura: nada se pisa si el destino no pudo leerse.
+- La primera escritura del índice se inicializa desde cualquier `.pi/MEMORY.md` legado sin borrarlo; la nota vuelve al contexto en la próxima sesión gracias a la inyección de arriba.
 
-## Limitations & safety notes
+## Notas de limitaciones y seguridad
 
-- **Trusted projects only.** When loaded (e.g. globally), the extension auto-injects `.pi/memory/MEMORY.md` (or the legacy `.pi/MEMORY.md`) from whatever project you open — no prompt, allowlist, or provenance check. A repository you do not control could ship a committed index to influence the assistant.
-- Topic files are lower risk: they are listed but never auto-injected.
-- Literal `</local_memory>` tags in the index are escaped, and the index is length-capped, so the injected body cannot break out of its block structurally. This does not cover the whole tag, though: the `path="${shownPath}"` attribute of the opening `<local_memory path="...">` tag is built from `ctx.cwd` (via `indexPathOf`/`legacyPathOf`) and is not escaped (`extensions/pandi-local-memory/index.ts:157`), so a crafted project path could break out of the attribute value structurally.
-- **Write-side (anti-injection).** `remember` writes to a channel re-injected into future sessions' system prompts as trusted context — an authority boundary. The assistant should persist only facts it has itself verified, in its own words, and never copy untrusted retrieved/tool/web/user-pasted content (or instructions embedded in it) into memory. Delimiters are not a semantic security boundary; the real defense is not ingesting untrusted content in the first place.
-- Use this only for trusted project-local notes.
+- **Solo proyectos confiables.** Cuando se carga (por ejemplo, de forma global), la extensión auto-inyecta `.pi/memory/MEMORY.md` (o el legado `.pi/MEMORY.md`) del proyecto que abras — sin prompt, allowlist ni chequeo de procedencia. Un repositorio que no controlás podría traer un índice committeado para influir en el asistente.
+- Los archivos de topic tienen menor riesgo: se listan, pero nunca se inyectan automáticamente.
+- Los tags literales `</local_memory>` en el índice se escapan, y el índice tiene un límite de longitud, así que el cuerpo inyectado no puede salir estructuralmente de su bloque. Esto no cubre todo el tag, sin embargo: el atributo `path="${shownPath}"` del tag de apertura `<local_memory path="...">` se construye desde `ctx.cwd` (vía `indexPathOf`/`legacyPathOf`) y no se escapa (`extensions/pandi-local-memory/index.ts:157`), así que un path de proyecto malicioso podría romper estructuralmente el valor del atributo.
+- **Lado de escritura (anti-inyección).** `remember` escribe en un canal que se reinyecta en futuros system prompts como contexto confiable — un límite de autoridad. El asistente debería persistir solo hechos que haya verificado por su cuenta, con sus propias palabras, y nunca copiar a la memoria contenido no confiable recuperado de tools/web o pegado por el usuario (ni instrucciones embebidas en ese contenido). Los delimitadores no son un límite de seguridad semántico; la defensa real es no ingerir contenido no confiable desde el inicio.
+- Usalo solo para notas locales del proyecto que sean confiables.
 
-## Related
+## Relacionados
 
-For the full bundle of extensions and skills, install the repository root instead.
+Para obtener el paquete completo de extensiones y skills, instalá la raíz del repositorio.

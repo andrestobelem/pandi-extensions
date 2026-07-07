@@ -33,13 +33,13 @@ export interface GoalState {
 	contextPercentCap: number;
 	/** Historial acotado de autoevaluaciones (recortado a PROGRESS_LOG_KEEP al persistir). */
 	assessments: GoalAssessment[];
-	/** Cantidad de chequeos de completitud que FAILED (verifying → continue). Limita el ping-pong de verificación. */
+	/** Cantidad de chequeos de completitud que fallaron (verifying → continue). Limita el ping-pong de verificación. */
 	verifyAttempts: number;
 	/** P1: cantidad de verificaciones INDEPENDENT que devolvieron FAIL. Limita el ping-pong independiente. */
 	independentVerifyAttempts: number;
-	/** P1: máximo de verificaciones independientes FAILED toleradas antes de bloquear (config, default 2). */
+	/** P1: máximo de verificaciones independientes fallidas toleradas antes de bloquear (config, default 2). */
 	maxIndependentVerifications: number;
-	/** P1: presupuesto de wall-clock (ms) para un subagente de verificación independiente (config). */
+	/** P1: presupuesto de tiempo real (ms) para un subagente de verificación independiente (config). */
 	verifierTimeoutMs: number;
 	/** P1: tools de solo lectura entregadas al subagente verificador (config). */
 	verifierTools: string[];
@@ -56,6 +56,6 @@ export interface ActiveGoal extends GoalState {
 	controller: AbortController;
 	/** True una vez que un wake fue (re)armado en el turno actual; se resetea en cada fire. */
 	rearmedThisTurn: boolean;
-	/** P1: true mientras un subagente verificador independiente está in flight (debounce del re-launch). */
+	/** P1: true mientras un subagente verificador independiente está en vuelo (debounce del relanzamiento). */
 	verifierInFlight: boolean;
 }

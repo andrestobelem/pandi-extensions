@@ -10,7 +10,7 @@
 // Uso:
 //   node markdown-to-html.mjs <input.md> [más.md…] [-o output.html] [--kicker "Text"]
 //
-// Sin -o cada entrada escribe un archivo hermano <input>.html; -o solo es válido con una entrada.
+// Sin -o, cada entrada escribe un archivo hermano <input>.html; -o solo es válido con una entrada.
 
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -22,11 +22,11 @@ const EXT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 const TOKENS_CSS_PATH = path.join(EXT_DIR, "skills", "pandi-artifact-style", "reference", "pandi-tokens.css");
 
 const ALERT_CALLOUTS = {
-	NOTE: { tone: "info", label: "Note" },
-	TIP: { tone: "success", label: "Tip" },
-	IMPORTANT: { tone: "info", label: "Important" },
-	WARNING: { tone: "warn", label: "Warning" },
-	CAUTION: { tone: "error", label: "Caution" },
+	NOTE: { tone: "info", label: "Nota" },
+	TIP: { tone: "success", label: "Consejo" },
+	IMPORTANT: { tone: "info", label: "Importante" },
+	WARNING: { tone: "warn", label: "Advertencia" },
+	CAUTION: { tone: "error", label: "Precaución" },
 };
 
 // Estilos del componente para el cuerpo Markdown renderizado — las recetas de SKILL.md
@@ -103,8 +103,8 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 
 const escapeHtml = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-// Slugs GitHub-compatibles para que anchors escritos a mano (#seccion-existente) sigan
-// funcionando: saca tags/entidades/puntuación, conserva letras unicode y _, un guion por espacio.
+// Slugs compatibles con GitHub para que anchors escritos a mano (#seccion-existente) sigan
+// funcionando: saca tags/entidades/puntuación, conserva letras unicode y _, y usa un guion por espacio.
 const slugify = (html) =>
 	html
 		.replace(/<[^>]+>/g, "")
@@ -160,7 +160,7 @@ function addHeadingIdsAndToc(html) {
 	const toc =
 		headings.length >= 4
 			? `<nav class="toc">
-	<p class="toc-title">Contents</p>
+	<p class="toc-title">Contenido</p>
 	<ol>
 ${headings.map((h) => `		<li><a href="#${h.slug}">${h.inner.replace(/<\/?a\b[^>]*>/g, "")}</a></li>`).join("\n")}
 	</ol>
@@ -186,7 +186,7 @@ function renderCodeBlock(token) {
 
 // Motor Markdown: GFM + un renderizador de código que convierte bloques ```mermaid en contenedores
 // de diagramas y resalta el resto de fences en build-time. Así los artifacts siguen siendo
-// autocontenidos: el HTML ya lleva los spans coloreables y no necesita runtime JS para código.
+// autocontenidos: el HTML ya lleva los spans coloreables y no necesita JS en runtime para código.
 const engine = new Marked({
 	gfm: true,
 	renderer: {
@@ -274,7 +274,7 @@ function extractLede(rendered) {
 	return { lede: m[1], body: rendered.slice(m[0].length) };
 }
 
-// Mapea blockquotes de alertas de GitHub (> [!NOTE] …) a callouts pandi posprocesando el
+// Mapea blockquotes de alertas de GitHub (> [!NOTE] …) a callouts Pandi posprocesando el
 // HTML renderizado: más simple y más estable que sobreescribir los renderizadores de tokens de marked.
 function alertsToCallouts(html) {
 	const kinds = Object.keys(ALERT_CALLOUTS).join("|");
@@ -327,7 +327,7 @@ ${styleCss}</style>
 	</header>
 	<main>
 ${toc}${rendered}	</main>
-	<footer>Generated with the pandi-artifact-style skill · palette: panda-syntax dark/light</footer>
+	<footer>Generado con el skill pandi-artifact-style · paleta: panda-syntax dark/light</footer>
 </div>
 ${mermaidBlock}</body>
 </html>
@@ -372,7 +372,7 @@ function main() {
 		const outPath = parsed.out ?? `${input.replace(/\.md$/i, "")}.html`;
 		const html = renderMarkdownToHtml(md, { title: path.basename(input), kicker: parsed.kicker, tokensCss, css });
 		fs.writeFileSync(outPath, html);
-		console.log(`${input} -> ${outPath}`);
+		console.log(`Se escribió ${outPath} desde ${input}`);
 	}
 }
 

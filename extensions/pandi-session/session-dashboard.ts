@@ -25,7 +25,7 @@ function sessionLabel(session: PandiSessionModel): string {
 
 function statusLabel(session: PandiSessionModel): string {
 	if (session.live) return session.current ? "current" : "live";
-	return `stale:${session.staleReason ?? "unknown"}`;
+	return `stale:${session.staleReason ?? "desconocido"}`;
 }
 
 export class PandiSessionDashboard {
@@ -66,7 +66,7 @@ export class PandiSessionDashboard {
 	}
 
 	invalidate(): void {
-		/* render state is derived from sessions + selected index */
+		/* el estado renderizado se deriva de las sesiones y del índice seleccionado */
 	}
 
 	handleInput(data: string): void {
@@ -101,11 +101,11 @@ export class PandiSessionDashboard {
 		const current = this.sessions.filter((session) => session.current).length;
 		const lines: string[] = [
 			this.styledHeader(
-				`Pandi sessions · total:${this.sessions.length} live:${live} stale:${stale} current:${current}`,
+				`Sesiones Pandi · total:${this.sessions.length} live:${live} stale:${stale} current:${current}`,
 			),
 			"",
 		];
-		if (this.refreshError) lines.push(`refresh warning: ${clip(this.refreshError, safeWidth - 17)}`, "");
+		if (this.refreshError) lines.push(`advertencia de actualización: ${clip(this.refreshError, safeWidth - 28)}`, "");
 		if (this.sessions.length === 0) {
 			lines.push("No hay sesiones Pandi registradas para este proyecto.");
 			return lines;
@@ -120,15 +120,15 @@ export class PandiSessionDashboard {
 		if (selected) {
 			lines.push(
 				"",
-				this.styledHeader("Selected Pandi session"),
+				this.styledHeader("Sesión Pandi seleccionada"),
 				`id: ${selected.id}`,
-				`session: ${selected.sessionId ?? "(unknown)"}`,
-				`file: ${selected.sessionFile ?? selected.file}`,
+				`sesión: ${selected.sessionId ?? "(desconocida)"}`,
+				`archivo: ${selected.sessionFile ?? selected.file}`,
 				`cwd: ${selected.cwd}`,
-				`updated: ${selected.updatedAt}`,
-				`state: ${statusLabel(selected)}`,
+				`actualizado: ${selected.updatedAt}`,
+				`estado: ${statusLabel(selected)}`,
 				"",
-				"↑/↓ j/k seleccionar · Enter/→ cambiar · C limpiar stale · q cerrar",
+				"↑/↓ j/k seleccionar · Enter/→ cambiar · C limpiar obsoletas · q cerrar",
 			);
 		}
 		return lines.map((line) => line.slice(0, safeWidth));

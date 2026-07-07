@@ -28,14 +28,14 @@ import type { PlanState } from "./state.js";
 /** Snapshot de plan que este dashboard renderiza: el mismo concepto persistido por el runtime. */
 export type PlanSnapshot = PlanState;
 
-/** Tags de postura legibles (o "interactive" cuando no se setea ninguna bandera). */
+/** Tags de postura legibles (o "interactiva" cuando no se setea ninguna bandera). */
 export function planPosture(plan: PlanSnapshot): string {
 	const tags: string[] = [];
 	if (plan.nonInteractive) tags.push("plan-only");
 	if (plan.ultracode) tags.push("ultracode");
 	if (plan.ultracodeSteps) tags.push("ultracode-steps");
 	if (plan.autoSubmit) tags.push("auto-submit");
-	return tags.length ? tags.join(", ") : "interactive";
+	return tags.length ? tags.join(", ") : "interactiva";
 }
 
 /** Colapsa espacios en blanco y corta a una única línea de más de `max` caracteres. */
@@ -122,7 +122,7 @@ export function buildPlanDashboardMarkdown(plans: PlanSnapshot[]): string {
 	const totalSubs = sorted.reduce((n, p) => n + p.submissions, 0);
 	const totalRej = sorted.reduce((n, p) => n + p.rejections, 0);
 	lines.push(
-		`**Plans:** ${sorted.length} · **active:** ${active.length} · **submitted:** ${totalSubs} · **rejected:** ${totalRej}`,
+		`**Planes:** ${sorted.length} · **activos:** ${active.length} · **enviados:** ${totalSubs} · **rechazados:** ${totalRej}`,
 		"",
 	);
 

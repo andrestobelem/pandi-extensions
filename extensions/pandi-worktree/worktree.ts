@@ -427,8 +427,8 @@ function worktreeLabel(entry: WorktreeEntry): string {
 export function describeWorktree(entry: WorktreeEntry): string {
 	const label = worktreeLabel(entry);
 	const flags: string[] = [];
-	if (entry.locked) flags.push("locked");
-	if (entry.prunable) flags.push("prunable");
+	if (entry.locked) flags.push("bloqueado");
+	if (entry.prunable) flags.push("limpiable");
 	const suffix = flags.length ? `  [${flags.join(", ")}]` : "";
 	return `${entry.path}  →  ${label}${suffix}`;
 }

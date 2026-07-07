@@ -171,8 +171,8 @@ async function showMarkdown(pathArg: string, ctx: ExtensionContext): Promise<voi
 	}
 
 	if (ctx.mode !== "tui") {
-		// Fallback no TUI: vuelca el documento para verlo en la terminal. Bajo --print, pi
-		// tomó control de stdout y lo enruta a stderr, así que NO puede redirigirse
+		// Fallback sin TUI: vuelca el documento para verlo en la terminal. Bajo --print, pi
+		// toma control de stdout y lo enruta a stderr, así que NO puede redirigirse
 		// a un archivo (`pi /mdview f.md > out.md` no captura nada); usá `cat` para texto crudo.
 		console.log(load.content);
 		return;
@@ -190,14 +190,14 @@ export default function markdownViewExtension(pi: ExtensionAPI): void {
 	});
 
 	// Contraparte invocable por el modelo de `/mdview`. El comando es solo para el usuario (el agente no puede
-	// tipear un slash command), así que esta TOOL le permite al agente mostrar Markdown: abre el
+	// tipear un comando de barra), así que esta herramienta le permite al agente mostrar Markdown: abre el
 	// mismo visor con scroll en una TUI y devuelve el contenido crudo en modos no interactivos
 	// (donde se renderiza en la transcripción).
 	pi.registerTool({
 		name: "view_markdown",
-		label: "Ver Markdown",
+		label: "Abrir Markdown",
 		description:
-			"Abre un archivo Markdown para el usuario. En una TUI abre el visor Markdown con scroll de Pi; en modos no interactivos devuelve el contenido Markdown del archivo. Usalo cuando el usuario pida mostrar, abrir o ver un archivo Markdown (.md).",
+			"Abre un archivo Markdown para el usuario. En una TUI abre el visor Markdown con scroll de Pi; en modos no interactivos devuelve el contenido Markdown del archivo. Usala cuando el usuario pida mostrar, abrir o ver un archivo Markdown (.md).",
 		promptSnippet: "Mostrar o abrir un archivo Markdown para el usuario.",
 		parameters: Type.Object({
 			path: Type.String({

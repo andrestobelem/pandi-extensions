@@ -1,93 +1,93 @@
 # @pandi-coding-agent/pandi-bg
 
-`/bg` runs a shell command in the background from inside a Pi session, so a long build, test suite, or server doesn't block your chat. Each job gets its own log files and a status you can poll later. It's the small, human-only sibling of `dynamic_workflow` background runs — in-memory and **not** resumable; reach for `dynamic_workflow` when you need agentic orchestration that survives a restart.
+`/bg` ejecuta un comando de shell en segundo plano dentro de una sesión de Pi, así que una compilación larga, una suite de tests o un servidor no te bloquean el chat. Cada job tiene sus propios logs y un estado que podés consultar después. Es el hermano chico, humano y no reanudable de los background runs de `dynamic_workflow`: vive en memoria; si necesitás orquestación agéntica que sobreviva a un reinicio, usá `dynamic_workflow`.
 
-## Try it
+## Probar
 
 ```bash
 /bg start npm test
-# Started background job bg-lz3k2p1-a1b2c3d4.
-# Artifacts: /path/to/artifacts/bg-lz3k2p1-a1b2c3d4
-# Status: /bg status bg-lz3k2p1-a1b2c3d4
+# Job en segundo plano bg-lz3k2p1-a1b2c3d4 iniciado.
+# Artefactos: /path/to/artifacts/bg-lz3k2p1-a1b2c3d4
+# Estado: /bg status bg-lz3k2p1-a1b2c3d4
 # Logs: /bg logs bg-lz3k2p1-a1b2c3d4
 
 /bg status bg-lz3k2p1-a1b2c3d4
 /bg logs bg-lz3k2p1-a1b2c3d4
 ```
 
-## Install
+## Instalar
 
-From npm:
+Desde npm:
 
 ```bash
 pi install npm:@pandi-coding-agent/pandi-bg
 ```
 
-From this repository:
+Desde este repositorio:
 
 ```bash
-pi install ./extensions/pandi-bg          # global (your user)
-pi install -l ./extensions/pandi-bg       # project-local
-pi --no-extensions -e ./extensions/pandi-bg   # one-off trial, nothing else loaded
+pi install ./extensions/pandi-bg          # global (tu usuario)
+pi install -l ./extensions/pandi-bg       # local al proyecto
+pi --no-extensions -e ./extensions/pandi-bg   # prueba puntual, sin cargar nada más
 ```
 
-## What you get
+## Qué obtenés
 
-- Human-only slash commands to start, inspect, cancel, and clean up local background jobs. No `background_job` LLM tool is registered.
-- Per-job artifacts under `.pi/bg/runs/<jobId>/`: `job.json`, `status.json`, `events.jsonl`, `stdout.log`, `stderr.log`, `combined.log`.
-- A bounded lifecycle journal (`/bg events`) that explains *why* a job ended `failed`/`cancelled`/`interrupted` — evidence `status.json` alone does not carry.
-- Safe disk cleanup (`/bg delete`, `/bg prune`) that only ever removes finished jobs and records an audit line.
+- Comandos slash para iniciar, inspeccionar, cancelar y limpiar jobs locales en segundo plano. No se registra ningún tool LLM `background_job`.
+- Artefactos por job bajo `.pi/bg/runs/<jobId>/`: `job.json`, `status.json`, `events.jsonl`, `stdout.log`, `stderr.log`, `combined.log`.
+- Un journal acotado del ciclo de vida (`/bg events`) que explica *por qué* un job terminó `failed`/`cancelled`/`interrupted`; `status.json` solo no alcanza.
+- Limpieza segura de disco (`/bg delete`, `/bg prune`) que solo borra jobs terminados y deja una línea de auditoría.
 
-## Commands
+## Comandos
 
-| Command | What it does |
+| Comando | Qué hace |
 | --- | --- |
-| `/bg preview <command>` | Preview a background job without running it (deprecated alias: `/bg plan`). |
-| `/bg start <command>` | Start a background job in a trusted project. |
-| `/bg list` | List known jobs. |
-| `/bg status <jobId>` | Inspect one job, including a liveness/identity probe. |
-| `/bg logs <jobId>` | Read bounded, truncated logs. |
-| `/bg events <jobId>` | Read the bounded lifecycle journal (`events.jsonl`). |
-| `/bg cancel <jobId>` | Cancel a job owned by this Pi process (or a verified orphan). |
-| `/bg delete <jobId>` | Delete one finished job's artifacts. |
-| `/bg prune [--yes]` | Preview deletable finished jobs (dry-run); `--yes` removes them. |
+| `/bg preview <command>` | Vista previa de un job en segundo plano sin ejecutarlo (alias deprecado: `/bg plan`). |
+| `/bg start <command>` | Inicia un job en segundo plano en un proyecto confiable. |
+| `/bg list` | Lista los jobs conocidos. |
+| `/bg status <jobId>` | Inspecciona un job, incluyendo una prueba de liveness/identidad. |
+| `/bg logs <jobId>` | Lee logs acotados y truncados. |
+| `/bg events <jobId>` | Lee el journal acotado del ciclo de vida (`events.jsonl`). |
+| `/bg cancel <jobId>` | Cancela un job propiedad de este proceso de Pi (o un huérfano verificado). |
+| `/bg delete <jobId>` | Borra los artefactos de un job terminado. |
+| `/bg prune [--yes]` | Muestra qué jobs terminados pueden borrarse (dry-run); `--yes` los elimina. |
 
-## How it works
+## Cómo funciona
 
-- `/bg start` only works in persistent TUI/RPC sessions and trusted projects; untrusted projects are refused before anything executes or is written.
-- Mutating commands (`start`, `cancel`, `delete`, `prune`) are blocked while `/plan` is active.
-- Jobs run as detached process groups, except on Windows, where the child is not spawned detached. `job.json` and `status.json` are written with temp file + atomic rename; logs are append-only.
-- Project-local artifacts live in `.pi/bg/runs/<jobId>/`. A global read-only fallback exists at `~/.pi/agent/bg/runs/<cwd-hash>/<jobId>/`.
-- There is no Supacode runner, daemon, automatic rehydration, or `/bg` dashboard.
+- `/bg start` solo funciona en sesiones TUI/RPC persistentes y en proyectos confiables; los proyectos no confiables se rechazan antes de ejecutar o escribir nada.
+- Los comandos mutantes (`start`, `cancel`, `delete`, `prune`) se bloquean mientras `/plan` está activo.
+- Los jobs corren como grupos de procesos detached, salvo en Windows, donde el child no se crea detached. `job.json` y `status.json` se escriben con archivo temporal + rename atómico; los logs son append-only.
+- Los artefactos locales del proyecto viven en `.pi/bg/runs/<jobId>/`. Existe un fallback global de solo lectura en `~/.pi/agent/bg/runs/<cwd-hash>/<jobId>/`.
+- No hay runner de Supacode, daemon, rehidratación automática ni panel de `/bg`.
 
-## Limitations & safety notes
+## Límites y seguridad
 
-- **Plaintext artifacts.** The command (`job.json`) and its output logs are stored unredacted. Avoid passing secrets on the command line; reclaim space with `/bg prune` or `/bg delete`.
-- **The trust gate protects context and artifacts, not the command.** Like the rest of Pi's exec, `/bg start` runs whatever you type via `shell:true`.
-- **Jobs do not survive a Pi restart.** They are tracked in memory by the Pi process that started them; `/bg cancel` refuses jobs not active in the current session (except verified orphans, below).
-- A still-running detached job is left orphaned after a restart. Stop a **verified** orphan with `/bg cancel`; otherwise use OS tools (`kill`/`pkill`/`taskkill`).
-- Deletion is finished-jobs-only: live state is re-derived at prune time, so a running, session-active, or identity-verified-alive job is never deleted. Cleanup acts on the project-local store only, is symlink/path safe (an inner symlink is unlinked, not followed), and appends one `.pi/bg/runs/.audit.jsonl` line per removal.
+- **Artefactos en texto plano.** El comando (`job.json`) y sus logs de salida se guardan sin redacción. Evitá pasar secretos en la línea de comando; recuperá espacio con `/bg prune` o `/bg delete`.
+- **El trust gate protege contexto y artefactos, no el comando.** Igual que el resto de `Pi` exec, `/bg start` ejecuta lo que escribas vía `shell:true`.
+- **Los jobs no sobreviven a un restart de Pi.** Quedan en memoria del proceso de Pi que los inició; `/bg cancel` rechaza jobs que no estén activos en la sesión actual (salvo huérfanos verificados, abajo).
+- Un job detached que sigue corriendo queda huérfano después de un restart. Detené un huérfano **verificado** con `/bg cancel`; si no, usá herramientas del SO (`kill`/`pkill`/`taskkill`).
+- El borrado solo aplica a jobs terminados: el estado vivo se rederiva en el momento del prune, así que un job en ejecución, activo en sesión o vivo verificado por identidad nunca se borra. La limpieza actúa solo sobre el almacén local del proyecto, es segura frente a symlinks/path traversal (un symlink interno se deslinkea, no se sigue) y agrega una línea en `.pi/bg/runs/.audit.jsonl` por cada remoción.
 
-## Details
+## Detalles
 
-### Liveness and pid reuse
+### Disponibilidad y reutilización de pid
 
-- For jobs not owned by the current session, `/bg status` and `/bg list` project the state at read time by probing the recorded pid (signal-0, no signal sent): `orphaned` (pid alive), `interrupted` (pid dead), or `stale` (no pid to probe).
-- To defeat pid reuse, each job records a process **start identity** (`startId`: Linux `/proc` starttime; macOS/BSD `ps -o lstart=`; absent on Windows).
-- `/bg status` does one identity probe: a live pid with a matching identity is a verified `orphaned` (`identity: verified`); a live pid with a different identity means the pid was reused and is reported as `interrupted` (`interruptedCause: pid-reused`); unreadable identity stays a best-effort `orphaned` with a verify-before-kill hint.
-- `/bg list` keeps only the cheap signal-0 probe (no per-job subprocess), so it may show a best-effort `orphaned` that `/bg status` would refine.
+- Para jobs que no pertenecen a la sesión actual, `/bg status` y `/bg list` proyectan el estado en tiempo de lectura probando el pid registrado (signal-0, no se envía señal): `orphaned` (pid vivo), `interrupted` (pid muerto) o `stale` (no hay pid para probar).
+- Para evitar reutilización de pid, cada job registra una **identidad de inicio** (`startId`: `starttime` de Linux `/proc`; `ps -o lstart=` en macOS/BSD; ausente en Windows).
+- `/bg status` hace una sola prueba de identidad: un pid vivo con identidad coincidente es un `orphaned` verificado (`identity: verified`); un pid vivo con identidad distinta significa que el pid fue reutilizado y se informa como `interrupted` (`interruptedCause: pid-reused`); una identidad ilegible queda como `orphaned` de mejor esfuerzo con una sugerencia de verificación antes de matar.
+- `/bg list` se queda solo con la prueba barata signal-0 (sin subprocess por job), así que puede mostrar un `orphaned` de mejor esfuerzo que `/bg status` refinaría.
 
-### Cancel semantics
+### Semántica de cancelación
 
-- `/bg cancel` always acts on jobs owned by the current Pi process.
-- For a job persisted by another session, it signals the process group **only** when the recorded start identity proves the live pid is still that job's process: it sends `SIGTERM` to the group and rewrites the job to `cancelled` (reason `cancel-verified-orphan`).
-- A reused pid, or one whose identity cannot be read, is refused and never signaled — stop it with OS tools.
+- `/bg cancel` siempre actúa sobre jobs propiedad del proceso actual de Pi.
+- Para un job persistido por otra sesión, envía señal al process group **solo** cuando la identidad de inicio registrada prueba que el pid vivo sigue siendo el proceso de ese job: manda `SIGTERM` al grupo y reescribe el job como `cancelled` (reason `cancel-verified-orphan`).
+- Un pid reutilizado, o uno cuya identidad no puede leerse, se rechaza y nunca recibe señal: detenelo con herramientas del SO.
 
-### Session-start self-heal
+### Auto-reparación al iniciar sesión
 
-- On session start (persistent, trusted sessions only), a project-local job persisted as `running`/`starting` is atomically rewritten to a terminal `interrupted` on disk when its pid is dead **or** alive-but-reused (different start identity).
-- Terminalizing only on positive evidence (dead pid or proven reuse) keeps the rewrite safe; verified-alive or unprobeable jobs are left untouched (still projected as `orphaned`/`stale`).
+- Al iniciar sesión (solo sesiones persistentes y confiables), un job local del proyecto persistido como `running`/`starting` se reescribe atómicamente a `interrupted` en disco cuando su pid está muerto **o** vivo pero reutilizado (identidad de inicio distinta).
+- Terminalizar solo con evidencia positiva (pid muerto o reutilización probada) mantiene segura la reescritura; los jobs vivos verificados o no comprobables se dejan intactos (siguen proyectándose como `orphaned`/`stale`).
 
-## Related
+## Relacionado
 
-For the full bundle of extensions and skills, install the repository root instead.
+Para instalar el paquete completo de extensiones y skills, instalá la raíz del repositorio.

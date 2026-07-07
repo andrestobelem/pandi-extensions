@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * Public extension contract for pandi-session.
+ * Contrato público de la extensión pandi-session.
  *
- * The extension owns /sessions, starts/stops its own heartbeat, and opens a
- * standalone TUI dashboard without coupling to the workflow extension.
+ * La extensión es dueña de /sessions, inicia/detiene su propio heartbeat y abre un
+ * dashboard TUI independiente sin acoplarse a la extensión de workflows.
  */
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
@@ -68,7 +68,7 @@ function makeCtx(cwd, { mode = "tui", withSelect = false, selectResult, withConf
 		sessionManager: {
 			getSessionId: () => "current-session-id",
 			getSessionFile: () => path.join(cwd, ".pi", "sessions", "current.jsonl"),
-			getSessionName: () => "Current session",
+			getSessionName: () => "Sesión actual",
 		},
 		get _notes() {
 			return notes;
@@ -110,45 +110,45 @@ async function main() {
 		const source = await fs.readFile(path.join(REPO_ROOT, "extensions", "pandi-session", "index.ts"), "utf8");
 		const forbiddenRuntimeImport =
 			source.includes("../pandi-" + "dynamic-" + "workflows") || source.includes("dynamic_" + "workflow");
-		check("index has no workflow-extension runtime import", !forbiddenRuntimeImport, source);
+		check("el índice no importa en runtime la extensión de workflows", !forbiddenRuntimeImport, source);
 
 		const mod = await loadModule(url);
 		const ext = await loadDefault(url);
 		const { pi, commands, handlers } = makePi();
 		ext(pi);
 
-		check("/session is not registered because Pi already owns it", !commands.has("session"));
-		check("/sessions command registered", commands.has("sessions"));
-		check("session_start handler registered", (handlers.get("session_start") ?? []).length === 1);
-		check("session_shutdown handler registered", (handlers.get("session_shutdown") ?? []).length === 1);
+		check("/session no se registra porque Pi ya lo posee", !commands.has("session"));
+		check("el comando /sessions se registra", commands.has("sessions"));
+		check("se registra el handler session_start", (handlers.get("session_start") ?? []).length === 1);
+		check("se registra el handler session_shutdown", (handlers.get("session_shutdown") ?? []).length === 1);
 
 		const ctx = makeCtx(project);
 		for (const handler of handlers.get("session_start") ?? []) await handler({ reason: "startup" }, ctx);
 		await commands.get("sessions").handler("", ctx);
 		check(
-			"/sessions without ui.select keeps standalone TUI dashboard fallback",
+			"/sessions sin ui.select conserva el fallback al dashboard TUI independiente",
 			ctx._customCalls === 1,
 			String(ctx._customCalls),
 		);
 
 		const menuCtx = makeCtx(project, {
 			withSelect: true,
-			selectResult: "dashboard — abrir el dashboard de sesiones",
+			selectResult: "dashboard — abrir el panel de sesiones",
 		});
 		await commands.get("sessions").handler("", menuCtx);
 		check(
-			"bare /sessions + UI opens the selector once",
+			"/sessions vacío + UI abre el selector una sola vez",
 			menuCtx._selectCalls.length === 1,
 			String(menuCtx._selectCalls.length),
 		);
 		const items = menuCtx._selectCalls[0]?.items ?? [];
 		check(
-			"/sessions selector offers exactly the exported action labels",
+			"el selector de /sessions ofrece exactamente las etiquetas de acción exportadas",
 			JSON.stringify(items) === JSON.stringify(mod.PANDI_SESSION_SELECT_ITEMS),
 			JSON.stringify(items),
 		);
 		check(
-			"selecting dashboard opens standalone TUI dashboard",
+			"seleccionar dashboard abre el dashboard TUI independiente",
 			menuCtx._customCalls === 1,
 			String(menuCtx._customCalls),
 		);
@@ -159,20 +159,20 @@ async function main() {
 		});
 		const explicitStreams = await captureConsole(() => commands.get("sessions").handler("list", explicitCtx));
 		check(
-			"explicit /sessions list bypasses selector",
+			"/sessions list explícito omite el selector",
 			explicitCtx._selectCalls.length === 0,
 			String(explicitCtx._selectCalls.length),
 		);
 		check(
-			"/sessions list works with UI selector available",
-			explicitStreams.out.join("\n").includes("Pandi sessions"),
+			"/sessions list funciona con el selector de UI disponible",
+			explicitStreams.out.join("\n").includes("Sesiones Pandi"),
 			JSON.stringify(explicitStreams),
 		);
 
 		const cancelCtx = makeCtx(project, { withSelect: true, selectResult: undefined });
 		await commands.get("sessions").handler("", cancelCtx);
 		check(
-			"cancelled /sessions selector does not open dashboard",
+			"un selector /sessions cancelado no abre el dashboard",
 			cancelCtx._customCalls === 0,
 			String(cancelCtx._customCalls),
 		);
@@ -181,11 +181,11 @@ async function main() {
 		const printCtx = makeCtx(project, { mode: "print" });
 		const streams = await captureConsole(() => commands.get("sessions").handler("list", printCtx));
 		check(
-			"/sessions list works headless",
-			streams.out.join("\n").includes("Pandi sessions"),
+			"/sessions list funciona sin UI",
+			streams.out.join("\n").includes("Sesiones Pandi"),
 			JSON.stringify(streams),
 		);
-		check("headless list does not open custom TUI", printCtx._customCalls === 0, String(printCtx._customCalls));
+		check("la lista sin UI no abre un TUI personalizado", printCtx._customCalls === 0, String(printCtx._customCalls));
 
 		const deadFile = path.join(project, ".pi", "pandi-session", "live", "dead.json");
 		await writeJson(deadFile, {
@@ -200,12 +200,12 @@ async function main() {
 			commands.get("sessions").handler("cleanup --dry-run", printCtx),
 		);
 		check(
-			"/sessions cleanup --dry-run lists delete candidate with reason",
-			cleanupPreview.out.join("\n").includes("delete") && cleanupPreview.out.join("\n").includes("pid exited"),
+			"/sessions cleanup --dry-run lista la candidata delete con su razón",
+			cleanupPreview.out.join("\n").includes("delete") && cleanupPreview.out.join("\n").includes("PID finalizado"),
 			JSON.stringify(cleanupPreview),
 		);
 		check(
-			"/sessions cleanup --dry-run keeps the candidate file",
+			"/sessions cleanup --dry-run conserva el archivo candidato",
 			await fs.stat(deadFile).then(
 				() => true,
 				() => false,
@@ -213,12 +213,12 @@ async function main() {
 		);
 		const unsafeCleanup = await captureConsole(() => commands.get("sessions").handler("cleanup", printCtx));
 		check(
-			"headless /sessions cleanup without --yes refuses destructive cleanup",
+			"/sessions cleanup sin UI y sin --yes rechaza la limpieza destructiva",
 			unsafeCleanup.err.join("\n").includes("--yes"),
 			JSON.stringify(unsafeCleanup),
 		);
 		check(
-			"refused headless cleanup keeps candidate file",
+			"la limpieza rechazada sin UI conserva el archivo candidato",
 			await fs.stat(deadFile).then(
 				() => true,
 				() => false,
@@ -236,7 +236,7 @@ async function main() {
 		const uiNoConfirmCtx = makeCtx(project, { withConfirm: false });
 		await commands.get("sessions").handler("cleanup", uiNoConfirmCtx);
 		check(
-			"ui without confirm refuses destructive cleanup unless --yes",
+			"la UI sin confirmación rechaza la limpieza destructiva salvo --yes",
 			/--yes|--dry-run/.test(uiNoConfirmCtx._notes.at(-1)?.msg || "") &&
 				(await fs.stat(uiNoConfirmFile).then(
 					() => true,
@@ -247,8 +247,8 @@ async function main() {
 
 		const cleanupYes = await captureConsole(() => commands.get("sessions").handler("cleanup --yes", printCtx));
 		check(
-			"/sessions cleanup --yes removes stale candidates",
-			cleanupYes.out.join("\n").includes("Removed 2") &&
+			"/sessions cleanup --yes elimina las candidatas obsoletas",
+			cleanupYes.out.join("\n").includes("Se eliminaron 2") &&
 				!(await fs.stat(deadFile).then(
 					() => true,
 					() => false,
@@ -261,8 +261,8 @@ async function main() {
 		);
 		const cleanupAgain = await captureConsole(() => commands.get("sessions").handler("cleanup --yes", printCtx));
 		check(
-			"/sessions cleanup --yes is idempotent after missing file",
-			cleanupAgain.out.join("\n").includes("No stale Pandi session files"),
+			"/sessions cleanup --yes es idempotente después de un archivo faltante",
+			cleanupAgain.out.join("\n").includes("No hay archivos de sesión Pandi obsoletos"),
 			JSON.stringify(cleanupAgain),
 		);
 	} finally {

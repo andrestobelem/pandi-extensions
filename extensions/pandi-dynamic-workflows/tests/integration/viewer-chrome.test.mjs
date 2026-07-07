@@ -7,7 +7,7 @@
  *
  * Pins:
  *   1. formatViewerHints — the navigation/close/position hint: scroll keys + PgUp/PgDn +
- *      optional "f files" + "q/Esc close" + "start-end/total".
+ *      optional "f archivos" + "q/Esc cerrar" + "start-end/total".
  *   2. scrollDelta — maps a key to a scroll action: ±1 (line), ±page, "top"/"bottom", or null.
  *
  * Built with REAL deps so the real matchesKey runs.
@@ -35,9 +35,9 @@ async function main() {
 	check("formatViewerHints is exported", typeof formatViewerHints === "function");
 	const withFiles = formatViewerHints({ canOpenFiles: true, start: 1, end: 20, total: 100 });
 	const noFiles = formatViewerHints({ canOpenFiles: false, start: 1, end: 20, total: 100 });
-	check("hint advertises files when enabled", /f files/.test(withFiles), withFiles);
-	check("hint hides files when disabled", !/f files/.test(noFiles), noFiles);
-	check("hint shows q/Esc close", /q\/Esc close/.test(withFiles), withFiles);
+	check("hint advertises files when enabled", /f archivos/.test(withFiles), withFiles);
+	check("hint hides files when disabled", !/f archivos/.test(noFiles), noFiles);
+	check("hint shows q/Esc close", /q\/Esc cerrar/.test(withFiles), withFiles);
 	check("hint shows position start-end/total", /\b1-20\/100\b/.test(withFiles), withFiles);
 	check("hint shows line scroll keys (j/k)", /j\/k/.test(withFiles), withFiles);
 	check("hint shows page keys (PgUp/PgDn)", /PgUp\/PgDn/.test(withFiles), withFiles);

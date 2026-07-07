@@ -67,7 +67,7 @@ async function approvalPresentation(url) {
 	};
 	const fallbackApproved = await presentPlanForApproval(fallbackCtx, "fallback plan", "p1");
 	check("present: confirm fallback returns approval", fallbackApproved === true);
-	check("present: confirm fallback title is stable", confirmCalls[0]?.title === "Approve this plan?");
+	check("present: confirm fallback title is stable", confirmCalls[0]?.title === "¿Aprobar este plan?");
 	check("present: confirm fallback body is plan text", confirmCalls[0]?.body === "fallback plan");
 
 	let customCalled = false;

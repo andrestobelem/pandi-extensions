@@ -36,8 +36,8 @@ export function pickViewerForPath(filePath: string): "markdown" | "text" {
 // la navigation/close/position hint string y el scroll-key mapping, así ambos viewers
 // advertisen y honren las MISMAS keys.
 export function formatViewerHints(opts: { canOpenFiles: boolean; start: number; end: number; total: number }): string {
-	const filesHint = opts.canOpenFiles ? "f files • " : "";
-	return `↑/↓ j/k scroll • PgUp/PgDn page • ${filesHint}q/Esc close • ${opts.start}-${opts.end}/${opts.total}`;
+	const filesHint = opts.canOpenFiles ? "f archivos • " : "";
+	return `${filesHint}↑/↓ j/k scroll • PgUp/PgDn pág • q/Esc cerrar • ${opts.start}-${opts.end}/${opts.total}`;
 }
 
 // Mapea un input key a una scroll action compartida por ambos viewers: un line delta (±1),

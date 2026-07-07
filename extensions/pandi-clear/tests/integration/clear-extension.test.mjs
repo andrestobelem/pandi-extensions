@@ -2,7 +2,7 @@
 /**
  * Test de integración conductual estable para extensions/pandi-clear/index.ts.
  *
- * Fija el contrato público de /clear (un alias estilo Claude para el /new nativo de pi):
+ * Fija el contrato público de /clear (un alias al estilo Claude para el /new nativo de pi):
  * - registra un comando slash llamado "clear" con una descripción no vacía
  * - el manejador inicia una sesión nueva vía ctx.newSession() exactamente una vez
  * - una sesión nueva cancelada (una extensión la vetó) no rompe ni notifica error
@@ -77,19 +77,19 @@ async function main() {
 		const h = makePi();
 		clearExtension(h.pi);
 		const cmd = h.commands.get("clear");
-		check("/clear command registered", !!cmd);
-		check("/clear has a description", typeof cmd?.description === "string" && cmd.description.length > 0);
+		check("/clear está registrado", !!cmd);
+		check("/clear tiene una descripción", typeof cmd?.description === "string" && cmd.description.length > 0);
 
 		const ctx = makeCtx();
 		await cmd.handler("", ctx);
-		check("/clear calls ctx.newSession() once", ctx._calls.newSession === 1, String(ctx._calls.newSession));
+		check("/clear llama a ctx.newSession() una vez", ctx._calls.newSession === 1, String(ctx._calls.newSession));
 		check(
-			"/clear is STRICTLY silent on success (no notifications at all)",
+			"/clear es estrictamente silencioso al tener éxito (sin notificaciones)",
 			ctx._notes.length === 0,
 			JSON.stringify(ctx._notes),
 		);
 
-		// Cancelada (p. ej. una extensión vetó la sesión nueva): no rompe, no deja nota de error.
+		// Cancelada (por ejemplo, una extensión vetó la sesión nueva): no rompe ni deja una nota de error.
 		const ctxCancel = makeCtx({ cancelled: true });
 		let threwCancel = false;
 		try {
@@ -97,14 +97,14 @@ async function main() {
 		} catch {
 			threwCancel = true;
 		}
-		check("/clear does not crash when the new session is cancelled", !threwCancel);
+		check("/clear no se cae cuando se cancela la sesión nueva", !threwCancel);
 		check(
-			"/clear does not error-notify on a cancelled new session",
+			"/clear no notifica error cuando la sesión nueva se cancela",
 			!ctxCancel._notes.some((n) => n.type === "error"),
 			JSON.stringify(ctxCancel._notes),
 		);
 
-		// newSession lanza: se informa como error y nunca se propaga.
+		// Si newSession lanza: se informa como error y nunca se propaga.
 		const ctxThrow = makeCtx({ throwOnNew: true });
 		let threw = false;
 		try {
@@ -112,9 +112,9 @@ async function main() {
 		} catch {
 			threw = true;
 		}
-		check("/clear does not crash when newSession throws", !threw);
+		check("/clear no se cae cuando newSession lanza", !threw);
 		check(
-			"/clear reports a newSession failure as an error",
+			"/clear reporta la falla de newSession como error",
 			ctxThrow._notes.some((n) => n.type === "error" && /clear/i.test(n.msg)),
 			JSON.stringify(ctxThrow._notes),
 		);
@@ -123,7 +123,7 @@ async function main() {
 		const ctxThrowRaw = makeCtx({ throwOnNew: true, throwValue: "nope-not-an-error" });
 		await cmd.handler("", ctxThrowRaw);
 		check(
-			"/clear stringifies a non-Error throw into the error note",
+			"/clear convierte un throw que no es Error en texto dentro de la nota de error",
 			ctxThrowRaw._notes.some((n) => n.type === "error" && /nope-not-an-error/.test(n.msg)),
 			JSON.stringify(ctxThrowRaw._notes),
 		);
@@ -133,33 +133,41 @@ async function main() {
 		const ctxPrintFail = makeCtx({ throwOnNew: true, mode: "print" });
 		const failStreams = await withCapturedConsole(() => cmd.handler("", ctxPrintFail));
 		check(
-			"print mode: failure reported on stderr",
+			"modo print: la falla se informa por stderr",
 			failStreams.err.some((l) => /clear falló/.test(l) && /boom/.test(l)),
 			JSON.stringify(failStreams),
 		);
 		check(
-			"print mode: nothing on stdout for a failure",
+			"modo print: no hay salida por stdout ante una falla",
 			failStreams.out.length === 0,
 			JSON.stringify(failStreams.out),
 		);
-		check("print mode: ui.notify never used", ctxPrintFail._notes.length === 0, JSON.stringify(ctxPrintFail._notes));
+		check(
+			"modo print: nunca se usa ui.notify",
+			ctxPrintFail._notes.length === 0,
+			JSON.stringify(ctxPrintFail._notes),
+		);
 
-		// Modo headless no-print (p. ej. json/rpc sin UI): una falla también debe salir por stderr.
+		// Modo headless no-print (por ejemplo, json/rpc sin UI): una falla también debe salir por stderr.
 		const ctxJsonFail = makeCtx({ throwOnNew: true, mode: "json" });
 		ctxJsonFail.hasUI = false;
 		const jsonFailStreams = await withCapturedConsole(() => cmd.handler("", ctxJsonFail));
 		check(
-			"json headless: failure reported on stderr",
+			"headless json: la falla se informa por stderr",
 			jsonFailStreams.err.some((l) => /clear falló/.test(l) && /boom/.test(l)),
 			JSON.stringify(jsonFailStreams),
 		);
-		check("json headless: ui.notify never used", ctxJsonFail._notes.length === 0, JSON.stringify(ctxJsonFail._notes));
+		check(
+			"headless json: nunca se usa ui.notify",
+			ctxJsonFail._notes.length === 0,
+			JSON.stringify(ctxJsonFail._notes),
+		);
 
 		// Éxito en modo `print`: estrictamente silencioso en ambos canales.
 		const ctxPrintOk = makeCtx({ mode: "print" });
 		const okStreams = await withCapturedConsole(() => cmd.handler("", ctxPrintOk));
 		check(
-			"print mode: success is silent on stdout and stderr",
+			"modo print: el éxito es silencioso en stdout y stderr",
 			okStreams.out.length === 0 && okStreams.err.length === 0,
 			JSON.stringify(okStreams),
 		);

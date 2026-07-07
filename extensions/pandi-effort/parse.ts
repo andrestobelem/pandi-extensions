@@ -1,13 +1,15 @@
 /**
- * Capa pura de parsing/dominio para el comando `/effort`.
+ * Capa pura de parsing y dominio para el comando `/effort`.
  *
- * Extraída de index.ts para aislar el parsing de argumentos (sin side effects)
- * y el vocabulario de niveles de thinking del cableado del comando. Mantener esta capa
- * pura la hace barata de probar y razonar (cohesión + testabilidad), mientras
- * index.ts queda como agregador fino de comando/registro.
+ * Se extrajo de index.ts para aislar el parsing de argumentos (sin efectos
+ * secundarios) y el vocabulario de niveles de pensamiento del cableado del
+ * comando. Mantener esta capa pura la hace barata de probar y razonar
+ * (cohesión + testabilidad), mientras index.ts queda como agregador fino de
+ * comando y registro.
  *
- * Módulo hermano a un nivel de profundidad (coincide con el glob `files` de `package.json`);
- * index.ts lo importa vía "./parse.js", así que se typecheckea de forma transitiva.
+ * Módulo hermano a un nivel de profundidad (coincide con el glob `files` de
+ * `package.json`); index.ts lo importa vía "./parse.js", así que se
+ * typecheckea de forma transitiva.
  */
 
 export const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh"] as const;
@@ -58,7 +60,7 @@ export function parseEffortTarget(raw: string): EffortTarget {
 	if (ULTRACODE_ALIASES.has(value)) return { kind: "ultracode" };
 
 	// Acepta `/effort thinking=high`, `/effort level high`, etc. usando el
-	// token significativo final después de separadores/palabras prefijo livianos.
+	// token significativo final después de separadores y palabras prefijo livianas.
 	const tokens = value
 		.replace(/[=:,]/g, " ")
 		.split(/\s+/)

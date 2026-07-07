@@ -1,21 +1,26 @@
 /**
- * `/improve-prompt` — rewrite a rough prompt draft into a clearer, more actionable one
- * before you send it.
+ * `/improve-prompt` — reescribe un borrador de prompt torpe en uno más claro y
+ * accionable antes de enviarlo.
  *
  *   /improve-prompt fix the bug in the parser
- *     -> one-shot model call (no tools) rewrites the draft: resolves ambiguity, adds
- *        verifiable success criteria when it helps, keeps your language and intent.
- *     -> shown for review (overlay in the TUI, plain output otherwise).
- *     -> asks (ctx.ui.confirm) whether to SEND it as your next message. Confirm ->
- *        pi.sendUserMessage() injects it as a real user turn (like /plan's approval wake).
- *        Decline -> nothing is sent; the rewrite only stayed on screen.
+ *     -> una sola llamada al modelo (sin herramientas) reescribe el borrador:
+ *        resuelve ambigüedades, agrega criterios de éxito verificables cuando
+ *        aporta valor y conserva tu idioma e intención.
+ *     -> se muestra para revisión (overlay en la TUI, salida simple en otros
+ *        modos).
+ *     -> pregunta (ctx.ui.confirm) si querés ENVIARLO como tu próximo mensaje.
+ *        Confirmar -> pi.sendUserMessage() lo inyecta como un turno de usuario
+ *        real (como el wake de aprobación de /plan). Rechazar -> no se envía
+ *        nada; la reescritura solo quedó en pantalla.
  *
- * Mirrors pandi-btw's shape (one-shot completeSimple call, no tools, overlay-or-print
- * display) but ADDS the confirm-and-send step, because — unlike a side question — the
- * whole point of an improved prompt is to actually use it.
+ * Copia la forma de pandi-btw (llamada completeSimple de una pasada, sin
+ * herramientas, visualización tipo overlay-o-print), pero AGREGA el paso de
+ * confirmación y envío, porque — a diferencia de una pregunta lateral — el
+ * objetivo de un prompt mejorado es usarlo de verdad.
  *
- * Print/json (no interactive UI): the rewrite is printed and nothing is sent — a one-shot
- * run has no way to ask for confirmation, so sending would be an unreviewed side effect.
+ * En print/json (sin UI interactiva): la reescritura se imprime y no se envía
+ * nada — una ejecución de una sola pasada no puede pedir confirmación, así que
+ * enviarla sería un efecto secundario sin revisar.
  */
 
 import type { AssistantMessage, SimpleStreamOptions } from "@earendil-works/pi-ai";
@@ -24,12 +29,12 @@ import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-c
 import { openAnswerOverlay } from "./answer-overlay.js";
 import { buildImproveContext, extractImprovedText } from "./build-improve-context.js";
 
-/** The rewrite should be a clearer prompt, not a long essay. */
+/** La reescritura debe ser un prompt más claro, no un ensayo largo. */
 const IMPROVE_PROMPT_MAX_TOKENS = 2048;
 
 const STATUS_KEY = "improve-prompt";
 
-/** Notify the user, degrading gracefully outside the TUI (mirrors the sibling extensions). */
+/** Notifica al usuario y degrada con gracia fuera de la TUI (como las extensiones hermanas). */
 function notify(ctx: ExtensionCommandContext, message: string, type: "info" | "warning" | "error" = "info"): void {
 	if (ctx.mode !== "print" && ctx.hasUI) {
 		ctx.ui.notify(message, type);
@@ -44,7 +49,7 @@ function errorMessage(error: unknown): string {
 }
 
 function formatImprovePromptFailure(error: unknown): string {
-	return `improve-prompt failed: ${errorMessage(error)}`;
+	return `improve-prompt falló: ${errorMessage(error)}`;
 }
 
 function setImprovePromptStatus(ctx: ExtensionCommandContext, value: string | undefined): boolean {
@@ -53,7 +58,7 @@ function setImprovePromptStatus(ctx: ExtensionCommandContext, value: string | un
 	return true;
 }
 
-/** Send the improved prompt as the next user turn, idle vs. mid-stream (mirrors /plan's wake). */
+/** Envía el prompt mejorado como el siguiente turno de usuario, idle vs. mid-stream (como el wake de /plan). */
 function send(pi: ExtensionAPI, ctx: ExtensionCommandContext, improved: string): void {
 	if (ctx.isIdle()) pi.sendUserMessage(improved);
 	else pi.sendUserMessage(improved, { deliverAs: "followUp" });
@@ -62,19 +67,23 @@ function send(pi: ExtensionAPI, ctx: ExtensionCommandContext, improved: string):
 async function handleImprovePrompt(args: string, ctx: ExtensionCommandContext, pi: ExtensionAPI): Promise<void> {
 	const draft = args.trim();
 	if (!draft) {
-		notify(ctx, "Usage: /improve-prompt <your rough prompt> — rewrites it clearer and offers to send it.", "info");
+		notify(
+			ctx,
+			"Uso: /improve-prompt <tu borrador bruto> — lo reescribe con más claridad y te ofrece enviarlo.",
+			"info",
+		);
 		return;
 	}
 
 	const model = ctx.model;
 	if (!model) {
-		notify(ctx, "No model selected. Choose one with /model, then retry /improve-prompt.", "error");
+		notify(ctx, "No hay modelo seleccionado. Elegí uno con /model y reintentá /improve-prompt.", "error");
 		return;
 	}
 
 	const auth = await ctx.modelRegistry.getApiKeyAndHeaders(model);
 	if (!auth.ok) {
-		notify(ctx, `No usable credentials for ${model.provider}/${model.id}: ${auth.error}`, "error");
+		notify(ctx, `No hay credenciales utilizables para ${model.provider}/${model.id}: ${auth.error}`, "error");
 		return;
 	}
 
@@ -87,10 +96,10 @@ async function handleImprovePrompt(args: string, ctx: ExtensionCommandContext, p
 		headers: auth.headers,
 		env: auth.env,
 	};
-	// Reasoning only applies to reasoning-capable models; otherwise it is rejected/ignored.
+	// La razón solo aplica a modelos que la soportan; si no, se rechaza o se ignora.
 	if (model.reasoning) options.reasoning = pi.getThinkingLevel() as SimpleStreamOptions["reasoning"];
 
-	const showStatus = setImprovePromptStatus(ctx, "improve-prompt: thinking…");
+	const showStatus = setImprovePromptStatus(ctx, "improve-prompt: pensando…");
 
 	let response: AssistantMessage;
 	try {
@@ -103,38 +112,38 @@ async function handleImprovePrompt(args: string, ctx: ExtensionCommandContext, p
 	}
 
 	if (response.stopReason === "error") {
-		notify(ctx, `improve-prompt failed: ${response.errorMessage ?? "the model returned an error"}`, "error");
+		notify(ctx, `improve-prompt falló: ${response.errorMessage ?? "el modelo devolvió un error"}`, "error");
 		return;
 	}
 	if (response.stopReason === "aborted") {
-		notify(ctx, "improve-prompt cancelled.", "info");
+		notify(ctx, "improve-prompt cancelado.", "info");
 		return;
 	}
 
 	const improved = extractImprovedText(response);
 	if (!improved) {
-		notify(ctx, "improve-prompt: the model returned no rewrite.", "warning");
+		notify(ctx, "improve-prompt: el modelo no devolvió ninguna reescritura.", "warning");
 		return;
 	}
 
-	// Print/json: no interactive confirm is possible, so just show the rewrite and stop —
-	// sending it unreviewed would be a silent side effect of a one-shot run.
+	// Print/json: no hay confirmación interactiva posible, así que solo mostramos la
+	// reescritura y paramos — enviarla sin revisar sería un efecto secundario silencioso.
 	if (ctx.mode === "print" || !ctx.hasUI) {
 		console.log(improved);
 		return;
 	}
 
-	const body = `**Original**\n\n${draft}\n\n---\n\n**Improved**\n\n${improved}`;
+	const body = `**Original**\n\n${draft}\n\n---\n\n**Mejorado**\n\n${improved}`;
 	if (ctx.mode === "tui") {
-		await openAnswerOverlay(ctx, "review, then confirm below", body);
+		await openAnswerOverlay(ctx, "revisá y confirmá abajo", body);
 	} else {
-		// rpc: hasUI but no terminal-only custom() overlay.
+		// rpc: tiene UI pero no el overlay personalizado de terminal de custom().
 		ctx.ui.notify(body, "info");
 	}
 
-	const shouldSend = await ctx.ui.confirm("Send improved prompt as your next message?", improved);
+	const shouldSend = await ctx.ui.confirm("¿Enviar el prompt mejorado como tu próximo mensaje?", improved);
 	if (!shouldSend) {
-		notify(ctx, "Not sent — the improved prompt stayed on screen only.", "info");
+		notify(ctx, "No enviado — el prompt mejorado quedó solo en pantalla.", "info");
 		return;
 	}
 	send(pi, ctx, improved);
@@ -142,7 +151,7 @@ async function handleImprovePrompt(args: string, ctx: ExtensionCommandContext, p
 
 export default function improvePromptExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("improve-prompt", {
-		description: "Rewrite a rough prompt draft clearer, then offer to send it as your next message.",
+		description: "Reescribe un borrador de prompt con más claridad y luego ofrece enviarlo como tu próximo mensaje.",
 		handler: async (args, ctx) => {
 			await handleImprovePrompt(args, ctx, pi);
 		},

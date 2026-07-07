@@ -1066,7 +1066,7 @@ async function wakeDeliveryFailureStopsGoal(goalUrl) {
 	const last = built.states.at(-1);
 	check(
 		"wake-failure: reason is durable in goal state",
-		/failed: falló la entrega del wake/.test(last?.lastReason || ""),
+		/falló la entrega del wake/.test(last?.lastReason || ""),
 		JSON.stringify(last),
 	);
 }

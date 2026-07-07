@@ -10,7 +10,7 @@ export const CONTAINER_ACTIONS = [
 	{ value: "remove", selectLabel: "remove — elimina una máquina (pide confirmación)" },
 ] as const;
 
-/** Opciones con etiqueta humana para el selector de acciones de `/container` sin args (el primer token es el valor). */
+/** Opciones con etiqueta humana para el selector de acciones de `/container` sin argumentos (el primer token es el valor). */
 export const CONTAINER_SELECT_ITEMS = CONTAINER_ACTIONS.map(({ selectLabel }) => selectLabel);
 
 const SUBCOMMANDS = CONTAINER_ACTIONS.map(({ value }) => value);
@@ -18,7 +18,7 @@ const SUBCOMMANDS = CONTAINER_ACTIONS.map(({ value }) => value);
 export function completeContainerArgs(prefix: string): { value: string; label: string }[] | null {
 	const tokens = prefix.split(/\s+/);
 	if (tokens.length > 1) {
-		// `create … --size <tier>`: completa los nombres de tier.
+		// `create … --size <tier>`: completa los nombres de nivel.
 		const prev = tokens[tokens.length - 2];
 		if (tokens[0] === "create" && (prev === "--size" || prev === "--tier")) {
 			const needle = (tokens[tokens.length - 1] ?? "").toLowerCase();
@@ -41,6 +41,6 @@ export function completeContainerArgs(prefix: string): { value: string; label: s
 export async function resolveContainerInput(input: string, ctx: ExtensionContext): Promise<string> {
 	const trimmed = input.trim();
 	if (trimmed || !ctx.hasUI || typeof ctx.ui?.select !== "function") return trimmed;
-	const choice = await ctx.ui.select("Container action", CONTAINER_SELECT_ITEMS);
+	const choice = await ctx.ui.select("Acción de container", CONTAINER_SELECT_ITEMS);
 	return choice?.split(/\s+/)[0] ?? "";
 }

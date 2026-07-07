@@ -147,10 +147,10 @@ async function main() {
 		monitor.split("\n").slice(0, 6).join(" | "),
 	);
 
-	// Tab Runs: antes renderizaba un "No workflow runs found." pelado sin próximo paso.
+	// Tab Runs: antes renderizaba un "No se encontraron workflow runs." pelado sin próximo paso.
 	component.handleInput("R");
 	const runs = tabBody(component);
-	check("Runs tab is empty as expected", runs.includes("No workflow runs found."), runs.split("\n")[0]);
+	check("Runs tab is empty as expected", runs.includes("No se encontraron workflow runs."), runs.split("\n")[0]);
 	check(
 		"empty Runs tab advertises the /workflow start command",
 		runs.includes(HINT),

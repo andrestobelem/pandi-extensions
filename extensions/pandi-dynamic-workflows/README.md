@@ -1,17 +1,10 @@
 # @pandi-coding-agent/pandi-dynamic-workflows
 
-A JavaScript runtime for multi-agent workflows inside Pi: fan out parallel
-subagents, collect artifacts, resume interrupted runs, and watch it all in a
-TUI dashboard. Reach for it when a task is too big or too uncertain for a
-single reply — a repo-wide audit, a broad migration, or research that needs
-independent perspectives — but skip it for a single question or a one-file
-edit; a few direct tool calls are cheaper.
+Un runtime de JavaScript para workflows multiagente dentro de Pi: lanza subagentes en paralelo, junta artifacts, reanuda corridas interrumpidas y muestra todo en un dashboard TUI. Sirve cuando una tarea es demasiado grande o incierta para una sola respuesta — por ejemplo, una auditoría repo-wide, una migración amplia o una investigación con perspectivas independientes — y sobra para una pregunta simple o una edición de un solo archivo.
 
-## Quickstart
+## Inicio rápido
 
-A workflow is a plain JavaScript file: a top-level script (no `import`, no
-other exports) that ends with `return <value>`, using injected globals like
-`agent` and `args`. Save this as `.pi/workflows/hello.js`:
+Un workflow es un archivo JavaScript plano: un script top-level (sin `import`, sin otros exports) que termina con `return <value>` y usa globals inyectados como `agent` y `args`. Guardá esto como `.pi/workflows/hello.js`:
 
 ```js
 const input = typeof args === "string" ? JSON.parse(args) : (args ?? {});
@@ -20,96 +13,83 @@ const notes = await agent(`List 3 facts about ${topic}.`, { model: "haiku", effo
 return await agent(`Turn these notes into one tight paragraph:\n${notes}`, { effort: "high" });
 ```
 
-Then, from a Pi session:
+Después, desde una sesión de Pi:
 
 ```text
 /workflow check hello {"topic": "circuit breakers"}
 /workflow run hello {"topic": "circuit breakers"}
 ```
 
-That's the whole loop: write a `.js` file, optionally preflight it with `/workflow check`, then `/workflow run <name> [json-input]`.
-No UI? Ask the agent to call the `dynamic_workflow` tool with
-`action: "write"` (name + code) and `action: "run"` (name + input) instead.
+Ese es el loop completo: escribí un archivo `.js`, validalo opcionalmente con `/workflow check` y luego corré `/workflow run <name> [json-input]`.
+¿Sin UI? Pedile al agente que llame la tool `dynamic_workflow` con
+`action: "write"` (name + code) y `action: "run"` (name + input).
 
-## What you get
+## Qué te llevás
 
-- A JavaScript workflow runtime with injected globals: `agent`, `agents`, `pipeline`, `parallel`, `race`, `ask`, `workflow`, `phase`, `log`, `args`, plus read-only `limits`/`runId`/`runDir`/`cwd`.
-- The `dynamic_workflow` model tool for listing, scaffolding, reading, checking, writing, running, resuming, cancelling, deleting, graphing, listing runs, and viewing workflows (and more).
-- A resumable journal and per-run artifacts, so crashed or cancelled runs continue instead of restarting.
-- A live TUI dashboard (`/workflows` or `Ctrl+Alt+W`) with Monitor, Agents, Sessions, Runs, Workflows, Patterns, and Activity tabs.
-- Ultracode routing commands and a Contract Gate that reviews the task contract before broad orchestration.
-- A compact scaffold catalog: 12 primary scaffolds, 7 compose scaffolds, and 6 use-case scaffolds — no pattern aliases.
+- Un runtime de workflows JavaScript con globals inyectados: `agent`, `agents`, `pipeline`, `parallel`, `race`, `ask`, `workflow`, `phase`, `log`, `args`, más `limits`/`runId`/`runDir`/`cwd` de solo lectura.
+- La tool de modelo `dynamic_workflow` para listar, scaffoldear, leer, validar, escribir, correr, reanudar, cancelar, borrar, graficar, listar runs y ver workflows (entre otras cosas).
+- Un journal reanudable y artifacts por run, para que una corrida caída o cancelada continúe en vez de reiniciarse.
+- Un dashboard TUI en vivo (`/workflows` o `Ctrl+Alt+W`) con tabs Monitor, Agents, Sessions, Runs, Workflows, Patterns y Activity.
+- Comandos de routing Ultracode y un Contract Gate que revisa el contrato de la tarea antes de orquestar en grande.
+- Un catálogo compacto de scaffolds: 12 primarios, 7 de composición y 6 orientados a casos de uso, sin aliases de patterns.
 
-## Install
+## Instalar
 
-From npm:
+Desde npm:
 
 ```bash
 pi install npm:@pandi-coding-agent/pandi-dynamic-workflows
 ```
 
-From this repository:
+Desde este repositorio:
 
 ```bash
-pi install ./extensions/pandi-dynamic-workflows          # global (your user)
-pi install -l ./extensions/pandi-dynamic-workflows       # project-local
-pi --no-extensions -e ./extensions/pandi-dynamic-workflows   # one-off trial, nothing else loaded
+pi install ./extensions/pandi-dynamic-workflows          # global (tu usuario)
+pi install -l ./extensions/pandi-dynamic-workflows       # local al proyecto
+pi --no-extensions -e ./extensions/pandi-dynamic-workflows   # prueba puntual, sin cargar nada más
 ```
 
-## Choosing a primitive
+## Cómo elegir un primitive
 
-| Situation | Primitive |
+| Situación | Primitive |
 | --- | --- |
-| One subagent call | `agent(prompt, options?)` |
-| Same one step, over many independent items | `agents(items, options?)` |
-| 2+ dependent stages per item, no cross-item merge | `pipeline(items, ...stages)` |
-| A later step needs ALL results at once (barrier: dedup, rank, merge) | `parallel(thunks)` |
-| First accepted answer wins; cancel the rest | `race(thunks, { accept? })` |
-| The workflow can't safely decide alone — needs a human call | `ask(question, options?)` |
+| Una llamada a subagente | `agent(prompt, options?)` |
+| El mismo paso, sobre muchos ítems independientes | `agents(items, options?)` |
+| 2+ etapas dependientes por ítem, sin merge entre ítems | `pipeline(items, ...stages)` |
+| Un paso posterior necesita TODOS los resultados juntos (barrera: dedupe, rank, merge) | `parallel(thunks)` |
+| Gana la primera respuesta aceptada; se cancela el resto | `race(thunks, { accept? })` |
+| El workflow no puede decidir solo de forma segura y necesita una persona | `ask(question, options?)` |
 
-`race` and `ask` are pi-only (not on the Claude Code Workflow tool). See
-`primitives/*.md` for full signatures and gotchas.
+`race` y `ask` son exclusivos de pi (no existen en la Claude Code Workflow tool). Mirá `primitives/*.md` para firmas completas y gotchas.
 
-## Commands
+## Comandos
 
-| Command | What it does |
+| Comando | Qué hace |
 | --- | --- |
-| `/workflow …` | Manage workflows: `new` (scaffold), `check`, `run`, `start`, `agents`, `sessions`, `cleanup`, `delete`, `delete-run`, and more. |
-| `/workflows` | Open the workflow dashboard (also `Ctrl+Alt+W`). |
-| `/dynamic-workflow` (alias `/ultracode`) | Route the current task through the Ultracode workflow router. |
-| `/deep-research` | Legacy intent; routes to the `complex-research` pattern. |
-| `/ultracode-mode` | Toggle always-on Ultracode routing for the session. |
-| `/ultracode-contract` | Toggle the Contract Gate; `/ultracode-contract off` disables it for the session. |
-| `dynamic_workflow` | Model tool: list, scaffold, read, check, write, run, start, resume, cancel, delete, graph, runs, view, and report on workflows (and more). |
+| `/workflow …` | Administra workflows: `new` (scaffold), `check`, `run`, `start`, `agents`, `sessions`, `cleanup`, `delete`, `delete-run` y más. |
+| `/workflows` | Abre el dashboard de workflows (también `Ctrl+Alt+W`). |
+| `/dynamic-workflow` (alias `/ultracode`) | Enruta la tarea actual por el router de workflows de Ultracode. |
+| `/deep-research` | Intent legacy; enruta al pattern `complex-research`. |
+| `/ultracode-mode` | Activa o desactiva el routing Ultracode always-on para la sesión. |
+| `/ultracode-contract` | Activa o desactiva el Contract Gate; `/ultracode-contract off` lo apaga para la sesión. |
+| `dynamic_workflow` | Tool de modelo: lista, scaffoldea, lee, valida, escribe, corre, inicia, reanuda, cancela, borra, grafica, lista runs, ve y reporta workflows (entre otras cosas). |
 
-`/workflow cleanup` is dry-run friendly and owned by this extension: `sessions` prunes stale workflow heartbeats, `runs` removes terminal run dirs while retaining recent history, `drafts` removes old unused draft files, and `tmp` removes old `.pi/tmp` scratch entries. Use `--dry-run` to see every `delete`/`keep` decision with a reason; destructive cleanup requires UI confirmation or `--yes` in headless mode. `both` keeps the legacy default (`sessions+runs`); `all` includes `drafts` and `tmp` too.
+`/workflow cleanup` está pensado para dry-run y pertenece a esta extensión: `sessions` poda heartbeats viejos, `runs` elimina directorios terminales manteniendo historial reciente, `drafts` borra drafts viejos sin uso y `tmp` limpia entradas antiguas de `.pi/tmp`. Usá `--dry-run` para ver cada decisión `delete`/`keep` con su razón; la limpieza destructiva requiere confirmación en UI o `--yes` en modo headless. `both` conserva el default legacy (`sessions+runs`) y `all` suma `drafts` y `tmp`.
 
-`/workflow check <name> [json-input]` validates the workflow source and launch input without creating a run. `/workflow run <name>` runs in the foreground and prints the result — except
-inside a persistent (TUI) session, where it auto-backgrounds so the dashboard
-stays the control plane. `/workflow start <name>` launches in the background
-when the session is TUI or RPC, so you can keep chatting while it runs; in
-print/json mode there is no persistent session to keep it alive, so it errors
-instead of falling back to foreground.
+`/workflow check <name> [json-input]` valida la fuente del workflow y su input sin crear un run. `/workflow run <name>` corre en foreground e imprime el resultado, salvo dentro de una sesión persistente (TUI), donde pasa automáticamente a background para que el dashboard siga siendo el plano de control. `/workflow start <name>` lanza en background cuando la sesión es TUI o RPC, así podés seguir chateando mientras corre; en modo print/json no existe una sesión persistente que lo mantenga vivo, así que falla en vez de degradarse a foreground.
 
-On `/reload`, active background workflows are interrupted and automatically
-resumed in the fresh extension instance with the same `runId` and original
-limits (`concurrency`, `maxAgents`, timeouts). Completed journaled calls stay
-cached; in-flight calls and uncached side effects may run again, matching normal
-`/workflow resume` semantics.
+En `/reload`, los workflows activos en background se interrumpen y se reanudan automáticamente en la instancia nueva de la extensión con el mismo `runId` y los límites originales (`concurrency`, `maxAgents`, timeouts). Las llamadas ya journaled siguen cacheadas; las que estaban en vuelo y los efectos laterales no cacheados pueden ejecutarse otra vez, igual que con `/workflow resume`.
 
-## How it works
+## Cómo funciona
 
-Stable workflows live in `.pi/workflows/`; drafts and run artifacts live under
-`.pi/workflows/drafts/` and `.pi/workflows/runs/` in trusted projects. A
-workflow may optionally declare `export const meta = { name, description,
-phases }` for dashboard labels. Key primitives beyond the table above:
+Los workflows estables viven en `.pi/workflows/`; los drafts y artifacts de runs viven en `.pi/workflows/drafts/` y `.pi/workflows/runs/` dentro de proyectos confiables. Un workflow puede declarar opcionalmente `export const meta = { name, description, phases }` para etiquetas del dashboard. Algunos primitives clave, además de la tabla de arriba:
 
-- `ask(question, opts?)` — pause a branch to ask a human via Pi's UI (`input`/`confirm`/`select`). Resume-safe (the answer is journaled and replayed, never re-asked), headless-honest (`opts.default` or a clear error, never hangs), and cancellable inside `race()`.
-- `race(thunks, { accept? })` — first accepted branch wins; in-flight losers are cancelled with a real SIGTERM via each thunk's `AbortSignal`. Returns `{ winner, index, status }`.
-- **Per-call model and reasoning:** every subagent call can set its own `model`, `provider`, and `effort` (`low|medium|high|xhigh|max`). Omitting them inherits the orchestrator's model and session reasoning level. They are part of the cache key, so changing them re-runs that call on resume.
+- `ask(question, opts?)` — pausa una rama para preguntarle a una persona vía la UI de Pi (`input`/`confirm`/`select`). Es seguro al reanudar (la respuesta queda journaled y se reproduce, nunca se vuelve a preguntar), honesto en modo headless (`opts.default` o error claro, nunca cuelga) y cancelable dentro de `race()`.
+- `race(thunks, { accept? })` — gana la primera rama aceptada; los perdedores en vuelo se cancelan con un SIGTERM real vía el `AbortSignal` de cada thunk. Devuelve `{ winner, index, status }`.
+- **Modelo y razonamiento por llamada:** cada subagente puede fijar su propio `model`, `provider` y `effort` (`low|medium|high|xhigh|max`). Si los omitís, heredan el modelo del orquestador y el reasoning level de la sesión. Forman parte de la cache key, así que cambiarlos reejecuta esa llamada al reanudar.
 
 ```js
-// Decide model + reasoning per call.
+// Elegí modelo + razonamiento por llamada.
 const notes = await agents(files.map((f) => ({
   label: `scout-${f}`, prompt: `Summarize risks in ${f}.`,
   model: "haiku", effort: "low", tools: ["read", "grep", "find", "ls"],
@@ -120,82 +100,82 @@ const verdict = await agent(
 );
 ```
 
-Prompt-design rules baked into the scaffolds:
+Reglas de diseño de prompts incorporadas en los scaffolds:
 
-- **Stable KV-cache prefix.** Put the shared framing (role, task, success criteria, output format) first and the volatile per-item content last, so identical prefixes reuse the provider prompt/KV cache. Avoid `Date.now()`/`Math.random()` inside prompts — they bust that cache and make the resume journal miss, re-running the call.
-- **Position-aware synthesis.** Models attend best to the start and end of context and worst to the middle (the *lost-in-the-middle* U-curve; see `docs/research/2026-06-28-context-engineering-focus.md`). Synthesis scaffolds restate the task and criteria AFTER the evidence block, with a short footer asking for the output format, most-important-first ordering, and explicit notes on failed/empty branches. Replicate this in your own workflows: task/criteria at both ends, evidence in the middle.
+- **Prefijo estable para KV-cache.** Poné primero el framing compartido (rol, tarea, criterios de éxito, formato de salida) y dejá al final el contenido volátil por ítem, para que los prefijos idénticos reutilicen la prompt/KV cache del provider. Evitá `Date.now()`/`Math.random()` dentro de prompts: rompen esa cache y hacen fallar el journal de resume, reejecutando la llamada.
+- **Síntesis consciente de la posición.** Los modelos atienden mejor al principio y al final del contexto y peor al medio (la curva en U de *lost in the middle*; ver `docs/research/2026-06-28-context-engineering-focus.md`). Los scaffolds de síntesis reafirman la tarea y los criterios DESPUÉS del bloque de evidencia, con un cierre corto que pide formato de salida, orden por importancia y notas explícitas sobre ramas fallidas o vacías. Repetí este patrón en tus workflows: tarea/criterios en ambos extremos, evidencia en el medio.
 
-When always-on routing is enabled, the prompt's top border embeds an `ultracode auto` label (border color only, plain borders only, so scroll hints like `↑ N more` stay untouched), and the status line shows `uc:auto`/`uc:off` for routing and `cg:on`/`cg:off` for the Contract Gate.
+Cuando el routing always-on está activo, el borde superior del prompt incrusta la etiqueta `ultracode auto` (solo color del borde, siempre plain borders, para no tocar hints como `↑ N more`), y la línea de estado muestra `uc:auto`/`uc:off` para el routing y `cg:on`/`cg:off` para el Contract Gate.
 
-## Limitations & safety notes
+## Limitaciones y notas de seguridad
 
-The runtime bounds execution at several layers so a workflow cannot grow without control:
+El runtime limita la ejecución en varias capas para que un workflow no crezca sin control:
 
-- **`maxAgents`** — cap on subagents per run (across all phases, not just peak parallelism); clamped to `limits.maxAgents`.
-- **`concurrency`** — simultaneous subagents; clamped to `limits.concurrency`.
-- **Depth-1 composition** — `workflow(name, args)` invokes reusable sub-workflows one level deep only; deeper recursive calls are refused.
-- **Cross-process recursion guard** — each subagent is spawned one level deeper (`PI_DYNAMIC_WORKFLOWS_DEPTH` = depth + 1). If a subagent with `includeExtensions: true` has the `dynamic_workflow` tool, its `start`/`run`/`resume` actions are **refused** once its depth reaches the limit. This closes the vector where a subagent would launch nested top-level runs that do not count against the parent's budget.
-- Runs still execute in untrusted projects, but their artifacts are redirected to a global, project-hashed root instead of `.pi/workflows/runs/`. Only writing drafts/workflows with `scope=project` requires a **trusted project** (use `scope=global` to write without trust).
+- **`maxAgents`** — tope de subagentes por run (en todas las fases, no solo el pico de paralelismo); se clampa a `limits.maxAgents`.
+- **`concurrency`** — subagentes simultáneos; se clampa a `limits.concurrency`.
+- **Composición depth-1** — `workflow(name, args)` invoca sub-workflows reutilizables con un solo nivel de profundidad; las llamadas recursivas más profundas se rechazan.
+- **Guard de recursión cross-process** — cada subagente se lanza un nivel más profundo (`PI_DYNAMIC_WORKFLOWS_DEPTH` = depth + 1). Si un subagente con `includeExtensions: true` tiene la tool `dynamic_workflow`, sus acciones `start`/`run`/`resume` se **rechazan** cuando la profundidad llega al límite. Así se cierra el vector en el que un subagente dispararía runs top-level anidados que no cuentan contra el presupuesto del padre.
+- Los runs todavía pueden ejecutarse en proyectos no confiables, pero sus artifacts se redirigen a una raíz global hasheada por proyecto en vez de `.pi/workflows/runs/`. Solo escribir drafts/workflows con `scope=project` requiere un **trusted project** (usá `scope=global` para escribir sin trust).
 
-## Details
+## Detalles
 
-### Environment variables
+### Variables de entorno
 
-| Variable | Meaning |
+| Variable | Significado |
 | --- | --- |
-| `PI_DYNAMIC_WORKFLOWS_DEPTH` | Nesting depth of the current session (`0` at top-level Pi). Set by the runtime when spawning each subagent; you never set it by hand. |
-| `PI_DYNAMIC_WORKFLOWS_MAX_DEPTH` | Limit before `start`/`run`/`resume` is refused (default **`2`**, allowing up to two nesting levels). Raise it to allow more nesting; **`0` disables all runs** (including top-level) — useful as a kill-switch. |
+| `PI_DYNAMIC_WORKFLOWS_DEPTH` | Profundidad de anidamiento de la sesión actual (`0` en el Pi top-level). La setea el runtime al lanzar cada subagente; nunca la definís a mano. |
+| `PI_DYNAMIC_WORKFLOWS_MAX_DEPTH` | Límite a partir del cual `start`/`run`/`resume` se rechaza (default **`2`**, permite hasta dos niveles de anidamiento). Subilo para permitir más nesting; **`0` deshabilita todos los runs** (incluidos los top-level), útil como kill-switch. |
 
-### Monitor and dashboard
+### Monitor y dashboard
 
-Open the dashboard with `/workflows` or `Ctrl+Alt+W`. From an **empty** editor, `↓` opens the Monitor and `←` opens Sessions (with a written prompt, `↓`/`←` remain normal cursor movement). `/workflow agents` and `/workflow sessions` open those tabs directly, and the idle status line shows `wf · /workflows` as an entry point.
+Abrí el dashboard con `/workflows` o `Ctrl+Alt+W`. Desde un editor **vacío**, `↓` abre Monitor y `←` abre Sessions (si ya hay un prompt escrito, `↓`/`←` vuelven a ser movimiento normal del cursor). `/workflow agents` y `/workflow sessions` abren esas tabs directamente, y la línea de estado idle muestra `wf · /workflows` como punto de entrada.
 
-Keyboard summary (`?` opens the full help overlay):
+Resumen de teclado (`?` abre la ayuda completa):
 
-- **Tabs:** `Tab`/`→` next, `Shift+Tab`/`←` previous; direct jumps `m` Monitor · `A`/`n` Agents · `a` Activity · `s` Sessions · `w` Workflows · `p` Patterns · `R` Runs.
-- **Lists:** `↑`/`↓` or `k`/`j`; `PgUp`/`PgDn` page; `Home`/`End` or `G` first/last.
-- **Actions:** `Enter`/`o` agent detail — a sub-tabbed screen (**Card · Prompt · Graph · Output · Definition · Run**; switch with `←`/`→`, `Tab`, or `1`–`6`, scroll position remembered per tab) · `v` view run · `g` graph · `c`/`x` cancel active run · `r` rerun · `d`/`Del` delete run (with confirmation). In **Agents**, `f` jumps to the next `failed` agent.
-- **Monitor:** with several active runs, `[` and `]` switch the focused run (`Active runs (N)` list on top and a `run k/N` title). The header shows `updated Ns ago` on each refresh, or `⚠ refresh failed: …` on failure.
-- **Live agent viewer:** `↑↓`/`PgUp`/`PgDn`/`Home`/`End` to scroll; the header says `refresh 1s` while running and `final (<state>)` when done (polling stops there). `q`/`Esc` closes.
+- **Tabs:** `Tab`/`→` siguiente, `Shift+Tab`/`←` anterior; saltos directos `m` Monitor · `A`/`n` Agents · `a` Activity · `s` Sessions · `w` Workflows · `p` Patterns · `R` Runs.
+- **Listas:** `↑`/`↓` o `k`/`j`; `PgUp`/`PgDn` página; `Home`/`End` o `G` primero/último.
+- **Acciones:** `Enter`/`o` detalle de agente — una pantalla con sub-tabs (**Card · Prompt · Graph · Output · Definition · Run**; cambiá con `←`/`→`, `Tab` o `1`–`6`, y el scroll se recuerda por tab) · `v` ver run · `g` graph · `c`/`x` cancelar run activo · `r` rerun · `d`/`Del` borrar run (con confirmación). En **Agents**, `f` salta al próximo agente `failed`.
+- **Monitor:** con varios runs activos, `[` y `]` cambian el run enfocado (`Active runs (N)` arriba y un título `run k/N`). El encabezado muestra `actualizado hace Ns` en cada refresh, o `⚠ falló el refresh: …` si falla.
+- **Live agent viewer:** `↑↓`/`PgUp`/`PgDn`/`Home`/`End` para scroll; el encabezado muestra `refresh 1s` mientras corre y `final (<state>)` al terminar (ahí se detiene el polling). `q`/`Esc` cierra.
 
-The top help only advertises actions valid for the selected run (for example, no `cancel` when the run is not active). Destructive actions (cancel, delete, rerun, switch session) ask for confirmation.
+La ayuda superior solo anuncia acciones válidas para el run seleccionado (por ejemplo, no muestra `cancel` cuando el run no está activo). Las acciones destructivas (cancelar, borrar, rerun, cambiar de sesión) piden confirmación.
 
-### Scaffold catalog
+### Catálogo de scaffolds
 
-Before writing a workflow, use `dynamic_workflow action=scaffold` or `/workflow new <name> --pattern=<key>` to inspect the closest scaffold. Scaffolds are design pieces: pick the simplest one that produces evidence, record limits/caps, and leave verifiable artifacts. Do not use Dynamic Workflows for a simple question, a single-file edit, or a task that fits in a few direct tool calls. Legacy intents remain as routes: `deep-research` → `complex-research`, `default` → `fan-out-and-synthesize`.
+Antes de escribir un workflow, usá `dynamic_workflow action=scaffold` o `/workflow new <name> --pattern=<key>` para inspeccionar el scaffold más cercano. Los scaffolds son piezas de diseño: elegí la más simple que produzca evidencia, registrá límites/caps y dejá artifacts verificables. No uses Dynamic Workflows para una pregunta simple, una edición de un solo archivo o una tarea que entra en unas pocas tool calls directas. Los intents legacy siguen como rutas: `deep-research` → `complex-research`, `default` → `fan-out-and-synthesize`.
 
-| Scaffold | Use it for | Choose it when |
+| Scaffold | Usalo para | Elegilo cuando |
 | --- | --- | --- |
-| `scout-fanout` | Cheap classification, then per-class treatment. | An audit, PR review, or migration should spend expensive agents only on medium/high-risk files. Verify: full classification artifact, skipped-item counts, evidence per follow-up. |
-| `fan-out-and-synthesize` | Independent work with one final reduction. | You can split by files, topics, modules, or perspectives and need a synthesis that drops unsupported findings. Verify: coverage, failed branches, caps, cited findings. |
-| `adversarial-verify` | Pruning claims, suspected bugs, or plans before acting. | The cost of accepting a false positive is high. Verify: each claim ends `verified` or `dropped` with a reason and evidence. |
-| `judge-escalate` | Designing several solutions and choosing by an explicit rubric. | You need best-of-N for architecture, prompts, or strategy. Verify: candidates, rubric, scores, and drop reasons are saved. |
-| `tournament` | Pairwise comparisons and bracket ranking. | Designs, prompts, or plans must compete head-to-head and relative ranking beats absolute scores. Verify: bracket/matrix, criteria, winner rationale. |
-| `loop-until-dry` | Discovery or repair of unknown size. | You must iterate until quiet rounds, `maxRounds`, budget, or timeout. Verify: round log, stop criterion, deduplicated findings. |
-| `composition-driver` | Local discovery composed with a stable verification library. | No human decision is needed between discovering and verifying. Verify: serializable JSON contract between parent and child, artifacts from both. |
-| `verify-claims-lib` | Shared sub-workflow for fact-checking / claim pruning. | Several workflows need the same verification without copying prompts. Verify: `{ claims, skeptics? }` input, stable output, explicit failure handling. |
-| `workflow-factory` | Meta-workflow that designs a task-specific workflow. | Orchestration is complex enough that prompts/contracts deserve review before spending many subagents. Verify: draft under `.pi/workflows/drafts/`, review, decision artifacts. |
-| `repo-bug-hunt` | Finding likely bugs across many files. | You want a reusable broad audit, not a manual one-off. Verify: file coverage, prioritized findings, file/line citations. |
-| `large-migration` | Planning or executing migrations across many files. | You must discover blockers, risks, and caps before editing. Verify: candidate inventory, risk classification, migration checklist. |
-| `complex-research` | Broad research with sources, comparisons, or migration analysis. | You need independent perspectives and citations, not a quick answer. Verify: sources per claim, angle coverage, research limits. |
-| `adversarial-plan-review` | A skeptical panel before implementing a risky decision. | A plan needs critique from several perspectives. Verify: accepted risks, recommended changes, verification gaps. |
-| `bug-verify` | Confirming sweep findings before reporting or changing code. | You have suspected bugs/claims and want to separate real evidence from hallucinations. Verify: each finding has a repro, concrete evidence, or a drop reason. |
+| `scout-fanout` | Clasificación barata y después tratamiento por clase. | Una auditoría, PR review o migración debería gastar agentes caros solo en archivos de riesgo medio/alto. Verificá: artifact completo de clasificación, conteo de ítems omitidos, evidencia por follow-up. |
+| `fan-out-and-synthesize` | Trabajo independiente con una reducción final. | Podés partir por archivos, temas, módulos o perspectivas y necesitás una síntesis que descarte hallazgos sin soporte. Verificá: cobertura, ramas fallidas, caps, hallazgos citados. |
+| `adversarial-verify` | Podar claims, bugs sospechados o planes antes de actuar. | El costo de aceptar un falso positivo es alto. Verificá: cada claim termina `verified` o `dropped` con razón y evidencia. |
+| `judge-escalate` | Diseñar varias soluciones y elegir con una rúbrica explícita. | Necesitás best-of-N para arquitectura, prompts o estrategia. Verificá: candidatos, rúbrica, puntajes y razones de descarte guardados. |
+| `tournament` | Comparaciones por pares y ranking por bracket. | Diseños, prompts o planes tienen que competir mano a mano y el ranking relativo vale más que el puntaje absoluto. Verificá: bracket/matriz, criterios y razón del ganador. |
+| `loop-until-dry` | Descubrimiento o reparación de tamaño desconocido. | Tenés que iterar hasta rondas silenciosas, `maxRounds`, presupuesto o timeout. Verificá: log por ronda, criterio de corte y hallazgos deduplicados. |
+| `composition-driver` | Descubrimiento local compuesto con una librería de verificación estable. | No hace falta decisión humana entre descubrir y verificar. Verificá: contrato JSON serializable entre padre e hijo, artifacts de ambos. |
+| `verify-claims-lib` | Sub-workflow compartido para fact-checking / poda de claims. | Varios workflows necesitan la misma verificación sin copiar prompts. Verificá: input `{ claims, skeptics? }`, output estable y manejo explícito de fallas. |
+| `workflow-factory` | Meta-workflow que diseña un workflow específico para la tarea. | La orquestación es lo bastante compleja como para revisar prompts/contratos antes de gastar muchos subagentes. Verificá: draft bajo `.pi/workflows/drafts/`, review y artifacts de decisión. |
+| `repo-bug-hunt` | Buscar bugs probables en muchos archivos. | Querés una auditoría amplia reusable, no una revisión manual one-off. Verificá: cobertura de archivos, hallazgos priorizados, citas file/line. |
+| `large-migration` | Planificar o ejecutar migraciones en muchos archivos. | Tenés que descubrir blockers, riesgos y caps antes de editar. Verificá: inventario de candidatos, clasificación de riesgo y checklist de migración. |
+| `complex-research` | Investigación amplia con fuentes, comparaciones o análisis de migración. | Necesitás perspectivas independientes y citas, no una respuesta rápida. Verificá: fuentes por claim, cobertura de ángulos y límites de investigación. |
+| `adversarial-plan-review` | Un panel escéptico antes de implementar una decisión riesgosa. | Un plan necesita crítica desde varias perspectivas. Verificá: riesgos aceptados, cambios recomendados y gaps de verificación. |
+| `bug-verify` | Confirmar hallazgos de sweeps antes de reportar o cambiar código. | Tenés bugs/claims sospechados y querés separar evidencia real de alucinación. Verificá: cada hallazgo tiene repro, evidencia concreta o razón de descarte. |
 
-### Research-backed templates
+### Plantillas apoyadas en research
 
-Map common agent papers/frameworks to Pi workflow design:
+Mapeo de papers/frameworks comunes de agentes al diseño de workflows en Pi:
 
-- **ReAct** -> scout/observe with tools before fan-out; keep reasoning tied to evidence.
-- **Self-consistency** -> sample independent branches, then select by consistency/evidence rather than trusting one path.
-- **Reflexion / Self-Refine** -> generate -> critique -> refine loops, always bounded by rounds, quiet stops, `maxAgents`, and timeout.
-- **Tree of Thoughts** -> branch alternatives, evaluate/prune with a judge, then commit to one path.
-- **Multiagent debate** -> adversarial reviewers plus synthesis-as-judge; unsupported claims are dropped.
-- **AutoGen / CAMEL / MetaGPT** -> explicit roles, stable artifacts, and clear handoff contracts.
-- **SWE-agent / DSPy** -> interface and contracts matter: narrow tools, schemas/fixed formats, and reproducible checks.
+- **ReAct** -> scoutear/observar con tools antes del fan-out; mantener el razonamiento atado a la evidencia.
+- **Self-consistency** -> muestrear ramas independientes y luego elegir por consistencia/evidencia, en vez de confiar en un solo camino.
+- **Reflexion / Self-Refine** -> loops de generate -> critique -> refine, siempre acotados por rondas, quiet stops, `maxAgents` y timeout.
+- **Tree of Thoughts** -> ramificar alternativas, evaluar/podar con un judge y luego comprometerse con un camino.
+- **Multiagent debate** -> reviewers adversariales más síntesis-como-juez; los claims sin soporte se descartan.
+- **AutoGen / CAMEL / MetaGPT** -> roles explícitos, artifacts estables y contratos de handoff claros.
+- **SWE-agent / DSPy** -> importan la interfaz y los contratos: tools estrechos, schemas/formatos fijos y chequeos reproducibles.
 
-Use these as patterns, not ceremony: every branch needs a reason, a contract, and a stop condition.
+Usalos como patterns, no como ceremonia: cada rama necesita una razón, un contrato y una condición de parada.
 
-## Related
+## Relacionado
 
-- For `/effort ultracode`, also install `./extensions/pandi-effort`.
-- For the full bundle of extensions and skills, install the repository root instead.
+- Para `/effort ultracode`, instalá también `./extensions/pandi-effort`.
+- Para el bundle completo de extensiones y skills, instalá la raíz del repositorio.

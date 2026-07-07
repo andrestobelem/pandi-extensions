@@ -113,8 +113,8 @@ async function loadExtension(url) {
 
 async function scenarioRegisters(url) {
 	const { commands } = await loadExtension(url);
-	check("/mdview command registered", commands.has("mdview"));
-	check("/mdview has description", /Markdown/i.test(commands.get("mdview")?.description || ""));
+	check("/mdview registrado", commands.has("mdview"));
+	check("/mdview tiene descripción", /Markdown/i.test(commands.get("mdview")?.description || ""));
 }
 
 async function scenarioPackageDeclaresRuntimePeers() {
@@ -123,7 +123,7 @@ async function scenarioPackageDeclaresRuntimePeers() {
 		await fs.readFile(path.join(REPO_ROOT, "extensions", "pandi-mdview", "package.json"), "utf8"),
 	);
 	check(
-		"package: declares typebox peer dependency used by runtime schema import",
+		"package: declara la peer dependency de typebox usada por el import de esquema en runtime",
 		!/from "typebox"/.test(source) || typeof pkg.peerDependencies?.typebox === "string",
 		JSON.stringify(pkg.peerDependencies),
 	);
@@ -137,10 +137,10 @@ async function scenarioRendersRelativePath(url) {
 
 	await commands.get("mdview").handler("README.md", ctx);
 	const rendered = stripAnsi(ctx._customCalls[0].firstRender.join("\n"));
-	check("/mdview opens custom UI", ctx._customCalls.length === 1, String(ctx._customCalls.length));
-	check("/mdview renders heading text", /Hello Markdown/.test(rendered), rendered);
-	check("/mdview renders body text", /Body text/.test(rendered), rendered);
-	check("/mdview shows close hint", /q\/Esc cerrar/.test(rendered), rendered);
+	check("/mdview abre UI personalizada", ctx._customCalls.length === 1, String(ctx._customCalls.length));
+	check("/mdview renderiza el título", /Hello Markdown/.test(rendered), rendered);
+	check("/mdview renderiza el cuerpo", /Body text/.test(rendered), rendered);
+	check("/mdview muestra la pista de cierre", /q\/Esc cerrar/.test(rendered), rendered);
 }
 
 async function scenarioQuotedPath(url) {
@@ -152,7 +152,7 @@ async function scenarioQuotedPath(url) {
 
 	await commands.get("mdview").handler('"docs/file with spaces.md"', ctx);
 	const rendered = stripAnsi(ctx._customCalls[0].firstRender.join("\n"));
-	check("/mdview resolves quoted relative paths", /Spaced Path/.test(rendered), rendered);
+	check("/mdview resuelve rutas relativas entre comillas", /Spaced Path/.test(rendered), rendered);
 }
 
 async function scenarioErrors(url) {
@@ -162,22 +162,18 @@ async function scenarioErrors(url) {
 
 	const noArgCtx = makeCtx({ cwd });
 	await command.handler("", noArgCtx);
-	check(
-		"/mdview missing arg does not open UI",
-		noArgCtx._customCalls.length === 0,
-		String(noArgCtx._customCalls.length),
-	);
-	check("/mdview missing arg reports usage", /Uso: \/mdview/.test(noArgCtx._notes.at(-1)?.msg || ""));
+	check("/mdview sin argumento no abre UI", noArgCtx._customCalls.length === 0, String(noArgCtx._customCalls.length));
+	check("/mdview sin argumento reporta uso", /Uso: \/mdview/.test(noArgCtx._notes.at(-1)?.msg || ""));
 
 	const missingCtx = makeCtx({ cwd });
 	await command.handler("missing.md", missingCtx);
 	check(
-		"/mdview missing file does not open UI",
+		"/mdview sin archivo no abre UI",
 		missingCtx._customCalls.length === 0,
 		String(missingCtx._customCalls.length),
 	);
 	check(
-		"/mdview missing file reports error",
+		"/mdview sin archivo reporta error",
 		missingCtx._notes.at(-1)?.type === "error",
 		JSON.stringify(missingCtx._notes),
 	);
@@ -205,9 +201,9 @@ async function scenarioRejectsNonMarkdownExtension(url) {
 	const { commands } = await loadExtension(url);
 	const ctx = makeCtx({ cwd });
 	await commands.get("mdview").handler("secret.txt", ctx);
-	check("non-md: does not open viewer", ctx._customCalls.length === 0, String(ctx._customCalls.length));
+	check("no Markdown: no abre el visor", ctx._customCalls.length === 0, String(ctx._customCalls.length));
 	check(
-		"non-md: reports Markdown extension requirement",
+		"no Markdown: informa el requisito de extensión",
 		/\.md|\.markdown/i.test(ctx._notes.at(-1)?.msg || ""),
 		JSON.stringify(ctx._notes.at(-1)),
 	);
@@ -219,11 +215,11 @@ async function scenarioJsonHeadlessErrorToStderr(url) {
 	const ctx = makeCtx({ cwd, mode: "json", hasUI: false });
 	const { out, err } = await captureConsole(() => commands.get("mdview").handler("missing.md", ctx));
 	check(
-		"json headless: error goes to stderr, not stdout",
+		"json sin UI: el error va a stderr, no a stdout",
 		/No se pudo leer/.test(err) && !/No se pudo leer/.test(out),
 		JSON.stringify({ out, err }),
 	);
-	check("json headless: ui.notify never used", ctx._notes.length === 0, JSON.stringify(ctx._notes));
+	check("json sin UI: nunca usa ui.notify", ctx._notes.length === 0, JSON.stringify(ctx._notes));
 }
 
 async function scenarioLargeFileGuard(url) {
@@ -232,13 +228,9 @@ async function scenarioLargeFileGuard(url) {
 	const { commands } = await loadExtension(url);
 	const ctx = makeCtx({ cwd });
 	await commands.get("mdview").handler("big.md", ctx);
+	check("archivo grande: no abre el visor", ctx._customCalls.length === 0, String(ctx._customCalls.length));
 	check(
-		"large-file: does not open the viewer for an oversized file",
-		ctx._customCalls.length === 0,
-		String(ctx._customCalls.length),
-	);
-	check(
-		"large-file: warns about size",
+		"archivo grande: avisa por tamaño",
 		/grande/i.test(ctx._notes.at(-1)?.msg || "") && ctx._notes.at(-1)?.type === "warning",
 		JSON.stringify(ctx._notes.at(-1)),
 	);
@@ -252,8 +244,8 @@ async function scenarioPrintModeStdout(url) {
 	const { out } = await captureConsole(() => commands.get("mdview").handler("doc.md", ctx));
 	// A nivel unitario: el handler emite el documento vía console.log. Bajo el binario real
 	// `pi --print`, ese stream se enruta a stderr (ver scenarioPrintModeRealStdout).
-	check("print: emits document content via console.log", out.includes("plain body"), out);
-	check("print: opens no custom UI", ctx._customCalls.length === 0, String(ctx._customCalls.length));
+	check("print: emite el contenido vía console.log", out.includes("plain body"), out);
+	check("print: no abre UI personalizada", ctx._customCalls.length === 0, String(ctx._customCalls.length));
 }
 
 async function scenarioPrintModeErrorToStderr(url) {
@@ -262,7 +254,7 @@ async function scenarioPrintModeErrorToStderr(url) {
 	const ctx = makeCtx({ cwd, mode: "print" });
 	const { out, err } = await captureConsole(() => commands.get("mdview").handler("missing.md", ctx));
 	check(
-		"print-error: error goes to stderr, not stdout",
+		"print-error: el error va a stderr, no a stdout",
 		/No se pudo leer/.test(err) && !/No se pudo leer/.test(out),
 		JSON.stringify({ out, err }),
 	);
@@ -299,17 +291,17 @@ async function scenarioPrintModeRealStdout() {
 	);
 	const stdout = r.stdout || "";
 	const stderr = r.stderr || "";
-	check("print-real: exits cleanly", r.status === 0, JSON.stringify({ status: r.status, err: stderr.slice(0, 200) }));
+	check("print-real: sale limpio", r.status === 0, JSON.stringify({ status: r.status, err: stderr.slice(0, 200) }));
 	// Contrato honesto: pi reserva stdout real para la respuesta del modelo, así que el
 	// documento se emite a la terminal vía stderr; `pi /mdview f.md > out.md`
 	// no captura nada. Estas dos verificaciones fijan ese enrutamiento real.
 	check(
-		"print-real: document is emitted to the terminal (stderr)",
+		"print-real: el documento se emite a la terminal (stderr)",
 		stderr.includes("UNIQUE_BODY_TOKEN"),
 		JSON.stringify({ stderrLen: stderr.length }),
 	);
 	check(
-		"print-real: stdout carries no document content (reserved for model output)",
+		"print-real: stdout no lleva contenido del documento (reservado para la salida del modelo)",
 		!stdout.includes("UNIQUE_BODY_TOKEN"),
 		JSON.stringify({ stdoutLen: stdout.length }),
 	);

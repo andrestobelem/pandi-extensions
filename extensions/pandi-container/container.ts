@@ -1,14 +1,14 @@
 /**
- * Utilidades puras + un único punto de spawn para la extensión pandi-container.
+ * Utilidades puras + un único punto de ejecución para la extensión pandi-container.
  *
  * La CLI `container` de Apple corre Linux en micro-VMs livianas (Virtualization.framework)
  * sobre Apple Silicon. Este módulo la envuelve igual que pandi-worktree envuelve git:
- *   - `runContainer` hace spawn de `container` con un array ARGV (nunca un string de shell),
- *     así referencias de imagen / nombres de máquina / comandos no pueden inyectar shell.
+ *   - `runContainer` lanza `container` con un array ARGV (nunca un string de shell),
+ *     así las referencias de imagen, los nombres de máquina y los comandos no pueden inyectar shell.
  *   - `build*Args` son constructores puros de argv (testeados exactamente).
  *   - `parseMachineList` / `formatMachineList` parsean el `--format json` de la CLI.
  *   - los manejadores `run*` reciben una fn `run` inyectada para que el despacho + la
- *     barrera de acción destructiva sean deterministas en tests sin bootear una VM real.
+ *     barrera de acción destructiva sean deterministas en tests sin arrancar una VM real.
  */
 
 import { spawn } from "node:child_process";
@@ -457,7 +457,7 @@ export interface ExecParams {
 }
 
 function describeRunTarget(params: Pick<ExecParams, "machine" | "image">): string {
-	return params.machine ? `machine ${params.machine}` : `ephemeral ${params.image}`;
+	return params.machine ? `máquina ${params.machine}` : `contenedor efímero ${params.image}`;
 }
 
 export async function runExec(run: RunContainer, params: ExecParams, opts: HandlerOpts): Promise<HandlerResult> {

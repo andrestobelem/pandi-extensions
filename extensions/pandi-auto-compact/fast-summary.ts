@@ -57,12 +57,12 @@ export function compactText(value: string | undefined, maxChars: number): { text
 	const tailChars = Math.max(0, maxChars - headChars);
 	const removed = Math.max(0, text.length - headChars - tailChars);
 	return {
-		text: `${text.slice(0, headChars)}\n…[truncated ${removed} chars for fast compaction]…\n${text.slice(text.length - tailChars)}`,
+		text: `${text.slice(0, headChars)}\n…[recortados ${removed} caracteres para la compactación rápida]…\n${text.slice(text.length - tailChars)}`,
 		truncated: true,
 	};
 }
 
-const asBlock = (title: string, body: string): string => `\n## ${title}\n${body.trim() || "(none)"}\n`;
+const asBlock = (title: string, body: string): string => `\n## ${title}\n${body.trim() || "(ninguno)"}\n`;
 
 export function buildFastSummaryPrompt(input: FastSummaryPromptInput): FastSummaryPromptResult {
 	const maxInputChars = Math.max(4_000, input.maxInputChars);
@@ -76,28 +76,28 @@ export function buildFastSummaryPrompt(input: FastSummaryPromptInput): FastSumma
 	const conversation = compactText(input.conversationText, conversationBudget);
 	const turnPrefix = compactText(input.turnPrefixText, turnBudget);
 	const { readFiles, modifiedFiles } = fileOpsToLists(input.fileOps);
-	const fileTags = `${asBlock("Read files", readFiles.join("\n"))}${asBlock("Modified files", modifiedFiles.join("\n"))}`;
+	const fileTags = `${asBlock("Archivos leídos", readFiles.join("\n"))}${asBlock("Archivos modificados", modifiedFiles.join("\n"))}`;
 
-	const prompt = `Sos el compactor rápido de una sesión larga de Pi. Convertí el material de abajo en un resumen OPERATIVO para poder continuar el trabajo con menos contexto.
+	const prompt = `Sos el compactor rápido de una sesión larga de Pi. Convertí el material de abajo en un resumen OPERATIVO para continuar el trabajo con menos contexto.
 
 Reglas:
 - Devolvé SOLO Markdown.
 - No transcribas la conversación ni outputs largos.
-- Conservá objetivo actual, restricciones/preferencias, decisiones, estado, bloqueos, próximos pasos y archivos importantes.
+- Conservá el objetivo actual, las restricciones/preferencias, las decisiones, el estado, los bloqueos, los próximos pasos y los archivos importantes.
 - Si algo no está confirmado, marcá la incertidumbre explícitamente.
 - Incluí al final los tags <read-files> y <modified-files> con los paths provistos; no inventes paths.
 - Preferí bullets cortos, accionables y verificables.
 
 Formato requerido:
-## Goal
-## Constraints & Preferences
-## Progress
-### Done
-### In Progress
-### Blocked
-## Key Decisions
-## Next Steps
-## Critical Context
+## Objetivo
+## Restricciones y preferencias
+## Progreso
+### Hecho
+### En curso
+### Bloqueado
+## Decisiones clave
+## Próximos pasos
+## Contexto crítico
 <read-files>
 ...
 </read-files>
@@ -105,11 +105,11 @@ Formato requerido:
 ...
 </modified-files>
 
-${asBlock("Previous compaction summary", previous.text)}${asBlock("Custom instructions", custom.text)}${fileTags}${asBlock("Conversation to summarize", conversation.text)}${
-	input.isSplitTurn ? asBlock("Early part of the split current turn", turnPrefix.text) : ""
+${asBlock("Resumen de compactación anterior", previous.text)}${asBlock("Instrucciones personalizadas", custom.text)}${fileTags}${asBlock("Conversación a resumir", conversation.text)}${
+	input.isSplitTurn ? asBlock("Primera parte del turno actual dividido", turnPrefix.text) : ""
 }
 
-Recordatorio final: resumí solo lo necesario para CONTINUAR el trabajo; no incluyas transcript ni ruido.`;
+Recordatorio final: resumí solo lo necesario para CONTINUAR el trabajo; no incluyas transcripción ni ruido.`;
 
 	return {
 		prompt,

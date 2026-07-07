@@ -1,72 +1,62 @@
 # @pandi-coding-agent/pandi-ask
 
-Interactive decision tools the model can call to ask *you* — an arrow-key picker and a
-yes/no dialog, instead of a plain-text numbered menu. They wrap pi's dialog helpers
-(`ctx.ui.select` / `ctx.ui.confirm`), so they work in both TUI and RPC modes.
+Herramientas interactivas para que el modelo te pida una decisión sin caer en menús de texto plano. `ask_choice` abre un selector con flechas y Enter; `ask_confirm` abre un diálogo sí/no. Ambas envuelven los helpers de diálogo de pi (`ctx.ui.select` / `ctx.ui.confirm`) y funcionan tanto en TUI como en RPC.
 
-## Quickstart
+## Inicio rápido
 
-Install once:
+Instalá una vez:
 
 ```bash
 pi install npm:@pandi-coding-agent/pandi-ask
 ```
 
-Then the model can call `ask_choice` mid-conversation. You pick with `↑↓` + Enter, and
-it gets back:
+Luego el modelo puede llamar a `ask_choice` en medio de la conversación. Elegís con `↑↓` + Enter y devuelve:
 
 ```json
 { "index": 1, "label": "Patch the bug" }
 ```
 
-If the model marks a recommended answer, you can opt into autopicking it:
+Si el modelo marca una respuesta recomendada, podés activar la autoelección:
 
 ```text
-/ask recommended on          # always choose the recommended answer immediately
-/ask recommended-timeout on  # wait 60s, then choose the recommended answer
-/ask status                  # show both toggles
+/ask recommended on          # siempre elige de inmediato la respuesta recomendada
+/ask recommended-timeout on  # espera 60s y luego elige la respuesta recomendada
+/ask status                  # muestra ambos toggles
 ```
 
-## Tools
+## Herramientas
 
-| Tool | Call | Returns |
+| Herramienta | Llamada | Devuelve |
 | --- | --- | --- |
-| `ask_choice` | `ask_choice(question, options, recommendedIndex?, recommendedLabel?)` — `options` is a non-empty list of strings, in display order; `recommendedIndex` is 1-based and wins over `recommendedLabel` | JSON `{"index", "label"}` for the chosen option (`index` is 1-based); `{"cancelled": true}` on Esc; `{"index", "label", "recommended": true}` when a recommended toggle chooses for you |
-| `ask_confirm` | `ask_confirm(title, message?, recommended?)` — `message` is optional; `recommended` is the suggested boolean answer | JSON `{"confirmed": true \| false}` (also `false` on cancel/timeout); `{"confirmed", "recommended": true}` when a recommended toggle chooses for you |
+| `ask_choice` | `ask_choice(question, options, recommendedIndex?, recommendedLabel?)` — `options` es una lista no vacía de strings, en orden de visualización; `recommendedIndex` es 1-based y tiene prioridad sobre `recommendedLabel` | JSON `{"index", "label"}` para la opción elegida (`index` es 1-based); `{"cancelled": true}` con Esc; `{"index", "label", "recommended": true}` cuando un toggle recomendado elige por vos |
+| `ask_confirm` | `ask_confirm(title, message?, recommended?)` — `message` es opcional; `recommended` es la respuesta booleana sugerida | JSON `{"confirmed": true \| false}` (también `false` en cancelación/timeout); `{"confirmed", "recommended": true}` cuando un toggle recomendado elige por vos |
 
-## Commands
+## Comandos
 
-| Command | What it does |
+| Comando | Qué hace |
 | --- | --- |
-| `/ask` or `/ask status` | Show current recommended-mode toggles. |
-| `/ask recommended on\|off\|status` | Toggle immediate recommended mode. When on, a valid recommended answer is returned without opening a dialog. |
-| `/ask recommended-timeout on\|off\|status` | Toggle delayed recommended mode. When on, a valid recommended answer is used after 60 seconds without a user choice. |
+| `/ask` o `/ask status` | Muestra los toggles actuales del modo recomendado. |
+| `/ask recommended on\|off\|status` | Activa o desactiva el modo recomendado inmediato. Cuando está activo, una respuesta recomendada válida se devuelve sin abrir diálogo. |
+| `/ask recommended-timeout on\|off\|status` | Activa o desactiva el modo recomendado diferido. Cuando está activo, una respuesta recomendada válida se usa después de 60 segundos sin elección del usuario. |
 
-If both toggles are on, immediate recommended mode wins. If a tool call has no valid
-recommended answer, behavior falls back to the normal interactive dialog.
+Si los dos toggles están activos, gana el modo recomendado inmediato. Si una llamada no tiene una respuesta recomendada válida, el comportamiento vuelve al diálogo interactivo normal.
 
-## Other install options
+## Otras opciones de instalación
 
-From this repository:
+Desde este repositorio:
 
 ```bash
-pi install ./extensions/pandi-ask          # global (your user)
-pi install -l ./extensions/pandi-ask       # project-local
-pi --no-extensions -e ./extensions/pandi-ask   # one-off trial, nothing else loaded
+pi install ./extensions/pandi-ask          # global (tu usuario)
+pi install -l ./extensions/pandi-ask       # local al proyecto
+pi --no-extensions -e ./extensions/pandi-ask   # prueba puntual, no carga nada más
 ```
 
-## Limitations & safety notes
+## Limitaciones y notas de seguridad
 
-- When no dialog UI is available (`ctx.hasUI` is false — e.g. `print`/`json` mode), both
-  tools open no dialog and return a plain-text error, so the caller falls back to asking
-  in text. If delayed recommended mode is on and a valid recommended answer is present,
-  the recommended answer is returned instead.
-- `ask_choice` with an empty `options` list also returns a plain-text error instead of
-  opening a dialog.
-- In delayed recommended mode, manual Esc/cancel before the 60s timeout still counts as
-  cancellation for `ask_choice`; the recommended option is used only when the timeout
-  dismisses the dialog.
+- Cuando no hay UI de diálogo disponible (`ctx.hasUI` es false — por ejemplo en modo `print`/`json`), ninguna herramienta abre un diálogo y ambas devuelven un error en texto plano, así quien llama puede volver a preguntar por texto. Si el modo recomendado diferido está activo y hay una respuesta recomendada válida, se devuelve esa respuesta.
+- `ask_choice` con una lista vacía de `options` también devuelve un error en texto plano en vez de abrir un diálogo.
+- En el modo recomendado diferido, cancelar manualmente con Esc antes de los 60s sigue contando como cancelación para `ask_choice`; la opción recomendada solo se usa cuando el timeout cierra el diálogo.
 
-## Related
+## Relacionado
 
-For the full bundle of extensions and skills, install the repository root instead.
+Para instalar el paquete completo de extensiones y skills, instalá la raíz del repositorio.

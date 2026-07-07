@@ -92,9 +92,9 @@ function fakeRunner(scripted = []) {
 
 async function scenarioRegistration(url) {
 	const { commands } = await loadExtension(url);
-	check("registers /doctor command", commands.has("doctor"), [...commands.keys()].join(","));
-	check("handler is a function", typeof commands.get("doctor")?.handler === "function");
-	check("command has a description", typeof commands.get("doctor")?.description === "string");
+	check("registra el comando /doctor", commands.has("doctor"), [...commands.keys()].join(","));
+	check("el handler es una función", typeof commands.get("doctor")?.handler === "function");
+	check("el comando tiene una descripción", typeof commands.get("doctor")?.description === "string");
 }
 
 async function scenarioResolver(url) {
@@ -103,7 +103,7 @@ async function scenarioResolver(url) {
 	// Desde la raíz del repo, al subir encuentra el `extensions/pandi-doctor/scripts/doctor.mjs` vendorizado.
 	const fromRoot = mod.resolveDoctorScript(REPO_ROOT, "/nonexistent/ext");
 	check(
-		"resolveDoctorScript: finds the vendored script from repo root",
+		"resolveDoctorScript: encuentra el script vendorizado desde la raíz del repo",
 		typeof fromRoot === "string" && fromRoot.endsWith(VENDORED_REL),
 		String(fromRoot),
 	);
@@ -111,7 +111,7 @@ async function scenarioResolver(url) {
 	// Desde un subdir anidado del repo, al subir igual lo encuentra.
 	const fromSubdir = mod.resolveDoctorScript(path.join(REPO_ROOT, "extensions", "pandi-doctor"), "/nonexistent/ext");
 	check(
-		"resolveDoctorScript: finds it from a nested subdir",
+		"resolveDoctorScript: lo encuentra desde un subdirectorio anidado",
 		typeof fromSubdir === "string" && fromSubdir.endsWith(VENDORED_REL),
 		String(fromSubdir),
 	);
@@ -119,14 +119,14 @@ async function scenarioResolver(url) {
 	// Respaldo relativo a la extensión: el `cwd` no tiene relación, pero `extDir` trae su propia copia.
 	const fromFallback = mod.resolveDoctorScript(path.parse(REPO_ROOT).root, EXT_DIR);
 	check(
-		"resolveDoctorScript: falls back to the extension's own scripts/doctor.mjs",
+		"resolveDoctorScript: cae al scripts/doctor.mjs propio de la extensión",
 		typeof fromFallback === "string" && fromFallback === path.join(EXT_DIR, "scripts", "doctor.mjs"),
 		String(fromFallback),
 	);
 
 	// Si no resuelve ni `cwd` ni el fallback → `null`.
 	const none = mod.resolveDoctorScript(path.parse(REPO_ROOT).root, "/nonexistent/ext");
-	check("resolveDoctorScript: null when nothing resolves", none === null, String(none));
+	check("resolveDoctorScript: null cuando nada resuelve", none === null, String(none));
 }
 
 async function scenarioCheckLogic(url) {
@@ -134,15 +134,15 @@ async function scenarioCheckLogic(url) {
 
 	// Ejecución ok → `info`, con el texto del reporte pasado directo.
 	{
-		const run = fakeRunner([{ ok: true, stdout: "✓ all mandatory present\n", stderr: "", exitCode: 0 }]);
+		const run = fakeRunner([{ ok: true, stdout: "✓ todos los obligatorios presentes\n", stderr: "", exitCode: 0 }]);
 		const res = await mod.runDoctorCheck(run, { cwd: REPO_ROOT, extDir: EXT_DIR });
 		check(
-			"runDoctorCheck: ok → info + report text",
-			res.type === "info" && res.text.includes("all mandatory present") && run.calls.length === 1,
+			"runDoctorCheck: ok → info + texto del reporte",
+			res.type === "info" && res.text.includes("todos los obligatorios presentes") && run.calls.length === 1,
 			JSON.stringify(res),
 		);
 		check(
-			"runDoctorCheck: spawns the resolved doctor.mjs",
+			"runDoctorCheck: invoca el doctor resuelto",
 			String(run.calls[0]).endsWith(VENDORED_REL),
 			String(run.calls[0]),
 		);
@@ -154,7 +154,11 @@ async function scenarioCheckLogic(url) {
 		const nestedCwd = path.join(REPO_ROOT, "extensions");
 		const run = fakeRunner([{ ok: true, stdout: "ok", stderr: "", exitCode: 0 }]);
 		await mod.runDoctorCheck(run, { cwd: nestedCwd, extDir: EXT_DIR });
-		check("runDoctorCheck: spawns with the session cwd", run.opts[0]?.cwd === nestedCwd, JSON.stringify(run.opts[0]));
+		check(
+			"runDoctorCheck: hace spawn con el cwd de la sesión",
+			run.opts[0]?.cwd === nestedCwd,
+			JSON.stringify(run.opts[0]),
+		);
 	}
 
 	// `exit 1` (falta un obligatorio) → `error`.
@@ -173,7 +177,7 @@ async function scenarioCheckLogic(url) {
 		const run = fakeRunner([{ ok: false, spawnError: "spawn node ENOENT" }]);
 		const res = await mod.runDoctorCheck(run, { cwd: REPO_ROOT, extDir: EXT_DIR });
 		check(
-			"runDoctorCheck: spawnError → error + mentions the failure",
+			"runDoctorCheck: spawnError → error + menciona la falla",
 			res.type === "error" && /ENOENT|no se pudo ejecutar/i.test(res.text),
 			JSON.stringify(res),
 		);
@@ -184,7 +188,7 @@ async function scenarioCheckLogic(url) {
 		const run = fakeRunner([{ ok: true, stdout: "should not run", stderr: "", exitCode: 0 }]);
 		const res = await mod.runDoctorCheck(run, { cwd: path.parse(REPO_ROOT).root, extDir: "/nonexistent/ext" });
 		check(
-			"runDoctorCheck: script not found → warning, runner not called",
+			"runDoctorCheck: script ausente → warning, runner no llamado",
 			res.type === "warning" && /pandi-extensions/i.test(res.text) && run.calls.length === 0,
 			JSON.stringify(res),
 		);
@@ -194,14 +198,14 @@ async function scenarioCheckLogic(url) {
 async function scenarioConfigurableTimeout(url) {
 	const mod = await loadModule(url);
 
-	check("timeout parser: valid env ms accepted", mod.parseTimeoutMs("2500", 120000) === 2500);
-	check("timeout parser: invalid env falls back", mod.parseTimeoutMs("nope", 120000) === 120000);
-	check("timeout parser: tiny env clamps to 1000", mod.parseTimeoutMs("1", 120000) === 1000);
+	check("parser de timeout: acepta ms de entorno válidos", mod.parseTimeoutMs("2500", 120000) === 2500);
+	check("parser de timeout: un valor inválido vuelve al fallback", mod.parseTimeoutMs("nope", 120000) === 120000);
+	check("parser de timeout: un valor chico se clava en 1000", mod.parseTimeoutMs("1", 120000) === 1000);
 
 	const run = fakeRunner([{ ok: true, stdout: "✓ ok", stderr: "", exitCode: 0 }]);
 	await mod.runDoctorCheck(run, { cwd: REPO_ROOT, extDir: EXT_DIR, timeoutMs: 4321 });
 	check(
-		"runDoctorCheck: timeoutMs is propagated to runner",
+		"runDoctorCheck: timeoutMs se propaga al runner",
 		run.opts[0]?.timeoutMs === 4321,
 		JSON.stringify(run.opts[0]),
 	);
@@ -212,9 +216,9 @@ async function scenarioRealSpawnMissingBin(url) {
 	// Spawn REAL de un binario garantizadamente ausente → `spawnError` real, mensaje acotado.
 	const script = mod.resolveDoctorScript(REPO_ROOT, EXT_DIR);
 	const result = await mod.runDoctor(script, { bin: "node-does-not-exist-xyz", timeoutMs: 5000 });
-	check("runDoctor: missing bin → ok=false", result.ok === false, JSON.stringify(result));
+	check("runDoctor: bin ausente → ok=false", result.ok === false, JSON.stringify(result));
 	check(
-		"runDoctor: missing bin → spawnError set",
+		"runDoctor: bin ausente → spawnError presente",
 		typeof result.spawnError === "string" && result.spawnError.length > 0,
 		JSON.stringify(result),
 	);
@@ -239,13 +243,13 @@ function scenarioStandaloneDoctor() {
 			env: { ...process.env, NO_COLOR: "1", PI_DOCTOR_AGENT_DIR: agentDir },
 		});
 		const out = `${r.stdout || ""}${r.stderr || ""}`;
-		check("standalone: exits 0/1 without crashing", r.status === 0 || r.status === 1, `status=${r.status}`);
-		check("standalone: prints the doctor report", out.includes("pandi-extensions doctor"), out.slice(0, 200));
-		const syncLine = out.split("\n").find((l) => l.includes("sync Claude global")) ?? "";
-		check("standalone: sync Claude global is N/A outside the repo", syncLine.includes("N/A"), syncLine);
+		check("independiente: sale 0/1 sin crashear", r.status === 0 || r.status === 1, `status=${r.status}`);
+		check("independiente: imprime el reporte del doctor", out.includes("pandi-extensions doctor"), out.slice(0, 200));
+		const syncLine = out.split("\n").find((l) => l.includes("sincronización global de Claude")) ?? "";
+		check("independiente: sincronización global de Claude es N/A fuera del repo", syncLine.includes("N/A"), syncLine);
 		const hookLine = out.split("\n").find((l) => l.includes("hook pre-commit")) ?? "";
-		check("standalone: hook pre-commit is N/A outside the repo", hookLine.includes("N/A"), hookLine);
-		check("standalone: no reference to this repo's path", !out.includes(REPO_ROOT), out.slice(0, 400));
+		check("independiente: hook pre-commit es N/A fuera del repo", hookLine.includes("N/A"), hookLine);
+		check("independiente: no referencia la ruta de este repo", !out.includes(REPO_ROOT), out.slice(0, 400));
 	} finally {
 		fs.rmSync(tmp, { recursive: true, force: true });
 	}
@@ -270,7 +274,7 @@ function findDoctorLine(output, label) {
 }
 
 function scenarioCanonicalSyncChecks() {
-	// Doctor debe delegar a los checks canónicos repo-locales y hacer que cada drift sea accionable:
+	// Doctor debe delegar en los checks canónicos repo-locales y hacer que cada drift sea accionable:
 	// qué dominio falló y qué comando seguro/idempotente lo arregla. Estos son opcionales: no deben
 	// convertir el doctor en error si los prerequisitos obligatorios están presentes.
 	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "pi-doctor-sync-"));
@@ -305,19 +309,27 @@ function scenarioCanonicalSyncChecks() {
 			},
 		});
 		const out = `${r.stdout || ""}${r.stderr || ""}`;
-		check("canonical sync: optional drift does not fail mandatory doctor", r.status === 0, out.slice(0, 800));
+		check(
+			"sincronización canónica: el drift opcional no rompe el doctor obligatorio",
+			r.status === 0,
+			out.slice(0, 800),
+		);
 		for (const [label, fix] of [
-			["root manifest", "npm run sync:manifest"],
-			["project settings", "npm run sync:settings"],
-			["skill mirrors", "npm run sync:skills"],
-			["vendor skills", "npm run sync:skills:vendor"],
-			["agent guides", "npm run sync:agents"],
-			["Claude ultracode skills", "npm run sync:claude:ultracode"],
-			["docs HTML mirror", "npm run sync:docs:html"],
-			["personas README", "npm run sync:personas"],
+			["manifiesto raíz", "npm run sync:manifest"],
+			["configuración del proyecto", "npm run sync:settings"],
+			["espejos de skills", "npm run sync:skills"],
+			["skills vendorizadas (extensión)", "npm run sync:skills:vendor"],
+			["guías de agentes", "npm run sync:agents"],
+			["skills ultracode de Claude", "npm run sync:claude:ultracode"],
+			["espejo HTML de docs", "npm run sync:docs:html"],
+			["README de personas", "npm run sync:personas"],
 		]) {
 			const line = findDoctorLine(out, label);
-			check(`canonical sync: ${label} warning names fix command`, /⚠/.test(line) && line.includes(fix), line || out);
+			check(
+				`sincronización canónica: ${label} avisa el comando de arreglo`,
+				/⚠/.test(line) && line.includes(fix),
+				line || out,
+			);
 		}
 	} finally {
 		fs.rmSync(tmp, { recursive: true, force: true });
@@ -349,9 +361,17 @@ function scenarioSyncTimeoutOverride() {
 		});
 		const elapsed = Date.now() - started;
 		const out = `${r.stdout || ""}${r.stderr || ""}`;
-		const line = findDoctorLine(out, "root manifest");
-		check("sync timeout: env override keeps doctor bounded", elapsed < 3500, `elapsed=${elapsed}ms`);
-		check("sync timeout: timeout reports unverified, not drift", /no se pudo verificar/.test(line), line || out);
+		const line = findDoctorLine(out, "manifiesto raíz");
+		check(
+			"timeout de sync: el override de entorno mantiene acotado al doctor",
+			elapsed < 3500,
+			`elapsed=${elapsed}ms`,
+		);
+		check(
+			"timeout de sync: el timeout reporta no verificado, no drift",
+			/no se pudo verificar/.test(line),
+			line || out,
+		);
 	} finally {
 		fs.rmSync(tmp, { recursive: true, force: true });
 	}
@@ -381,8 +401,8 @@ function scenarioPreCommitHookCheck() {
 
 		const before = `${runDoctorHere().stdout || ""}`;
 		const beforeLine = findDoctorLine(before, "hook pre-commit");
-		check("hook check: reported when not installed", beforeLine.length > 0, before.slice(0, 400));
-		check("hook check: WARN + actionable hint when not installed", /⚠/.test(beforeLine), beforeLine);
+		check("chequeo del hook: se reporta cuando no está instalado", beforeLine.length > 0, before.slice(0, 400));
+		check("chequeo del hook: WARN + pista accionable cuando falta", /⚠/.test(beforeLine), beforeLine);
 
 		// Instalación: archivo de hook versionado + `core.hooksPath`, exactamente como hace `npm install` (`prepare`).
 		const hooksDir = path.join(tmp, "scripts", "git-hooks");
@@ -396,7 +416,7 @@ function scenarioPreCommitHookCheck() {
 
 		const after = `${runDoctorHere().stdout || ""}`;
 		const afterLine = findDoctorLine(after, "hook pre-commit");
-		check("hook check: OK once hooksPath + hook file are in place", /✓/.test(afterLine), afterLine);
+		check("chequeo del hook: OK cuando `hooksPath` + archivo de hook están listos", /✓/.test(afterLine), afterLine);
 	} finally {
 		fs.rmSync(tmp, { recursive: true, force: true });
 	}
@@ -415,9 +435,9 @@ async function scenarioHandlerEndToEnd(url) {
 	};
 	// Corre el `scripts/doctor.mjs` REAL contra este repo; aserción agnóstica del entorno.
 	await commands.get("doctor").handler("", ctx);
-	check("handler: notifies exactly once", notifications.length === 1, `count=${notifications.length}`);
+	check("handler: notifica exactamente una vez", notifications.length === 1, `count=${notifications.length}`);
 	check(
-		"handler: notification has non-empty text and a valid type",
+		"handler: la notificación tiene texto no vacío y un tipo válido",
 		typeof notifications[0]?.message === "string" &&
 			notifications[0].message.trim().length > 0 &&
 			["info", "warning", "error"].includes(notifications[0]?.type),

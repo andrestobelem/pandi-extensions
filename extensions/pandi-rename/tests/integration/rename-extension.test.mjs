@@ -712,14 +712,15 @@ async function main() {
 	}
 }
 
-// exit-name-hint.ts: la línea tenue "Session name: <slug>" impresa debajo de la
+// exit-name-hint.ts: la línea tenue "Nombre de sesión: <slug>" impresa debajo de la
 // pista de reanudación al salir solo con UUID de pi core (stopgap para earendil-works/pi#6296).
 async function scenarioExitNameHint(url) {
 	const { formatExitNameHint, installExitNameHint, EXIT_HINT_KEY } = await loadModule(url);
 
 	const line = stripAnsi(formatExitNameHint("docs-html-mirror-sync"));
+	check("exit hint line carries the localized label", line.includes("Nombre de sesión:"));
 	check("exit hint line carries the name", line.includes("docs-html-mirror-sync"));
-	check("exit hint line points at resume-by-name (pi -r)", line.includes("pi -r"));
+	check("exit hint line points at resume-by-name (pi -r)", line.includes("reanudar por nombre: pi -r"));
 	check("exit hint line is newline-terminated", line.endsWith("\n"));
 
 	function makeIo({ tty = true } = {}) {

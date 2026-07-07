@@ -84,10 +84,10 @@ function headerTotals(mod) {
 		snap({ planId: "a", submissions: 2, rejections: 1, active: true }),
 		snap({ planId: "b", submissions: 3, rejections: 0, active: false }),
 	]);
-	check("totals: Plans count = 2", out.includes("**Plans:** 2"));
-	check("totals: active count = 1", out.includes("**active:** 1"));
-	check("totals: submitted total = 5", out.includes("**submitted:** 5"));
-	check("totals: rejected total = 1", out.includes("**rejected:** 1"));
+	check("totals: Plans count = 2", out.includes("**Planes:** 2"));
+	check("totals: active count = 1", out.includes("**activos:** 1"));
+	check("totals: submitted total = 5", out.includes("**enviados:** 5"));
+	check("totals: rejected total = 1", out.includes("**rechazados:** 1"));
 }
 
 // ===========================================================================

@@ -8,18 +8,18 @@ const CANONICAL_EFFORT_OPTIONS: {
 }[] = [
 	{
 		value: "off",
-		description: "Desactivar el thinking/reasoning del modelo",
-		selectLabel: "off — desactivar el thinking",
+		description: "Desactivar el esfuerzo de pensamiento del modelo",
+		selectLabel: "off — desactivar el pensamiento",
 	},
-	{ value: "minimal", description: "Thinking mínimo", selectLabel: "minimal — thinking mínimo" },
-	{ value: "low", description: "Thinking bajo", selectLabel: "low — thinking bajo" },
-	{ value: "medium", description: "Thinking medio", selectLabel: "medium — thinking medio" },
-	{ value: "high", description: "Thinking alto", selectLabel: "high — thinking alto" },
-	{ value: "xhigh", description: "Thinking extra alto", selectLabel: "xhigh — thinking extra alto" },
+	{ value: "minimal", description: "Esfuerzo mínimo", selectLabel: "minimal — esfuerzo mínimo" },
+	{ value: "low", description: "Esfuerzo bajo", selectLabel: "low — esfuerzo bajo" },
+	{ value: "medium", description: "Esfuerzo medio", selectLabel: "medium — esfuerzo medio" },
+	{ value: "high", description: "Esfuerzo alto", selectLabel: "high — esfuerzo alto" },
+	{ value: "xhigh", description: "Esfuerzo extra alto", selectLabel: "xhigh — esfuerzo extra alto" },
 	{
 		value: "ultracode",
-		description: "Thinking extra alto + router de dynamic workflow",
-		selectLabel: "ultracode — xhigh + router de dynamic workflow",
+		description: "Esfuerzo extra alto + router de dynamic_workflow",
+		selectLabel: "ultracode — xhigh + router de dynamic_workflow",
 	},
 	{ value: "status", description: "Mostrar el esfuerzo actual" },
 ];

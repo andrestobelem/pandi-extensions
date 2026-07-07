@@ -2,11 +2,11 @@
 /**
  * Prueba de integración conductual estable para extensions/pandi-exit/index.ts.
  *
- * Fija el contrato público de /exit (un alias estilo Claude para el /quit nativo de pi):
+ * Fija el contrato público de /exit (un alias al estilo Claude para el /quit nativo de pi):
  * - registra un slash command llamado "exit" con una descripción no vacía
  * - el handler dispara un cierre limpio vía ctx.shutdown() exactamente una vez
  * - el handler ignora cualquier argumento y aun así cierra
- * - registra exactamente un comando (el README promete que /exit coexiste con el
+ * - registra exactamente un comando (el README promete que /exit convive con el
  *   /quit nativo y nunca lo reemplaza) (issue #13)
  * - un ctx.shutdown() que lanza se informa como una nota de error y nunca se propaga,
  *   reflejando el ctx.newSession() protegido de pandi-clear (issue #13)
@@ -73,25 +73,25 @@ async function main() {
 		const h = makePi();
 		exitExtension(h.pi);
 		const cmd = h.commands.get("exit");
-		check("/exit command registered", !!cmd);
+		check("/exit registrado", !!cmd);
 		check(
-			"/exit registers EXACTLY one command (never overrides /quit)",
+			"/exit registra EXACTAMENTE un comando (nunca reemplaza /quit)",
 			h.commands.size === 1,
 			JSON.stringify([...h.commands.keys()]),
 		);
-		check("/exit has a description", typeof cmd?.description === "string" && cmd.description.length > 0);
+		check("/exit tiene una descripción", typeof cmd?.description === "string" && cmd.description.length > 0);
 
 		const ctx = makeCtx();
 		await cmd.handler("", ctx);
-		check("/exit calls ctx.shutdown() once", ctx._calls.shutdown === 1, String(ctx._calls.shutdown));
+		check("/exit llama a ctx.shutdown() una vez", ctx._calls.shutdown === 1, String(ctx._calls.shutdown));
 
 		const ctx2 = makeCtx();
 		await cmd.handler("  some ignored args  ", ctx2);
-		check("/exit ignores args and still shuts down once", ctx2._calls.shutdown === 1, String(ctx2._calls.shutdown));
+		check("/exit ignora args y aun así cierra una vez", ctx2._calls.shutdown === 1, String(ctx2._calls.shutdown));
 
-		// Un shutdown que lanza (el shutdownHandler provisto por el modo puede lanzar)
-		// se informa como una nota de error y nunca se propaga: mismo contrato que el
-		// ctx.newSession() protegido de pandi-clear.
+		// Un `shutdown` que lanza (el `shutdownHandler` provisto por el modo puede lanzar)
+		// se informa como nota de error y nunca se propaga: mismo contrato que el
+		// `ctx.newSession()` protegido de `pandi-clear`.
 		const ctxThrow = makeCtx({ throwOnShutdown: true });
 		let threw = false;
 		try {
@@ -99,31 +99,31 @@ async function main() {
 		} catch {
 			threw = true;
 		}
-		check("/exit does not crash when shutdown throws", !threw);
+		check("/exit no se rompe cuando shutdown lanza", !threw);
 		check(
-			"/exit reports a shutdown failure as an error note",
+			"/exit informa un fallo de shutdown como nota de error",
 			ctxThrow._notes.some(
 				(n) => n.type === "error" && /no se pudo salir/.test(n.msg) && /shutdown-refused/.test(n.msg),
 			),
 			JSON.stringify(ctxThrow._notes),
 		);
 
-		// En headless no-print (p. ej. json/rpc sin UI), una falla debe quedar observable en stderr.
+		// En headless sin print (p. ej. json/rpc sin UI), una falla debe quedar observable en stderr.
 		const ctxJsonThrow = makeCtx({ throwOnShutdown: true, mode: "json", hasUI: false });
 		const jsonStreams = await withCapturedConsole(() => cmd.handler("", ctxJsonThrow));
 		check(
-			"json headless: shutdown failure reported on stderr",
+			"json headless: fallo de shutdown informado en stderr",
 			jsonStreams.err.some((l) => /no se pudo salir/.test(l) && /shutdown-refused/.test(l)),
 			JSON.stringify(jsonStreams),
 		);
 		check(
-			"json headless: ui.notify never used",
+			"json headless: ui.notify no se usa nunca",
 			ctxJsonThrow._notes.length === 0,
 			JSON.stringify(ctxJsonThrow._notes),
 		);
 
 		// En éxito no se emite nada.
-		check("/exit is silent on success", ctx._notes.length === 0 && ctx2._notes.length === 0);
+		check("/exit es silencioso al tener éxito", ctx._notes.length === 0 && ctx2._notes.length === 0);
 	} finally {
 		await fs.rm(ext.outDir, { recursive: true, force: true });
 	}

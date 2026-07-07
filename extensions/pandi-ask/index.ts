@@ -68,13 +68,13 @@ function parseToggle(value: string | undefined): boolean | undefined {
 }
 
 function settingsText(settings: AskRecommendationSettings): string {
-	return `pandi-ask recommended: ${settings.chooseRecommended ? "on" : "off"}; recommended-timeout: ${settings.timeoutRecommended ? "on" : "off"} (${Math.round(RECOMMENDED_TIMEOUT_MS / 1000)}s)`;
+	return `pandi-ask: recomendado inmediato: ${settings.chooseRecommended ? "on" : "off"}; recomendado diferido: ${settings.timeoutRecommended ? "on" : "off"} (${Math.round(RECOMMENDED_TIMEOUT_MS / 1000)}s)`;
 }
 
 function registerAskCommand(pi: ExtensionAPI, settings: AskRecommendationSettings) {
 	pi.registerCommand("ask", {
 		description:
-			"Configura los toggles de recomendado para pandi-ask: status | recommended on|off|status | recommended-timeout on|off|status.",
+			"Configura los toggles de recomendado de pandi-ask: status | recommended on|off|status | recommended-timeout on|off|status.",
 		handler: async (args, ctx) => {
 			const parts = String(args ?? "")
 				.trim()
@@ -199,7 +199,7 @@ export default function askExtension(pi: ExtensionAPI) {
 function registerChoiceTool(pi: ExtensionAPI, settings: AskRecommendationSettings) {
 	pi.registerTool({
 		name: "ask_choice",
-		label: "Ask choice",
+		label: "Elegir opción",
 		description:
 			"Pedile al usuario que elija UNA opción de una lista mediante un selector TUI interactivo (flechas + Enter). " +
 			"Usalo en un punto de decisión con varias opciones válidas, en vez de un menú numerado en texto plano. " +
@@ -272,7 +272,7 @@ function registerChoiceTool(pi: ExtensionAPI, settings: AskRecommendationSetting
 function registerConfirmTool(pi: ExtensionAPI, settings: AskRecommendationSettings) {
 	pi.registerTool({
 		name: "ask_confirm",
-		label: "Ask confirm",
+		label: "Confirmar",
 		description:
 			"Hacele al usuario una pregunta de sí/no mediante un diálogo de confirmación TUI interactivo. " +
 			'Devuelve JSON {"confirmed":true|false} (false también en cancelación/timeout). ' +

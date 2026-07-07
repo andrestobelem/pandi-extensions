@@ -406,7 +406,7 @@ function rearmFixed(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): 
 
 function refuseIfCannotLoopInMode(ctx: ExtensionContext, commandName: "/loop" | "/loop auto"): boolean {
 	if (canLoopInMode(ctx)) return false;
-	notify(ctx, `${commandName} requiere una sesión TUI o RPC (este modo no puede loopear).`, "error");
+	notify(ctx, `${commandName} requiere una sesión TUI o RPC (este modo no admite /loop).`, "error");
 	return true;
 }
 
@@ -882,7 +882,7 @@ async function handleToolCall(
 
 	if (ctx.hasUI && typeof ctx.ui.confirm === "function") {
 		const approved = await ctx.ui.confirm(
-			"Autopilot quiere ejecutar una acción destructiva",
+			"El piloto automático quiere ejecutar una acción destructiva",
 			`${reason}\n\nEsta iteración del loop se disparó automáticamente (no vos). ¿La permitís?`,
 		);
 		if (approved) return undefined;
@@ -947,7 +947,7 @@ const LOOP_SCHEDULE_PROMPT_GUIDELINES = [
 export default function loopExtension(pi: ExtensionAPI): void {
 	pi.registerTool({
 		name: "loop_schedule",
-		label: "Loop Schedule",
+		label: "Programar loop",
 		description:
 			"Programá la próxima iteración del /loop activo. Llamalo cuando haga falta más trabajo o esperar antes de la siguiente pasada.",
 		promptSnippet: "Programá la próxima iteración del /loop con un delay y una razón.",
@@ -996,7 +996,7 @@ export default function loopExtension(pi: ExtensionAPI): void {
 
 	pi.registerTool({
 		name: "loop_stop",
-		label: "Loop Stop",
+		label: "Detener loop",
 		description: "Terminá el /loop activo. Llamalo cuando la tarea esté completa o más iteraciones no ayuden.",
 		promptSnippet: "Terminá el /loop activo con una razón.",
 		parameters: Type.Object({

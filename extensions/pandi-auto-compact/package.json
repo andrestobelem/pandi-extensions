@@ -1,7 +1,7 @@
 {
 	"name": "@pandi-coding-agent/pandi-auto-compact",
 	"version": "0.2.3",
-	"description": "Pi extension that auto-compacts context when usage crosses a configurable threshold.",
+	"description": "Extensión de Pi que auto-compacta el contexto cuando el uso supera un umbral configurable.",
 	"license": "MIT",
 	"repository": {
 		"type": "git",

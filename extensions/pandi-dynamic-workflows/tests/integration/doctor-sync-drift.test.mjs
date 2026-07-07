@@ -50,7 +50,7 @@ function runSync(dest) {
 
 // The line doctor prints for this capability. Matched loosely (label text may evolve) but must
 // name the sync check and carry a status glyph.
-const SYNC_LINE = /sync Claude global/i;
+const SYNC_LINE = /sync Claude global|sincronización global de Claude/i;
 
 function main() {
 	check("doctor.mjs exists", fs.existsSync(DOCTOR));

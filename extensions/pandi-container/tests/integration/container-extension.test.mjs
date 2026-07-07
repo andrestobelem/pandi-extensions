@@ -1,20 +1,20 @@
 #!/usr/bin/env node
 /**
- * Test de integración conductual duradero para extensions/pandi-container/index.ts.
+ * Prueba de integración conductual duradera para extensions/pandi-container/index.ts.
  *
  * Apple `container` corre Linux en micro-VMs reales (Apple Silicon + macOS 26 +
- * un subsistema iniciado), que una caja de CI no puede levantar. Entonces la evidencia honesta acá es:
+ * un subsistema iniciado), que una caja de CI no puede levantar. Entonces, la evidencia honesta acá es:
  *   - parsers puros pineados contra salida REAL capturada de la CLI (`container machine ls
  *     --format json`), así el parser se prueba contra el contrato real;
  *   - constructores de argv afirmados exactamente (argv, nunca un string de shell);
- *   - manejadores de alto nivel guiados por un runner simulado INJECTADO, así el despacho,
+ *   - manejadores de alto nivel guiados por un runner simulado INYECTADO, así el despacho,
  *     la barrera de "remove requiere force" y la normalización de errores son deterministas;
- *   - la ruta de CLI ausente ejercitada con un spawn REAL de un binario garantizadamente ausente
+ *   - la ruta de la CLI ausente ejercitada con un spawn REAL de un binario garantizadamente ausente
  *     (así `spawnError` es real, no mockeado) → mensaje acotado, sin caerse;
  *   - el comando /container y la tool container_sandbox quedan realmente registrados.
  *
  * `container` siempre se invoca con un array ARGV (nunca un string de shell), así
- * referencias de imagen / nombres de máquina / comandos no pueden inyectar shell.
+ * las referencias de imagen, los nombres de máquina y los comandos no pueden inyectar shell.
  *
  * Agregados de P4 (issue #3, mutation-verified non-vacuous): ramas de runStatus not-booted /
  * running / degraded-ls, validación de create/stop/exec + normalización de describeError
@@ -692,19 +692,19 @@ async function scenarioCommandAndToolOutsideIn(url) {
 	}
 }
 
-// Niveles de tamaño (presets con nombre de cpu/memory): la tabla de tiers queda pineada EXACTAMENTE, el puro
-// resolver respeta la precedencia de cpus/memory explícitos sobre tier, los argv builders emiten las
+// Niveles de tamaño (presets con nombre de cpu/memory): la tabla de niveles queda fijada EXACTAMENTE, el
+// resolver puro respeta la precedencia de cpus/memory explícitos sobre tier, los constructores de argv emiten las
 // flags resueltas (run efímero gana --cpus/--memory), un tier desconocido se rechaza
-// ANTES de cualquier spawn, y los tiers nunca aplican a un run dentro de una máquina existente (sus
+// ANTES de cualquier ejecución, y los niveles nunca aplican a un run dentro de una máquina existente (sus
 // recursos quedan fijados en la creación por la CLI upstream).
 async function scenarioSizeTiers(url) {
 	const mod = await loadModule(url);
 	const eq = (label, got, want) => check(label, JSON.stringify(got) === JSON.stringify(want), JSON.stringify(got));
 
-	// tabla de tiers pineada exactamente (sin snapshots borrosos)
+	// Tabla de niveles fijada exactamente (sin snapshots borrosos).
 	// Escalera rebasada sobre un micro de 256M (el piso duro de Apple container es 200 MiB; un
 	// `npm i -g` + `pi --version` real se verificó dentro de una VM de 200M con 114MB de RSS), duplicando
-	// la memoria hacia arriba por tier.
+	// la memoria hacia arriba por nivel.
 	eq("TIER_PRESETS: pinned values", mod.TIER_PRESETS, {
 		micro: { cpus: 1, memory: "256M" },
 		tiny: { cpus: 2, memory: "512M" },

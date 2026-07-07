@@ -1,51 +1,51 @@
 # @pandi-coding-agent/pandi-effort
 
-This extension adds a Claude-style `/effort` slash command so you can change how
-hard Pi thinks — from `off` to `xhigh` — without hunting through settings.
-Reach for it when a task needs deeper reasoning (bump to `high`/`xhigh`) or
-when you want faster, cheaper turns (drop to `low`/`off`). One special value,
-`ultracode`, sets `xhigh` and turns on the Dynamic Workflows router in a
-single command.
+Esta extensión agrega el comando `/effort` al estilo Claude para cambiar
+cuánto piensa Pi — de `off` a `xhigh` — sin recorrer configuraciones. Úsala
+cuando una tarea pida más razonamiento (subí a `high`/`xhigh`) o cuando
+quieras turnos más rápidos y baratos (bajá a `low`/`off`). Un valor especial,
+`ultracode`, activa `xhigh` y enciende el router de `dynamic_workflow` en un
+solo comando.
 
 ```text
 /effort high
-→ Thinking effort set to high.
+→ Esfuerzo de pensamiento configurado en high.
 
 /effort ultracode
-→ Ultracode effort enabled (xhigh); dynamic workflow router enabled.
+→ Esfuerzo ultracode habilitado (xhigh); router de dynamic_workflow habilitado.
 ```
 
-## Install
+## Instalación
 
-From npm:
+Desde npm:
 
 ```bash
 pi install npm:@pandi-coding-agent/pandi-effort
 ```
 
-From this repository:
+Desde este repositorio:
 
 ```bash
-pi install ./extensions/pandi-effort          # global (your user)
-pi install -l ./extensions/pandi-effort       # project-local
-pi --no-extensions -e ./extensions/pandi-effort   # one-off trial, nothing else loaded
+pi install ./extensions/pandi-effort             # global (tu usuario)
+pi install -l ./extensions/pandi-effort           # local al proyecto
+pi --no-extensions -e ./extensions/pandi-effort   # prueba puntual, sin cargar nada más
 ```
 
-## Commands
+## Comandos
 
-| Command | What it does |
+| Comando | Qué hace |
 | --- | --- |
-| `/effort` | Open an interactive picker of effort levels. |
-| `/effort status` | Show the current thinking effort. |
-| `/effort off\|minimal\|low\|medium\|high\|xhigh` | Set Pi's thinking level (`none` and `max` are aliases for `off` and `xhigh`). |
-| `/effort ultracode` | Set `xhigh` and enable the Dynamic Workflows Ultracode router (when that extension is loaded). |
+| `/effort` | Abre un selector interactivo de niveles de esfuerzo. |
+| `/effort status` | Muestra el esfuerzo de pensamiento actual. |
+| `/effort off\|minimal\|low\|medium\|high\|xhigh` | Establece el nivel de pensamiento de Pi (`none` y `max` son alias de `off` y `xhigh`). |
+| `/effort ultracode` | Establece `xhigh` y habilita el router Ultracode de Dynamic Workflows (cuando esa extensión está cargada). |
 
-## Limitations & safety notes
+## Limitaciones y notas de seguridad
 
-- `/effort ultracode` routing needs the `pandi-dynamic-workflows` extension — install `./extensions/pandi-dynamic-workflows` or the repository root bundle.
-- Lowering thinking afterwards (e.g. `/effort medium`) does **not** turn the Ultracode router off — they are separate concerns. Disable the router with `/ultracode-mode off`.
-- The active model may clamp the requested level (non-reasoning models become `off`); the command reports the level that actually took effect.
+- `/effort ultracode` requiere la extensión `pandi-dynamic-workflows` — instalá `./extensions/pandi-dynamic-workflows` o el bundle raíz del repositorio.
+- Bajar el nivel después (por ejemplo `/effort medium`) **no** apaga el router Ultracode: son cosas separadas. Desactivá el router con `/ultracode-mode off`.
+- El modelo activo puede limitar el nivel pedido (los modelos sin reasoning pasan a `off`); el comando informa el nivel que realmente quedó activo.
 
-## Related
+## Relacionados
 
-For the full bundle of extensions and skills, install the repository root instead.
+Para instalar el paquete completo de extensiones y skills, instalá la raíz del repositorio.

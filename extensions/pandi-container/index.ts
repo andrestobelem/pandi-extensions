@@ -1,15 +1,15 @@
 /**
- * pandi-container: gestiona sandboxes de Apple `container` (micro-VMs Linux) desde Pi.
+ * pandi-container: administra sandboxes de Apple `container` (micro-VMs Linux) desde Pi.
  *
  * Dos superficies (convención del proyecto; ver pandi-worktree):
- *   - `/container`           comando slash para humanos (interactivo, confirma ops destructivas)
+ *   - `/container`          comando slash para personas (interactivo, confirma operaciones destructivas)
  *   - `container_sandbox`    tool invocable por el modelo (acciones explícitas, sin borrados sorpresa)
  *
- * Ambos comparten las utilidades puras + manejadores de ./container.ts. `container` siempre se
- * invoca con un array ARGV (nunca un string de shell), así referencias de imagen / nombres de máquina /
- * comandos no pueden inyectar shell.
+ * Ambas comparten las utilidades puras y los manejadores de `./container.ts`. `container` siempre se
+ * invoca con un array ARGV (nunca un string de shell), así las referencias de imagen, los nombres de máquina
+ * y los comandos no pueden inyectar shell.
  *
- * Apple `container` corre cada entorno Linux en su propia VM liviana
+ * Apple `container` ejecuta cada entorno Linux en su propia VM liviana
  * (Virtualization.framework) y requiere macOS en Apple Silicon, la CLI `container`
  * (`brew install container`), un kernel configurado y un subsistema iniciado.
  */
@@ -72,18 +72,18 @@ const SUBCOMMANDS = CONTAINER_ACTIONS.map(({ value }) => value);
 const HELP_TEXT = [
 	"Uso:",
 	"  /container [status]                         resumen del subsistema y las máquinas",
-	"  /container list                            lista las máquinas del contenedor",
+	"  /container list                             lista las máquinas del contenedor",
 	"  /container create <image> [name] [--size <tier>]   crea una máquina (ej. alpine:latest dev --size small)",
-	"  /container run <machine> -- <cmd...>       ejecuta un comando dentro de una máquina",
-	"  /container stop [name]                     detiene una máquina (la default si se omite)",
-	"  /container remove <name>                   elimina una máquina (pide confirmación)",
+	"  /container run <machine> -- <cmd...>        ejecuta un comando dentro de una máquina",
+	"  /container stop [name]                      detiene una máquina (la default si se omite)",
+	"  /container remove <name>                    elimina una máquina (pide confirmación)",
 	"",
 	`Niveles de tamaño: ${describeTiers()}.`,
-	"Sin un tamaño, la CLI usa por defecto la MITAD de la RAM del host (v1.0.0).",
+	"Sin un nivel, la CLI usa por defecto la MITAD de la RAM del host (v1.0.0).",
 	"Las máquinas necesitan >= 1G (piso de la CLI); micro/tiny solo aplican a runs efímeros.",
 	"",
 	"Apple `container` necesita macOS en Apple Silicon, `brew install container`, un",
-	"kernel configurado (`container system kernel set --recommended`), y un subsistema",
+	"kernel configurado (`container system kernel set --recommended`) y un subsistema",
 	"iniciado (`container system start`).",
 ].join("\n");
 
@@ -187,7 +187,7 @@ function toToolResult(result: HandlerResult) {
 
 export default function containerExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("container", {
-		description: "Gestioná sandboxes de Apple container: status | list | create | run | stop | remove",
+		description: "Administrá sandboxes de Apple container: status | list | create | run | stop | remove",
 		getArgumentCompletions: completeContainerArgs,
 		handler: async (args, ctx) => {
 			await runCommand(ctx, args);
@@ -196,16 +196,16 @@ export default function containerExtension(pi: ExtensionAPI): void {
 
 	pi.registerTool({
 		name: "container_sandbox",
-		label: "Container Sandbox",
+		label: "Sandbox de container",
 		description:
-			"Gestioná sandboxes de Apple `container` (entornos Linux en micro-VMs livianas) en macOS/Apple Silicon. Acciones: 'status' (resumen del subsistema y las máquinas), 'list' (lista las máquinas del contenedor), 'create' (crea una máquina a partir de una imagen OCI), 'run' (ejecuta un comando aislado dentro de una máquina existente O un contenedor efímero), 'stop' (detiene una máquina), 'remove' (elimina una máquina; requiere force). `container` se invoca con un array argv, nunca con un shell.",
-		promptSnippet: "Gestioná sandboxes de Apple container: status/list/create/run/stop/remove de micro-VMs Linux.",
+			"Administrá sandboxes de Apple `container` (entornos Linux en micro-VMs livianas) en macOS/Apple Silicon. Acciones: 'status' (resumen del subsistema y las máquinas), 'list' (lista las máquinas del contenedor), 'create' (crea una máquina a partir de una imagen OCI), 'run' (ejecuta un comando aislado dentro de una máquina existente o de un contenedor efímero), 'stop' (detiene una máquina), 'remove' (elimina una máquina; requiere force). `container` se invoca con un array argv, nunca con un shell.",
+		promptSnippet: "Administrá sandboxes de Apple container: status/list/create/run/stop/remove de micro-VMs Linux.",
 		promptGuidelines: [
-			"Usá container_sandbox para correr comandos Linux no confiables o aislados dentro de micro-VMs de Apple `container` en vez de correrlos directamente en el host.",
-			"Para la acción 'run', pasá 'command' como un array argv (ej. [\"uname\",\"-a\"]) más 'machine' (una máquina existente) o 'image' (contenedor efímero). Nunca embebas un string de shell.",
-			"container_sandbox 'remove' nunca elimina por defecto: pasá force:true solo cuando el usuario acepta explícitamente eliminar la máquina.",
+			"Usá container_sandbox para ejecutar comandos Linux no confiables o aislados dentro de micro-VMs de Apple `container` en lugar de correrlos directamente en el host.",
+			"Para la acción 'run', pasá 'command' como un array argv (ej. [\"uname\",\"-a\"]) más 'machine' (una máquina existente) o 'image' (contenedor efímero). Nunca incrustes un string de shell.",
+			"container_sandbox 'remove' nunca borra por defecto: pasá force:true solo cuando el usuario acepte explícitamente eliminar la máquina.",
 			"Preferí un nivel de tamaño con nombre para 'create' (small/medium/large; la CLI requiere >= 1G para máquinas) y para 'run' efímero (cualquier nivel, incl. micro/tiny): sin uno, la CLI usa por defecto la MITAD de la RAM del host como memoria de la máquina. cpus/memory explícitos pisan el nivel; los niveles nunca aplican a un run dentro de una máquina existente.",
-			"Apple `container` necesita macOS en Apple Silicon, `brew install container`, un kernel configurado, y un subsistema iniciado; mostrá la guía de instalación/inicio en vez de reintentar a ciegas.",
+			"Apple `container` necesita macOS en Apple Silicon, `brew install container`, un kernel configurado y un subsistema iniciado; mostrales la guía de instalación/inicio en lugar de reintentar a ciegas.",
 		],
 		parameters: Type.Object({
 			action: StringEnum(SUBCOMMANDS),

@@ -1,74 +1,76 @@
 # @pandi-coding-agent/pandi-goal
 
-`/goal` turns Pi into a goal-directed agent: instead of a single turn, it
-keeps iterating toward an objective across many turns until the work is
-**verified** complete — not just self-declared done. Reach for it when a task
-needs multiple iterations and you want a built-in completeness check plus an
-independent double-check before it's marked finished.
+`/goal` convierte a Pi en un agente dirigido por objetivos: en vez de un solo
+turno, sigue iterando hacia un objetivo durante varios turnos hasta que el
+trabajo queda **verificado** de verdad, no solo autodeclarado como terminado.
+Usalo cuando una tarea requiere varias iteraciones y querés un chequeo de
+completitud incorporado más una verificación independiente antes de marcarla
+como finalizada.
 
 ```text
 /goal Add rate limiting to the login endpoint -- 429 after 5 failed attempts in 60s, unit test covers it
 ```
 
-Pi iterates, self-assesses against the criteria via the `goal_progress` tool,
-and only closes the goal once a separate read-only subagent independently
-confirms it. Check on it anytime with `/goal status`.
+Pi itera, se autoevalúa contra los criterios con la herramienta
+`goal_progress` y solo cierra el goal cuando un subagente aparte, de solo
+lectura, lo confirma de forma independiente. Podés revisar el estado en
+cualquier momento con `/goal status`.
 
-## What you get
+## Qué obtenés
 
-- A `/goal` loop that re-prompts the model each iteration until the objective is met, blocked, or stopped.
-- A completeness check: the first `done` does not stop the goal — it triggers a verification pass, and only a confirmed `done` closes it.
-- An independent read-only verifier subagent (tools: `read`, `grep`, `find`, `ls`; 120 s timeout) that must PASS before the goal is finally accepted; after 2 failed independent verifications the goal stops as `blocked`.
-- Safety limits: 30 iterations max and a context-budget cut at 90% usage by default.
+- Un loop `/goal` que vuelve a pedirle trabajo al modelo en cada iteración hasta que el objetivo se cumple, se bloquea o se detiene.
+- Un chequeo de completitud: el primer `done` no detiene el goal; dispara una pasada de verificación y solo un `done` confirmado lo cierra.
+- Un subagente verificador independiente y de solo lectura (tools: `read`, `grep`, `find`, `ls`; timeout de 120 s) que debe devolver PASS antes de aceptar el goal; después de 2 verificaciones independientes fallidas, el goal se detiene como `blocked`.
+- Límites de seguridad: 30 iteraciones máximas y corte por presupuesto de contexto al 90% de uso por default.
 
-## Install
+## Instalación
 
-From npm:
+Desde npm:
 
 ```bash
 pi install npm:@pandi-coding-agent/pandi-goal
 ```
 
-From this repository:
+Desde este repositorio:
 
 ```bash
-pi install ./extensions/pandi-goal          # global (your user)
-pi install -l ./extensions/pandi-goal       # project-local
-pi --no-extensions -e ./extensions/pandi-goal   # one-off trial, nothing else loaded
+pi install ./extensions/pandi-goal          # global (tu usuario)
+pi install -l ./extensions/pandi-goal       # local al proyecto
+pi --no-extensions -e ./extensions/pandi-goal   # prueba puntual, sin cargar nada más
 ```
 
-## Commands
+## Comandos
 
-| Command | What it does |
+| Comando | Qué hace |
 | --- | --- |
-| `/goal [--ultracode] <objective> [-- <criteria>]` | Start a goal-directed loop; optional success criteria after `--`. |
-| `/goal status [id]` | Inspect active goal state. |
-| `/goal stop [id]` | Stop a goal. |
-| `goal_progress` | Model tool: the model reports `continue`, `done`, or `blocked` each iteration. |
+| `/goal [--ultracode] <objective> [-- <criteria>]` | Inicia un loop dirigido por objetivos; permite criterios de éxito opcionales después de `--`. |
+| `/goal status [id]` | Inspecciona el estado del goal activo. |
+| `/goal stop [id]` | Detiene un goal. |
+| `goal_progress` | Herramienta del modelo: en cada iteración reporta `continue`, `done` o `blocked`. |
 
 ## `/goal` vs `/loop`
 
-Both re-inject a prompt without native scheduling, but they answer different
-questions — pick by what you're driving:
+Ambos reinyectan un prompt sin scheduling nativo, pero responden preguntas
+muy distintas:
 
 | | `/goal` | `/loop` |
 | --- | --- | --- |
-| Driven by | an OBJECTIVE + success criteria | a TASK repeated on a cadence |
-| Model reports | `continue` / `done` / `blocked` | when to wake next (`delaySeconds`) |
-| Ends when | criteria met **and** independently verified | never on its own — you `/loop stop` it |
+| Guiado por | un OBJETIVO + criterios de éxito | una TAREA repetida con cadencia |
+| El modelo reporta | `continue` / `done` / `blocked` | cuándo despertarse de nuevo (`delaySeconds`) |
+| Termina cuando | los criterios se cumplen **y** se verifican de forma independiente | nunca por sí solo — lo frenás con `/loop stop` |
 
-## How it works
+## Cómo funciona
 
-- `--ultracode` (alias `--uc`) sets an **ultracode posture**: each iteration prompt asks the model to drive the work via dynamic workflows when it earns its cost (scout inline first, orchestrate for exhaustiveness, confidence, or scale). It is prompt-injection only — it does not change the thinking level or force-activate `dynamic_workflow`. The flag may appear anywhere in the args and is stripped from the objective.
-- Goal state is persisted and survives session reload; a rehydrated goal resumes without double-firing.
-- When a verified `done` would close the goal, the extension launches the independent verifier (separate process, fresh eyes). A FAIL under the cap re-injects one iteration carrying the verifier's feedback; a FAIL at the cap stops the goal as `blocked` for a human.
+- `--ultracode` (alias `--uc`) activa una **postura ultracode**: cada prompt de iteración le pide al modelo que conduzca el trabajo con dynamic workflows cuando eso justifique su costo (primero scout inline, después orquestación para exhaustividad, confianza o escala). Es solo inyección de prompt: no cambia el nivel de thinking ni fuerza la activación de `dynamic_workflow`. El flag puede aparecer en cualquier parte de los args y se elimina del objetivo.
+- El estado del goal se persiste y sobrevive a una recarga de sesión; al rehidratarse, el goal retoma sin doble disparo.
+- Cuando un `done` verificado cerraría el goal, la extensión lanza el verificador independiente (proceso separado, ojos frescos). Un FAIL por debajo del tope reinyecta una iteración con la devolución del verificador; un FAIL al llegar al tope detiene el goal como `blocked` para que intervenga una persona.
 
-## Limitations & safety notes
+## Límites y notas de seguridad
 
-- Only one goal can be active at a time; stop the current one before starting another.
-- `/goal` requires a TUI or RPC session — it cannot run in other modes.
-- A goal stops when it hits `maxIterations` (30) or the context budget (90% usage); after a budget stop you can `/compact` and start again.
+- Solo puede haber un goal activo a la vez; detené el actual antes de iniciar otro.
+- `/goal` requiere una sesión TUI o RPC; no puede correr en otros modos.
+- Un goal se detiene cuando llega a `maxIterations` (30) o al presupuesto de contexto (90% de uso); después de un corte por presupuesto podés hacer `/compact` y volver a empezar.
 
-## Related
+## Relacionado
 
-For the full bundle of extensions and skills, install the repository root instead.
+Si querés el bundle completo de extensiones y skills, instalá la raíz del repositorio.

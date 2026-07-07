@@ -128,11 +128,15 @@ async function main() {
 		);
 		check(
 			"dry-run explains referenced draft keep",
-			dryText.includes("used.js") && dryText.includes("referenced"),
+			dryText.includes("used.js") && /referenced|referenciado/.test(dryText),
 			dryText,
 		);
 		check("dry-run includes old tmp file", dryText.includes("tmp delete") && dryText.includes("old.log"), dryText);
-		check("dry-run explains recent tmp keep", dryText.includes("recent.log") && dryText.includes("recent"), dryText);
+		check(
+			"dry-run explains recent tmp keep",
+			dryText.includes("recent.log") && /recent|reciente/.test(dryText),
+			dryText,
+		);
 		check("dry-run keeps files", (await exists(unusedDraft)) && (await exists(oldTmp)), dryText);
 
 		await handleWorkflowCommand(pi, "cleanup drafts --yes --older-than=1h", ctx);

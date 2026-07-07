@@ -1,10 +1,8 @@
 # @pandi-coding-agent/pandi-doctor
 
-Adds `/doctor`, an in-session shortcut for the pandi-extensions environment
-check. It answers "is my machine set up right?" without leaving the chat —
-the same read-only report as `npm run doctor`, one keystroke away.
+Agrega `/doctor`, un atajo dentro de la sesión para correr el chequeo de entorno de `pandi-extensions`. Sirve para responder “¿mi máquina está bien configurada?” sin salir del chat. Usa el mismo reporte de solo lectura que `npm run doctor`, a un comando de distancia.
 
-## Quickstart
+## Inicio rápido
 
 ```text
 /doctor
@@ -20,48 +18,37 @@ Obligatorios:
 ✓ Todos los requisitos obligatorios están presentes.
 ```
 
-The command finds `scripts/doctor.mjs`, runs it, and shows the report as an
-`info` (all mandatory checks pass), `error` (non-zero exit or timeout), or
-`warning` (script not found) message.
+El comando busca `scripts/doctor.mjs`, lo ejecuta y muestra el reporte como un mensaje `info` (si pasan todos los controles obligatorios), `error` (si el script sale con código distinto de cero o vence el tiempo) o `warning` (si no encuentra el script).
 
-## Install
+## Instalación
 
-| Mode | Command | When to use it |
+| Modo | Comando | Cuándo usarlo |
 | --- | --- | --- |
-| From npm | `pi install npm:@pandi-coding-agent/pandi-doctor` | Standalone use, outside this repo |
-| Global | `pi install ./extensions/pandi-doctor` | You want `/doctor` in every session |
-| Project-local | `pi install -l ./extensions/pandi-doctor` | Only this project should get `/doctor` |
-| One-off trial | `pi --no-extensions -e ./extensions/pandi-doctor` | Try it with nothing else loaded |
+| Desde npm | `pi install npm:@pandi-coding-agent/pandi-doctor` | Uso independiente, fuera de este repo |
+| Global | `pi install ./extensions/pandi-doctor` | Querés `/doctor` en todas las sesiones |
+| Local al proyecto | `pi install -l ./extensions/pandi-doctor` | Solo este proyecto debe tener `/doctor` |
+| Prueba puntual | `pi --no-extensions -e ./extensions/pandi-doctor` | Querés probarlo sin cargar nada más |
 
-## Commands
+## Comandos
 
-| Command | What it does |
+| Comando | Qué hace |
 | --- | --- |
-| `/doctor` | Run the environment check (`scripts/doctor.mjs`) and show the report. |
+| `/doctor` | Ejecuta el chequeo de entorno (`scripts/doctor.mjs`) y muestra el reporte. |
 
-## How it works
+## Cómo funciona
 
-- Walks up from the session cwd looking for a working-tree copy
-  (`<repo>/extensions/pandi-doctor/scripts/doctor.mjs`), so in-repo dev always
-  runs the freshest version; falls back to the vendored copy shipped in the
-  npm tarball for standalone installs.
-- Spawns it with `node` using an argv array — never a shell string — and
-  captures the output with `NO_COLOR` set, so the report is plain text.
-- Runs the script as a subprocess found at runtime instead of importing it: a
-  static import would break bundling, so the extension itself always loads.
+- Sube desde el cwd de la sesión buscando una copia del working tree (`<repo>/extensions/pandi-doctor/scripts/doctor.mjs`), así el desarrollo dentro del repo siempre usa la versión más nueva; si no, cae en la copia vendorizada que viene en el tarball de npm para instalaciones independientes.
+- Lo ejecuta con `node` usando un array de argv — nunca una shell string — y captura la salida con `NO_COLOR` activado, así el reporte queda en texto plano.
+- Corre el script como un proceso hijo resuelto en runtime en vez de importarlo: un import estático rompería el bundling, así que la extensión siempre lo carga de forma dinámica.
 
-## Limitations & safety notes
+## Límites y seguridad
 
-- Standalone installs degrade honestly: `sync Claude global` reports `N/A`
-  outside the suite repo, local `node_modules` probes use the session cwd,
-  and the double-copy check skips working-tree detection.
-- During onboarding, before `pi install ./` + `/reload`, use `npm run doctor`
-  instead — `/doctor` only exists once the extension is loaded.
-- The outer `/doctor` subprocess times out after 120 seconds and reports the timeout as an error. Override with `PI_DOCTOR_TIMEOUT_MS` when a slower environment needs more room.
-- Internal probes are bounded too: `PI_DOCTOR_PROBE_TIMEOUT_MS` controls quick binary/git probes (default 8s), and `PI_DOCTOR_SYNC_TIMEOUT_MS` controls repo sync checks (default 20s).
-- Timeout overrides are millisecond values clamped to at least 1000ms; invalid values fall back to the defaults instead of disabling the guard.
+- Las instalaciones independientes se degradan con honestidad: `sincronización global de Claude` reporta `N/A` fuera del repo de la suite, las consultas a `node_modules` locales usan el cwd de la sesión y el chequeo de doble copia saltea la detección del working tree.
+- Durante el onboarding, antes de `pi install ./` + `/reload`, usá `npm run doctor` en su lugar: `/doctor` solo existe una vez cargada la extensión.
+- El proceso externo de `/doctor` vence a los 120 segundos y lo reporta como error. Podés sobrescribirlo con `PI_DOCTOR_TIMEOUT_MS` cuando un entorno más lento necesite más margen.
+- Los probes internos también tienen límite: `PI_DOCTOR_PROBE_TIMEOUT_MS` controla los probes rápidos de binarios/git (por defecto 8s) y `PI_DOCTOR_SYNC_TIMEOUT_MS` controla los checks de sincronización del repo (por defecto 20s).
+- Los overrides de timeout usan milisegundos y se clavan como mínimo en 1000ms; los valores inválidos vuelven a los defaults en vez de desactivar la protección.
 
-## Related
+## Relacionado
 
-For the full bundle of extensions and skills, install the repository root
-instead.
+Para obtener el paquete completo de extensiones y skills, instalá la raíz del repositorio.

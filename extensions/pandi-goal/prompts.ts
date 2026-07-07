@@ -53,7 +53,7 @@ export function makeGoalIterationPrompt(goal: GoalState): string {
 	} else {
 		lines.push("CRITERIOS DE ÉXITO: no se proporcionaron.");
 		lines.push(
-			"PRIMERO, derivá 2 a 5 criterios de éxito concretos y VERIFICABLES a partir del objetivo (cada uno chequeable con un comando, un test o un artifact inspeccionable). Pasalos en el argumento `successCriteria` de tu PRIMER llamado a goal_progress (NO solo en `assessment`); quedan registrados UNA VEZ como la definición de terminado para el resto de este goal.",
+			"PRIMERO, derivá 2 a 5 criterios de éxito concretos y VERIFICABLES a partir del objetivo (cada uno chequeable con un comando, un test o un artefacto inspeccionable). Pasalos en el argumento `successCriteria` de tu PRIMER llamado a goal_progress (NO solo en `assessment`); quedan registrados UNA VEZ como la definición de terminado para el resto de este goal.",
 		);
 	}
 	lines.push("");

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Test de integración conductual durable para extensions/pandi-btw/index.ts y su ayudante
+ * Test de integración conductual duradero para extensions/pandi-btw/index.ts y su ayudante
  * puro (build-btw-context.ts).
  *
  * Fija el contrato público de /btw:
@@ -8,7 +8,7 @@
  * - /btw sin argumento imprime una ayuda de uso y NO llama al modelo
  * - se informa cuando no hay modelo seleccionado / credenciales no utilizables, y no se
  *   llama al modelo
- * - /btw arma un request one-shot desde la rama actual + la pregunta, con un prompt
+ * - /btw arma una petición de una sola vez desde la rama actual + la pregunta, con un prompt
  *   de sistema y sin tools, y expone la respuesta de texto del modelo
  * - reasoning se pasa SOLO para modelos con reasoning
  * - los errores del modelo / aborted / respuestas vacías se informan, no se lanzan
@@ -162,23 +162,23 @@ async function testPureHelper(pureUrl) {
 	];
 
 	const msgs = extractMessages(entries);
-	check("extractMessages keeps only message entries", msgs.length === 2, JSON.stringify(msgs));
-	check("extractMessages preserves roles in order", msgs[0]?.role === "user" && msgs[1]?.role === "assistant");
+	check("extractMessages conserva solo entradas message", msgs.length === 2, JSON.stringify(msgs));
+	check("extractMessages preserva los roles en orden", msgs[0]?.role === "user" && msgs[1]?.role === "assistant");
 
 	const identity = (m) => m.map((x) => ({ ...x }));
 	const ctx = buildBtwContext({ entries, convertToLlm: identity, question: "what did we decide?" });
 	check(
-		"buildBtwContext uses the btw system prompt",
+		"buildBtwContext usa el system prompt de btw",
 		ctx.systemPrompt === BTW_SYSTEM_PROMPT && typeof BTW_SYSTEM_PROMPT === "string",
 	);
-	check("buildBtwContext carries NO tools", !("tools" in ctx));
+	check("buildBtwContext no lleva tools", !("tools" in ctx));
 	const last = ctx.messages[ctx.messages.length - 1];
 	check(
-		"buildBtwContext appends the question as final user message",
+		"buildBtwContext agrega la pregunta como último mensaje del usuario",
 		last?.role === "user" && last?.content === "what did we decide?",
 		JSON.stringify(last),
 	);
-	check("buildBtwContext keeps the conversation before the question", ctx.messages.length === 3);
+	check("buildBtwContext conserva la conversación antes de la pregunta", ctx.messages.length === 3);
 
 	const answer = extractAnswerText({
 		content: [
@@ -187,9 +187,9 @@ async function testPureHelper(pureUrl) {
 			{ type: "text", text: "b" },
 		],
 	});
-	check("extractAnswerText joins text blocks, ignores others", answer === "a\n\nb", JSON.stringify(answer));
+	check("extractAnswerText une bloques de texto e ignora los demás", answer === "a\n\nb", JSON.stringify(answer));
 	check(
-		"extractAnswerText trims empties to ''",
+		"extractAnswerText recorta vacíos a ''",
 		extractAnswerText({ content: [{ type: "thinking", thinking: "x" }] }) === "",
 	);
 }
@@ -199,8 +199,8 @@ async function testRegistration(url) {
 	const { pi, commands } = makePi();
 	ext(pi);
 	const cmd = commands.get("btw");
-	check("/btw command is registered", typeof cmd?.handler === "function");
-	check("/btw has a description", typeof cmd?.description === "string" && cmd.description.length > 0);
+	check("/btw se registra", typeof cmd?.handler === "function");
+	check("/btw tiene una descripción", typeof cmd?.description === "string" && cmd.description.length > 0);
 }
 
 async function testEmptyQuestion(url) {
@@ -211,11 +211,11 @@ async function testEmptyQuestion(url) {
 	const { ctx, notes } = makeCtx({ mode: "tui", hasUI: true });
 	await commands.get("btw").handler("   ", ctx);
 	check(
-		"empty /btw shows a usage hint",
+		"/btw vacío muestra ayuda de uso",
 		notes.some((n) => n.type === "info" && /uso:\s*\/btw/i.test(n.message)),
 		JSON.stringify(notes),
 	);
-	check("empty /btw does not call the model", (globalThis.__btwCalls ?? []).length === 0);
+	check("/btw vacío no llama al modelo", (globalThis.__btwCalls ?? []).length === 0);
 }
 
 async function testNoModel(url) {
@@ -226,16 +226,16 @@ async function testNoModel(url) {
 	const { ctx, notes } = makeCtx({ model: null });
 	await commands.get("btw").handler("what file was that?", ctx);
 	check(
-		"no model selected is reported",
+		"se informa que no hay modelo seleccionado",
 		notes.some((n) => n.type === "error" && /no hay modelo/i.test(n.message)),
 		JSON.stringify(notes),
 	);
-	check("no model does not call the model", (globalThis.__btwCalls ?? []).length === 0);
+	check("sin modelo no llama al modelo", (globalThis.__btwCalls ?? []).length === 0);
 }
 
 // En modo json/headless (mode !== "print", hasUI === false) no hay overlay
 // ni rama de print-stream, así que notify() debe hacer fallback a la consola:
-// de lo contrario, cada error/advertencia (sin modelo, auth failure, model error)
+// de lo contrario, cada error/advertencia (sin modelo, falla de auth, error del modelo)
 // se descarta en silencio y una falla queda indistinguible de un cuelgue.
 async function testJsonModeNotifyReachesConsole(url) {
 	resetModelCalls();
@@ -254,7 +254,7 @@ async function testJsonModeNotifyReachesConsole(url) {
 		console.error = origErr;
 	}
 	check(
-		"json mode: an error notify is written to the console (not silently dropped)",
+		"modo json: el aviso de error se escribe en la consola (no se descarta en silencio)",
 		errOut.some((m) => /no hay modelo/i.test(m)),
 		JSON.stringify(errOut),
 	);
@@ -268,11 +268,11 @@ async function testAuthFailure(url) {
 	const { ctx, notes } = makeCtx({ authOk: false, authError: "no creds" });
 	await commands.get("btw").handler("what happened?", ctx);
 	check(
-		"auth failure is reported with the error",
+		"la falla de auth se informa con el error",
 		notes.some((n) => n.type === "error" && /no creds/.test(n.message)),
 		JSON.stringify(notes),
 	);
-	check("auth failure does not call the model", (globalThis.__btwCalls ?? []).length === 0);
+	check("la falla de auth no llama al modelo", (globalThis.__btwCalls ?? []).length === 0);
 }
 
 async function testHappyPathContract(url) {
@@ -298,33 +298,33 @@ async function testHappyPathContract(url) {
 	}
 
 	const callList = globalThis.__btwCalls ?? [];
-	check("/btw calls completeSimple once", callList.length === 1, `calls=${callList.length}`);
+	check("/btw llama completeSimple una vez", callList.length === 1, `calls=${callList.length}`);
 	const call = callList[0];
-	check("/btw passes the current model", call?.model?.id === "claude");
+	check("/btw pasa el modelo actual", call?.model?.id === "claude");
 	check(
-		"/btw sends a system prompt",
+		"/btw envía un system prompt",
 		typeof call?.context?.systemPrompt === "string" && call.context.systemPrompt.length > 0,
 	);
-	check("/btw sends NO tools", !("tools" in (call?.context ?? {})), JSON.stringify(Object.keys(call?.context ?? {})));
+	check("/btw no envía tools", !("tools" in (call?.context ?? {})), JSON.stringify(Object.keys(call?.context ?? {})));
 	check(
-		"/btw appends the question as final user message",
+		"/btw agrega la pregunta como último mensaje del usuario",
 		call?.context?.messages?.at(-1)?.content === "what did we agree to do?",
 	);
-	check("/btw includes the prior conversation in context", (call?.context?.messages?.length ?? 0) === 3);
-	check("/btw passes resolved apiKey", call?.options?.apiKey === "test-key");
-	check("/btw caps maxTokens", typeof call?.options?.maxTokens === "number" && call.options.maxTokens > 0);
+	check("/btw incluye la conversación previa en el contexto", (call?.context?.messages?.length ?? 0) === 3);
+	check("/btw pasa el apiKey resuelto", call?.options?.apiKey === "test-key");
+	check("/btw limita maxTokens", typeof call?.options?.maxTokens === "number" && call.options.maxTokens > 0);
 	check(
-		"/btw omits reasoning for non-reasoning model",
+		"/btw omite reasoning para un modelo sin reasoning",
 		!("reasoning" in (call?.options ?? {})),
 		JSON.stringify(call?.options),
 	);
 	check(
-		"/btw prints the answer in print mode",
+		"/btw imprime la respuesta en modo print",
 		out.some((l) => l.includes("STUB ANSWER")),
 		JSON.stringify(out),
 	);
 	check(
-		"/btw never persists via pi (sendMessage/appendEntry/setSessionName)",
+		"/btw nunca persiste vía pi (sendMessage/appendEntry/setSessionName)",
 		calls.sendMessage === 0 && calls.appendEntry === 0 && calls.setSessionName === 0,
 		JSON.stringify(calls),
 	);
@@ -345,7 +345,7 @@ async function testReasoningModel(url) {
 	await commands.get("btw").handler("ping", ctx);
 	const call = (globalThis.__btwCalls ?? [])[0];
 	check(
-		"/btw passes reasoning for reasoning-capable model",
+		"/btw pasa reasoning para un modelo con reasoning",
 		call?.options?.reasoning === "high",
 		JSON.stringify(call?.options),
 	);
@@ -362,11 +362,11 @@ async function testModelErrors(url) {
 	let r = makeCtx({ mode: "tui", hasUI: true, entries: [] });
 	await commands.get("btw").handler("q", r.ctx);
 	check(
-		"model error is reported with the message",
+		"la falla del modelo se informa con el mensaje",
 		r.notes.some((n) => n.type === "error" && /boom/.test(n.message)),
 		JSON.stringify(r.notes),
 	);
-	check("model error opens no overlay", r.overlays.length === 0);
+	check("la falla del modelo no abre overlay", r.overlays.length === 0);
 
 	// respuesta vacía (stop, pero sin texto)
 	resetModelCalls();
@@ -379,11 +379,11 @@ async function testModelErrors(url) {
 	r = makeCtx({ mode: "tui", hasUI: true, entries: [] });
 	await commands.get("btw").handler("q", r.ctx);
 	check(
-		"empty answer is reported as a warning",
+		"la respuesta vacía se informa como advertencia",
 		r.notes.some((n) => n.type === "warning" && /no devolvió respuesta/i.test(n.message)),
 		JSON.stringify(r.notes),
 	);
-	check("empty answer opens no overlay", r.overlays.length === 0);
+	check("la respuesta vacía no abre overlay", r.overlays.length === 0);
 
 	// aborted
 	resetModelCalls();
@@ -391,7 +391,7 @@ async function testModelErrors(url) {
 	r = makeCtx({ mode: "tui", hasUI: true, entries: [] });
 	await commands.get("btw").handler("q", r.ctx);
 	check(
-		"aborted is reported as info",
+		"la cancelación se informa como info",
 		r.notes.some((n) => n.type === "info" && /cancel/i.test(n.message)),
 		JSON.stringify(r.notes),
 	);
@@ -404,25 +404,25 @@ async function testTuiOverlay(url) {
 	ext(pi);
 	const { ctx, overlays } = makeCtx({ mode: "tui", hasUI: true, entries: [] });
 	await commands.get("btw").handler("what is the plan?", ctx);
-	check("/btw opens exactly one overlay in the TUI", overlays.length === 1);
+	check("/btw abre exactamente un overlay en la TUI", overlays.length === 1);
 	const comp = overlays[0]?.component;
-	check("overlay component has render()", typeof comp?.render === "function");
-	check("overlay component has handleInput()", typeof comp?.handleInput === "function");
+	check("el componente overlay tiene render()", typeof comp?.render === "function");
+	check("el componente overlay tiene handleInput()", typeof comp?.handleInput === "function");
 	let lines;
 	try {
 		lines = comp.render(80);
 	} catch (e) {
 		lines = e;
 	}
-	check("overlay render() returns lines without throwing", Array.isArray(lines), String(lines));
+	check("render() del overlay devuelve líneas sin lanzar", Array.isArray(lines), String(lines));
 	comp?.handleInput?.("q");
-	check("overlay closes on q", overlays[0]?.getClosed() === true);
+	check("el overlay se cierra con q", overlays[0]?.getClosed() === true);
 }
 
 async function main() {
 	const { outDir, aliases } = await makeBuildDir("pandi-btw-integration", {
 		sdk: (dir) => sdkStub(dir),
-		// Markdown lo provee el stub tui compartido (STUB_SOURCES.tui).
+		// Markdown lo provee el stub de TUI compartido (STUB_SOURCES.tui).
 		tui: STUB_SOURCES.tui,
 	});
 
@@ -432,7 +432,7 @@ async function main() {
 		"export function convertToLlm(messages) { return messages; }\n",
 	);
 
-	// Stubeá la llamada one-shot al modelo.
+	// Stubeá la llamada de una sola vez al modelo.
 	const compatFile = path.join(outDir, "stub-ai-compat.mjs");
 	await fs.writeFile(compatFile, COMPAT_STUB);
 	aliases["@earendil-works/pi-ai/compat"] = compatFile;

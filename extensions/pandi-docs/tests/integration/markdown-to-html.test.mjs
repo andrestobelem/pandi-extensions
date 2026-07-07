@@ -99,14 +99,14 @@ test("renders GFM tables inside a horizontal-scroll container", () => {
 test("maps GitHub alerts to labeled pandi callouts and strips the marker", () => {
 	const html = renderMarkdownToHtml("# T\n\n> [!WARNING]\n> Coverage was capped.\n", {});
 	assert.match(html, /class="callout warn"/);
-	assert.match(html, /<p class="callout-label">Warning<\/p>/);
+	assert.match(html, /<p class="callout-label">Advertencia<\/p>/);
 	assert.match(html, /Coverage was capped\./);
 	assert.doesNotMatch(html, /\[!WARNING\]/);
 	// Cada tipo de alerta mapea a su propia clase y etiqueta; los blockquotes comunes siguen siendo blockquotes.
 	const note = renderMarkdownToHtml("# T\n\n> [!NOTE]\n> n\n", {});
 	assert.match(note, /class="callout info"/);
-	assert.match(note, /<p class="callout-label">Note<\/p>/);
-	assert.match(renderMarkdownToHtml("# T\n\n> [!TIP]\n> t\n", {}), /<p class="callout-label">Tip<\/p>/);
+	assert.match(note, /<p class="callout-label">Nota<\/p>/);
+	assert.match(renderMarkdownToHtml("# T\n\n> [!TIP]\n> t\n", {}), /<p class="callout-label">Consejo<\/p>/);
 	assert.match(renderMarkdownToHtml("# T\n\n> [!CAUTION]\n> c\n", {}), /class="callout error"/);
 	const plain = renderMarkdownToHtml("# T\n\n> plain quote\n", {});
 	assert.match(plain, /<blockquote>/);

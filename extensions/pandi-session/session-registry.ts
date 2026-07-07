@@ -123,8 +123,8 @@ async function writePandiSessionHeartbeat(runtime: LivePandiSessionRuntime): Pro
 	try {
 		await writeJsonFile(runtime.file, buildPandiSessionRecord(runtime));
 	} catch {
-		// Best-effort: a dashboard should not fail because the live-session registry
-		// cannot be written (permissions, deleted temp dirs, or reload races).
+		// Mejor esfuerzo: un dashboard no debería fallar porque el registro de sesiones vivas
+		// no se pueda escribir (permisos, directorios temporales borrados o carreras de recarga).
 	}
 }
 
@@ -215,7 +215,13 @@ export async function collectPandiSessions(ctx: ExtensionContext): Promise<Pandi
 			const pidAlive = isPidAlive(record.pid);
 			const fresh = Number.isFinite(ageMs) && ageMs <= PANDI_SESSION_STALE_MS;
 			const live = pidAlive && fresh;
-			const staleReason = live ? undefined : !pidAlive ? "pid exited" : !fresh ? "heartbeat stale" : "unknown";
+			const staleReason = live
+				? undefined
+				: !pidAlive
+					? "PID finalizado"
+					: !fresh
+						? "heartbeat obsoleto"
+						: "desconocido";
 			const model: PandiSessionModel = {
 				...record,
 				file,
@@ -246,19 +252,19 @@ function formatElapsedMs(ms: number): string {
 }
 
 export function formatPandiSessionList(sessions: PandiSessionModel[]): string {
-	const lines = [`Pandi sessions (${sessions.length})`];
+	const lines = [`Sesiones Pandi (${sessions.length})`];
 	if (sessions.length === 0) {
-		lines.push("No live Pandi TUI/RPC sessions found for this project.");
+		lines.push("No se encontraron sesiones TUI/RPC vivas de Pandi para este proyecto.");
 		return lines.join("\n");
 	}
 	for (const session of sessions) {
 		const status = session.live ? "live" : `stale${session.staleReason ? `:${session.staleReason}` : ""}`;
-		const age = Number.isFinite(session.ageMs) ? `${formatElapsedMs(session.ageMs)} ago` : "unknown";
+		const age = Number.isFinite(session.ageMs) ? `hace ${formatElapsedMs(session.ageMs)}` : "desconocido";
 		lines.push(
-			`- ${status} ${session.mode} pid:${session.pid}${session.current ? " this" : ""}${session.sessionName ? ` name:${session.sessionName}` : ""} updated:${age} idle:${session.idle === undefined ? "unknown" : session.idle ? "yes" : "no"}`,
+			`- ${status} ${session.mode} pid:${session.pid}${session.current ? " actual" : ""}${session.sessionName ? ` nombre:${session.sessionName}` : ""} actualizado:${age} inactivo:${session.idle === undefined ? "desconocido" : session.idle ? "sí" : "no"}`,
 		);
-		lines.push(`  session: ${session.sessionId ?? "unknown"}`);
-		if (session.sessionFile) lines.push(`  file: ${session.sessionFile}`);
+		lines.push(`  sesión: ${session.sessionId ?? "desconocida"}`);
+		if (session.sessionFile) lines.push(`  archivo: ${session.sessionFile}`);
 	}
 	return lines.join("\n");
 }
@@ -269,16 +275,16 @@ export function classifyPandiSessionFilesForCleanup(
 ): PandiSessionCleanupItem[] {
 	return entries.map((entry) => {
 		const record = parsePandiSessionRecord(entry.record);
-		if (!record) return { file: entry.file, action: "keep", reason: "unparseable session record" };
+		if (!record) return { file: entry.file, action: "keep", reason: "registro de sesión ilegible" };
 		const base = { file: entry.file, id: record.id, pid: record.pid };
-		if (opts.currentId && record.id === opts.currentId) return { ...base, action: "keep", reason: "current session" };
-		if (!opts.isPidAlive(record.pid)) return { ...base, action: "delete", reason: "pid exited" };
+		if (opts.currentId && record.id === opts.currentId) return { ...base, action: "keep", reason: "sesión actual" };
+		if (!opts.isPidAlive(record.pid)) return { ...base, action: "delete", reason: "PID finalizado" };
 		const updatedMs = Date.parse(record.updatedAt);
 		const ageMs = Number.isFinite(updatedMs) ? Math.max(0, opts.now - updatedMs) : Number.POSITIVE_INFINITY;
 		const fresh = ageMs <= PANDI_SESSION_STALE_MS;
-		if (!fresh && opts.includeHeartbeatStale) return { ...base, action: "delete", reason: "heartbeat stale" };
-		if (!fresh) return { ...base, action: "keep", reason: "heartbeat stale but pid is alive" };
-		return { ...base, action: "keep", reason: "live session" };
+		if (!fresh && opts.includeHeartbeatStale) return { ...base, action: "delete", reason: "heartbeat obsoleto" };
+		if (!fresh) return { ...base, action: "keep", reason: "heartbeat obsoleto pero el PID sigue vivo" };
+		return { ...base, action: "keep", reason: "sesión viva" };
 	});
 }
 
@@ -332,7 +338,7 @@ export async function prunePandiSessionFiles(
 			await fs.unlink(file);
 			removed.push(file);
 		} catch {
-			// Already gone or lost a race.
+			// Ya no existía o se perdió la carrera.
 		}
 	}
 	return { removed, kept: entries.length - removed.length, items };
