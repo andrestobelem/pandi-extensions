@@ -96,10 +96,13 @@ export function applyVersionBumps(root, plan) {
 	rootPkg.version = plan.root.to;
 	writeJson(rootFile, rootPkg);
 
-	for (const bump of plan.workspaces) {
-		const pkg = readJson(join(root, bump.dir, "package.json"));
-		pkg.version = bump.to;
-		writeJson(join(root, bump.dir, "package.json"), pkg);
+	const workspaceVersions = new Map(plan.workspaces.map((bump) => [bump.name, bump.to]));
+	const workspaceDirs = new Set(plan.workspaces.map((bump) => bump.dir));
+	for (const { dir, file } of loadWorkspacePackages(root)) {
+		const pkg = readJson(file);
+		if (workspaceDirs.has(dir)) pkg.version = workspaceVersions.get(pkg.name);
+		updateInternalWorkspaceRanges(pkg, workspaceVersions);
+		writeJson(file, pkg);
 	}
 
 	const lockFile = join(root, "package-lock.json");
@@ -107,13 +110,22 @@ export function applyVersionBumps(root, plan) {
 		const lock = readJson(lockFile);
 		lock.version = plan.root.to;
 		if (lock.packages?.[""]) lock.packages[""].version = plan.root.to;
-		for (const bump of plan.workspaces) {
-			if (lock.packages?.[bump.dir]) lock.packages[bump.dir].version = bump.to;
+		for (const [key, pkg] of Object.entries(lock.packages || {})) {
+			if (workspaceDirs.has(key) && workspaceVersions.has(pkg.name)) pkg.version = workspaceVersions.get(pkg.name);
+			updateInternalWorkspaceRanges(pkg, workspaceVersions);
 		}
 		writeJson(lockFile, lock);
 	}
 
 	updateTagReferences(root, `v${plan.root.from}`, `v${plan.root.to}`);
+}
+
+function updateInternalWorkspaceRanges(pkg, workspaceVersions) {
+	for (const field of ["dependencies", "devDependencies", "optionalDependencies"]) {
+		for (const [name, version] of workspaceVersions) {
+			if (pkg[field]?.[name]) pkg[field][name] = version;
+		}
+	}
 }
 
 export function updateTagReferences(root, oldTag, newTag) {

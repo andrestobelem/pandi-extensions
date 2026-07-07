@@ -83,12 +83,22 @@ test("release-prepare: write mode updates package files, lockfile, and release d
 			name: "@pandi-coding-agent/pandi-bg",
 			version: "0.1.5",
 		});
+		writeJson(path.join(root, "extensions", "pandi-plan", "package.json"), {
+			name: "@pandi-coding-agent/pandi-plan",
+			version: "0.1.4",
+			dependencies: { "@pandi-coding-agent/pandi-bg": "0.1.5" },
+		});
 		writeJson(path.join(root, "package-lock.json"), {
 			name: "suite",
 			version: "0.3.1",
 			packages: {
 				"": { name: "suite", version: "0.3.1" },
 				"extensions/pandi-bg": { name: "@pandi-coding-agent/pandi-bg", version: "0.1.5" },
+				"extensions/pandi-plan": {
+					name: "@pandi-coding-agent/pandi-plan",
+					version: "0.1.4",
+					dependencies: { "@pandi-coding-agent/pandi-bg": "0.1.5" },
+				},
 			},
 		});
 		fs.mkdirSync(path.join(root, "docs"), { recursive: true });
@@ -112,10 +122,17 @@ test("release-prepare: write mode updates package files, lockfile, and release d
 			JSON.parse(fs.readFileSync(path.join(root, "extensions", "pandi-bg", "package.json"), "utf8")).version,
 			"0.1.6",
 		);
+		assert.equal(
+			JSON.parse(fs.readFileSync(path.join(root, "extensions", "pandi-plan", "package.json"), "utf8")).dependencies[
+				"@pandi-coding-agent/pandi-bg"
+			],
+			"0.1.6",
+		);
 		const lock = JSON.parse(fs.readFileSync(path.join(root, "package-lock.json"), "utf8"));
 		assert.equal(lock.version, "0.3.2");
 		assert.equal(lock.packages[""].version, "0.3.2");
 		assert.equal(lock.packages["extensions/pandi-bg"].version, "0.1.6");
+		assert.equal(lock.packages["extensions/pandi-plan"].dependencies["@pandi-coding-agent/pandi-bg"], "0.1.6");
 		assert.match(fs.readFileSync(path.join(root, "docs", "setup.md"), "utf8"), /v0\.3\.2/);
 		assert.match(fs.readFileSync(path.join(root, "RELEASING.md"), "utf8"), /v0\.3\.2/);
 	} finally {

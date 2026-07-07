@@ -26,7 +26,7 @@
 		]
 	},
 	"dependencies": {
-		"@pandi-coding-agent/pandi-docs": "0.1.3"
+		"@pandi-coding-agent/pandi-docs": "0.1.4"
 	},
 	"peerDependencies": {
 		"@earendil-works/pi-coding-agent": "^0.80.3",
