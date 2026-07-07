@@ -377,7 +377,16 @@ export default async function main() {
 				`- If you need another file, STOP and report it; do not touch it.\n` +
 				`- Keep the diff minimal and reversible.\n` +
 				`Return JSON matching the schema with what you changed and why.`,
-			node(`apply-r${round}`, { tier: "balanced", effort: "medium", schema: APPLY_RESULT, phase: "Apply" }),
+			node(`apply-r${round}`, {
+				tier: "balanced",
+				effort: "medium",
+				schema: APPLY_RESULT,
+				phase: "Apply",
+				// Hard-restrict tools: edit/write/read/grep/find/ls only. No bash/git — the apply
+				// agent must never be ABLE to commit/stage/push, so "do not commit" in the prompt
+				// is enforced by the tool sandbox, not just by instruction-following.
+				tools: ["read", "grep", "find", "ls", "edit", "write"],
+			}),
 		);
 		if (!implementation) return { status: "APPLY_FAILED_NULL", round, selected };
 
