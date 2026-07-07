@@ -1,6 +1,6 @@
 {
 	"name": "@pandi-coding-agent/pandi-rename",
-	"version": "0.3.4",
+	"version": "0.3.5",
 	"description": "Extensión de Pi que agrega un comando /rename al estilo Claude para renombrar la sesión actual y autogenerar un nombre desde el historial cuando no se proporciona uno.",
 	"license": "MIT",
 	"repository": {

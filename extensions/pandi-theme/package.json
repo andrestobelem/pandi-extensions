@@ -1,6 +1,6 @@
 {
 	"name": "@pandi-coding-agent/pandi-theme",
-	"version": "0.1.5",
+	"version": "0.1.6",
 	"description": "Paquete de temas para Pi con variantes oscura y clara de Panda Syntax, el compañero visual de la mascota Pandi.",
 	"license": "MIT",
 	"repository": {

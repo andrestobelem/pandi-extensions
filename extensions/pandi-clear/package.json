@@ -1,6 +1,6 @@
 {
 	"name": "@pandi-coding-agent/pandi-clear",
-	"version": "0.1.5",
+	"version": "0.1.6",
 	"description": "Extensión de Pi que agrega el comando /clear al estilo Claude como alias del /new nativo (inicia una sesión nueva).",
 	"license": "MIT",
 	"repository": {

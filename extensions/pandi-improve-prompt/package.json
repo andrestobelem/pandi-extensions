@@ -1,6 +1,6 @@
 {
 	"name": "@pandi-coding-agent/pandi-improve-prompt",
-	"version": "0.1.1",
+	"version": "0.1.2",
 	"description": "Extensión de Pi que agrega el comando /improve-prompt: reescribe un borrador de prompt torpe en uno más claro y accionable, y luego ofrece enviarlo como tu próximo mensaje.",
 	"license": "MIT",
 	"repository": {
