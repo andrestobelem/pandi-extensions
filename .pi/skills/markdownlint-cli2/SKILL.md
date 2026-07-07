@@ -1,63 +1,63 @@
 ---
 name: markdownlint-cli2
 description: >-
-  Use markdownlint-cli2 in this repository to lint or fix Markdown files with
-  the same DavidAnson markdownlint engine used by the VS Code markdownlint
-  extension. Use when creating, editing, reviewing, or validating Markdown.
+  Usá markdownlint-cli2 en este repositorio para lint o fix de archivos
+  Markdown con el mismo motor DavidAnson markdownlint que usa la extensión
+  markdownlint de VS Code. Usar al crear, editar, revisar o validar Markdown.
 ---
 
 # markdownlint-cli2
 
-Use this skill whenever a task creates, edits, reviews, or validates Markdown in this repository.
+Usá este skill cuando una tarea cree, edite, revise o valide Markdown en este repositorio.
 
-## Commands
+## Comandos
 
-- Whole-repo check:
+- Chequeo de todo el repo:
 
   ```bash
   npm run lint:md
   ```
 
-- Whole-repo auto-fix, only when the user explicitly wants broad Markdown edits:
+- Auto-fix de todo el repo, solo cuando la persona usuaria pida cambios amplios sobre Markdown:
 
   ```bash
   npm run lint:md:fix
   ```
 
-- Targeted check for a few files:
+- Chequeo focalizado para algunos archivos:
 
   ```bash
   npx markdownlint-cli2 ":README.md" ":docs/example.md"
   ```
 
-- Targeted auto-fix for files you intentionally touched:
+- Auto-fix focalizado para archivos que tocaste intencionalmente:
 
   ```bash
   npx markdownlint-cli2 --fix ":README.md" ":docs/example.md"
   ```
 
-Use the `:` prefix for literal paths so glob characters in file names are not expanded.
+Usá el prefijo `:` para rutas literales, así los caracteres glob en nombres de archivo no se expanden.
 
-## Repository configuration
+## Configuración del repositorio
 
-The repo config lives at `.markdownlint-cli2.jsonc` and is intentionally a legacy-friendly baseline:
+La configuración del repo vive en `.markdownlint-cli2.jsonc` y es, a propósito, una base amigable con el legado:
 
-- lints `**/*.md` by default;
-- respects `.gitignore`;
-- ignores generated/ephemeral paths like `.pi/**`, `.cache/**`, and `node_modules/**`;
-- ignores `docs/conversaciones/**` because conversation transcripts intentionally repeat headings;
-- relaxes noisy historical-doc rules while keeping default markdownlint checks otherwise enabled.
+- lint sobre `**/*.md` por defecto;
+- respeta `.gitignore`;
+- ignora rutas generadas o efímeras como `.pi/**`, `.cache/**` y `node_modules/**`;
+- ignora `docs/conversaciones/**` porque las transcripciones de conversaciones repiten headings intencionalmente;
+- relaja reglas ruidosas de documentación histórica, pero mantiene habilitados los chequeos default de markdownlint en lo demás.
 
-## Workflow
+## Flujo de trabajo
 
-1. Before editing, inspect the target file and current git status so you do not rewrite unrelated dirty files.
-2. After editing Markdown, run a targeted check on the files you touched.
-3. If the target check fails, fix only the reported issues in those files, then re-run the targeted check.
-4. Run `npm run lint:md` when the task asks for whole-repo validation or before claiming the repo Markdown configuration itself works.
-5. Report the exact command and result.
+1. Antes de editar, inspeccioná el archivo objetivo y el `git status` actual para no reescribir archivos sucios no relacionados.
+2. Después de editar Markdown, corré un chequeo focalizado sobre los archivos que tocaste.
+3. Si ese chequeo falla, corregí solo los problemas reportados en esos archivos y luego volvé a correrlo.
+4. Corré `npm run lint:md` cuando la tarea pida validación de todo el repo o antes de afirmar que la configuración Markdown del repo funciona.
+5. Reportá el comando exacto y su resultado.
 
-## Cautions
+## Cuidados
 
-- Do not run broad `npm run lint:md:fix` in a dirty tree unless the user explicitly asked for whole-repo Markdown cleanup.
-- If lint reports pre-existing issues outside your touched files, preserve them and mention them instead of opportunistically rewriting them.
-- The formatter/linter is `markdownlint-cli2`, not the older `markdownlint-cli`; it matches the DavidAnson markdownlint ecosystem used by the VS Code extension.
+- No corras `npm run lint:md:fix` de forma amplia en un árbol sucio, salvo que la persona usuaria haya pedido limpieza Markdown repo-wide explícitamente.
+- Si el lint reporta problemas preexistentes fuera de los archivos que tocaste, preservalos y mencionálos en vez de reescribirlos de manera oportunista.
+- El formatter/linter es `markdownlint-cli2`, no el viejo `markdownlint-cli`; coincide con el ecosistema DavidAnson markdownlint que usa la extensión de VS Code.

@@ -1,56 +1,58 @@
 ---
 name: github-project
 description: >-
-  Manage this repo's issue tracking on the GitHub Project v2
-  "pandi-dynamic-workflows" (user andrestobelem, project #4) with the gh CLI.
-  Use when creating stories/tasks/bugs, adding items to the board, moving
-  Status (Todo / In Progress / Done), setting Priority (P0-P3) or Size (S/M/L),
-  building epics with native sub-issues, managing milestones, closing work from
-  commits, or answering "what is on the board / in progress / left to do /
-  next by priority".
+  Gestiona el tracking de issues de este repo en el GitHub Project v2
+  "pandi" (usuario andrestobelem, project #4) con la gh CLI.
+  Usar para crear stories/tasks/bugs, agregar items al board, mover el
+  Status (Todo / In Progress / Done), setear Priority (P0-P3) o Size (S/M/L),
+  armar epics con native sub-issues, gestionar milestones, cerrar trabajo
+  desde commits, o responder "qué hay en el board / en progreso / falta / qué
+  sigue por prioridad".
 ---
 
 # github-project
 
-All work on this repo is tracked as **repo issues** placed on the **GitHub
-Project v2 board "pandi-dynamic-workflows"** (owner: user `andrestobelem`,
-project `4`), driven entirely from the terminal with `gh`. This skill carries
-the verified IDs and the exact command recipes so no session has to
-re-discover them.
+Todo el trabajo de este repo se trackea como **issues del repo** ubicados en
+el **GitHub Project v2 board "pandi"** (owner: usuario
+`andrestobelem`, project `4`), manejado por completo desde la terminal con
+`gh`. Este skill guarda los IDs ya verificados y las recetas de comandos
+exactas para que ninguna sesión tenga que re-descubrirlos.
 
-## Conventions (the contract)
+## Convenciones (el contrato)
 
-- **Issues are the unit of work**, labelled by kind: `story` (user-facing
-  story / epic), `task` (concrete task), `bug`, `tests` (test-suite work),
-  `tech-debt` (debt / process improvement). Combine kind labels when honest
-  (e.g. `task,tests`).
-- **Board Status** groups items: `Todo` → `In Progress` → `Done`. Move an item
-  to In Progress when you actually start it.
-- **Close from the commit that finishes the work**: put `Closes #N` in the
-  commit message body. When the commit lands on the default branch, GitHub
-  closes the issue and the built-in project workflow moves its card to Done —
-  no manual board edit needed.
-- **Stories link their sub-tasks**: the parent story lists them in its body;
-  each sub-task's body says `Part of #N`. Keep sub-tasks small and
-  independently closeable.
-- **The Project board is the source of truth** for planning state: `Priority`
-  (P0 highest → P3) and `Size` (S/M/L) live as board fields, not only in
-  grooming run artifacts. The `grooming` workflow analyzes and PROPOSES
-  `item-edit` commands (propose-only); a human executes them. `sdlc` picks the
-  next issue as the top-Priority `Todo` item. Run artifacts are snapshots; the
-  board is current state.
-- **Epics are native sub-issues**, not just body text: link children to the
-  parent story with the `addSubIssue` GraphQL mutation (recipes below). GitHub
-  then computes `Sub-issues progress` automatically and the board can
-  group-by-parent. Keep the `Part of #N` body line as a human-readable
-  courtesy; the sub-issue link is the machine truth.
+- **Los issues son la unidad de trabajo**, etiquetados por tipo: `story`
+  (historia de usuario / epic), `task` (tarea concreta), `bug`, `tests`
+  (trabajo de test suite), `tech-debt` (deuda / mejora de proceso). Combiná
+  labels de tipo cuando sea honesto (p. ej. `task,tests`).
+- **El Status del board** agrupa items: `Todo` → `In Progress` → `Done`.
+  Mové un item a In Progress cuando realmente lo arrancás.
+- **Cerrá desde el commit que termina el trabajo**: poné `Closes #N` en el
+  body del mensaje de commit. Cuando el commit aterriza en la rama default,
+  GitHub cierra el issue y el workflow nativo del project mueve su card a
+  Done — sin edición manual del board.
+- **Las stories linkean sus sub-tasks**: la story padre las lista en su body;
+  el body de cada sub-task dice `Part of #N`. Mantené las sub-tasks chicas e
+  independientemente cerrables.
+- **El board del Project es la fuente de verdad** del estado de planificación:
+  `Priority` (P0 más alta → P3) y `Size` (S/M/L) viven como campos del board,
+  no solo en artifacts de corridas de grooming. El workflow `grooming`
+  analiza y PROPONE comandos `item-edit` (propose-only); una persona los
+  ejecuta. `sdlc` elige el siguiente issue como el item `Todo` de mayor
+  Priority. Los artifacts de corrida son snapshots; el board es el estado
+  actual.
+- **Los epics son native sub-issues**, no solo texto en el body: linkeá los
+  hijos a la story padre con la mutación GraphQL `addSubIssue` (recetas más
+  abajo). GitHub calcula entonces `Sub-issues progress` automáticamente y el
+  board puede agrupar por parent. Mantené la línea `Part of #N` en el body
+  como cortesía legible para humanos; el link de sub-issue es la verdad que
+  usa la máquina.
 
-## Verified constants (2026-07-04)
+## Constantes verificadas (2026-07-04)
 
-| What | Value |
+| Qué | Valor |
 | --- | --- |
 | Repo | `andrestobelem/pandi-extensions` |
-| Project | number `4`, owner `andrestobelem` (user project, private) |
+| Project | número `4`, owner `andrestobelem` (user project, privado) |
 | Project ID | `PVT_kwHOAEKsO84BcY5A` |
 | Status field ID | `PVTSSF_lAHOAEKsO84BcY5AzhXCGf4` |
 | Status option: Todo | `f75ad846` |
@@ -61,8 +63,8 @@ re-discover them.
 | Size field ID | `PVTSSF_lAHOAEKsO84BcY5AzhXHPrw` |
 | Size options | S `cd9ee114` · M `b551b778` · L `254b9bf3` |
 
-If an `item-edit` fails with an unknown field/option, re-derive the IDs (they
-only change if the field is recreated):
+Si un `item-edit` falla con un field/option desconocido, re-derivá los IDs
+(solo cambian si el field se recrea):
 
 ```bash
 gh project field-list 4 --owner andrestobelem --format json \
@@ -70,12 +72,12 @@ gh project field-list 4 --owner andrestobelem --format json \
         | {name, id, options: [.options[] | {name, id}]}'
 ```
 
-## Recipes
+## Recetas
 
-Preflight once per session if anything fails with auth errors: `gh auth status`
-(the token must carry the `project` scope; `gh auth refresh -s project` fixes it).
+Preflight una vez por sesión si algo falla con errores de auth: `gh auth status`
+(el token debe tener el scope `project`; `gh auth refresh -s project` lo arregla).
 
-### Create an issue and put it on the board
+### Crear un issue y ponerlo en el board
 
 ```bash
 gh issue create --title "P5: cover pandi-effort parse errors" \
@@ -84,21 +86,23 @@ gh issue create --title "P5: cover pandi-effort parse errors" \
 gh project item-add 4 --owner andrestobelem --url <issue-url-from-previous-output>
 ```
 
-A freshly added item may have NO Status yet — set `Todo` explicitly with the
-move recipe below so it shows up in the right column.
+Un item recién agregado puede no tener Status todavía — seteá `Todo`
+explícitamente con la receta de mover de abajo para que aparezca en la
+columna correcta.
 
-### Find a board item id from an issue number
+### Encontrar el id de item del board a partir del número de issue
 
-`item-edit` needs the PVTI item id, not the issue number:
+`item-edit` necesita el PVTI item id, no el número de issue:
 
 ```bash
 gh project item-list 4 --owner andrestobelem --limit 200 --format json \
   --jq '.items[] | select(.content.number == 2) | .id'
 ```
 
-(Default `--limit` is 30 — always pass a generous one; the board already has ~26 items.)
+(El `--limit` por defecto es 30 — pasá siempre uno generoso; el board ya
+tiene ~26 items.)
 
-### Move an item's Status
+### Mover el Status de un item
 
 ```bash
 gh project item-edit --id <PVTI-item-id> \
@@ -107,10 +111,10 @@ gh project item-edit --id <PVTI-item-id> \
   --single-select-option-id 47fc9ee4   # Todo f75ad846 · In Progress 47fc9ee4 · Done 98236657
 ```
 
-### Set Priority / Size on an item
+### Setear Priority / Size en un item
 
-Same `item-edit` shape as Status — one field per call (verified round-trip:
-set → query → `--clear`):
+Misma forma de `item-edit` que Status — un field por llamada (round-trip
+verificado: set → query → `--clear`):
 
 ```bash
 gh project item-edit --id <PVTI-item-id> \
@@ -118,13 +122,13 @@ gh project item-edit --id <PVTI-item-id> \
   --field-id PVTSSF_lAHOAEKsO84BcY5AzhXHPrs \
   --single-select-option-id 431da638   # P0 5625c061 · P1 431da638 · P2 29bb2363 · P3 01b46031
 # Size: --field-id PVTSSF_lAHOAEKsO84BcY5AzhXHPrw · S cd9ee114 · M b551b778 · L 254b9bf3
-# Unset a field: same call with --clear instead of --single-select-option-id
+# Desetear un field: misma llamada con --clear en vez de --single-select-option-id
 ```
 
-### Pick the next work item (top-Priority Todo)
+### Elegir el siguiente item de trabajo (Todo de mayor Priority)
 
-In `item-list` JSON the field keys are lowercased (`priority`, `size`); items
-without the field have `null`:
+En el JSON de `item-list` las claves de field están en minúscula (`priority`,
+`size`); los items sin el field tienen `null`:
 
 ```bash
 gh project item-list 4 --owner andrestobelem --limit 200 --format json \
@@ -133,79 +137,83 @@ gh project item-list 4 --owner andrestobelem --limit 200 --format json \
         | .[] | "\(.priority) #\(.content.number) \(.title)"'
 ```
 
-(`sort_by(.priority)` works because P0 < P1 < … sorts lexicographically.)
+(`sort_by(.priority)` funciona porque P0 < P1 < … ordena lexicográficamente.)
 
 ### Epics: native sub-issues
 
-Sub-issue operations are GraphQL-only (no `gh project`/`gh issue` subcommand).
-`addSubIssue` accepts the child's URL directly — no node-ID dance (input shape
-schema-verified; mutations exercised on demand):
+Las operaciones de sub-issue son solo GraphQL (no hay subcomando de `gh
+project`/`gh issue`). `addSubIssue` acepta directamente la URL del hijo — sin
+vueltas de node-ID (forma del input verificada contra el schema; mutaciones
+ejercitadas on demand):
 
 ```bash
-# Link a child issue to its parent story (epic)
-PARENT_ID=$(gh api graphql -f query='{ repository(owner:"andrestobelem", name:"pandi-dynamic-workflows")
+# Linkear un issue hijo a su story padre (epic)
+PARENT_ID=$(gh api graphql -f query='{ repository(owner:"andrestobelem", name:"pandi-extensions")
   { issue(number:<PARENT>) { id } }}' --jq .data.repository.issue.id)
 gh api graphql -f query="mutation { addSubIssue(input: { issueId: \"$PARENT_ID\",
   subIssueUrl: \"https://github.com/andrestobelem/pandi-extensions/issues/<CHILD>\" })
   { issue { number } subIssue { number } } }"
 
-# List an epic's children + auto-computed progress
-gh api graphql -f query='{ repository(owner:"andrestobelem", name:"pandi-dynamic-workflows")
+# Listar los hijos de un epic + progreso auto-calculado
+gh api graphql -f query='{ repository(owner:"andrestobelem", name:"pandi-extensions")
   { issue(number:<PARENT>) { subIssuesSummary { total completed percentCompleted }
     subIssues(first: 50) { nodes { number title state } } } }}' --jq .data.repository.issue
 
-# Unlink / reorder children: removeSubIssue · reprioritizeSubIssue (same input style)
+# Desvincular / reordenar hijos: removeSubIssue · reprioritizeSubIssue (mismo estilo de input)
 ```
 
-The board surfaces this via the built-in `Parent issue` and `Sub-issues
-progress` fields (group a table view by Parent issue in the UI).
+El board muestra esto vía los fields nativos `Parent issue` y `Sub-issues
+progress` (agrupá una vista de tabla por Parent issue en la UI).
 
-### Milestones (release buckets)
+### Milestones (buckets de release)
 
 ```bash
 gh api repos/andrestobelem/pandi-extensions/milestones -f title="v0.2 release" \
-  -f description="<anchor story / scope>"          # create
-gh issue edit <N> --milestone "v0.2 release"       # assign
-gh issue list --milestone "v0.2 release"           # query
+  -f description="<anchor story / scope>"          # crear
+gh issue edit <N> --milestone "v0.2 release"       # asignar
+gh issue list --milestone "v0.2 release"           # consultar
 ```
 
-The board's built-in `Milestone` field picks these up automatically.
+El field nativo `Milestone` del board los toma automáticamente.
 
-### Finish work
+### Terminar trabajo
 
-Prefer closing from the landing commit (`Closes #N` in the body) over manual
-closes. Manual fallback: `gh issue close <N> --comment "<evidence>"` — the
-project workflow still moves the card to Done.
+Preferí cerrar desde el commit que aterriza (`Closes #N` en el body) antes
+que cerrar a mano. Fallback manual: `gh issue close <N> --comment
+"<evidence>"` — el workflow del project igual mueve la card a Done.
 
-### Query the board
+### Consultar el board
 
 ```bash
-# Everything, grouped fields flattened: id | status | issue | labels | title
+# Todo, campos agrupados aplanados: id | status | issue | labels | title
 gh project item-list 4 --owner andrestobelem --limit 200 --format json \
   --jq '.items[] | [.id, .status, "#\(.content.number)", (.labels | join(",")), .title] | @tsv'
 
-# Only what is in progress (or Todo / Done)
+# Solo lo que está en progreso (o Todo / Done)
 gh project item-list 4 --owner andrestobelem --limit 200 --format json \
   --jq '.items[] | select(.status == "In Progress") | "#\(.content.number) \(.title)"'
 ```
 
-Issue-side queries stay on the repo: `gh issue list --label task --state open`.
+Las consultas del lado del issue quedan en el repo: `gh issue list --label
+task --state open`.
 
-## Gotchas
+## Cosas a tener en cuenta
 
-- `gh project` subcommands need `--owner andrestobelem` every time — without it
-  gh guesses from the repo and user projects are not found.
-- `item-list` JSON: `status` is a plain string (`"Todo"` / `"In Progress"` /
-  `"Done"`), the issue number is `content.number`, labels is a string array.
-- The project is **private**: link cards by issue number in text, don't expect
-  external viewers to resolve project URLs.
-- One `item-edit` sets ONE field; Status moves and other field edits are
-  separate calls.
-- `gh project field-create` only supports `TEXT|SINGLE_SELECT|DATE|NUMBER` —
-  **Iteration fields cannot be created from the CLI** (UI-only); reading/setting
-  them via GraphQL works once created.
-- Sub-issue mutations (`addSubIssue` / `removeSubIssue` / `reprioritizeSubIssue`)
-  exist only in GraphQL; the parent must be passed as a node ID (`issueId`),
-  the child can be a plain `subIssueUrl`.
-- New single-select fields created via CLI get auto-generated option IDs —
-  record them here immediately (table above) so no session re-derives them.
+- Los subcomandos `gh project` necesitan `--owner andrestobelem` siempre —
+  sin eso, gh adivina a partir del repo y no encuentra user projects.
+- JSON de `item-list`: `status` es un string plano (`"Todo"` / `"In
+  Progress"` / `"Done"`), el número de issue es `content.number`, labels es
+  un array de strings.
+- El project es **privado**: linkeá cards por número de issue en texto, no
+  esperes que viewers externos resuelvan URLs del project.
+- Un `item-edit` setea UN field; mover Status y editar otros fields son
+  llamadas separadas.
+- `gh project field-create` solo soporta `TEXT|SINGLE_SELECT|DATE|NUMBER` —
+  **los Iteration fields no se pueden crear desde la CLI** (solo UI);
+  leerlos/setearlos vía GraphQL funciona una vez creados.
+- Las mutaciones de sub-issue (`addSubIssue` / `removeSubIssue` /
+  `reprioritizeSubIssue`) existen solo en GraphQL; el parent debe pasarse
+  como node ID (`issueId`), el child puede ser un `subIssueUrl` plano.
+- Los single-select fields nuevos creados vía CLI reciben option IDs
+  auto-generados — registralos acá enseguida (tabla de arriba) para que
+  ninguna sesión los tenga que re-derivar. 🐼
