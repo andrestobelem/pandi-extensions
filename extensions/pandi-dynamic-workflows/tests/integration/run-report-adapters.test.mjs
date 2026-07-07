@@ -138,7 +138,14 @@ async function main() {
 	check("report.html written inside the run dir", typeof html === "string");
 	check("report is a full document", (html ?? "").startsWith("<!doctype html>"));
 	check("report names the workflow", (html ?? "").includes("adapter-demo"));
-	check("report links the agent artifact relatively", (html ?? "").includes('href="agents/0001-solo.md"'));
+	check(
+		"report links the agent artifact through the static viewer",
+		(html ?? "").includes('href="artifact-viewer.html#artifact-'),
+	);
+	const viewerPath = path.join(runDir, "artifact-viewer.html");
+	const viewerHtml = await fs.readFile(viewerPath, "utf8").catch(() => undefined);
+	check("artifact-viewer.html written inside the run dir", typeof viewerHtml === "string");
+	check("artifact viewer includes the agent artifact content", (viewerHtml ?? "").includes("do the thing"));
 	check("tool response mentions the output path", explicit.ok && JSON.stringify(explicit.v).includes("report.html"));
 
 	// 2) action=report sin name resuelve el run LATEST entre múltiples candidatos.
@@ -202,16 +209,17 @@ async function main() {
 		),
 	);
 
-	// 5) countRunArtifacts nunca cuenta report.html en sí.
+	// 5) countRunArtifacts nunca cuenta los viewers generados.
 	check("countRunArtifacts exported for the pin", typeof mod.countRunArtifacts === "function");
 	if (typeof mod.countRunArtifacts === "function") {
-		const withReport = await mod.countRunArtifacts(runDir);
+		const withViewers = await mod.countRunArtifacts(runDir);
 		await fs.rm(reportPath, { force: true });
-		const withoutReport = await mod.countRunArtifacts(runDir);
+		await fs.rm(viewerPath, { force: true });
+		const withoutViewers = await mod.countRunArtifacts(runDir);
 		check(
-			"report.html excluded from artifact count",
-			withReport === withoutReport,
-			`${withReport} vs ${withoutReport}`,
+			"report.html and artifact-viewer.html excluded from artifact count",
+			withViewers === withoutViewers,
+			`${withViewers} vs ${withoutViewers}`,
 		);
 	}
 

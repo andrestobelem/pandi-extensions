@@ -129,11 +129,14 @@ async function main() {
 
 	// 6) Clean relative links still work, URL-encoded in attribute context.
 	check(
-		"clean agent artifact link kept",
-		html.includes('href="agents/0002-clean-agent.md"'),
-		"expected relative artifact href",
+		"clean agent artifact link uses static viewer",
+		html.includes('href="artifact-viewer.html#artifact-'),
+		"expected artifact-viewer href",
 	);
-	check("space/quote href URL-encoded", /href="agents\/0002%20[^"]*\.stdout\.log"/.test(html));
+	check(
+		"space/quote href stays contained in static viewer",
+		/href="artifact-viewer\.html#artifact-[^"]*0002%20/.test(html),
+	);
 
 	// 7) Pandi light+dark tokens inline.
 	check("dark tokens present", html.includes("--bg: #242526"));

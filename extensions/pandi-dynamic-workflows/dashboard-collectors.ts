@@ -135,6 +135,7 @@ export async function countRunArtifacts(runDir: string): Promise<number> {
 			JOURNAL_FILE,
 			"summary.md",
 			"report.html",
+			"artifact-viewer.html",
 		]);
 		return files.filter((file) => !bookkeeping.has(file)).length;
 	} catch {

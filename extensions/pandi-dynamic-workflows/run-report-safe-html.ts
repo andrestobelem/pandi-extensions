@@ -23,3 +23,20 @@ export function safeRelativeHref(candidate: string | undefined): string | undefi
 	if (segments.some((s) => s === "" || s === "." || s === "..")) return undefined;
 	return segments.map((s) => encodeURIComponent(s)).join("/");
 }
+
+function stableId(value: string): string {
+	let h = 0x811c9dc5;
+	for (let i = 0; i < value.length; i++) h = Math.imul(h ^ value.charCodeAt(i), 0x01000193) >>> 0;
+	return h.toString(16).padStart(8, "0");
+}
+
+export function artifactViewerAnchor(candidate: string | undefined): string | undefined {
+	const safe = safeRelativeHref(candidate);
+	if (!safe || !candidate) return undefined;
+	return `artifact-${stableId(candidate)}-${safe.replaceAll("/", "-")}`;
+}
+
+export function artifactViewerHref(candidate: string | undefined): string | undefined {
+	const anchor = artifactViewerAnchor(candidate);
+	return anchor ? `artifact-viewer.html#${anchor}` : undefined;
+}

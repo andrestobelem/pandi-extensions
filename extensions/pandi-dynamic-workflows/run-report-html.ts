@@ -15,7 +15,7 @@
  */
 
 import { renderRunReportMarkdown } from "./run-report-markdown.js";
-import { escapeHtml, safeRelativeHref } from "./run-report-safe-html.js";
+import { artifactViewerHref, escapeHtml, safeRelativeHref } from "./run-report-safe-html.js";
 
 export { escapeHtml, safeRelativeHref };
 
@@ -688,7 +688,7 @@ function openingText(model: RunReportModel, summary: ProgressSummary): string {
 }
 
 function link(href: string | undefined, label: string): string {
-	const safe = safeRelativeHref(href);
+	const safe = artifactViewerHref(href) ?? safeRelativeHref(href);
 	if (!safe) return "";
 	return `<a href="${safe}">${escapeHtml(label)}</a>`;
 }
@@ -900,7 +900,7 @@ export function buildRunReportHtml(model: RunReportModel): string {
 
 	const artifactRows = model.artifacts
 		.map((a) => {
-			const href = safeRelativeHref(a.path);
+			const href = artifactViewerHref(a.path) ?? safeRelativeHref(a.path);
 			const label = escapeHtml(a.path);
 			const cell = href ? `<a href="${href}">${label}</a>` : label;
 			return `<tr><td>${cell}</td><td class="mono">${a.bytes !== undefined ? escapeHtml(String(a.bytes)) : ""}</td></tr>`;

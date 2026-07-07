@@ -299,7 +299,7 @@ async function listArtifacts(
 				continue;
 			}
 			if (!entry.isFile()) continue;
-			if (childRel === "report.html") continue; // el reporte nunca se lista a sí mismo
+			if (childRel === "report.html" || childRel === "artifact-viewer.html") continue; // los viewers nunca se listan a sí mismos
 			let bytes: number | undefined;
 			try {
 				bytes = (await fs.stat(path.join(dir, entry.name))).size;

@@ -9,6 +9,7 @@
 
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import { ARTIFACT_VIEWER_FILE, buildRunArtifactViewerHtml } from "./run-report-artifact-viewer.js";
 import { collectRunReport } from "./run-report-collector.js";
 import { buildRunReportHtml } from "./run-report-html.js";
 import { readRunStatus, writeTextFileAtomic } from "./run-store.js";
@@ -83,6 +84,8 @@ export async function writeRunReportOnce(
 	});
 	const reportPath = targetPath(run, options.outPath);
 	await writeTextFileAtomic(reportPath, html);
+	const artifactViewerHtml = await buildRunArtifactViewerHtml(model, run.runDir);
+	await writeTextFileAtomic(path.join(path.dirname(reportPath), ARTIFACT_VIEWER_FILE), artifactViewerHtml);
 	const result = { reportPath, state: model.state, iterations: 1, refreshing };
 	await options.onWrite?.(result, html);
 	return result;
