@@ -513,19 +513,45 @@ export default function autoCompact(pi: ExtensionAPI) {
 				return;
 			}
 
-			// `bar` (toggle), `bar on`, `bar off` — controlan la barra de progreso del footer.
-			if (trimmed === "bar" || trimmed.startsWith("bar ")) {
-				const arg = trimmed.slice("bar ".length).trim();
-				const next = resolveToggle(arg, showBar, parseBarSetting);
+			// Los toggles bar/snapshot/clear-tools/summary comparten la misma forma: `<keyword>`,
+			// `<keyword> on`, `<keyword> off`. applyToggle detecta si `trimmed` matchea el keyword; si
+			// matchea, parsea/valida/setea/notifica y devuelve true (el caller hace return). Si no
+			// matchea, devuelve false y el caller sigue probando el próximo keyword.
+			const applyToggle = (
+				keyword: string,
+				current: boolean,
+				parser: (raw: string | undefined) => boolean | undefined,
+				setter: (next: boolean) => void,
+				label: string,
+				afterEffect?: () => void,
+			): boolean => {
+				if (trimmed !== keyword && !trimmed.startsWith(`${keyword} `)) return false;
+				const arg = trimmed.slice(keyword.length).trim();
+				const next = resolveToggle(arg, current, parser);
 				if (next === undefined) {
-					notify(ctx, "Uso: /auto-compact bar [on|off]", "warning");
-					return;
+					notify(ctx, `Uso: /auto-compact ${keyword} [on|off]`, "warning");
+					return true;
 				}
-				showBar = next;
-				notify(ctx, `Barra de auto-compactación de contexto: ${showBar ? "on" : "off"}`, "info");
-				updateStatusBar(ctx);
+				setter(next);
+				notify(ctx, `${label}: ${next ? "on" : "off"}`, "info");
+				afterEffect?.();
+				return true;
+			};
+
+			// `bar` (toggle), `bar on`, `bar off` — controlan la barra de progreso del footer.
+			if (
+				applyToggle(
+					"bar",
+					showBar,
+					parseBarSetting,
+					(next) => {
+						showBar = next;
+					},
+					"Barra de auto-compactación de contexto",
+					() => updateStatusBar(ctx),
+				)
+			)
 				return;
-			}
 
 			// `snapshots` — lista las instantáneas recuperables recientes de esta sesión (solo lectura).
 			if (trimmed === "snapshots") {
@@ -545,51 +571,46 @@ export default function autoCompact(pi: ExtensionAPI) {
 			}
 
 			// `snapshot` (toggle), `snapshot on`, `snapshot off` — instantáneas de compactación recuperable.
-			if (trimmed === "snapshot" || trimmed.startsWith("snapshot ")) {
-				const arg = trimmed.slice("snapshot".length).trim();
-				const next = resolveToggle(arg, snapshotsEnabled, parseSnapshotSetting);
-				if (next === undefined) {
-					notify(ctx, "Uso: /auto-compact snapshot [on|off]", "warning");
-					return;
-				}
-				snapshotsEnabled = next;
-				notify(ctx, `Instantáneas de auto-compactación de contexto: ${snapshotsEnabled ? "on" : "off"}`, "info");
+			if (
+				applyToggle(
+					"snapshot",
+					snapshotsEnabled,
+					parseSnapshotSetting,
+					(next) => {
+						snapshotsEnabled = next;
+					},
+					"Instantáneas de auto-compactación de contexto",
+				)
+			)
 				return;
-			}
 
 			// `clear-tools` (toggle), `clear-tools on`, `clear-tools off` — eliden salidas viejas de tools.
-			if (trimmed === "clear-tools" || trimmed.startsWith("clear-tools ")) {
-				const arg = trimmed.slice("clear-tools".length).trim();
-				const next = resolveToggle(arg, clearToolResults, parseClearSetting);
-				if (next === undefined) {
-					notify(ctx, "Uso: /auto-compact clear-tools [on|off]", "warning");
-					return;
-				}
-				clearToolResults = next;
-				notify(
-					ctx,
-					`Limpieza de resultados de tools de auto-compactación de contexto: ${clearToolResults ? "on" : "off"}`,
-					"info",
-				);
+			if (
+				applyToggle(
+					"clear-tools",
+					clearToolResults,
+					parseClearSetting,
+					(next) => {
+						clearToolResults = next;
+					},
+					"Limpieza de resultados de tools de auto-compactación de contexto",
+				)
+			)
 				return;
-			}
 
 			// `summary` (toggle), `summary on`, `summary off` — resumen rápido/acotado en session_before_compact.
-			if (trimmed === "summary" || trimmed.startsWith("summary ")) {
-				const arg = trimmed.slice("summary".length).trim();
-				const next = resolveToggle(arg, fastSummaryEnabled, parseFastSummarySetting);
-				if (next === undefined) {
-					notify(ctx, "Uso: /auto-compact summary [on|off]", "warning");
-					return;
-				}
-				fastSummaryEnabled = next;
-				notify(
-					ctx,
-					`Resumen rápido de auto-compactación de contexto: ${fastSummaryEnabled ? "on" : "off"}`,
-					"info",
-				);
+			if (
+				applyToggle(
+					"summary",
+					fastSummaryEnabled,
+					parseFastSummarySetting,
+					(next) => {
+						fastSummaryEnabled = next;
+					},
+					"Resumen rápido de auto-compactación de contexto",
+				)
+			)
 				return;
-			}
 
 			const nextThreshold = parseThreshold(trimmed);
 			if (nextThreshold === undefined) {
