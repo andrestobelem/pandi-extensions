@@ -1,0 +1,41 @@
+{
+	"name": "@pandi-coding-agent/pandi-kitty",
+	"version": "0.1.0",
+	"description": "Extensión de Pi para controlar el terminal kitty vía su protocolo de control remoto: un comando /kitty y una herramienta kitty_remote invocable por el modelo (tabs, ventanas, splits, layout).",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/andrestobelem/pandi-extensions.git",
+		"directory": "extensions/pandi-kitty"
+	},
+	"type": "module",
+	"keywords": [
+		"pi-package",
+		"pi",
+		"pi-extension",
+		"kitty",
+		"terminal",
+		"remote-control"
+	],
+	"files": [
+		"index.ts",
+		"command.ts",
+		"kitty.ts",
+		"notify.ts",
+		"skills",
+		"README.md"
+	],
+	"pi": {
+		"extensions": [
+			"./index.ts"
+		],
+		"skills": [
+			"./skills"
+		]
+	},
+	"peerDependencies": {
+		"@earendil-works/pi-ai": "^0.80.3",
+		"@earendil-works/pi-coding-agent": "^0.80.3",
+		"typebox": "^1.1.38"
+	}
+}

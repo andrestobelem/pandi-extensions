@@ -23,6 +23,7 @@ const CLASSIFIED_SKILLS = {
 	"pandi-artifact-style": { vendoredBy: ["pandi-docs"] },
 	"md-to-html": { vendoredBy: ["pandi-docs"] },
 	"sync-doc-mirrors": { vendoredBy: ["pandi-docs"] },
+	"kitty-remote-control": { vendoredBy: ["pandi-kitty"] },
 	"didactic-docs-style": {
 		excludeReason: "docs-scaffold helper stays project-local and is not mirrored, vendored, or global",
 	},

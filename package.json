@@ -91,6 +91,7 @@
 			"./extensions/pandi-local-memory/index.ts",
 			"./extensions/pandi-auto-compact/index.ts",
 			"./extensions/pandi-worktree/index.ts",
+			"./extensions/pandi-kitty/index.ts",
 			"./extensions/pandi-container/index.ts",
 			"./extensions/pandi-typescript-lsp/index.ts",
 			"./extensions/pandi-rename/index.ts",

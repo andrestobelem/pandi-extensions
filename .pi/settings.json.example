@@ -20,6 +20,10 @@
 		"../extensions/pandi-local-memory",
 		"../extensions/pandi-auto-compact",
 		"../extensions/pandi-worktree",
+		{
+			"source": "../extensions/pandi-kitty",
+			"skills": []
+		},
 		"../extensions/pandi-container",
 		"../extensions/pandi-typescript-lsp",
 		"../extensions/pandi-rename",

@@ -153,7 +153,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	<header>
 		<div class="kicker">pandi-extensions</div>
 		<h1>pandi-extensions</h1>
-		<p class="lede"><strong>Un libro de patrones agénticos que se ejecuta.</strong> Este repo destila los patrones multi-agente de la literatura (Tree of Thoughts, Reflexion, orchestrator-workers…) en <strong>25 scaffolds corribles de JavaScript</strong>. <strong>Una suite de 22 extensiones más un tema para <a href="https://www.npmjs.com/package/@earendil-works/pi-coding-agent">Pi</a></strong> — el CLI de coding agent <code>@earendil-works/pi-coding-agent</code> — convierte a Pi en el laboratorio donde correrlos: graficarlos antes, inspeccionar journal y artifacts después, y verificar con evidencia en vez de fe.</p>
+		<p class="lede"><strong>Un libro de patrones agénticos que se ejecuta.</strong> Este repo destila los patrones multi-agente de la literatura (Tree of Thoughts, Reflexion, orchestrator-workers…) en <strong>25 scaffolds corribles de JavaScript</strong>. <strong>Una suite de 23 extensiones más un tema para <a href="https://www.npmjs.com/package/@earendil-works/pi-coding-agent">Pi</a></strong> — el CLI de coding agent <code>@earendil-works/pi-coding-agent</code> — convierte a Pi en el laboratorio donde correrlos: graficarlos antes, inspeccionar journal y artifacts después, y verificar con evidencia en vez de fe.</p>
 	</header>
 	<main>
 <nav class="toc">
@@ -315,7 +315,7 @@ pi install ./                       <span class="hljs-comment"># local al proyec
 </ul>
 <p>Usalos como patterns, no como ceremonia: cada rama necesita una razón, un contrato y una condición de parada.</p>
 <h2 id="catálogo-de-extensiones">Catálogo de extensiones</h2>
-<p>Las 22 extensiones de comando/tool se cargan por defecto desde el campo <code>pi.extensions</code> de <code>package.json</code> cuando corrés <code>pi install ./</code>; <code>pandi-theme</code> se registra a través de <code>pi.themes</code>. Cada extensión también se puede instalar por separado con <code>pi install ./extensions/&lt;name&gt;</code>.</p>
+<p>Las 23 extensiones de comando/tool se cargan por defecto desde el campo <code>pi.extensions</code> de <code>package.json</code> cuando corrés <code>pi install ./</code>; <code>pandi-theme</code> se registra a través de <code>pi.themes</code>. Cada extensión también se puede instalar por separado con <code>pi install ./extensions/&lt;name&gt;</code>.</p>
 <div class="table-scroll"><table>
 <thead>
 <tr>
@@ -378,6 +378,12 @@ pi install ./                       <span class="hljs-comment"># local al proyec
 <td><code>/worktree</code> · <code>git_worktree</code></td>
 <td>Administra git worktrees desde Pi; abre sesiones nuevas y nunca cambia el cwd.</td>
 <td>git + un repo git</td>
+</tr>
+<tr>
+<td><strong>pandi-kitty</strong></td>
+<td><code>/kitty</code> · <code>kitty_remote</code></td>
+<td>Controla kitty vía remote control: tabs, ventanas, splits, layout, cerrar y enfocar ventanas.</td>
+<td>kitty con <code>allow_remote_control yes</code></td>
 </tr>
 <tr>
 <td><strong>pandi-container</strong></td>

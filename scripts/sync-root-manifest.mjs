@@ -39,6 +39,7 @@ const LOAD_ORDER = [
 	"pandi-local-memory",
 	"pandi-auto-compact",
 	"pandi-worktree",
+	"pandi-kitty",
 	"pandi-container",
 	"pandi-typescript-lsp",
 	"pandi-rename",
