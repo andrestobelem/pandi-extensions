@@ -414,6 +414,10 @@ export default async function main() {
 		}
 		if (runBiome && changedSelected.some(isCodePath)) {
 			const codeFiles = changedSelected.filter(isCodePath).map(q).join(" ");
+			// Auto-fix cosas mecánicas (formato, orden de imports) antes de juzgar: el Apply
+			// agent no corre biome por su cuenta, y fallar el slice entero por orden de
+			// imports descarta refactors correctos por un detalle que biome arregla solo.
+			await bash(`npx biome check --write ${codeFiles}`, { cache: false, timeoutMs: 120000 });
 			const biome = await bash(`npx biome check ${codeFiles}`, { cache: false, timeoutMs: 120000 });
 			verification.push({ name: "biome touched", ok: biome.code === 0, code: biome.code, stdout: biome.stdout, stderr: biome.stderr });
 		}
