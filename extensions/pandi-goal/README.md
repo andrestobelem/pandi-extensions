@@ -8,7 +8,7 @@ completitud incorporado más una verificación independiente antes de marcarla
 como finalizada.
 
 ```text
-/goal Add rate limiting to the login endpoint -- 429 after 5 failed attempts in 60s, unit test covers it
+/goal Agregá rate limiting al endpoint de login -- devuelve 429 después de 5 intentos fallidos en 60 s y un test unitario lo cubre
 ```
 
 Pi itera, se autoevalúa contra los criterios con la herramienta

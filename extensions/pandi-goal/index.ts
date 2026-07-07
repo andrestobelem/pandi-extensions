@@ -304,7 +304,7 @@ async function beginIndependentVerification(pi: ExtensionAPI, ctx: ExtensionCont
 		stopGoal(pi, ctx, goal.goalId, "done: verificado de forma independiente contra los criterios de éxito", "done");
 		notify(
 			ctx,
-			`Goal ${goal.goalId} DONE: verificado de forma independiente (un subagente aparte lo confirmó). 🐼`,
+			`Goal ${goal.goalId} TERMINADO: verificado de forma independiente (un subagente aparte lo confirmó). 🐼`,
 			"info",
 		);
 		return;
@@ -328,7 +328,7 @@ async function beginIndependentVerification(pi: ExtensionAPI, ctx: ExtensionCont
 		stopGoal(pi, ctx, goal.goalId, `blocked: ${blocker}`, "blocked");
 		notify(
 			ctx,
-			`Goal ${goal.goalId} está BLOCKED: la verificación independiente siguió fallando (necesita a un humano). ${feedback}`,
+			`Goal ${goal.goalId} está BLOQUEADO: la verificación independiente siguió fallando (necesita a un humano). ${feedback}`,
 			"warning",
 		);
 		return;
@@ -730,12 +730,12 @@ export default function goalExtension(pi: ExtensionAPI): void {
 				goal.assessments.push(assessmentEntry);
 				const blocker = params.blocker?.trim() || params.assessment;
 				stopGoal(pi, ctx, goal.goalId, `blocked: ${blocker}`, "blocked");
-				notify(ctx, `Goal ${goal.goalId} está BLOCKED y te necesita: ${blocker}`, "warning");
+				notify(ctx, `Goal ${goal.goalId} está BLOQUEADO y te necesita: ${blocker}`, "warning");
 				return {
 					content: [
 						{
 							type: "text" as const,
-							text: `Goal ${goal.goalId} marcado como blocked. Se notificó a un humano.`,
+							text: `Goal ${goal.goalId} marcado como bloqueado. Se notificó a un humano.`,
 						},
 					],
 					details: { goalId: goal.goalId, status: "blocked", blocker },
@@ -792,12 +792,12 @@ export default function goalExtension(pi: ExtensionAPI): void {
 						params.nextStep || params.assessment
 					}`;
 					stopGoal(pi, ctx, goal.goalId, `blocked: ${blocker}`, "blocked");
-					notify(ctx, `Goal ${goal.goalId} está BLOCKED: ${blocker}`, "warning");
+					notify(ctx, `Goal ${goal.goalId} está BLOQUEADO: ${blocker}`, "warning");
 					return {
 						content: [
 							{
 								type: "text" as const,
-								text: `Goal ${goal.goalId} blocked: el chequeo de completitud falló ${goal.verifyAttempts} vez(veces). Se notificó a un humano.`,
+								text: `Goal ${goal.goalId} bloqueado: el chequeo de completitud falló ${goal.verifyAttempts} vez(veces). Se notificó a un humano.`,
 							},
 						],
 						details: {

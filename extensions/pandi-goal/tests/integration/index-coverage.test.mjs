@@ -340,6 +340,11 @@ async function goalProgressBlocked(goalUrl) {
 		env,
 	);
 	check("blocked → tool reports details.status blocked", r?.details?.status === "blocked", JSON.stringify(r?.details));
+	check(
+		"blocked → tool response is localized",
+		r?.content?.[0]?.text === `Goal ${r?.details?.goalId} marcado como bloqueado. Se notificó a un humano.`,
+		JSON.stringify(r?.content),
+	);
 	const last = lastSnapFor(built.states, r?.details?.goalId);
 	check("blocked → final gstatus blocked", last?.gstatus === "blocked", `last=${last?.gstatus}`);
 	check(
@@ -347,7 +352,15 @@ async function goalProgressBlocked(goalUrl) {
 		!!last && /need prod creds/.test(last.lastReason || ""),
 		`reason=${last?.lastReason}`,
 	);
-	check("blocked → a warning notify fired", warned(env.notifies, /need prod creds/), "no warning");
+	check(
+		"blocked → warning notify is localized",
+		env.notifies.some(
+			(n) =>
+				n.type === "warning" &&
+				n.message === `Goal ${r?.details?.goalId} está BLOQUEADO y te necesita: need prod creds`,
+		),
+		JSON.stringify(env.notifies),
+	);
 }
 
 // ===========================================================================
