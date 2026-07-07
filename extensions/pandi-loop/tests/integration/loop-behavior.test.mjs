@@ -90,7 +90,7 @@ async function buildLoop() {
 // reinyectados (sendUserMessage), snapshots loop-state persistidos (appendEntry), y
 // resultados de scheduling tool — es decir, la superficie observable, nunca los internals.
 // ---------------------------------------------------------------------------
-function makePi() {
+function makePi({ sendUserMessage } = {}) {
 	const tools = new Map();
 	const commands = new Map();
 	const handlers = new Map();
@@ -104,7 +104,7 @@ function makePi() {
 			handlers.get(event).push(handler);
 		},
 		appendEntry: (customType, data) => entries.push({ type: "custom", customType, data }),
-		sendUserMessage: (content, options) => sentMessages.push({ content, options }),
+		sendUserMessage: sendUserMessage ?? ((content, options) => sentMessages.push({ content, options })),
 		exec: async () => ({ code: 0, stdout: "", stderr: "", killed: false }),
 	};
 	return { pi, tools, commands, handlers, entries, sentMessages };
@@ -247,7 +247,42 @@ async function noDeliveryWhileBusy(url) {
 }
 
 // ===========================================================================
-// ESCENARIO 3: un loop NO PUEDE correr en un modo no interactivo (print). startLoop rechaza,
+// ESCENARIO 3: si sendUserMessage lanza, el loop falla de forma terminal y libera el gate
+// autopilot. Sin este guard, una excepción de transporte podía congelar la FIFO.
+// ===========================================================================
+async function wakeDeliveryFailureFailsLoop(url) {
+	const loopExtension = await loadDefault(url);
+	const { pi, commands, handlers, entries } = makePi({
+		sendUserMessage: () => {
+			throw new Error("transport down");
+		},
+	});
+	loopExtension(pi);
+	const ctx = makeCtx({ mode: "tui", hasUI: true, isIdle: true });
+
+	const loopId = await startLoopCmd(commands, entries, "task with broken transport", ctx);
+	const snap = latestSnapshot(entries, loopId);
+	check("wake-failure: loop snapshot exists", Boolean(snap));
+	check(
+		"wake-failure: send failure marks loop failed, not running/autopilot",
+		snap?.status === "failed" && snap.autopilot !== true,
+		JSON.stringify(snap),
+	);
+	check("wake-failure: failure reason is durable", /falló la entrega del wake/.test(snap?.lastReason || ""));
+
+	const sentMessages = [];
+	pi.sendUserMessage = (content, options) => sentMessages.push({ content, options });
+	await startLoopCmd(commands, entries, "next task after failed delivery", ctx);
+	await fireEvent(handlers, "agent_end", {}, ctx);
+	check(
+		"wake-failure: autopilot gate is released for the next loop",
+		sentMessages.length === 1 && /next task/.test(sentMessages[0]?.content || ""),
+		`delivered=${sentMessages.length}`,
+	);
+}
+
+// ===========================================================================
+// ESCENARIO 4: un loop NO PUEDE correr en un modo no interactivo (print). startLoop rechaza,
 //   no se persiste nada, no se inyecta ningún wake. (Refleja el gate canLoopInMode tui/rpc.)
 // ===========================================================================
 async function refusesNonInteractiveMode(url) {
@@ -543,6 +578,7 @@ async function main() {
 	try {
 		await fifoSerialization(url);
 		await noDeliveryWhileBusy(url);
+		await wakeDeliveryFailureFailsLoop(url);
 		await refusesNonInteractiveMode(url);
 		await fixedModeAndScheduleNoop(url);
 		await terminalLoopsDisappearFromActiveStatus(url);

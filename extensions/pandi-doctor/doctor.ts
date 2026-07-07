@@ -39,6 +39,13 @@ export interface RunDoctorOptions {
 }
 
 export const DEFAULT_DOCTOR_TIMEOUT_MS = 120_000;
+export const MIN_DOCTOR_TIMEOUT_MS = 1_000;
+
+export function parseTimeoutMs(raw: string | undefined, fallback = DEFAULT_DOCTOR_TIMEOUT_MS): number {
+	const n = Number(raw);
+	if (!Number.isFinite(n) || n <= 0) return fallback;
+	return Math.max(MIN_DOCTOR_TIMEOUT_MS, Math.floor(n));
+}
 
 /** Firma compartida por `runDoctor` y el runner falso inyectado en tests. */
 export type RunDoctor = (scriptPath: string, options?: RunDoctorOptions) => Promise<DoctorResult>;
@@ -149,12 +156,12 @@ export function formatDoctorOutput(result: DoctorResult): { text: string; type: 
  */
 export async function runDoctorCheck(
 	run: RunDoctor,
-	opts: { cwd: string; extDir: string; signal?: AbortSignal },
+	opts: { cwd: string; extDir: string; signal?: AbortSignal; timeoutMs?: number },
 ): Promise<{ ok: boolean; text: string; type: "info" | "warning" | "error" }> {
 	const script = resolveDoctorScript(opts.cwd, opts.extDir);
 	if (!script) return { ok: false, text: NOT_IN_REPO_HINT, type: "warning" };
 	// Hace spawn con el cwd de la sesión: `doctor.mjs` descubre la raíz de la suite desde ahí.
-	const result = await run(script, { cwd: opts.cwd, signal: opts.signal });
+	const result = await run(script, { cwd: opts.cwd, signal: opts.signal, timeoutMs: opts.timeoutMs });
 	const { text, type } = formatDoctorOutput(result);
 	return { ok: result.ok, text, type };
 }

@@ -121,12 +121,19 @@ async function cleanupStaleSessions(ctx: ExtensionCommandContext, rawArgs = ""):
 		notify(ctx, "/sessions cleanup is destructive; pass --yes (or --dry-run) in no-UI mode.", "warning");
 		return;
 	}
-	let ok = true;
-	if (ctx.hasUI && !opts.yes && ctx.ui && typeof ctx.ui.confirm === "function") {
+	let ok = opts.yes;
+	if (!opts.yes && ctx.hasUI && ctx.ui && typeof ctx.ui.confirm === "function") {
 		ok = await ctx.ui.confirm(
 			"Clean up stale Pandi session files?",
 			`This removes ${preview.removed.length} stale session file(s). Live and current sessions are never touched.`,
 		);
+	} else if (!opts.yes) {
+		notify(
+			ctx,
+			"/sessions cleanup is destructive; pass --yes (or --dry-run) when confirmation is unavailable.",
+			"warning",
+		);
+		return;
 	}
 	if (!ok) return;
 	const result = await prunePandiSessionFiles(ctx as ExtensionContext, {

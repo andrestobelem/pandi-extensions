@@ -287,7 +287,14 @@ function deliverWake(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop):
 	autopilotTurnInFlight = true;
 	persist(pi, ctx, loop);
 	setLoopStatus(ctx, loop);
-	wake(pi, ctx, makeLoopIterationPrompt(loop));
+	try {
+		wake(pi, ctx, makeLoopIterationPrompt(loop));
+	} catch (err) {
+		loop.autopilot = false;
+		autopilotTurnInFlight = false;
+		stopLoop(pi, ctx, loop.loopId, `falló la entrega del wake: ${(err as Error).message}`, "failed");
+		notify(ctx, `Loop ${loop.loopId} detenido: falló la entrega del wake.`, "error");
+	}
 }
 
 /** Detiene un loop porque alcanzó su tope de iteraciones. Status "done" (fin limpio y esperado). */

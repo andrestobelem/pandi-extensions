@@ -25,6 +25,22 @@ function stableHash(value) {
 	return crypto.createHash("sha1").update(value).digest("hex").slice(0, 12);
 }
 
+async function captureConsole(fn) {
+	const out = [];
+	const err = [];
+	const savedLog = console.log;
+	const savedError = console.error;
+	console.log = (...args) => out.push(args.join(" "));
+	console.error = (...args) => err.push(args.join(" "));
+	try {
+		await fn();
+	} finally {
+		console.log = savedLog;
+		console.error = savedError;
+	}
+	return { out, err };
+}
+
 // Caracterización: pinea el refinamiento orphaned ACTUAL de handleStatus (dead -> interrupted;
 // alive+verified -> orphaned/identity:verified; alive+different -> interrupted; alive+no-id
 // -> orphaned de mejor esfuerzo) para que la extracción R2 de refineOrphanedIdentity no derive.
@@ -204,6 +220,19 @@ async function dispatcherExposesDeleteAndPrune(url) {
 		/delete/.test(unknownMsg) && /prune/.test(unknownMsg),
 		unknownMsg,
 	);
+}
+
+async function jsonHeadlessWarningsGoToStderr(url) {
+	const { commands } = await loadExtension(url);
+	const cwd = await createBgTestDir("pi-bg-json-headless-");
+	const ctx = makeCtx({ cwd, trusted: true, mode: "json", hasUI: false });
+	const streams = await captureConsole(() => commands.get("bg").handler("bogus", ctx));
+	check(
+		"json headless: warning goes to stderr, not stdout",
+		streams.err.some((line) => /Subcomando \/bg desconocido/.test(line)) && streams.out.length === 0,
+		JSON.stringify(streams),
+	);
+	check("json headless: ui.notify never used", ctx._notes.length === 0, JSON.stringify(ctx._notes));
 }
 
 async function auditDotfileIsInvisibleToList(url) {
@@ -672,6 +701,7 @@ async function main() {
 	await deleteEnforcesScopeTrustAndSymlinkEscape(url, agentDir);
 	await deleteRejectedInPlanMode(planUrl, url);
 	await dispatcherExposesDeleteAndPrune(url);
+	await jsonHeadlessWarningsGoToStderr(url);
 	await auditDotfileIsInvisibleToList(url);
 	await startCancelRejectInPlanMode(planUrl, url);
 	await listStatusLogsReadExistingArtifacts(url, agentDir);

@@ -1,7 +1,18 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { renderMarkdownToHtml } from "@pandi-coding-agent/pandi-docs/scripts/markdown-to-html.mjs";
+
+type RenderMarkdownToHtml = (markdown: string, options: { title: string; kicker: string; tokensCss: string }) => string;
+
+async function loadMarkdownRenderer(): Promise<RenderMarkdownToHtml> {
+	const mod = (await import("@pandi-coding-agent/pandi-docs/scripts/markdown-to-html.mjs")) as {
+		renderMarkdownToHtml?: RenderMarkdownToHtml;
+	};
+	if (typeof mod.renderMarkdownToHtml !== "function") {
+		throw new Error("el módulo pandi-docs no exporta renderMarkdownToHtml");
+	}
+	return mod.renderMarkdownToHtml;
+}
 
 export interface PlanHtmlArtifactResult {
 	markdownPath: string;
@@ -62,6 +73,7 @@ export async function writeAndOpenPlanHtmlArtifact(
 
 	fs.mkdirSync(dir, { recursive: true });
 	fs.writeFileSync(markdownPath, planText, "utf8");
+	const renderMarkdownToHtml = await loadMarkdownRenderer();
 	const html = renderMarkdownToHtml(planText, {
 		title: `Plan ${safePlanId}`,
 		kicker: "Pandi plan",

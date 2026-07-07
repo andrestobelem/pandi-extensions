@@ -24,7 +24,11 @@ function notify(ctx: ExtensionCommandContext, message: string, type: "info" | "w
 		else console.error(message);
 		return;
 	}
-	if (ctx.hasUI) ctx.ui.notify(message, type);
+	if (ctx.hasUI) {
+		ctx.ui.notify(message, type);
+		return;
+	}
+	if (type !== "info") console.error(message);
 }
 
 function errorMessage(error: unknown): string {

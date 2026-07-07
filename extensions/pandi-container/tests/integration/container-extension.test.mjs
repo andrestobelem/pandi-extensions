@@ -72,13 +72,16 @@ async function loadExtension(url) {
 /** Un runner simulado con la firma de runContainer; registra llamadas y devuelve resultados prefijados. */
 function fakeRunner(scripted = []) {
 	const calls = [];
+	const opts = [];
 	let i = 0;
-	const run = async (args, _opts) => {
+	const run = async (args, runOpts) => {
 		calls.push(args);
-		const result = typeof scripted === "function" ? scripted(args) : scripted[i++];
+		opts.push(runOpts);
+		const result = typeof scripted === "function" ? scripted(args, runOpts) : scripted[i++];
 		return result ?? { ok: true, stdout: "", stderr: "", exitCode: 0 };
 	};
 	run.calls = calls;
+	run.opts = opts;
 	return run;
 }
 
@@ -514,6 +517,22 @@ async function scenarioParseContainerCommand(url) {
 
 // bordes reales de proceso de runContainer: un hijo colgado recibe SIGTERM en timeoutMs (timedOut,
 // ok=false), y una señal de abort lo mata igual — spawns reales, no mocks.
+async function scenarioConfigurableTimeout(url) {
+	const mod = await loadModule(url);
+
+	check("timeout parser: valid env ms accepted", mod.parseTimeoutMs("2500", 120000) === 2500);
+	check("timeout parser: invalid env falls back", mod.parseTimeoutMs("nope", 120000) === 120000);
+	check("timeout parser: tiny env clamps to 1000", mod.parseTimeoutMs("1", 120000) === 1000);
+
+	const run = fakeRunner([{ ok: true, stdout: REAL_MACHINE_JSON, stderr: "", exitCode: 0 }]);
+	await mod.runList(run, { timeoutMs: 4321 });
+	check(
+		"handler opts: timeoutMs is propagated to runner",
+		run.opts[0]?.timeoutMs === 4321,
+		JSON.stringify(run.opts[0]),
+	);
+}
+
 async function scenarioRealTimeoutAndAbort(url) {
 	const mod = await loadModule(url);
 
@@ -875,6 +894,7 @@ async function main() {
 	await scenarioHandlerErrorEdges(url);
 	await scenarioParseContainerCommand(url);
 	await scenarioSizeTiers(url);
+	await scenarioConfigurableTimeout(url);
 	await scenarioRealTimeoutAndAbort(url);
 	await scenarioCommandAndToolOutsideIn(url);
 

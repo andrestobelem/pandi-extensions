@@ -188,6 +188,15 @@ async function writeBlocked(handlers, ctx) {
 // ===========================================================================
 // SCENARIO A: the overlay is used (not confirm), RENDERS the plan, and shows hints.
 // ===========================================================================
+async function planHtmlUsesLazyRenderer() {
+	const source = await fs.readFile(path.join(REPO_ROOT, "extensions", "pandi-plan", "plan-html.ts"), "utf8");
+	check(
+		"html: renderer import is lazy (does not break extension load when pandi-docs is absent)",
+		!/import\s+\{\s*renderMarkdownToHtml\s*\}\s+from/.test(source) && /await import\(/.test(source),
+		source.slice(0, 240),
+	);
+}
+
 async function overlayPresentsAndRenders(url) {
 	const planExtension = await loadDefault(url);
 	const { pi, commands, tools, handlers, sentMessages, execCalls } = makePi();
@@ -303,6 +312,7 @@ async function fallsBackToConfirmWithoutCustom(url) {
 async function main() {
 	const { outDir, url } = await buildPlan();
 	try {
+		await planHtmlUsesLazyRenderer();
 		await overlayPresentsAndRenders(url);
 		await decisionKeysMapSafely(url);
 		await overlayShowsAutoSubmitHint(url);

@@ -397,12 +397,17 @@ async function scenarioAutofixBudget(url) {
 	check("autofix: deliverAs followUp", messages[0]?.options?.deliverAs === "followUp");
 	check("autofix: triggerTurn true", messages[0]?.options?.triggerTurn === true);
 
-	// Un error DIFERENTE dentro del mismo prompt → el presupuesto (1) se agota, así
-	// que incluso un reporte no duplicado NO dispara otro turno de arreglo.
+	// El follow-up disparado por la propia extensión también emite agent_start; NO debe rearmar
+	// el presupuesto, porque sigue siendo el mismo ciclo de autofix.
+	handlers.get("agent_start")({ type: "agent_start" }, ctx);
 	await fs.writeFile(file, BAD_TS_2, "utf8");
 	touch(handlers, ctx, file);
 	await fireAgentEnd(handlers, ctx);
-	check("autofix: per-prompt budget caps follow-ups", messages.length === 1, String(messages.length));
+	check(
+		"autofix: own follow-up agent_start does not re-arm the budget",
+		messages.length === 1,
+		String(messages.length),
+	);
 
 	// Un prompt nuevo resetea el presupuesto → vuelve a permitirse un seguimiento fresco.
 	handlers.get("agent_start")({ type: "agent_start" }, ctx);
@@ -468,8 +473,10 @@ async function scenarioResolveTscCommand(url) {
 	try {
 		const viaNpx = mod.resolveTscCommand(bare, {});
 		check(
-			"resolve: no env, no local → npx fallback",
-			viaNpx.kind === "npx" && viaNpx.command === "npx",
+			"resolve: no env, no local → npx fallback without package install",
+			viaNpx.kind === "npx" &&
+				viaNpx.command === "npx" &&
+				JSON.stringify(viaNpx.args) === JSON.stringify(["--no-install", "tsc"]),
 			JSON.stringify(viaNpx),
 		);
 	} finally {

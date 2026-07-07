@@ -232,6 +232,7 @@ export default function typescriptLspExtension(pi: ExtensionAPI): void {
 	let lastKey: string | undefined;
 	// Presupuesto de autofix por prompt.
 	let autofixBudget = DEFAULT_AUTOFIX_BUDGET;
+	let awaitingAutofixFollowUp = false;
 	// Advertencia NO-OP de una sola vez (sin tsconfig/tsc) por sesión.
 	let warnedNoEngine = false;
 
@@ -305,6 +306,10 @@ export default function typescriptLspExtension(pi: ExtensionAPI): void {
 
 	// --- reseteá el presupuesto de autofix por prompt al inicio de cada prompt. -
 	pi.on("agent_start", () => {
+		if (awaitingAutofixFollowUp) {
+			awaitingAutofixFollowUp = false;
+			return;
+		}
 		autofixBudget = DEFAULT_AUTOFIX_BUDGET;
 	});
 
@@ -361,6 +366,7 @@ export default function typescriptLspExtension(pi: ExtensionAPI): void {
 				if (autofixBudget <= 0) return;
 				autofixBudget -= 1;
 				lastKey = key;
+				awaitingAutofixFollowUp = true;
 				pi.sendMessage(
 					{
 						customType: CUSTOM_TYPE,

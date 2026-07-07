@@ -32,7 +32,11 @@ export const MAX_NOTE_LENGTH = 1000;
  * recorta y limita la longitud. Devuelve "" cuando no queda nada para guardar.
  */
 export function normalizeNote(raw: string): string {
-	return raw.replace(/\s+/g, " ").trim().slice(0, MAX_NOTE_LENGTH);
+	return raw
+		.replace(/<!--\s*pi:remember:(begin|end)\s*-->/gi, (match) => match.replace(/</g, "&lt;").replace(/>/g, "&gt;"))
+		.replace(/\s+/g, " ")
+		.trim()
+		.slice(0, MAX_NOTE_LENGTH);
 }
 
 /** Quita el prefijo de viñeta `- <date>: ` para comparar dos notas solo por texto. */

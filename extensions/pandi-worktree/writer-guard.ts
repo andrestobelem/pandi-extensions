@@ -275,11 +275,22 @@ function splitShellCommands(command: string): SplitShellCommandsResult {
 	return { ok: true, parts, hasWriteRedirection };
 }
 
+function isReadOnlyFindCommand(command: string): boolean {
+	if (!/^find\b/.test(command)) return false;
+	return !/(^|\s)-(delete|exec|execdir|ok|okdir|fprint|fprint0|fls|fprintf)\b/.test(command);
+}
+
+function isReadOnlySedCommand(command: string): boolean {
+	if (!/^sed\s+-n\b/.test(command)) return false;
+	return !/(^|\s)(--in-place(?:=|\b)|-[A-Za-z]*i[A-Za-z]*\b)/.test(command);
+}
+
 function isReadOnlySimpleCommand(command: string): boolean {
 	const c = command.trim();
 	if (!c) return true;
-	if (/^(pwd|printf|ls|ll|la|rg|grep|find|cat|head|tail|wc)\b/.test(c)) return true;
-	if (/^sed\s+-n\b/.test(c)) return true;
+	if (/^(pwd|printf|ls|ll|la|rg|grep|cat|head|tail|wc)\b/.test(c)) return true;
+	if (isReadOnlyFindCommand(c)) return true;
+	if (isReadOnlySedCommand(c)) return true;
 	if (/^git\s+(status|diff|log|show|rev-parse|ls-files)\b/.test(c)) return true;
 	if (/^git\s+branch\s+(--show-current|-vv?)(\s|$)/.test(c)) return true;
 	if (/^git\s+worktree\s+list\b/.test(c)) return true;

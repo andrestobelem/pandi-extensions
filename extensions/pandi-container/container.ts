@@ -37,6 +37,13 @@ export interface RunContainerOptions {
 }
 
 export const DEFAULT_CONTAINER_TIMEOUT_MS = 120_000;
+export const MIN_CONTAINER_TIMEOUT_MS = 1_000;
+
+export function parseTimeoutMs(raw: string | undefined, fallback = DEFAULT_CONTAINER_TIMEOUT_MS): number {
+	const n = Number(raw);
+	if (!Number.isFinite(n) || n <= 0) return fallback;
+	return Math.max(MIN_CONTAINER_TIMEOUT_MS, Math.floor(n));
+}
 
 /** Firma compartida por runContainer y el runner simulado inyectado en tests. */
 export type RunContainer = (args: string[], options?: RunContainerOptions) => Promise<ContainerResult>;

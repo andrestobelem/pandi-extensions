@@ -27,7 +27,11 @@ function notify(ctx: ExtensionContext, message: string, type: "info" | "warning"
 		else console.error(message);
 		return;
 	}
-	if (ctx.hasUI) ctx.ui.notify(message, type);
+	if (ctx.hasUI) {
+		ctx.ui.notify(message, type);
+		return;
+	}
+	if (type !== "info") console.error(message);
 }
 
 function padToWidth(text: string, width: number): string {

@@ -39,6 +39,11 @@ function formatReadMarkdownFailure(error: unknown): string {
 	return `No se pudo leer el archivo Markdown: ${errorMessage(error)}`;
 }
 
+function hasMarkdownExtension(filePath: string): boolean {
+	const lower = filePath.toLowerCase();
+	return lower.endsWith(".md") || lower.endsWith(".markdown");
+}
+
 /**
  * Resuelve + valida tamaño + lee un archivo Markdown. Lo comparten el comando `/mdview` y la
  * TOOL `view_markdown` invocable por el modelo para que ambos apliquen la MISMA validación y límites.
@@ -48,6 +53,13 @@ export async function loadMarkdownDocument(pathArg: string, cwd: string): Promis
 	const filePath = resolveMarkdownPath(pathArg, cwd);
 	if (!filePath) return missingMarkdownPath();
 	try {
+		if (!hasMarkdownExtension(filePath)) {
+			return {
+				ok: false,
+				message: "El visor Markdown solo abre archivos .md o .markdown.",
+				level: "warning",
+			};
+		}
 		const stat = await fs.stat(filePath);
 		if (stat.size > MAX_MDVIEW_BYTES) {
 			return {

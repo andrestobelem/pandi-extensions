@@ -124,6 +124,19 @@ test("escapes HTML inside code fences", () => {
 	assert.doesNotMatch(html, /<\/script>/i);
 });
 
+test("sanitizes raw executable HTML from Markdown input", () => {
+	const html = renderMarkdownToHtml(
+		'# T\n\n<script>alert("x")</script>\n\n<img src="x" onerror="alert(1)">\n\n<a href="javascript:alert(1)">bad</a>\n',
+		{},
+	);
+	assert.doesNotMatch(html, /<script\b/i);
+	assert.doesNotMatch(html, /alert\("x"\)/);
+	assert.doesNotMatch(html, /onerror=/i);
+	assert.doesNotMatch(html, /javascript:/i);
+	assert.match(html, /<img src="x">/);
+	assert.match(html, /<a>bad<\/a>/);
+});
+
 test("code fences are syntax-highlighted at render time with the pandi palette", () => {
 	const html = renderMarkdownToHtml(
 		"# T\n\n```js\nexport default async function main() {\n\tconst ok = true;\n}\n```\n",

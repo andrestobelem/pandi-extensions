@@ -166,6 +166,23 @@ async function scenarioMissingFile(url) {
 	);
 }
 
+async function scenarioRejectsNonMarkdownExtension(url) {
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-mdview-tool-non-md-"));
+	await fs.writeFile(path.join(cwd, "secret.txt"), "NOT_MARKDOWN_SECRET\n", "utf8");
+	const tool = await loadTool(url);
+	const ctx = makeCtx({ cwd, mode: "print" });
+
+	const result = await tool.execute("call-non-md", { path: "secret.txt" }, undefined, undefined, ctx);
+	check("non-md: opens no viewer", ctx._customCalls.length === 0, String(ctx._customCalls.length));
+	check("non-md: returns a tool error", result?.details?.isError === true, JSON.stringify(result?.details));
+	check(
+		"non-md: rejects by extension before returning content",
+		/\.md|\.markdown/i.test(result?.content?.[0]?.text || "") &&
+			!/NOT_MARKDOWN_SECRET/.test(result?.content?.[0]?.text || ""),
+		result?.content?.[0]?.text,
+	);
+}
+
 async function scenarioOversized(url) {
 	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-mdview-tool-large-"));
 	await fs.writeFile(path.join(cwd, "big.md"), `# Big\n${"x".repeat(3_000_000)}\n`, "utf8");
@@ -199,6 +216,7 @@ async function main() {
 		await scenarioTuiOpensViewer(url);
 		await scenarioNonTuiReturnsContent(url);
 		await scenarioMissingFile(url);
+		await scenarioRejectsNonMarkdownExtension(url);
 		await scenarioOversized(url);
 		await scenarioEmptyPath(url);
 	} finally {

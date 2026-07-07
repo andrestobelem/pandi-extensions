@@ -170,7 +170,7 @@ export function resolveTscCommand(tsconfigDir: string, env: NodeJS.ProcessEnv = 
 		if (parent === dir) break;
 		dir = parent;
 	}
-	return { command: "npx", args: ["tsc"], kind: "npx" };
+	return { command: "npx", args: ["--no-install", "tsc"], kind: "npx" };
 }
 
 /**

@@ -763,6 +763,82 @@ async function cancelSignalsVerifiedOrphan(url) {
 	}
 }
 
+async function cancelVerifiedOrphanKeepsSurvivorNonDeletable(url) {
+	if (process.platform === "win32") {
+		check("cancel-orphan-survivor: POSIX process-group signaling skipped on win32", true);
+		return;
+	}
+	const mod = await loadModule(url);
+	const readStartId = mod.readProcessStartId;
+	const { commands } = await loadExtension(url);
+	const cwd = await createBgTestDir("pi-bg-cancel-orphan-survivor-");
+	const jobId = "survivor-orphan";
+	const runDir = path.join(cwd, ".pi", "bg", "runs", jobId);
+	await fs.mkdir(runDir, { recursive: true });
+	const started = path.join(cwd, "survivor-started");
+	const child = spawn(
+		process.execPath,
+		[
+			"-e",
+			"const fs=require('node:fs'); process.on('SIGTERM', () => {}); fs.writeFileSync(process.argv[1], 'ready'); setTimeout(() => {}, 60000)",
+			started,
+		],
+		{ detached: true, stdio: "ignore" },
+	);
+	child.unref();
+	await waitForFile("survivor installed SIGTERM handler", started);
+	const startId = await waitFor("survivor orphan start identity", async () => {
+		const id = readStartId(child.pid);
+		return typeof id === "string" && id.length > 0 ? id : false;
+	});
+	try {
+		await fs.writeFile(
+			path.join(runDir, "job.json"),
+			JSON.stringify(
+				{ jobId, command: "survivor", cwd, createdAt: new Date().toISOString(), artifactsDir: runDir },
+				null,
+				2,
+			),
+		);
+		await fs.writeFile(
+			path.join(runDir, "status.json"),
+			JSON.stringify(
+				{ jobId, state: "running", pid: child.pid, startId, updatedAt: new Date().toISOString() },
+				null,
+				2,
+			),
+		);
+		const ctx = makeCtx({ cwd, trusted: true });
+		await commands.get("bg").handler(`cancel ${jobId}`, ctx);
+		const msg = ctx._notes.at(-1)?.msg || "";
+		check("cancel-orphan-survivor: reports that process is still alive", /sigue vivo/.test(msg), msg);
+		check("cancel-orphan-survivor: process is still alive after cancel", process.kill(child.pid, 0) === true);
+		const status = await readJson(path.join(runDir, "status.json"));
+		check(
+			"cancel-orphan-survivor: status is non-terminal/non-deletable",
+			status.state === "orphaned" && status.cancelRequested === true && !status.completedAt,
+			JSON.stringify(status),
+		);
+		const events = await fs.readFile(path.join(runDir, "events.jsonl"), "utf8").catch(() => "");
+		check(
+			"cancel-orphan-survivor: records survived event",
+			/cancel-orphan-survived/.test(events),
+			events.slice(-300),
+		);
+	} finally {
+		try {
+			process.kill(-child.pid, "SIGKILL");
+		} catch {
+			/* best effort */
+		}
+		try {
+			process.kill(child.pid, "SIGKILL");
+		} catch {
+			/* best effort */
+		}
+	}
+}
+
 async function cancelRefusesReusedPid(url) {
 	const { commands } = await loadExtension(url);
 	const cwd = await createBgTestDir("pi-bg-cancel-reuse-");
@@ -1327,6 +1403,7 @@ async function main() {
 	await verifyProcessIdentityDetectsReuse(url);
 	await identityDefeatsPidReuse(url);
 	await cancelSignalsVerifiedOrphan(url);
+	await cancelVerifiedOrphanKeepsSurvivorNonDeletable(url);
 	await cancelRefusesReusedPid(url);
 	await deleteGateReDerivesLiveState(url);
 	await removeRunDirRevalidatesBeforeRm(url);

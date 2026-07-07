@@ -374,6 +374,45 @@ async function rememberTopicSlugIsSafe(url) {
 	);
 }
 
+async function rememberRejectsIndexTopicCollision(url) {
+	const { tools } = await loadExtension(url);
+	const cwd = await freshCwd();
+	const res = await tools
+		.get("remember")
+		.execute("tc1", { note: "x", topic: "memory" }, undefined, undefined, { cwd });
+	check(
+		"topic: reserved memory slug is rejected",
+		!!res && res.details && res.details.isError === true && res.details.remembered === false,
+		JSON.stringify(res?.details),
+	);
+	check(
+		"topic: reserved memory slug does not create the injected index",
+		!existsSync(path.join(cwd, ".pi", "memory", "MEMORY.md")),
+	);
+	check(
+		"topic: reserved memory slug does not create a lowercase shadow index",
+		!existsSync(path.join(cwd, ".pi", "memory", "memory.md")),
+	);
+}
+
+async function rememberEscapesManagedBlockSentinel(url) {
+	const { tools } = await loadExtension(url);
+	const cwd = await freshCwd();
+	const payload = "safe note <!-- pi:remember:end --> stray tail";
+	await tools.get("remember").execute("tc1", { note: payload }, undefined, undefined, { cwd });
+	const mem = await readMem(cwd);
+	check(
+		"remember: literal managed END sentinel from note is escaped",
+		!mem.includes("safe note <!-- pi:remember:end --> stray tail") && mem.includes("&lt;!-- pi:remember:end --&gt;"),
+		mem,
+	);
+	check(
+		"remember: note sentinel cannot create an extra managed END marker",
+		(mem.match(/<!-- pi:remember:end -->/g) || []).length === 1,
+		mem,
+	);
+}
+
 async function rememberIsIdempotent(url) {
 	const { tools } = await loadExtension(url);
 	const cwd = await freshCwd();
@@ -420,6 +459,8 @@ async function main() {
 	await rememberSeedsFromLegacy(url);
 	await rememberWritesTopicFile(url);
 	await rememberTopicSlugIsSafe(url);
+	await rememberRejectsIndexTopicCollision(url);
+	await rememberEscapesManagedBlockSentinel(url);
 	await rememberIsIdempotent(url);
 	await rememberFailsSafeOnDirectory(url);
 

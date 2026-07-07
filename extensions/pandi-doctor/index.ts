@@ -14,20 +14,25 @@
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { runDoctor, runDoctorCheck } from "./doctor.js";
+import { DEFAULT_DOCTOR_TIMEOUT_MS, parseTimeoutMs, runDoctor, runDoctorCheck } from "./doctor.js";
 import { notify } from "./notify.js";
 
 const EXT_DIR = dirname(fileURLToPath(import.meta.url));
 
 export type { DoctorResult, RunDoctor, RunDoctorOptions } from "./doctor.js";
 // Reexportado para que la suite de integración pueda probar unitariamente los helpers puros + el punto de inyección.
-export { formatDoctorOutput, resolveDoctorScript, runDoctor, runDoctorCheck } from "./doctor.js";
+export { formatDoctorOutput, parseTimeoutMs, resolveDoctorScript, runDoctor, runDoctorCheck } from "./doctor.js";
 
 export default function doctorExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("doctor", {
 		description: "Ejecuta el chequeo de entorno de pandi-extensions (scripts/doctor.mjs) y muestra el reporte",
 		handler: async (_args, ctx) => {
-			const result = await runDoctorCheck(runDoctor, { cwd: process.cwd(), extDir: EXT_DIR });
+			const result = await runDoctorCheck(runDoctor, {
+				cwd: process.cwd(),
+				extDir: EXT_DIR,
+				signal: ctx.signal ?? undefined,
+				timeoutMs: parseTimeoutMs(process.env.PI_DOCTOR_TIMEOUT_MS, DEFAULT_DOCTOR_TIMEOUT_MS),
+			});
 			notify(ctx, result.text, result.type);
 		},
 	});

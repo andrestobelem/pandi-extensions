@@ -114,6 +114,7 @@ Command equivalent: `/container create alpine:latest dev --size small` (alias `-
 - Setup needed before use: the CLI (`brew install container`), a configured kernel (`container system kernel set --recommended`), and a booted subsystem (`container system start`).
 - The tool never deletes by default: `remove` only proceeds when `force: true` is passed explicitly. The `/container remove` command confirms in a TUI first.
 - Commands run inside the VM are passed as an argv array — no shell interpolation on the host.
+- Each Apple `container` CLI call is bounded by a 120s timeout. Override with `PI_CONTAINER_TIMEOUT_MS` for slow image pulls or long-running sandbox commands.
 
 ## Related
 

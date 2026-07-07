@@ -144,6 +144,17 @@ async function main() {
 		);
 		check("print mode: ui.notify never used", ctxPrintFail._notes.length === 0, JSON.stringify(ctxPrintFail._notes));
 
+		// Modo headless no-print (p. ej. json/rpc sin UI): una falla también debe salir por stderr.
+		const ctxJsonFail = makeCtx({ throwOnNew: true, mode: "json" });
+		ctxJsonFail.hasUI = false;
+		const jsonFailStreams = await withCapturedConsole(() => cmd.handler("", ctxJsonFail));
+		check(
+			"json headless: failure reported on stderr",
+			jsonFailStreams.err.some((l) => /clear falló/.test(l) && /boom/.test(l)),
+			JSON.stringify(jsonFailStreams),
+		);
+		check("json headless: ui.notify never used", ctxJsonFail._notes.length === 0, JSON.stringify(ctxJsonFail._notes));
+
 		// Éxito en modo `print`: estrictamente silencioso en ambos canales.
 		const ctxPrintOk = makeCtx({ mode: "print" });
 		const okStreams = await withCapturedConsole(() => cmd.handler("", ctxPrintOk));

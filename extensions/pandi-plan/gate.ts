@@ -240,6 +240,29 @@ function hasAny(words: string[], values: Set<string>): boolean {
 	return words.some((word) => values.has(word));
 }
 
+function hasDownloadOutputFlag(args: string[]): boolean {
+	return args.some(
+		(arg) =>
+			arg === "-o" ||
+			arg === "-O" ||
+			arg === "--output" ||
+			arg === "--remote-name" ||
+			arg.startsWith("--output=") ||
+			/^-[A-Za-z]*[oO][A-Za-z]*$/.test(arg),
+	);
+}
+
+function firstXargsCommandIndex(words: string[], xargsIndex: number): number | undefined {
+	for (let index = xargsIndex + 1; index < words.length; index++) {
+		if (words[index].startsWith("-")) {
+			if (["-a", "--arg-file", "-E", "-I", "-i", "-L", "-l", "-n", "-P", "-s"].includes(words[index])) index += 1;
+			continue;
+		}
+		return index;
+	}
+	return undefined;
+}
+
 const FILE_MUTATING_COMMANDS = new Set([
 	"touch",
 	"mkdir",
@@ -408,6 +431,12 @@ function isMutatingCommand(words: string[], start = 0): boolean {
 	if (command === "sudo" || command === "command" || command === "builtin" || command === "time")
 		return isMutatingCommand(words, commandIndex + 1);
 	if (command === "env") return isMutatingCommand(words, commandIndex + 1);
+	if (command === "eval") return isMutatingBash(args.join(" "));
+	if (command === "xargs") {
+		const xargsCommandIndex = firstXargsCommandIndex(words, commandIndex);
+		return xargsCommandIndex === undefined ? false : isMutatingCommand(words, xargsCommandIndex);
+	}
+	if (command === "curl" || command === "wget") return hasDownloadOutputFlag(args);
 	if (FILE_MUTATING_COMMANDS.has(command)) return true;
 	if (command === "sed") return hasSedInPlaceFlag(args);
 	if (command === "dd") return args.some((arg) => /^(if|of)=/.test(arg));

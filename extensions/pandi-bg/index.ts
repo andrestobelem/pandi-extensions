@@ -260,11 +260,16 @@ function response(message: string, details?: unknown, type: BgResponse["type"] =
 }
 
 function notify(ctx: ExtensionContext, result: BgResponse): void {
+	const type = result.type ?? "info";
 	if (ctx.mode === "print") {
-		console.log(result.message);
+		(type === "info" ? console.log : console.error)(result.message);
 		return;
 	}
-	if (ctx.hasUI) ctx.ui.notify(result.message, result.type ?? "info");
+	if (ctx.hasUI) {
+		ctx.ui.notify(result.message, type);
+		return;
+	}
+	if (type !== "info") console.error(result.message);
 }
 
 function planModeActive(): boolean {
@@ -400,6 +405,10 @@ async function handleStart(ctx: ExtensionContext, command: string): Promise<BgRe
 // La regla de seguridad que la ruta in-session da por sentada debe ganarse acá: solo enviar
 // señal cuando el pid vivo está VERIFIED como nuestro proceso (misma identidad de inicio).
 // Un pid reutilizado o no verificable nunca recibe señal; queda para herramientas del SO.
+function sleep(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function cancelPersistedJob(ctx: ExtensionContext, jobId: string): Promise<BgResponse> {
 	const runDir = await findJobDir(ctx, jobId);
 	if (!runDir)
@@ -443,6 +452,24 @@ async function cancelPersistedJob(ctx: ExtensionContext, jobId: string): Promise
 		});
 	}
 	const now = nowIso();
+	if (signaled) {
+		await sleep(CANCEL_GRACE_MS);
+		if (verifyProcessIdentity(pid, asString(status.startId)) === "same") {
+			await appendEvent(runDir, { event: "cancel-orphan-survived", jobId, pid });
+			await atomicWriteJson(path.join(runDir, "status.json"), {
+				...status,
+				state: "orphaned",
+				cancelRequested: true,
+				updatedAt: now,
+				reason: "cancel-signal-sent-process-still-alive",
+			});
+			return response(
+				`Se envió SIGTERM al huérfano verificado ${jobId} (pid ${pid}), pero el proceso sigue vivo; no se lo marcó como cancelado/deletable.`,
+				{ action: "cancel", jobId, active: false, signaled, stillAlive: true, identity: "verified" },
+				"warning",
+			);
+		}
+	}
 	await atomicWriteJson(path.join(runDir, "status.json"), {
 		...status,
 		state: "cancelled",

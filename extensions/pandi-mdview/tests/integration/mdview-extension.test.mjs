@@ -63,7 +63,7 @@ function makeTheme() {
 	};
 }
 
-function makeCtx({ cwd, mode = "tui", rows = 12, width = 80 } = {}) {
+function makeCtx({ cwd, mode = "tui", rows = 12, width = 80, hasUI = mode !== "print" } = {}) {
 	const notes = [];
 	const customCalls = [];
 	const theme = makeTheme();
@@ -76,7 +76,7 @@ function makeCtx({ cwd, mode = "tui", rows = 12, width = 80 } = {}) {
 	};
 	const ctx = {
 		mode,
-		hasUI: mode !== "print",
+		hasUI,
 		cwd,
 		ui: {
 			theme,
@@ -115,6 +115,18 @@ async function scenarioRegisters(url) {
 	const { commands } = await loadExtension(url);
 	check("/mdview command registered", commands.has("mdview"));
 	check("/mdview has description", /Markdown/i.test(commands.get("mdview")?.description || ""));
+}
+
+async function scenarioPackageDeclaresRuntimePeers() {
+	const source = await fs.readFile(path.join(REPO_ROOT, "extensions", "pandi-mdview", "index.ts"), "utf8");
+	const pkg = JSON.parse(
+		await fs.readFile(path.join(REPO_ROOT, "extensions", "pandi-mdview", "package.json"), "utf8"),
+	);
+	check(
+		"package: declares typebox peer dependency used by runtime schema import",
+		!/from "typebox"/.test(source) || typeof pkg.peerDependencies?.typebox === "string",
+		JSON.stringify(pkg.peerDependencies),
+	);
 }
 
 async function scenarioRendersRelativePath(url) {
@@ -185,6 +197,33 @@ async function captureConsole(fn) {
 		console.error = origErr;
 	}
 	return { out: out.join("\n"), err: err.join("\n") };
+}
+
+async function scenarioRejectsNonMarkdownExtension(url) {
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-mdview-non-md-"));
+	await fs.writeFile(path.join(cwd, "secret.txt"), "NOT_MARKDOWN_SECRET\n", "utf8");
+	const { commands } = await loadExtension(url);
+	const ctx = makeCtx({ cwd });
+	await commands.get("mdview").handler("secret.txt", ctx);
+	check("non-md: does not open viewer", ctx._customCalls.length === 0, String(ctx._customCalls.length));
+	check(
+		"non-md: reports Markdown extension requirement",
+		/\.md|\.markdown/i.test(ctx._notes.at(-1)?.msg || ""),
+		JSON.stringify(ctx._notes.at(-1)),
+	);
+}
+
+async function scenarioJsonHeadlessErrorToStderr(url) {
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-mdview-json-headless-"));
+	const { commands } = await loadExtension(url);
+	const ctx = makeCtx({ cwd, mode: "json", hasUI: false });
+	const { out, err } = await captureConsole(() => commands.get("mdview").handler("missing.md", ctx));
+	check(
+		"json headless: error goes to stderr, not stdout",
+		/No se pudo leer/.test(err) && !/No se pudo leer/.test(out),
+		JSON.stringify({ out, err }),
+	);
+	check("json headless: ui.notify never used", ctx._notes.length === 0, JSON.stringify(ctx._notes));
 }
 
 async function scenarioLargeFileGuard(url) {
@@ -280,9 +319,12 @@ async function main() {
 	const { outDir, url } = await buildMdview();
 	try {
 		await scenarioRegisters(url);
+		await scenarioPackageDeclaresRuntimePeers();
 		await scenarioRendersRelativePath(url);
 		await scenarioQuotedPath(url);
 		await scenarioErrors(url);
+		await scenarioRejectsNonMarkdownExtension(url);
+		await scenarioJsonHeadlessErrorToStderr(url);
 		await scenarioLargeFileGuard(url);
 		await scenarioPrintModeStdout(url);
 		await scenarioPrintModeErrorToStderr(url);

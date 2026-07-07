@@ -255,6 +255,27 @@ async function scenarioActiveConflict(url) {
 			second.ctx,
 		);
 		check("bash blocks printf redirection", isBlocked(printfRedirect), JSON.stringify(printfRedirect));
+		const findDelete = await emit(
+			second.handlers,
+			"tool_call",
+			toolCallEvent("bash", { command: "find . -name '*.tmp' -delete" }),
+			second.ctx,
+		);
+		check("bash blocks mutating find -delete", isBlocked(findDelete), JSON.stringify(findDelete));
+		const findExecRm = await emit(
+			second.handlers,
+			"tool_call",
+			toolCallEvent("bash", { command: "find . -type f -exec rm {} \\;" }),
+			second.ctx,
+		);
+		check("bash blocks mutating find -exec rm", isBlocked(findExecRm), JSON.stringify(findExecRm));
+		const sedInPlace = await emit(
+			second.handlers,
+			"tool_call",
+			toolCallEvent("bash", { command: "sed -n -i 's/hello/goodbye/' file.txt" }),
+			second.ctx,
+		);
+		check("bash blocks sed -n combined with in-place edit", isBlocked(sedInPlace), JSON.stringify(sedInPlace));
 		const multilineMutation = await emit(
 			second.handlers,
 			"tool_call",

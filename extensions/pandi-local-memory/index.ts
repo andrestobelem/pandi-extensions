@@ -68,6 +68,11 @@ export default function localMemoryExtension(pi: ExtensionAPI): void {
 						`Topic inválido "${params.topic}": no se pudo derivar un nombre de archivo seguro — usá letras, números o guiones.`,
 					);
 				}
+				if (slug === INDEX_FILE.replace(/\.md$/i, "").toLowerCase()) {
+					return toolError(
+						`Topic reservado "${params.topic}": usarlo colisionaría con el índice inyectado ${CONFIG_DIR_NAME}/memory/${INDEX_FILE}; elegí otro nombre.`,
+					);
+				}
 				targetPath = join(memoryDir, `${slug}.md`);
 				targetLabel = `${CONFIG_DIR_NAME}/memory/${slug}.md`;
 			}

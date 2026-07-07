@@ -20,9 +20,11 @@ import { Type } from "typebox";
 import { parseContainerCommand, parseSizeFlag } from "./command.js";
 import { CONTAINER_ACTIONS, completeContainerArgs, resolveContainerInput } from "./command-menu.js";
 import {
+	DEFAULT_CONTAINER_TIMEOUT_MS,
 	describeTiers,
 	type HandlerResult,
 	isSupportedPlatform,
+	parseTimeoutMs,
 	runContainer,
 	runCreate,
 	runExec,
@@ -51,6 +53,7 @@ export {
 	isSupportedPlatform,
 	MACHINE_TIER_NAMES,
 	parseMachineList,
+	parseTimeoutMs,
 	resolveSize,
 	runContainer,
 	runCreate,
@@ -99,7 +102,11 @@ async function runCommand(ctx: ExtensionContext, input: string): Promise<void> {
 		return;
 	}
 	const { action, rest, command } = parseContainerCommand(await resolveContainerInput(input, ctx));
-	const opts = { cwd: ctx.cwd, signal: ctx.signal ?? undefined };
+	const opts = {
+		cwd: ctx.cwd,
+		signal: ctx.signal ?? undefined,
+		timeoutMs: parseTimeoutMs(process.env.PI_CONTAINER_TIMEOUT_MS, DEFAULT_CONTAINER_TIMEOUT_MS),
+	};
 
 	if (action === "help" || action === "-h" || action === "--help") {
 		notify(ctx, HELP_TEXT, "info");
@@ -236,7 +243,11 @@ export default function containerExtension(pi: ExtensionAPI): void {
 			if (!isSupportedPlatform()) {
 				return toolError(PLATFORM_MSG, { action: params.action });
 			}
-			const opts = { cwd: ctx.cwd, signal: signal ?? undefined };
+			const opts = {
+				cwd: ctx.cwd,
+				signal: signal ?? undefined,
+				timeoutMs: parseTimeoutMs(process.env.PI_CONTAINER_TIMEOUT_MS, DEFAULT_CONTAINER_TIMEOUT_MS),
+			};
 			switch (params.action) {
 				case "status":
 					return toToolResult(await runStatus(runContainer, opts));

@@ -114,6 +114,17 @@ const slugify = (html) =>
 		.trim()
 		.replace(/\s/g, "-");
 
+// Sanitiza HTML crudo permitido por Markdown antes de insertarlo en el artifact. Mantiene la
+// mayoría de tags semánticos, pero elimina superficies ejecutables típicas (scripts/iframes) y
+// atributos inline que disparan JS. El script controlado de Mermaid se agrega DESPUÉS de esta fase.
+const sanitizeRenderedHtml = (html) =>
+	html
+		.replace(/<\s*(script|iframe|object|embed)\b[\s\S]*?<\s*\/\s*\1\s*>/gi, "")
+		.replace(/<\s*(script|iframe|object|embed)\b[^>]*\/?>/gi, "")
+		.replace(/\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+		.replace(/\s+(href|src)\s*=\s*(["'])\s*javascript:[\s\S]*?\2/gi, "")
+		.replace(/\s+(href|src)\s*=\s*javascript:[^\s>]+/gi, "");
+
 // Envuelve cada tabla en un contenedor con scroll horizontal: una tabla más ancha que la
 // página scrollea en vez de desbordar. Tolera tags con atributos para no dejar divs desbalanceados.
 const wrapTables = (html) =>
@@ -291,7 +302,9 @@ export function renderMarkdownToHtml(md, opts = {}) {
 	const kicker = opts.kicker ?? "Pandi artifact";
 	const { title: docTitle, body } = splitTitle(stripYamlFrontmatter(md));
 	const title = docTitle ?? opts.title ?? "Untitled";
-	const { body: withIds, toc } = addHeadingIdsAndToc(alertsToCallouts(engine.parse(body, { async: false })));
+	const { body: withIds, toc } = addHeadingIdsAndToc(
+		alertsToCallouts(sanitizeRenderedHtml(engine.parse(body, { async: false }))),
+	);
 	const processed = addColorDots(wrapTables(withIds));
 	// El lede solo existe cuando hubo h1 que promover: sin masthead propio no hay dónde colgarlo.
 	const { lede, body: rendered } = docTitle ? extractLede(processed) : { lede: "", body: processed };

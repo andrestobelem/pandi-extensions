@@ -191,7 +191,12 @@ function fireGoal(pi: ExtensionAPI, ctx: ExtensionContext, goal: ActiveGoal): vo
 	persist(pi, ctx, goal);
 	setGoalStatus(ctx, goal);
 	const prompt = goal.gstatus === "verifying" ? makeGoalVerificationPrompt(goal) : makeGoalIterationPrompt(goal);
-	wake(pi, ctx, prompt);
+	try {
+		wake(pi, ctx, prompt);
+	} catch (err) {
+		stopGoal(pi, ctx, goal.goalId, `failed: falló la entrega del wake: ${(err as Error).message}`, "stopped");
+		notify(ctx, `Goal ${goal.goalId} detenido: falló la entrega del wake.`, "error");
+	}
 }
 
 /**
@@ -267,7 +272,16 @@ async function beginIndependentVerification(pi: ExtensionAPI, ctx: ExtensionCont
 	persist(pi, ctx, goal);
 	setGoalStatus(ctx, goal);
 
-	const verdict = await runIndependentVerifier(pi, ctx, goal);
+	let verdict: Awaited<ReturnType<typeof runIndependentVerifier>>;
+	try {
+		verdict = await runIndependentVerifier(pi, ctx, goal);
+	} catch (err) {
+		verdict = {
+			pass: false,
+			feedback: `verificador independiente falló: ${(err as Error).message}`,
+			unparsed: true,
+		};
+	}
 	goal.verifierInFlight = false;
 
 	// El goal pudo haberse detenido (usuario /goal stop, shutdown) mientras corría el

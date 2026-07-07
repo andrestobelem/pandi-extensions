@@ -67,6 +67,15 @@ const OK = green("✓");
 const WARN = yellow("⚠");
 const FAIL = red("✗");
 
+function parseTimeoutMs(raw, fallback) {
+	const n = Number(raw);
+	if (!Number.isFinite(n) || n <= 0) return fallback;
+	return Math.max(1000, Math.floor(n));
+}
+
+const PROBE_TIMEOUT_MS = parseTimeoutMs(process.env.PI_DOCTOR_PROBE_TIMEOUT_MS, 8000);
+const SYNC_TIMEOUT_MS = parseTimeoutMs(process.env.PI_DOCTOR_SYNC_TIMEOUT_MS, 20000);
+
 /** Parsea "v22.19.0" / "codex-cli 0.142.4" -> [22,19,0]; devuelve null si no encuentra ninguna. */
 function parseSemver(text) {
 	const m = String(text).match(/(\d+)\.(\d+)\.(\d+)/);
@@ -83,7 +92,7 @@ function gte(a, b) {
 /** Corre `<bin> <args>`; devuelve { found, out } sin lanzar (`ENOENT` => `found:false`). */
 function probe(bin, args = ["--version"]) {
 	try {
-		const r = spawnSync(bin, args, { encoding: "utf8", timeout: 8000 });
+		const r = spawnSync(bin, args, { encoding: "utf8", timeout: PROBE_TIMEOUT_MS });
 		if (r.error) return { found: false, out: "" };
 		const out = `${r.stdout || ""}${r.stderr || ""}`.trim();
 		return { found: r.status === 0 || Boolean(out), out };
@@ -240,7 +249,7 @@ if (!SUITE_ROOT) {
 	// la suite, no de esta máquina — N/A, no un warning falso de "out of sync".
 	report("optional", dim("·"), "sync Claude global", "N/A (fuera del repo pandi-extensions)");
 } else if (existsSync(syncScript)) {
-	const sync = spawnSync(process.execPath, [syncScript, "--check"], { encoding: "utf8", timeout: 20000 });
+	const sync = spawnSync(process.execPath, [syncScript, "--check"], { encoding: "utf8", timeout: SYNC_TIMEOUT_MS });
 	if (sync.error || typeof sync.status !== "number") {
 		// El check no pudo correr (spawn falló / timeout): no afirmes "drift", decí que no se verificó.
 		report("optional", WARN, syncLabel, "no se pudo verificar — corré `npm run sync:claude:global:check`");
@@ -270,7 +279,7 @@ function checkRepoSync({ label, script, checkCommand, fixCommand, okDetail }) {
 	const check = spawnSync(process.execPath, [scriptPath, "--check"], {
 		cwd: SUITE_ROOT,
 		encoding: "utf8",
-		timeout: 20000,
+		timeout: SYNC_TIMEOUT_MS,
 	});
 	if (check.error || typeof check.status !== "number") {
 		report("optional", WARN, label, `no se pudo verificar — corré \`${checkCommand}\``);
@@ -350,7 +359,7 @@ if (!SUITE_ROOT) {
 	const hooksPathCfg = spawnSync("git", ["config", "core.hooksPath"], {
 		cwd: SUITE_ROOT,
 		encoding: "utf8",
-		timeout: 8000,
+		timeout: PROBE_TIMEOUT_MS,
 	});
 	const configured = `${hooksPathCfg.stdout || ""}`.trim();
 	const hookFile = path.join(SUITE_ROOT, "scripts", "git-hooks", "pre-commit");

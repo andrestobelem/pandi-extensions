@@ -37,14 +37,13 @@ function makePi() {
 	return { pi, commands, handlers };
 }
 
-function makeCtx(cwd, { mode = "tui", withSelect = false, selectResult } = {}) {
+function makeCtx(cwd, { mode = "tui", withSelect = false, selectResult, withConfirm = true } = {}) {
 	const notes = [];
 	const selectCalls = [];
 	let customCalls = 0;
 	const ui = {
 		theme: { fg: (_c, value) => value, bg: (_c, value) => value, bold: (value) => value },
 		notify: (msg, type) => notes.push({ msg, type }),
-		confirm: async () => true,
 		custom: async (factory) => {
 			customCalls += 1;
 			const tui = { terminal: { rows: 30, columns: 100 }, requestRender: () => {} };
@@ -52,6 +51,7 @@ function makeCtx(cwd, { mode = "tui", withSelect = false, selectResult } = {}) {
 			return null;
 		},
 	};
+	if (withConfirm) ui.confirm = async () => true;
 	if (withSelect) {
 		ui.select = async (title, items) => {
 			selectCalls.push({ title, items });
@@ -224,11 +224,36 @@ async function main() {
 				() => false,
 			),
 		);
+		const uiNoConfirmFile = path.join(project, ".pi", "pandi-session", "live", "ui-no-confirm.json");
+		await writeJson(uiNoConfirmFile, {
+			id: "ui-no-confirm",
+			pid: 99999998,
+			mode: "tui",
+			cwd: project,
+			startedAt: "2020-01-01T00:00:00.000Z",
+			updatedAt: "2020-01-01T00:00:00.000Z",
+		});
+		const uiNoConfirmCtx = makeCtx(project, { withConfirm: false });
+		await commands.get("sessions").handler("cleanup", uiNoConfirmCtx);
+		check(
+			"ui without confirm refuses destructive cleanup unless --yes",
+			/--yes|--dry-run/.test(uiNoConfirmCtx._notes.at(-1)?.msg || "") &&
+				(await fs.stat(uiNoConfirmFile).then(
+					() => true,
+					() => false,
+				)),
+			JSON.stringify(uiNoConfirmCtx._notes),
+		);
+
 		const cleanupYes = await captureConsole(() => commands.get("sessions").handler("cleanup --yes", printCtx));
 		check(
-			"/sessions cleanup --yes removes stale candidate",
-			cleanupYes.out.join("\n").includes("Removed 1") &&
+			"/sessions cleanup --yes removes stale candidates",
+			cleanupYes.out.join("\n").includes("Removed 2") &&
 				!(await fs.stat(deadFile).then(
+					() => true,
+					() => false,
+				)) &&
+				!(await fs.stat(uiNoConfirmFile).then(
 					() => true,
 					() => false,
 				)),

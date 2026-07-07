@@ -28,12 +28,12 @@ function makePi() {
 	return { pi, commands };
 }
 
-function makeCtx({ throwOnShutdown = false } = {}) {
+function makeCtx({ throwOnShutdown = false, mode = "tui", hasUI = mode !== "print" } = {}) {
 	const calls = { shutdown: 0 };
 	const notes = [];
 	const ctx = {
-		mode: "tui",
-		hasUI: true,
+		mode,
+		hasUI,
 		ui: { notify: (msg, type) => notes.push({ msg, type }) },
 		shutdown: () => {
 			calls.shutdown += 1;
@@ -43,6 +43,22 @@ function makeCtx({ throwOnShutdown = false } = {}) {
 	ctx._calls = calls;
 	ctx._notes = notes;
 	return ctx;
+}
+
+async function withCapturedConsole(fn) {
+	const out = [];
+	const err = [];
+	const savedLog = console.log;
+	const savedError = console.error;
+	console.log = (...a) => out.push(a.join(" "));
+	console.error = (...a) => err.push(a.join(" "));
+	try {
+		await fn();
+	} finally {
+		console.log = savedLog;
+		console.error = savedError;
+	}
+	return { out, err };
 }
 
 async function main() {
@@ -90,6 +106,20 @@ async function main() {
 				(n) => n.type === "error" && /no se pudo salir/.test(n.msg) && /shutdown-refused/.test(n.msg),
 			),
 			JSON.stringify(ctxThrow._notes),
+		);
+
+		// En headless no-print (p. ej. json/rpc sin UI), una falla debe quedar observable en stderr.
+		const ctxJsonThrow = makeCtx({ throwOnShutdown: true, mode: "json", hasUI: false });
+		const jsonStreams = await withCapturedConsole(() => cmd.handler("", ctxJsonThrow));
+		check(
+			"json headless: shutdown failure reported on stderr",
+			jsonStreams.err.some((l) => /no se pudo salir/.test(l) && /shutdown-refused/.test(l)),
+			JSON.stringify(jsonStreams),
+		);
+		check(
+			"json headless: ui.notify never used",
+			ctxJsonThrow._notes.length === 0,
+			JSON.stringify(ctxJsonThrow._notes),
 		);
 
 		// En éxito no se emite nada.

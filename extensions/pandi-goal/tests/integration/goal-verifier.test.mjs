@@ -1048,6 +1048,29 @@ async function verifierPromptFencesUntrustedEvidence(goalUrl) {
 	);
 }
 
+async function wakeDeliveryFailureStopsGoal(goalUrl) {
+	const goalExtension = await loadDefault(goalUrl);
+	const built = makePi(() => ({ code: 0, killed: false, stdout: "VERDICT: PASS", stderr: "" }));
+	built.pi.sendUserMessage = () => {
+		throw new Error("transport down");
+	};
+	goalExtension(built.pi);
+	const ctx = makeCtx();
+
+	await built.commands.get("goal").handler("ship despite broken transport", ctx);
+	check(
+		"wake-failure: start command does not crash and stops the goal",
+		lastStatus(built.states) === "stopped",
+		`last=${lastStatus(built.states)}`,
+	);
+	const last = built.states.at(-1);
+	check(
+		"wake-failure: reason is durable in goal state",
+		/failed: falló la entrega del wake/.test(last?.lastReason || ""),
+		JSON.stringify(last),
+	);
+}
+
 async function main() {
 	const { outDir, url } = await buildGoal();
 	try {
@@ -1058,6 +1081,7 @@ async function main() {
 		await nonZeroExitWithPassIsFail(url);
 		await timeoutAndThrowAreFail(url);
 		await firstDoneNeverClosesNorVerifies(url);
+		await wakeDeliveryFailureStopsGoal(url);
 		await reentryDuringVerifyIsIgnored(url);
 		await secondGoalIsRefused(url);
 		await verifierArgvIsReadOnly(url);

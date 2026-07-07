@@ -191,6 +191,22 @@ async function scenarioCheckLogic(url) {
 	}
 }
 
+async function scenarioConfigurableTimeout(url) {
+	const mod = await loadModule(url);
+
+	check("timeout parser: valid env ms accepted", mod.parseTimeoutMs("2500", 120000) === 2500);
+	check("timeout parser: invalid env falls back", mod.parseTimeoutMs("nope", 120000) === 120000);
+	check("timeout parser: tiny env clamps to 1000", mod.parseTimeoutMs("1", 120000) === 1000);
+
+	const run = fakeRunner([{ ok: true, stdout: "✓ ok", stderr: "", exitCode: 0 }]);
+	await mod.runDoctorCheck(run, { cwd: REPO_ROOT, extDir: EXT_DIR, timeoutMs: 4321 });
+	check(
+		"runDoctorCheck: timeoutMs is propagated to runner",
+		run.opts[0]?.timeoutMs === 4321,
+		JSON.stringify(run.opts[0]),
+	);
+}
+
 async function scenarioRealSpawnMissingBin(url) {
 	const mod = await loadModule(url);
 	// Spawn REAL de un binario garantizadamente ausente → `spawnError` real, mensaje acotado.
@@ -242,6 +258,11 @@ function writeFakeSyncScript(file, name) {
 		`#!/usr/bin/env node\nif (process.argv.includes("--check")) { console.error("[${name}] drift"); process.exit(1); }\n`,
 		{ mode: 0o755 },
 	);
+}
+
+function writeHungSyncScript(file) {
+	fs.mkdirSync(path.dirname(file), { recursive: true });
+	fs.writeFileSync(file, "#!/usr/bin/env node\nsetTimeout(() => {}, 5000);\n", { mode: 0o755 });
 }
 
 function findDoctorLine(output, label) {
@@ -298,6 +319,39 @@ function scenarioCanonicalSyncChecks() {
 			const line = findDoctorLine(out, label);
 			check(`canonical sync: ${label} warning names fix command`, /⚠/.test(line) && line.includes(fix), line || out);
 		}
+	} finally {
+		fs.rmSync(tmp, { recursive: true, force: true });
+	}
+}
+
+function scenarioSyncTimeoutOverride() {
+	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "pi-doctor-sync-timeout-"));
+	try {
+		fs.writeFileSync(path.join(tmp, "package.json"), JSON.stringify({ name: "pandi-extensions" }));
+		const extDir = path.join(tmp, "ext");
+		fs.mkdirSync(path.join(extDir, "scripts"), { recursive: true });
+		fs.copyFileSync(path.join(EXT_DIR, "scripts", "doctor.mjs"), path.join(extDir, "scripts", "doctor.mjs"));
+		const agentDir = path.join(tmp, "agent");
+		fs.mkdirSync(agentDir, { recursive: true });
+		writeHungSyncScript(path.join(tmp, "scripts", "sync-root-manifest.mjs"));
+
+		const started = Date.now();
+		const r = spawnSync(process.execPath, [path.join(extDir, "scripts", "doctor.mjs")], {
+			cwd: tmp,
+			encoding: "utf8",
+			timeout: 10000,
+			env: {
+				...process.env,
+				NO_COLOR: "1",
+				PI_DOCTOR_AGENT_DIR: agentDir,
+				PI_DOCTOR_SYNC_TIMEOUT_MS: "1000",
+			},
+		});
+		const elapsed = Date.now() - started;
+		const out = `${r.stdout || ""}${r.stderr || ""}`;
+		const line = findDoctorLine(out, "root manifest");
+		check("sync timeout: env override keeps doctor bounded", elapsed < 3500, `elapsed=${elapsed}ms`);
+		check("sync timeout: timeout reports unverified, not drift", /no se pudo verificar/.test(line), line || out);
 	} finally {
 		fs.rmSync(tmp, { recursive: true, force: true });
 	}
@@ -376,9 +430,11 @@ async function main() {
 	await scenarioRegistration(url);
 	await scenarioResolver(url);
 	await scenarioCheckLogic(url);
+	await scenarioConfigurableTimeout(url);
 	await scenarioRealSpawnMissingBin(url);
 	scenarioStandaloneDoctor();
 	scenarioCanonicalSyncChecks();
+	scenarioSyncTimeoutOverride();
 	scenarioPreCommitHookCheck();
 	await scenarioHandlerEndToEnd(url);
 
