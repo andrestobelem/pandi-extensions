@@ -47,6 +47,9 @@ main h4 { font-size:17px; color:var(--ink); margin:18px 0 6px; font-weight:600; 
 main h5, main h6 { font-size:16px; color:var(--ink2); margin:16px 0 6px; font-weight:600; }
 main p, main li { color:var(--ink2); text-align:justify; hyphens:auto; }
 main li { margin:3px 0; }
+.mermaid p, .mermaid span, .mermaid div, .mermaid foreignObject * {
+  text-align:center !important; hyphens:none !important;
+}
 a { color:var(--link); }
 strong { color:var(--ink); }
 code { font-family:ui-monospace,Menlo,monospace; font-size:16px; color:var(--code);

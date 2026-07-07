@@ -162,6 +162,14 @@ test("mermaid fences become pandi-themed diagrams; plain docs stay JS-free", () 
 	assert.doesNotMatch(plain, /<script/);
 });
 
+test("mermaid node labels stay centered, not justified (foreignObject inherits body prose CSS)", () => {
+	const html = renderMarkdownToHtml(
+		"# T\n\n```mermaid\nflowchart TD\n  a[Un texto bien largo para forzar el wrap del label] --> b\n```\n",
+		{},
+	);
+	assert.match(html, /\.mermaid[^{]*\{[^}]*text-align:\s*center\s*!important/);
+});
+
 test("h2 sections get GitHub-style slug ids, deduped on collision", () => {
 	const html = renderMarkdownToHtml("# T\n\n## Setup\n\na\n\n## Setup\n\nb\n", {});
 	assert.match(html, /<h2 id="setup">Setup<\/h2>/);
