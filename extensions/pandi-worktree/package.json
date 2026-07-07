@@ -1,6 +1,6 @@
 {
 	"name": "@pandi-coding-agent/pandi-worktree",
-	"version": "0.2.3",
+	"version": "0.2.4",
 	"description": "Pi extension to manage git worktrees: a /worktree command and a model-callable git_worktree tool (list/add/open/remove/prune).",
 	"license": "MIT",
 	"repository": {

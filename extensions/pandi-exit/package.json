@@ -1,6 +1,6 @@
 {
 	"name": "@pandi-coding-agent/pandi-exit",
-	"version": "0.1.5",
+	"version": "0.1.6",
 	"description": "Pi extension that adds a Claude-style /exit command as an alias for the native /quit (clean shutdown).",
 	"license": "MIT",
 	"repository": {

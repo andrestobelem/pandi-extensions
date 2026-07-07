@@ -18,12 +18,13 @@ const {
 
 test("release contract: root suite version maps to the documented git tag", () => {
 	const rootPkg = JSON.parse(fs.readFileSync(path.join(REPO, "package.json"), "utf8"));
+	const tag = expectedSuiteTag(rootPkg);
 	assert.equal(rootPkg.private, true);
-	assert.equal(rootPkg.version, "0.3.1");
-	assert.equal(expectedSuiteTag(rootPkg), "v0.3.1");
+	assert.match(rootPkg.version, /^\d+\.\d+\.\d+$/);
+	assert.equal(tag, `v${rootPkg.version}`);
 
 	const setup = fs.readFileSync(path.join(REPO, "docs", "setup.md"), "utf8");
-	assert.match(setup, /pandi-extensions@v0\.3\.1/);
+	assert.match(setup, new RegExp(`pandi-extensions@${tag.replaceAll(".", "\\.")}`));
 });
 
 test("release contract: peer dependency floors are pinned everywhere", () => {
@@ -39,8 +40,9 @@ test("release contract: peer dependency floors are pinned everywhere", () => {
 });
 
 test("release contract: explicit tag preflight rejects tag/version drift", () => {
+	const rootPkg = JSON.parse(fs.readFileSync(path.join(REPO, "package.json"), "utf8"));
 	assert.deepEqual(checkReleaseContract(REPO, { expectedTag: "v9.9.9" }), [
-		"release tag v9.9.9 does not match root package version tag v0.3.1",
+		`release tag v9.9.9 does not match root package version tag ${expectedSuiteTag(rootPkg)}`,
 	]);
 });
 

@@ -99,7 +99,7 @@ La suite se distribuye por tres canales; **elegí uno por máquina o alcance** �
 
 | Canal | Cómo | Cuándo |
 | --- | --- | --- |
-| **Bundle git fijado** | `pi install git:github.com/andrestobelem/pandi-extensions@v0.3.1` | Consumo de toda la suite, con versión estable. |
+| **Bundle git fijado** | `pi install git:github.com/andrestobelem/pandi-extensions@v0.3.2` | Consumo de toda la suite, con versión estable. |
 | **Working tree (rutas locales)** | clone + `pi install ./` (o las rutas por extensión) | Desarrollo/dogfooding: los cambios se aplican con `/reload`. |
 | **npm con scope `@pandi-coding-agent/*`** | `pi install npm:@pandi-coding-agent/pandi-<ext>` | A la carta por extensión — los paquetes publican bajo la identidad `pandi-*`. Con `min-release-age`, las versiones recién publicadas recién se pueden instalar después de esa ventana. |
 

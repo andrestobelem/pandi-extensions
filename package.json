@@ -1,6 +1,6 @@
 {
 	"name": "pandi-extensions",
-	"version": "0.3.1",
+	"version": "0.3.2",
 	"private": true,
 	"workspaces": [
 		"extensions/pandi",
@@ -66,6 +66,8 @@
 		"sync:personas": "node scripts/sync-personas-readme.mjs",
 		"sync:personas:check": "node scripts/sync-personas-readme.mjs --check",
 		"lint:md:fix": "markdownlint-cli2 --fix",
+		"release:prepare": "node scripts/release-prepare.mjs",
+		"release:prepare:write": "node scripts/release-prepare.mjs --write",
 		"publish:npm": "node scripts/publish-npm.mjs",
 		"publish:npm:go": "node scripts/publish-npm.mjs --publish",
 		"doctor": "node extensions/pandi-doctor/scripts/doctor.mjs",

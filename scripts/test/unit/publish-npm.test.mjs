@@ -6,6 +6,7 @@ import { test } from "node:test";
 import {
 	buildPublishArgs,
 	classify,
+	isNpmMissingVersionError,
 	loadPublishWorkspaces,
 	parsePublishOptions,
 	withSafeNpmConfig,
@@ -25,6 +26,16 @@ test("classify: remote shasum differs from local -> bump", () => {
 
 test("withSafeNpmConfig: registry commands ignore local min-release-age", () => {
 	assert.deepEqual(withSafeNpmConfig(["view", "pkg", "version"]), ["view", "pkg", "version", "--min-release-age=0"]);
+});
+
+test("isNpmMissingVersionError: recognizes npm v24 missing-version output", () => {
+	assert.equal(
+		isNpmMissingVersionError({
+			stderr: Buffer.from("npm error code E404\nnpm error 404 No match found for version"),
+		}),
+		true,
+	);
+	assert.equal(isNpmMissingVersionError({ message: "network timeout" }), false);
 });
 
 test("buildPublishArgs: public latest publish with safe npm config", () => {

@@ -6,6 +6,8 @@ import { fileURLToPath } from "node:url";
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const RELEASING = path.join(REPO, "RELEASING.md");
+const ROOT_PKG = JSON.parse(fs.readFileSync(path.join(REPO, "package.json"), "utf8"));
+const CURRENT_TAG = `v${ROOT_PKG.version}`;
 
 function bashBlocks(md) {
 	const blocks = [];
@@ -33,13 +35,15 @@ test("release playbook documents the executable release path", () => {
 	assert.match(md, /^# Release de pandi-extensions$/m);
 	assert.match(md, /root `package\.json`/);
 	assert.match(md, /`v\$\{root\.version\}`/);
-	assert.deepEqual(commands.slice(0, 3), [
+	assert.deepEqual(commands.slice(0, 4), [
 		"npm test",
-		"node scripts/release-contract.mjs --expect-tag v0.3.1",
+		"npm run release:prepare",
+		`node scripts/release-contract.mjs --expect-tag ${CURRENT_TAG}`,
 		"node scripts/publish-npm.mjs",
 	]);
-	assert.ok(commands.includes("git tag v0.3.1"));
-	assert.ok(commands.includes("git push origin v0.3.1"));
+	assert.ok(commands.includes("npm run release:prepare:write"));
+	assert.ok(commands.includes(`git tag ${CURRENT_TAG}`));
+	assert.ok(commands.includes(`git push origin ${CURRENT_TAG}`));
 	assert.match(md, /`node scripts\/publish-npm\.mjs --publish --provenance`/);
 	assert.match(md, /`NPM_TOKEN`/);
 	assert.match(md, /pi-cante/);
