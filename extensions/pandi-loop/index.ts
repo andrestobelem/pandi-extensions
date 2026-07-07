@@ -298,15 +298,15 @@ function deliverWake(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop):
 }
 
 /** Detiene un loop porque alcanzó su tope de iteraciones. Status "done" (fin limpio y esperado). */
-function stopForMaxIterations(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): void {
-	stopLoop(pi, ctx, loop.loopId, `alcanzó el límite de maxIterations (${loop.maxIterations})`, "done");
-	notify(ctx, `Loop ${loop.loopId} detenido: alcanzó el límite de maxIterations (${loop.maxIterations}).`, "warning");
-}
-
 /** Detiene un loop porque se tocó un tope. Status "done" (fin limpio y esperado). */
 function stopForCap(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop, reason: string): void {
 	stopLoop(pi, ctx, loop.loopId, reason, "done");
 	notify(ctx, `Loop ${loop.loopId} detenido: ${reason}.`, "warning");
+}
+
+/** Caso particular de stopForCap: se alcanzó maxIterations (mismo motivo en stopLoop y notify). */
+function stopForMaxIterations(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): void {
+	stopForCap(pi, ctx, loop, `alcanzó el límite de maxIterations (${loop.maxIterations})`);
 }
 
 /** Valida límites y encola una iteración; la FIFO decide cuándo entregarla. */
