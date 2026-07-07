@@ -313,11 +313,10 @@ export default function (pi: ExtensionAPI) {
 				return;
 			}
 
+			const notifyAsleep = () => ctx.ui.notify(`${f.thinking} Pandi está dormido. Usá /pandi on primero.`, "info");
+
 			if (cmd === "art") {
-				if (!enabled) {
-					ctx.ui.notify(`${f.thinking} Pandi está dormido. Usá /pandi on primero.`, "info");
-					return;
-				}
+				if (!enabled) return notifyAsleep();
 				artVisible = !artVisible;
 				setSplash(ctx);
 				ctx.ui.notify(artVisible ? `${f.happy} Splash del panda activado.` : "Splash oculto.", "info");
@@ -325,10 +324,7 @@ export default function (pi: ExtensionAPI) {
 			}
 
 			if (cmd === "face") {
-				if (!enabled) {
-					ctx.ui.notify(`${f.thinking} Pandi está dormido. Usá /pandi on primero.`, "info");
-					return;
-				}
+				if (!enabled) return notifyAsleep();
 				faceStyle = nextFaceStyle(faceStyle);
 				saveStyle(faceStyle);
 				const frames = pandaFrames(ctx.ui.theme, faceStyle);
