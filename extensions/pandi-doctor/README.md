@@ -59,6 +59,7 @@ The command finds `scripts/doctor.mjs`, runs it, and shows the report as an
   instead — `/doctor` only exists once the extension is loaded.
 - The outer `/doctor` subprocess times out after 120 seconds and reports the timeout as an error. Override with `PI_DOCTOR_TIMEOUT_MS` when a slower environment needs more room.
 - Internal probes are bounded too: `PI_DOCTOR_PROBE_TIMEOUT_MS` controls quick binary/git probes (default 8s), and `PI_DOCTOR_SYNC_TIMEOUT_MS` controls repo sync checks (default 20s).
+- Timeout overrides are millisecond values clamped to at least 1000ms; invalid values fall back to the defaults instead of disabling the guard.
 
 ## Related
 
