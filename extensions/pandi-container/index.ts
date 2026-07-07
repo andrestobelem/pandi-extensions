@@ -89,6 +89,15 @@ const HELP_TEXT = [
 
 const PLATFORM_MSG = "Apple `container` requiere macOS en Apple Silicon (arm64); este host no es compatible.";
 
+/** Opciones de handler compartidas por el comando y la tool: mismo cwd/signal/timeout. */
+function buildHandlerOpts(cwd: string, signal: AbortSignal | null | undefined) {
+	return {
+		cwd,
+		signal: signal ?? undefined,
+		timeoutMs: parseTimeoutMs(process.env.PI_CONTAINER_TIMEOUT_MS, DEFAULT_CONTAINER_TIMEOUT_MS),
+	};
+}
+
 export { parseContainerCommand, parseSizeFlag } from "./command.js";
 export { CONTAINER_SELECT_ITEMS, completeContainerArgs, resolveContainerInput } from "./command-menu.js";
 
@@ -243,11 +252,7 @@ export default function containerExtension(pi: ExtensionAPI): void {
 			if (!isSupportedPlatform()) {
 				return toolError(PLATFORM_MSG, { action: params.action });
 			}
-			const opts = {
-				cwd: ctx.cwd,
-				signal: signal ?? undefined,
-				timeoutMs: parseTimeoutMs(process.env.PI_CONTAINER_TIMEOUT_MS, DEFAULT_CONTAINER_TIMEOUT_MS),
-			};
+			const opts = buildHandlerOpts(ctx.cwd, signal);
 			switch (params.action) {
 				case "status":
 					return toToolResult(await runStatus(runContainer, opts));
