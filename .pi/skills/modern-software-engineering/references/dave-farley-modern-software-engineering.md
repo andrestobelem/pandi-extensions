@@ -1,38 +1,39 @@
-# Dave Farley modern software engineering summary
+# Resumen de ingeniería de software moderna según Dave Farley
 
-Source research:
+Investigación fuente:
+
 - `docs/research/2026-06-25-dave-farley-modern-software-engineering.md`
 - InformIT/Pearson: _Modern Software Engineering: Doing What Works to Build Better Software Faster_
-- InformIT/Pearson sample chapter “Software Engineering Fundamentals”
+- Capítulo de muestra de InformIT/Pearson “Software Engineering Fundamentals”
 - Dave Farley: “What is Modern Software Engineering?”
 
-## Thesis
+## Tesis
 
-Modern software engineering is not heavier process. It is the disciplined use of scientific, empirical, and pragmatic thinking to build better software faster.
+La ingeniería de software moderna no es un proceso más pesado. Es el uso disciplinado de pensamiento científico, empírico y pragmático para construir mejor software más rápido.
 
-## Two core competencies
+## Dos competencias centrales
 
-1. **Learning:** software development is discovery and design. Work iteratively and incrementally, seek fast high-quality feedback, formulate hypotheses, measure results, and decide from evidence.
-2. **Managing complexity:** real systems cannot fit in one person’s head. Use design principles that keep systems understandable and changeable.
+1. **Aprendizaje:** el desarrollo de software es descubrimiento y diseño. Trabajá de forma iterativa e incremental, buscá feedback rápido y de alta calidad, formulá hipótesis, medí resultados y decidí a partir de evidencia.
+2. **Gestión de la complejidad:** los sistemas reales no entran en la cabeza de una sola persona. Usá principios de diseño que mantengan los sistemas comprensibles y cambiables.
 
-## Complexity/design principles
+## Principios de diseño para manejar la complejidad
 
-- **Modularity:** split the system into understandable, modifiable parts.
-- **High cohesion:** keep things together when they change for the same reason.
-- **Separation of concerns:** isolate distinct responsibilities.
-- **Information hiding and abstraction:** expose simple interfaces and hide internal details.
-- **Low coupling:** reduce dependencies that make change expensive.
+- **Modularidad:** dividí el sistema en partes comprensibles y modificables.
+- **Alta cohesión:** mantené juntas las cosas que cambian por la misma razón.
+- **Separación de responsabilidades:** aislá responsabilidades distintas.
+- **Ocultamiento de información y abstracción:** exponé interfaces simples y ocultá los detalles internos.
+- **Bajo acoplamiento:** reducí dependencias que vuelven costoso el cambio.
 
-## Evaluation criteria
+## Criterios de evaluación
 
-Farley’s useful yardstick aligns with _Accelerate_:
+La vara útil de Farley se alinea con _Accelerate_:
 
-- **Stability:** quality, reliability, low failure rate, and fast recovery.
-- **Throughput:** frequent and efficient delivery of changes.
+- **Stability:** calidad, confiabilidad, baja tasa de fallos y recuperación rápida.
+- **Throughput:** entrega frecuente y eficiente de cambios.
 
-Adopt a practice, tool, or process when it improves one of these dimensions without materially damaging the other.
+Adoptá una práctica, herramienta o proceso cuando mejore una de estas dimensiones sin dañar materialmente la otra.
 
-## Practices that serve the principles
+## Prácticas al servicio de los principios
 
 - automated testing
 - TDD
@@ -40,25 +41,25 @@ Adopt a practice, tool, or process when it improves one of these dimensions with
 - continuous delivery
 - deployability
 - testability
-- small changes
-- fast pipelines
+- cambios pequeños
+- pipelines rápidos
 
-## TDD as executable learning
+## TDD como aprendizaje ejecutable
 
-In this skill, TDD is treated as the default concrete loop for behavior-changing work because it turns learning into executable feedback:
+En este skill, TDD se trata como el loop concreto por defecto para trabajo que cambia comportamiento, porque convierte el aprendizaje en feedback ejecutable:
 
-1. **Red:** capture the desired behavior, bug, or characterization as a failing test/check.
-2. **Green:** make the smallest change that passes.
-3. **Refactor:** improve design while preserving green tests.
+1. **Red:** capturá el comportamiento deseado, bug o characterization como un test/check que falle.
+2. **Green:** hacé el cambio más pequeño que pase.
+3. **Refactor:** mejorá el diseño mientras preservás tests en verde.
 
-TDD should not become ceremony. If the work is docs-only, exploratory research, a throwaway spike, or runtime/operational diagnosis, use another fast evidence loop and state it explicitly.
+TDD no debería volverse ceremonia. Si el trabajo es solo de docs, investigación exploratoria, un spike descartable o diagnóstico de runtime/operaciones, usá otro loop rápido de evidencia y decláralo explícitamente.
 
-## Practical prompt to apply
+## Preguntas prácticas para aplicar
 
-For any proposed change, ask:
+Ante cualquier cambio propuesto, preguntate:
 
-1. What are we trying to learn?
-2. What is the smallest safe step?
-3. What feedback will prove or disprove it?
-4. Does this reduce or increase complexity?
-5. What is the effect on stability and throughput?
+1. ¿Qué estamos tratando de aprender?
+2. ¿Cuál es el paso seguro más pequeño?
+3. ¿Qué feedback lo va a probar o refutar?
+4. ¿Esto reduce o aumenta la complejidad?
+5. ¿Cuál es el efecto sobre `Stability` y `Throughput`?

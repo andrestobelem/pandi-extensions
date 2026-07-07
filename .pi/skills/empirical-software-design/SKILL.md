@@ -1,146 +1,147 @@
 ---
 name: empirical-software-design
 description: >-
-  Apply Kent Beck-style empirical software design when driving the fine-grained
-  TDD rhythm (test list, fake it, triangulate, step-size gears), separating
-  structure changes from behavior changes, timing tidying as
-  first/after/later/never by local economics, applying the four rules of simple
-  design, matching practices to explore/expand/extract phases, or supervising
-  an AI coding agent with Beck's augmented-coding guardrails. Use to size the
-  next step, decide when tidying pays for itself, and keep design choices
-  grounded in feedback and reversibility.
+  Aplicá diseño empírico de software al estilo Kent Beck al conducir el ritmo
+  fino de TDD (test list, fake it, triangulate, step-size gears), separar
+  cambios de estructura de cambios de comportamiento, decidir el timing del
+  tidying como first/after/later/never según la economía local, aplicar las
+  four rules of simple design, ajustar prácticas a las fases
+  explore/expand/extract, o supervisar un agente de coding con los guardrails
+  de Beck para augmented coding. Usalo para dimensionar el próximo paso,
+  decidir cuándo el tidying se paga solo y mantener las decisiones de diseño
+  apoyadas en feedback y reversibilidad.
 ---
 
-# Empirical Software Design
+# Diseño empírico de software
 
-Reach for this skill for fine-grained design judgment inside the coding loop: sizing the next TDD step, deciding whether to tidy before, after, later, or never, separating structure from behavior, judging how simple is simple enough, or keeping an AI coding agent inside a tight feedback loop.
+Usá este skill para ejercer juicio de diseño fino dentro del loop de coding: dimensionar el próximo paso de TDD, decidir si conviene tidy first, after, later o never, separar estructura de comportamiento, juzgar qué tan simple es suficientemente simple y mantener a un agente de coding dentro de un loop de feedback estrecho.
 
-This skill is based on the project research distilled from Kent Beck's _Test-Driven Development: By Example_, _Tidy First?_, Canon TDD, the 3X model, and his augmented-coding writing. See `references/kent-beck-empirical-software-design.md` for the compact source summary.
+Este skill se basa en la investigación del proyecto destilada de _Test-Driven Development: By Example_, _Tidy First?_, Canon TDD, el modelo 3X y los textos de Kent Beck sobre augmented coding. Ver `references/kent-beck-empirical-software-design.md` para el resumen compacto de fuentes.
 
-It supplies Beck's micro-rhythm and design economics inside the loops the other lens skills define. `modern-software-engineering` owns TDD as this repo's default feedback loop and the required response shape — defer to it for whether and when TDD applies; this skill governs step size and design moves inside that loop. `ai-assisted-engineering` owns the AI-delegation decision and prototype-vs-production stakes; this skill only adds Beck's practice patterns once delegation is decided.
+Aporta el micro-rhythm y la economía de diseño de Beck dentro de los loops que definen los otros lens skills. `modern-software-engineering` define TDD como feedback loop por defecto del repo y la forma de respuesta requerida: deferile si corresponde aplicar TDD y cuándo. Este skill gobierna el step size y los movimientos de diseño dentro de ese loop. `ai-assisted-engineering` define la decisión de delegación a IA y la apuesta prototype-vs-production; este skill solo agrega los practice patterns de Beck una vez que esa delegación ya está decidida.
 
-## Core lens
+## Lente central
 
-1. **Software value = behavior today + options on future behavior.** Behavior changes deliver value now (money now beats money later); structure changes buy options on future changes (_Tidy First?_ Part III).
-2. **Structure and behavior are different economic goods.** Never mix them in one change; keep tidyings in separate commits/PRs with as few tidyings per PR as possible, so each is cheap for humans to review and cheap to reverse (_Tidy First?_ ch. 16, 28).
-3. **Coupling is the cost driver.** Coupling is relative to a particular likely change — one element changing necessitates changing another (ch. 29, paraphrase). Cohesion: put elements that change together, together (ch. 32). Tidying pays when it reduces coupling on paths you actually change.
-4. **Step size is a dial, not a dogma.** Prefer the smallest step that produces verifiable feedback; shift smaller when surprised, larger when confident.
-5. **Design timing is a local economic choice, not a cleanliness ideal.** "Later" and "never" are legitimate answers.
-6. **AI shifts costs, not correctness.** Cheap experiments become abundant; correctness still comes from small inspectable feedback loops ("Exploring AI", 2024).
+1. **Software value = comportamiento hoy + opciones sobre comportamiento futuro.** Los cambios de comportamiento entregan valor ahora (money now beats money later); los cambios de estructura compran opciones para cambios futuros (_Tidy First?_ Part III).
+2. **Estructura y comportamiento son bienes económicos distintos.** No los mezcles en un mismo cambio; mantené los tidyings en commits/PRs separados, con la menor cantidad posible por PR, para que cada uno sea barato de revisar para humanos y barato de revertir (_Tidy First?_ ch. 16, 28).
+3. **Coupling es el driver de costo.** El coupling es relativo a un cambio probable concreto: que un elemento cambie obliga a cambiar otro (ch. 29, paráfrasis). Cohesion: poné juntos los elementos que cambian juntos (ch. 32). El tidying paga cuando reduce coupling en caminos que realmente cambiás.
+4. **Step size es una perilla, no un dogma.** Preferí el paso más chico que produzca feedback verificable; achicalo cuando haya sorpresas y agrandalo cuando haya confianza.
+5. **El timing del diseño es una decisión económica local, no un ideal de limpieza.** "Later" y "never" son respuestas legítimas.
+6. **La IA cambia costos, no corrección.** Los experimentos baratos se vuelven abundantes; la corrección sigue viniendo de loops de feedback chicos e inspeccionables ("Exploring AI", 2024).
 
-## The micro-rhythm (Canon TDD)
+## El micro-ritmo (Canon TDD)
 
-For a behavior change driven test-first, use Beck's Canon TDD steps:
+Para un cambio de comportamiento guiado test-first, usá los pasos de Canon TDD de Beck:
 
-1. **Write a test list** of the expected behavioral variants before coding.
-2. **Turn exactly one item into a concrete, runnable, failing test.**
-3. **Make all tests pass**, updating the list as you learn. Pick a green-bar gear: **Obvious Implementation** (type the real code when it is clear and quick), **Fake It** (return a constant, then replace constants with variables), or **Triangulate** (generalize only when two or more examples force it). Downshift whenever a red bar surprises you.
-4. **Optionally refactor.** Canon TDD marks this step optional; this repo's default loop (Farley lane) requires narrating the Refactor decision — follow the repo rule, and use the tidyings and four rules below for what to do inside it.
-5. **Repeat until the test list is empty.**
+1. **Escribí una test list** con las variantes de comportamiento esperadas antes de codear.
+2. **Convertí exactamente un ítem en un test concreto, ejecutable y en rojo.**
+3. **Hacé pasar todos los tests**, actualizando la lista a medida que aprendés. Elegí un gear de green bar: **Obvious Implementation** (escribí el código real cuando está claro y es rápido), **Fake It** (devolvé una constante y luego reemplazá constantes por variables) o **Triangulate** (generalizá solo cuando dos o más ejemplos te obligan). Bajá de gear cada vez que un red bar te sorprenda.
+4. **Refactor opcionalmente.** Canon TDD marca este paso como opcional; el loop por defecto de este repo (Farley lane) exige narrar la decisión de Refactor. Seguí la regla del repo y usá los tidyings y las four rules de abajo para decidir qué hacer dentro de ese paso.
+5. **Repetí hasta vaciar la test list.**
 
-Calibrate test depth by confidence, not coverage ritual: test more where mistakes are likely (complicated conditionals, known team failure patterns), less where a class of mistakes empirically does not occur (Beck's Stack Overflow answer, 2008, paraphrase).
+Calibrá la profundidad de tests por confianza, no por ritual de coverage: testeá más donde los errores son probables (condicionales complicados, patrones de fallo conocidos del equipo) y menos donde una clase de errores empíricamente no ocurre (respuesta de Beck en Stack Overflow, 2008, paráfrasis).
 
-**TCR (`test && commit || revert`)** is the extreme end of the step-size dial: green commits, red reverts to the last passing state. Beck framed it as an experiment that forces smaller increments (2018); Thoughtworks Radar rates it "Trial". Use it only as a deliberate step-size experiment with tiny steps and fast deterministic tests — never as a default, and not bundled with agent automation (no sourced link between the two).
+**TCR (`test && commit || revert`)** es el extremo del dial de step size: green commits y red reverts al último estado que pasa. Beck lo planteó como un experimento para forzar incrementos más chicos (2018); Thoughtworks Radar lo clasifica como "Trial". Usalo solo como experimento deliberado de step size con pasos diminutos y tests rápidos y deterministas; nunca como default, y no combinado con agent automation (no hay vínculo documentado entre ambos).
 
-## Structure vs. behavior: tidyings and timing
+## Estructura vs. comportamiento: tidyings y momento
 
-1. **Classify every change first:** structure (tidying) or behavior. One kind per commit/PR.
-2. **Pick tidyings from Beck's catalog** of 15 small behavior-preserving moves (guard clauses, dead code, explaining variables, extract helper, reading order, and so on — full list in the references file).
-3. **Time the tidying — first, after, later, or never:**
-   - **First** when it lowers the cost or risk of the immediate behavior change, or you need it to understand the code.
-   - **After** when you will touch the same area again soon.
-   - **Later** when the payoff is real but deferrable and the team can track the deferred work.
-   - **Never** when the code will not change again.
-4. **Apply the economic test** (paraphrase of ch. 21): tidy first when cost(tidying) + cost(change after tidying) < cost(change without tidying).
-5. **Preparatory-change rule** — Beck's 2012 tweet: "for each desired change, make the change easy (warning: this may be hard), then make the easy change."
+1. **Clasificá primero cada cambio:** estructura (tidying) o comportamiento. Un solo tipo por commit/PR.
+2. **Elegí tidyings del catálogo de Beck** de 15 movimientos chicos que preservan comportamiento (guard clauses, dead code, explaining variables, extract helper, reading order, etc.; la lista completa está en el archivo de referencias).
+3. **Definí el timing del tidying — first, after, later o never:**
+   - **First** cuando baja el costo o el riesgo del cambio inmediato de comportamiento, o cuando lo necesitás para entender el código.
+   - **After** cuando vas a tocar de nuevo esa misma zona pronto.
+   - **Later** cuando el beneficio es real pero diferible y el equipo puede trackear ese trabajo diferido.
+   - **Never** cuando ese código no va a cambiar otra vez.
+4. **Aplicá el test económico** (paráfrasis de ch. 21): tidy first cuando cost(tidying) + cost(change after tidying) < cost(change without tidying).
+5. **Preparatory-change rule** — tweet de Beck de 2012: "for each desired change, make the change easy (warning: this may be hard), then make the easy change."
 
-## Four rules of simple design
+## Cuatro reglas del diseño simple
 
-Use as the tie-breaker during refactoring, in priority order:
+Usalas como desempate durante el refactoring, en orden de prioridad:
 
-- **Rule 1 (stable): passes all the tests.**
-- **Rules 2–3: reveals intention / has no duplicated logic.** Beck's own tellings disagree on which comes second (Fowler's Beck-reviewed shorthand vs. _XP Explained_ 1st ed. p. 57 swap them); name the source if the middle order matters. Do not present one middle ordering as canonical.
-- **Rule 4 (stable): fewest possible elements** (classes and methods).
+- **Rule 1 (stable): pasa todos los tests.**
+- **Rules 2–3: revela intención / no tiene lógica duplicada.** Los propios recuentos de Beck discrepan sobre cuál va segunda (el shorthand de Fowler revisado por Beck vs. _XP Explained_ 1st ed. p. 57 las invierten); nombrá la fuente si importa el orden del medio. No presentes un orden intermedio como canónico.
+- **Rule 4 (stable): la menor cantidad posible de elementos** (classes y methods).
 
-## Explore / Expand / Extract
+## Explorar / Expandir / Extraer
 
-Match practice to phase; each phase has different tools and value systems that cannot safely be mixed:
+Ajustá la práctica a la fase; cada fase tiene herramientas y sistemas de valor distintos, y no conviene mezclarlos:
 
-- **Explore** (payoff unknown): many cheap, small, uncorrelated experiments; optimize learning speed; tolerate throwaway code.
-- **Expand** (growth found): singular focus on the next bottleneck to growth.
-- **Extract** (value known): optimize margin, reliability, and repeatability via standardization and automation.
+- **Explore** (payoff unknown): muchos experimentos baratos, chicos y no correlacionados; optimizá velocidad de aprendizaje; tolerá código descartable.
+- **Expand** (growth found): foco singular en el próximo bottleneck para el crecimiento.
+- **Extract** (value known): optimizá margen, confiabilidad y repetibilidad mediante standardization y automation.
 
-Beck publishes no practice-by-phase table — derive practice choices from the phase's goal rather than inventing a canned mapping.
+Beck no publica una tabla de prácticas por fase: derivá las prácticas a partir del objetivo de la fase en vez de inventar un mapping enlatado.
 
-## Augmented-coding practice patterns
+## Patrones de práctica para augmented coding
 
-Once the delegation decision is made (see `ai-assisted-engineering`), apply Beck's patterns for working with an AI "genie":
+Una vez tomada la decisión de delegación (ver `ai-assisted-engineering`), aplicá los patterns de Beck para trabajar con un "genie" de IA:
 
-1. **Augmented, not vibe:** keep caring about complexity, tests, coverage, and tidy design even when the AI types; the human retains design responsibility.
-2. **Persistent prompt guardrails:** recurring rules such as no code without a failing test, only enough code to pass, green before commit, never delete tests.
-3. **Failure-mode watchlist as hard stops:** loops, unrequested scope, deleted tests or assertions, fake implementations.
-4. **Keep a large fast test suite running constantly** to catch regressions as they happen.
-5. **Reduce problem complexity first:** for example, implement in a simpler language, then have the agent translate tests plus code (copy-from-simpler-language).
-6. **Optimize for outcomes, not orchestration:** developers want results, not agent-swarm management for its own sake ("Genie Lessons").
+1. **Augmented, no vibe:** seguí prestando atención a complejidad, tests, coverage y tidy design aunque la IA escriba; la responsabilidad de diseño sigue siendo humana.
+2. **Persistent prompt guardrails:** reglas recurrentes como no code without a failing test, only enough code to pass, green before commit, never delete tests.
+3. **Failure-mode watchlist como hard stops:** loops, scope no pedido, tests o assertions borrados, fake implementations.
+4. **Mantené corriendo de forma constante una test suite grande y rápida** para detectar regresiones en el momento.
+5. **Reducí primero la complejidad del problema:** por ejemplo, implementá en un lenguaje más simple y después hacé que el agente traduzca tests y código (copy-from-simpler-language).
+6. **Optimizá outcomes, no orchestration:** los developers quieren resultados, no gestión de agent swarms por sí misma ("Genie Lessons").
 
-## Required response shape when using this skill
+## Forma de respuesta requerida al usar este skill
 
-For coding, refactoring, or review guidance, include these unless clearly irrelevant:
+Para guía de coding, refactoring o review, incluí estos puntos salvo que sean claramente irrelevantes:
 
-- **Change classification:** structure or behavior — and how the commits keep them separate.
-- **Test list:** the behavioral variants to cover, taken one at a time.
-- **Step-size gear:** obvious implementation, fake it, or triangulate — and the downshift trigger.
-- **Tidy timing:** first/after/later/never, with the local economic reason.
-- **Simplicity check:** the four rules (with the ordering caveat when the middle order matters).
-- **Reversibility:** how this step stays cheap to review and revert.
+- **Clasificación del cambio:** estructura o comportamiento, y cómo los commits los mantienen separados.
+- **Test list:** las variantes de comportamiento a cubrir, una por vez.
+- **Step-size gear:** obvious implementation, fake it o triangulate, y qué dispara el downshift.
+- **Tidy timing:** first/after/later/never, con la razón económica local.
+- **Chequeo de simplicidad:** las four rules (con la salvedad sobre el orden cuando importe el orden del medio).
+- **Reversibilidad:** cómo este paso se mantiene barato de revisar y revertir.
 
-## How to apply it
+## Cómo aplicarlo
 
-1. Classify the change (structure vs. behavior) before touching code.
-2. Write the test list; pick exactly one item.
-3. Pick the smallest gear that produces verifiable feedback; downshift on surprise.
-4. Decide tidy timing economically; when tidying first, justify it with the preparatory-change rule.
-5. Refactor against the four rules; stop at fewest elements — do not gold-plate.
-6. Keep every step reversible: separate commits, few tidyings per PR, green between steps.
-7. Before mandating the micro-rhythm, check Beck's own degradation conditions: slow tests, failures with many possible causes, tests coupled to implementation, low-fidelity test environments ("Is TDD Dead?", 2014).
+1. Clasificá el cambio (estructura vs. comportamiento) antes de tocar código.
+2. Escribí la test list y elegí exactamente un ítem.
+3. Elegí el gear más chico que produzca feedback verificable; bajá de gear ante una sorpresa.
+4. Decidí el tidy timing con criterio económico; si hacés tidy first, justificá la decisión con la preparatory-change rule.
+5. Refactorizá contra las four rules; frená en la menor cantidad de elementos, sin gold-plating.
+6. Mantené cada paso reversible: commits separados, pocos tidyings por PR, green entre pasos.
+7. Antes de exigir el micro-rhythm, chequeá las degradation conditions que Beck enumera: tests lentos, fallas con muchas causas posibles, tests acoplados a la implementación y entornos de test de baja fidelidad ("Is TDD Dead?", 2014).
 
-## Review checklist
+## Checklist de revisión
 
-- Does any commit mix structure and behavior changes?
-- Did a test list precede the code, and did each test arrive one at a time?
-- Was generalization triangulated from at least two examples, or guessed from one?
-- Is tidy timing stated (first/after/later/never) with an economic reason, or driven by cleanliness ideals?
-- Does the refactor stop at the four rules, or add elements beyond the fewest needed?
-- Is test depth justified by confidence, or by a fixed coverage percentage?
-- Are indirections (mocks, adapters, layers) motivated by design, or only by test-isolation speed (test-induced design damage)?
-- For agent-produced diffs: any deleted or weakened assertions, fake implementations, unrequested scope, or loops?
+- ¿Algún commit mezcla cambios de estructura y de comportamiento?
+- ¿Hubo una test list antes del código y llegó cada test de a uno?
+- ¿La generalización surgió por triangulation con al menos dos ejemplos, o se adivinó desde uno?
+- ¿El tidy timing está explicitado (first/after/later/never) con una razón económica, o lo empuja un ideal de limpieza?
+- ¿El refactor frena en las four rules, o agrega elementos más allá de los mínimos necesarios?
+- ¿La profundidad de tests se justifica por confianza, o por un porcentaje fijo de coverage?
+- ¿Las indirections (mocks, adapters, layers) responden a una decisión de diseño, o solo a velocidad de test isolation (test-induced design damage)?
+- Para diffs producidos por agentes: ¿hay assertions borradas o debilitadas, fake implementations, scope no pedido o loops?
 
-## Dynamic workflow guidance
+## Guía para workflows dinámicos
 
-For Pi Dynamic Workflows specifically:
+Para Pi Dynamic Workflows en particular:
 
-- In Explore-phase work, prefer many cheap, small, uncorrelated branches over one big orchestration; optimize the workflow for learning speed.
-- Give implementing subagents the micro-rhythm as their contract: test list first, one test at a time, structure/behavior separation in the diffs they return.
-- Encode Beck's persistent-prompt guardrails in worker prompts (no code without a failing test; never delete tests) and treat the failure-mode watchlist as branch-level stop conditions.
-- Persist the test list, gear choices, and tidy-timing decisions as artifacts so the design reasoning survives compaction.
-- Judge the workflow by outcomes, not by how much agent orchestration it exercises.
+- En trabajo de fase Explore, preferí muchas ramas baratas, chicas y no correlacionadas antes que una sola gran orchestration; optimizá el workflow para velocidad de aprendizaje.
+- Dale a los subagentes implementadores el micro-rhythm como contrato: test list primero, un test por vez, separación de estructura/comportamiento en los diffs que devuelven.
+- Codificá los persistent-prompt guardrails de Beck en los prompts de workers (no code without a failing test; never delete tests) y tratá la failure-mode watchlist como stop conditions a nivel rama.
+- Persistí la test list, las decisiones de gear y las de tidy timing como artifacts para que el razonamiento de diseño sobreviva a la compaction.
+- Juzgá el workflow por outcomes, no por cuánto ejercita la orchestration de agentes.
 
-## Anti-patterns to call out
+## Antipatrones a señalar
 
-- Mixing tidyings and behavior changes in one commit or PR.
-- Tidying driven by cleanliness ideals — never asking whether "later" or "never" is the right answer.
-- Generalizing from a single example instead of triangulating.
-- Test-induced design damage: adding indirection solely to get fast isolated tests; Beck's counter — blame the design judgment, not TDD.
-- Fixed coverage targets in place of confidence-based test depth.
-- Presenting TCR as a default practice, or running it on slow or flaky tests.
-- Accepting agent output that deletes or weakens tests, fakes implementations, or expands scope unasked.
-- Quoting the four rules with one fixed middle ordering as if canonical.
+- Mezclar tidyings y cambios de comportamiento en un mismo commit o PR.
+- Hacer tidying por ideales de limpieza, sin preguntarse nunca si "later" o "never" son la respuesta correcta.
+- Generalizar a partir de un solo ejemplo en vez de triangular.
+- Test-induced design damage: agregar indirection solo para conseguir tests aislados y rápidos; la respuesta de Beck es culpar al juicio de diseño, no a TDD.
+- Fijar objetivos de coverage en lugar de profundidad de tests basada en confianza.
+- Presentar TCR como práctica default, o correrlo sobre tests lentos o flaky.
+- Aceptar output de agentes que borra o debilita tests, finge implementaciones o expande scope sin pedirlo.
+- Citar las four rules con un único orden fijo en el medio como si fuera canónico.
 
-## Guardrails
+## Límites de seguridad
 
-- Paraphrase Beck's book wording; the only licensed verbatim quote is the 2012 preparatory-change tweet.
-- Check the TDD degradation conditions before prescribing the micro-rhythm; if they hold, fix the feedback (test speed, determinism, fidelity) first.
-- Do not mix 3X phase value systems; name the phase before choosing practices.
-- Do not present TCR as Beck's recommended default, and do not combine TCR with agent automation as one practice — the research sources them only separately.
-- Defer whether TDD applies at all, and the repo response shape, to `modern-software-engineering`; defer the AI-delegation decision to `ai-assisted-engineering`.
-- The human/social side here is limited to what is sourced: small separate PRs keep review cheap for people, and outcome-orientation beats agent-swarm management. Do not extrapolate a broader social method from it.
+- Parafraseá el wording de los libros de Beck; la única cita textual con licencia es el tweet de preparatory change de 2012.
+- Chequeá las TDD degradation conditions antes de prescribir el micro-rhythm; si se cumplen, primero arreglá el feedback (velocidad, determinismo, fidelidad de tests).
+- No mezcles sistemas de valor de fases 3X; nombrá la fase antes de elegir prácticas.
+- No presentes TCR como default recomendado por Beck, y no combines TCR con agent automation como si fueran una sola práctica: las fuentes de investigación solo los vinculan por separado.
+- Deferile a `modern-software-engineering` si TDD aplica o no, y la forma de respuesta del repo; deferile a `ai-assisted-engineering` la decisión de delegación a IA.
+- El costado humano/social acá queda limitado a lo que está documentado: PRs chicos y separados abaratan la review para personas, y la orientación a outcomes supera la gestión de agent swarms. No extrapoles desde ahí un método social más amplio.

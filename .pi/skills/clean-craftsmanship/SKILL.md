@@ -1,104 +1,105 @@
 ---
 name: clean-craftsmanship
 description: >-
-  Apply Robert C. Martin ("Uncle Bob")-style clean craftsmanship when writing
-  or reviewing code for readability (naming, functions, comments), diagnosing
-  design rot with SOLID and component principles, checking Clean Architecture
-  boundaries and the Dependency Rule, or exercising professionalism
-  disciplines (three laws of TDD as discipline, saying no, honest estimates,
-  Boy Scout cleanup). Use when the question is code-level craft, dependency
-  direction, whether a boundary earns its cost, or professional conduct under
-  schedule pressure.
+  Aplica el clean craftsmanship al estilo Robert C. Martin ("Uncle Bob") al
+  escribir o revisar código por legibilidad (nombres, funciones,
+  comentarios), al diagnosticar pudrición de diseño con los principios SOLID
+  y de componentes, al chequear los límites de Clean Architecture y la
+  Dependency Rule, o al ejercer disciplinas de profesionalismo (las tres
+  leyes de TDD como disciplina, saber decir que no, estimaciones honestas,
+  limpieza tipo Boy Scout). Usar cuando la pregunta es sobre oficio a nivel
+  de código, dirección de dependencias, si un límite justifica su costo, o
+  conducta profesional bajo presión de cronograma.
 ---
 
 # Clean Craftsmanship
 
-Use this skill when a task calls for code-level craft or professional judgment: naming and function structure, comment policy, spotting design rot, checking dependency direction, deciding whether an interface or layer earns its cost, or handling estimates, commitments, and schedule pressure honestly.
+Usá este skill cuando una tarea pida oficio a nivel de código o juicio profesional: estructura de nombres y funciones, política de comentarios, detección de pudrición de diseño, chequeo de dirección de dependencias, decidir si una interfaz o capa justifica su costo, o manejar estimaciones, compromisos y presión de cronograma con honestidad.
 
-This skill is based on the project research distilled from Robert C. Martin's Clean Coder blog, the 2000 paper "Design Principles and Design Patterns", *Clean Code* (ch. 1–3), and *The Clean Coder*, plus documented criticism and Martin's own responses to it. See `references/uncle-bob-clean-craftsmanship.md` for the compact source summary.
+Este skill se basa en la investigación del proyecto destilada del blog Clean Coder de Robert C. Martin, el paper de 2000 "Design Principles and Design Patterns", *Clean Code* (cap. 1–3) y *The Clean Coder*, más críticas documentadas y las respuestas del propio Martin a ellas. Ver `references/uncle-bob-clean-craftsmanship.md` para el resumen compacto de fuentes.
 
-This skill owns Martin's code-level craft, design diagnostics, and professionalism disciplines. `modern-software-engineering` owns TDD as this repo's default feedback loop and the required response shape — defer to it for whether and when TDD applies. `empirical-software-design` owns the fine-grained TDD rhythm and the tidy first/after/later/never timing economics — the Boy Scout rule here covers only in-passing cleanup and defers that bet to it. `ai-assisted-engineering` owns the AI-delegation decision; this skill only adds Martin's tests-green-before-AI-refactor gate.
+Este skill es dueño del oficio de Martin a nivel de código, los diagnósticos de diseño y las disciplinas de profesionalismo. `modern-software-engineering` es dueño de TDD como el loop de feedback por defecto de este repo y de la forma de respuesta requerida — deferí a él para decidir si y cuándo aplica TDD. `empirical-software-design` es dueño del micro-ritmo fino de TDD y de la economía de timing de tidy first/after/later/never — el Boy Scout rule acá cubre solo limpieza al pasar y deriva esa apuesta a ese skill. `ai-assisted-engineering` es dueño de la decisión de delegar a IA; este skill solo agrega el gate de Martin de tests en verde antes de refactor por IA.
 
-## Core lens
+## Lente central
 
-1. **Going well is the only way to go fast.** Messy code raises the cost of every later change, feeding a loop of slower delivery, schedule pressure, and more mess ("Going Fast", 2007; *Clean Code* ch. 1). Craftsmanship is refusing to do poor work or make messes to meet a schedule (2011).
-2. **Discipline removes discretion.** Each rule constrains what you may do next at a specific timescale, making quality the default rather than an act of will — the three laws of TDD force testable, decoupled design as a side effect.
-3. **Rot has exactly four symptoms, all traced to unmanaged dependencies.** Rigidity, fragility, immobility, and viscosity (design and environment) are the diagnosis; SOLID and the component principles are the treatment (2000 paper).
-4. **Source-code dependencies point inward.** That is the one architecture invariant; the concentric-circle diagram is schematic, not a mandatory layer count (Martin, 2012).
-5. **A mess is not technical debt.** Debt can be a deliberate, reasoned trade-off repaid with discipline; a mess is pure loss with no upside ("A Mess is not a Technical Debt").
-6. **Professionals communicate honestly.** An estimate is a probability distribution; a commitment is a promise; saying "I'll try" under pressure is a covert implied commitment (*The Clean Coder*).
+1. **Ir bien es la única forma de ir rápido.** El código desprolijo eleva el costo de cada cambio futuro, alimentando un loop de entregas más lentas, más presión de cronograma y más desprolijidad ("Going Fast", 2007; *Clean Code* cap. 1). El craftsmanship es negarse a hacer trabajo pobre o generar desorden para cumplir un cronograma (2011).
+2. **La disciplina elimina la discreción.** Cada regla restringe qué podés hacer a continuación en una escala de tiempo específica, haciendo que la calidad sea el default en vez de un acto de voluntad — las tres leyes de TDD fuerzan diseño testeable y desacoplado como efecto secundario.
+3. **La pudrición tiene exactamente cuatro síntomas, todos rastreables a dependencias mal gestionadas.** Rigidez, fragilidad, inmovilidad y viscosidad (de diseño y de entorno) son el diagnóstico; SOLID y los principios de componentes son el tratamiento (paper de 2000).
+4. **Las dependencias del código fuente apuntan hacia adentro.** Ese es el único invariante de arquitectura; el diagrama de círculos concéntricos es esquemático, no un número obligatorio de capas (Martin, 2012).
+5. **Un desorden no es deuda técnica.** La deuda puede ser un trade-off deliberado y razonado que se paga con disciplina; el desorden es pérdida pura sin contrapartida ("A Mess is not a Technical Debt").
+6. **Los profesionales se comunican con honestidad.** Una estimación es una distribución de probabilidad; un compromiso es una promesa; decir "voy a intentarlo" bajo presión es un compromiso implícito encubierto (*The Clean Coder*).
 
-## The disciplines
+## Las disciplinas
 
-1. **Three laws of TDD, as professional constraint.** Paraphrased (verbatim wording is unverified in the research — never quote): write production code only to make a failing test pass; write no more of a test than suffices to fail, compilation failures counting; write no more production code than suffices to pass the one failing test. Martin nests these as the nano-cycle inside Red–Green–Refactor ("The Cycles of TDD", 2014). Whether TDD is the loop for this change is Farley's call; step size and design moves inside the loop are Beck's; this lane contributes the laws as discipline.
-2. **Green-bar step selection (Transformation Priority Premise).** When making a test pass, prefer the simplest code transformation from Martin's ordered list (constant before scalar, if before while, recursion late); if a test forces a low-priority transformation, consider a different test (TPP posts, 2013).
-3. **Readability craft.** Functions: small; do one thing; one level of abstraction per function; the stepdown rule (code reads top-down); few arguments; no side effects; command–query separation; exceptions over error codes; DRY (*Clean Code* ch. 3). Names carry intent; Martin treats a comment as a failure to express intent in code (documented in the Ousterhout–Martin debate), so try renaming/extracting before annotating.
-4. **Boy Scout rule — in-passing cleanup only.** Check a module in a little cleaner than you found it (*97 Things* ch. 8; *Clean Code* ch. 1), keeping cleanup continuous and amortized. Scope it to small opportunistic improvements inside the change you are already making; any larger tidy-first/after/later/never bet defers to `empirical-software-design`.
-5. **Diagnose rot before prescribing principles.** Look for the four symptoms with concrete evidence, trace them to dependencies, and apply SOLID and component principles where symptoms appear — not everywhere preemptively (2000 paper; defended in "Solid Relevance", 2020). No canonical priority ordering among the SOLID principles is sourced; do not rank them.
-6. **Dependency Rule and boundaries.** Keep source dependencies pointing inward; cross boundaries via interfaces owned by the inner side (Dependency Inversion). Good architecture keeps framework, database, and UI choices cheap to change by treating them as details at the edges (2011, 2012 posts).
-7. **Professional conduct.** Say no rather than "I'll try"; separate estimates from commitments; quantify uncertainty with PERT trivariate estimates, mean (O + 4N + P) / 6 and spread (P − O) / 6 (*The Clean Coder* ch. 10); accept debt only deliberately, visibly, and with a repayment plan — never as a mess.
+1. **Las tres leyes de TDD, como restricción profesional.** Parafraseadas (la redacción textual no está verificada en la investigación — nunca cites): escribí código de producción solo para hacer pasar un test que falla; no escribas de un test más de lo que basta para que falle, contando fallas de compilación; no escribas más código de producción del que basta para pasar el único test que falla. Martin anida esto como el nano-ciclo dentro de Red–Green–Refactor ("The Cycles of TDD", 2014). Si TDD es el loop para este cambio es decisión de Farley; el tamaño de paso y los movimientos de diseño dentro del loop son de Beck; este lane aporta las leyes como disciplina.
+2. **Selección de paso en verde (Transformation Priority Premise).** Al hacer pasar un test, preferí la transformación de código más simple de la lista ordenada de Martin (constante antes que escalar, `if` antes que `while`, recursión tarde); si un test fuerza una transformación de baja prioridad, considerá otro test (posts de TPP, 2013).
+3. **Oficio de legibilidad.** Funciones: chicas; que hagan una sola cosa; un nivel de abstracción por función; la stepdown rule (el código se lee de arriba hacia abajo); pocos argumentos; sin efectos secundarios; separación comando–consulta; excepciones en vez de códigos de error; DRY (*Clean Code* cap. 3). Los nombres llevan la intención; Martin trata un comentario como un fallo en expresar intención en el código (documentado en el debate Ousterhout–Martin), así que probá renombrar/extraer antes de anotar.
+4. **Boy Scout rule — solo limpieza al pasar.** Dejá un módulo un poco más limpio de como lo encontraste (*97 Things* cap. 8; *Clean Code* cap. 1), manteniendo la limpieza continua y amortizada. Acotala a mejoras chicas y oportunistas dentro del cambio que ya estás haciendo; cualquier apuesta más grande de tidy-first/after/later/never deriva a `empirical-software-design`.
+5. **Diagnosticá la pudrición antes de prescribir principios.** Buscá los cuatro síntomas con evidencia concreta, rastrealos hasta las dependencias, y aplicá SOLID y los principios de componentes donde aparecen síntomas — no en todos lados preventivamente (paper de 2000; defendido en "Solid Relevance", 2020). No hay un orden de prioridad canónico entre los principios SOLID en las fuentes; no los rankees.
+6. **Dependency Rule y límites.** Mantené las dependencias del código fuente apuntando hacia adentro; cruzá los límites vía interfaces propiedad del lado interno (Dependency Inversion). Una buena arquitectura mantiene barato cambiar de framework, base de datos y UI tratándolos como detalles en los bordes (posts de 2011, 2012).
+7. **Conducta profesional.** Decí que no en vez de "voy a intentarlo"; separá estimaciones de compromisos; cuantificá la incertidumbre con estimaciones trivariadas PERT, media (O + 4N + P) / 6 y dispersión (P − O) / 6 (*The Clean Coder* cap. 10); aceptá deuda solo de forma deliberada, visible y con plan de repago — nunca como desorden.
 
-## Required response shape when using this skill
+## Forma de respuesta requerida al usar este skill
 
-For craft reviews, design diagnostics, or professionalism calls, include these unless clearly irrelevant:
+Para revisiones de oficio, diagnósticos de diseño o decisiones de profesionalismo, incluí esto salvo que sea claramente irrelevante:
 
-- **Readability verdict:** whether names, functions, and structure state intent, with the specific rule violated (e.g. mixed abstraction levels, side effects).
-- **Rot symptoms:** which of the four are observed, each tied to code evidence and the dependency causing it.
-- **Dependency direction:** where source dependencies point at each boundary touched, and any inward-rule violations.
-- **Boundary justification:** what pays for each interface/layer (second implementation, adapter volatility, domain complexity) — or a recommendation to remove it.
-- **Honest commitment status:** whether the answer given is an estimate (with uncertainty) or a commitment, and no "I'll try".
-- **Cleanup scope:** what in-passing Boy Scout cleanup rides along; anything bigger named and deferred to the Beck skill's timing decision.
+- **Veredicto de legibilidad:** si los nombres, funciones y estructura expresan intención, con la regla específica violada (p. ej. niveles de abstracción mezclados, efectos secundarios).
+- **Síntomas de pudrición:** cuáles de los cuatro se observan, cada uno atado a evidencia de código y a la dependencia que lo causa.
+- **Dirección de dependencias:** hacia dónde apuntan las dependencias del código fuente en cada límite tocado, y cualquier violación de la regla hacia adentro.
+- **Justificación del límite:** qué paga cada interfaz/capa (segunda implementación, volatilidad del adaptador, complejidad de dominio) — o una recomendación de eliminarla.
+- **Estado honesto del compromiso:** si la respuesta dada es una estimación (con incertidumbre) o un compromiso, y sin "voy a intentarlo".
+- **Alcance de la limpieza:** qué limpieza tipo Boy Scout viaja al pasar; cualquier cosa más grande, nombrada y derivada a la decisión de timing del skill de Beck.
 
-## How to apply it
+## Cómo aplicarlo
 
-1. **Read for intent first.** Can you follow the code top-down without jumping? Fix names and extraction before anything structural.
-2. **Diagnose before prescribing.** Name the rot symptom and the unmanaged dependency behind it; only then reach for a principle or pattern.
-3. **Check direction at every boundary.** Inner code must not name or know outer code; cross with inner-owned interfaces.
-4. **Make each abstraction pay rent.** Justify every interface or layer with a concrete force; delete speculative ones.
-5. **Clean in passing.** Leave touched modules slightly cleaner; keep the cleanup inside the current change's blast radius.
-6. **Keep communication honest.** Give ranges, not promises; escalate impossible asks with a "no" plus alternatives instead of silent heroics.
-7. **Gate AI refactoring on green tests.** Martin's sourced AI practice (Duffield interview, 2024): hand code to AI for refactoring only after all tests pass, and accept the result only on human judgment. Whether to delegate at all is `ai-assisted-engineering`'s call.
+1. **Leé primero para intención.** ¿Podés seguir el código de arriba hacia abajo sin saltar? Arreglá nombres y extracción antes que nada estructural.
+2. **Diagnosticá antes de prescribir.** Nombrá el síntoma de pudrición y la dependencia mal gestionada detrás; solo entonces recurrí a un principio o patrón.
+3. **Chequeá la dirección en cada límite.** El código interno no debe nombrar ni conocer código externo; cruzá con interfaces propiedad del lado interno.
+4. **Hacé que cada abstracción pague su renta.** Justificá cada interfaz o capa con una fuerza concreta; eliminá las especulativas.
+5. **Limpiá al pasar.** Dejá los módulos tocados un poco más limpios; mantené la limpieza dentro del radio de impacto del cambio actual.
+6. **Mantené la comunicación honesta.** Dá rangos, no promesas; escalá pedidos imposibles con un "no" más alternativas en vez de heroísmo silencioso.
+7. **Condicioná el refactor por IA a tests en verde.** La práctica de IA de Martin, según fuentes (entrevista con Duffield, 2024): entregale código a la IA para refactorizar solo después de que todos los tests pasen, y aceptá el resultado solo con juicio humano. Si delegar o no es decisión de `ai-assisted-engineering`.
 
-## Review checklist
+## Checklist de revisión
 
-- **Names:** Do they reveal intent, or does the reader need a comment or the implementation?
-- **Functions:** Small, one thing, one abstraction level, few arguments, no hidden side effects, command–query separated?
-- **Comments:** Is each comment doing work code cannot, or compensating for expressible intent?
-- **Duplication:** Any knowledge repeated that should live in one place?
-- **Rigidity:** Do small changes cascade through dependent modules?
-- **Fragility:** Do changes break conceptually unrelated places?
-- **Immobility:** Is reusable logic trapped by entangled dependencies?
-- **Viscosity:** Is the design-preserving change harder than the hack — or is the environment (slow builds/tests) pushing shortcuts?
-- **Direction:** Do all source dependencies point inward across the boundaries touched?
-- **Boundary rent:** Does each interface/layer have a second implementation, volatile adapter, or domain complexity paying for it?
-- **Discipline:** Did a failing test precede the production code (three laws)? Loop-default questions go to `modern-software-engineering`.
-- **Honesty:** Are estimates distributions, commitments explicit, and messes never labelled "debt"?
+- **Nombres:** ¿revelan intención, o el lector necesita un comentario o mirar la implementación?
+- **Funciones:** ¿chicas, hacen una sola cosa, un nivel de abstracción, pocos argumentos, sin efectos secundarios ocultos, comando–consulta separados?
+- **Comentarios:** ¿cada comentario hace un trabajo que el código no puede, o compensa una intención expresable?
+- **Duplicación:** ¿hay conocimiento repetido que debería vivir en un solo lugar?
+- **Rigidez:** ¿los cambios chicos se propagan en cascada por módulos dependientes?
+- **Fragilidad:** ¿los cambios rompen lugares conceptualmente no relacionados?
+- **Inmovilidad:** ¿lógica reusable atrapada por dependencias enredadas?
+- **Viscosidad:** ¿el cambio que preserva el diseño es más difícil que el hack — o el entorno (builds/tests lentos) empuja a atajos?
+- **Dirección:** ¿todas las dependencias del código fuente apuntan hacia adentro en los límites tocados?
+- **Renta del límite:** ¿cada interfaz/capa tiene una segunda implementación, un adaptador volátil o complejidad de dominio que la paguen?
+- **Disciplina:** ¿un test que falla precedió al código de producción (tres leyes)? Las preguntas de loop-por-defecto van a `modern-software-engineering`.
+- **Honestidad:** ¿las estimaciones son distribuciones, los compromisos explícitos, y el desorden nunca se etiqueta como "deuda"?
 
-## Dynamic workflow guidance
+## Guía para dynamic workflows
 
-For Pi Dynamic Workflows specifically:
+Específicamente para Pi Dynamic Workflows:
 
-- Give reviewer personas the four rot symptoms as structured probes; require each claimed symptom to come with file/line evidence and the offending dependency, not adjectives.
-- Dependency direction is machine-checkable: prefer executable checks (dependency lints, build-time architecture tests) over subagent opinion. Encoding such rules as agent guardrails in instruction files plus CI checks is a practitioner adaptation (NimblePros and others), not Martin's own method — attribute it as such.
-- Prompts alone are weak enforcement: research found LLM-generated code with higher code-smell incidence than human baselines, so verify craft claims in CI/review, not by generation.
-- Apply saying-no to workflow scoping: when a requested scope is impossible within budget, report that with alternatives instead of "trying" and under-delivering.
-- Run AI-refactor branches only against suites that are already green, and require human-judged acceptance of the diff.
+- Dale a las personas revisoras los cuatro síntomas de pudrición como sondas estructuradas; exigí que cada síntoma reclamado venga con evidencia de archivo/línea y la dependencia culpable, no adjetivos.
+- La dirección de dependencias es verificable por máquina: preferí checks ejecutables (linters de dependencias, tests de arquitectura en build-time) por sobre la opinión de un subagente. Codificar estas reglas como guardrails de agente en archivos de instrucciones más checks de CI es una adaptación de la práctica (NimblePros y otros), no el método propio de Martin — atribuilo como tal.
+- Los prompts solos son un enforcement débil: la investigación encontró código generado por LLM con mayor incidencia de code smells que las líneas base humanas, así que verificá las afirmaciones de oficio en CI/revisión, no por generación.
+- Aplicá el saber-decir-que-no al scoping de workflows: cuando un alcance pedido es imposible dentro del presupuesto, reportalo con alternativas en vez de "intentarlo" y entregar de menos.
+- Corré las ramas de refactor por IA solo contra suites que ya estén en verde, y exigí aceptación del diff por juicio humano.
 
-## Anti-patterns to call out
+## Antipatrones a señalar
 
-- Cargo-cult layering: mandatory four-layer stacks, one-implementation interfaces, or use-case/DTO ceremony on a thin CRUD feature (a documented case: a two-screen app split into 22 modules). Martin's own post says the circles are schematic.
-- Ranking SOLID principles or applying them as unconditional rules without observed rot symptoms.
-- Saying "I'll try" under pressure — a covert, dishonest commitment.
-- Presenting a mess as "technical debt" to legitimize it.
-- Comments papering over names and functions that could express the intent directly.
-- Boy Scout cleanup ballooning into an unplanned rewrite inside an unrelated change.
-- Accepting AI-refactored code without a green suite before and human judgment after.
+- Layering de cargo-cult: stacks obligatorios de cuatro capas, interfaces con una sola implementación, o ceremonia de use-case/DTO en una feature CRUD delgada (un caso documentado: una app de dos pantallas dividida en 22 módulos). El propio post de Martin dice que los círculos son esquemáticos.
+- Rankear los principios SOLID o aplicarlos como reglas incondicionales sin síntomas de pudrición observados.
+- Decir "voy a intentarlo" bajo presión — un compromiso encubierto y deshonesto.
+- Presentar un desorden como "deuda técnica" para legitimarlo.
+- Comentarios que tapan nombres y funciones que podrían expresar la intención directamente.
+- Limpieza tipo Boy Scout que se infla hasta convertirse en una reescritura no planeada dentro de un cambio no relacionado.
+- Aceptar código refactorizado por IA sin una suite en verde antes y juicio humano después.
 
 ## Guardrails
 
-- Carry Martin's own scope caveat: these rules trade CPU cycles for programmer cycles and may not fit GPU, inner-loop, or performance-critical code (his concession in the Muratori Q&A). Late binding earns its cost chiefly at plugin/library boundaries.
-- The only architecture invariant is inward-pointing source dependencies; do not demand a fixed layer count. Introduce interfaces/layers only when a second implementation, adapter volatility, or domain complexity pays for them (critics' corrective heuristic, consistent with Martin's schematic caveat).
-- Paraphrase the three laws with attribution; the canonical page's verbatim wording was not verified in the research.
-- The acceptance-test/"QA should find nothing" discipline ("repeatable proof") is commonly attributed to *The Clean Coder* but was not verified in the source research — do not assert it. What is sourced: Martin frames TDD as playing a significant role in professional behavior without making it the sole admissible discipline ("Professionalism and TDD (Reprise)", 2014).
-- The *Clean Craftsmanship* (2021) book's internal structure was not directly sourced; this skill grounds in the blog posts, the 2000 paper, *Clean Code* ch. 1–3, and *The Clean Coder*.
-- Defer lanes explicitly: TDD-as-default-loop and the repo response shape → `modern-software-engineering`; micro-rhythm, tidyings, and tidy-timing economics → `empirical-software-design`; the AI-delegation decision → `ai-assisted-engineering`.
+- Llevá la propia salvedad de alcance de Martin: estas reglas cambian ciclos de CPU por ciclos de programador y pueden no encajar en código de GPU, inner-loop o crítico en performance (su concesión en el Q&A con Muratori). El late binding paga su costo sobre todo en límites de plugin/librería.
+- El único invariante de arquitectura es que las dependencias del código fuente apunten hacia adentro; no exijas un número fijo de capas. Introducí interfaces/capas solo cuando una segunda implementación, la volatilidad del adaptador o la complejidad de dominio las pagan (heurística correctiva de los críticos, consistente con la salvedad esquemática de Martin).
+- Parafraseá las tres leyes con atribución; la redacción textual de la página canónica no fue verificada en la investigación.
+- La disciplina de acceptance-test/"QA no debería encontrar nada" ("prueba repetible") suele atribuirse a *The Clean Coder* pero no fue verificada en la investigación de fuentes — no la afirmes. Lo que sí está confirmado: Martin plantea que TDD juega un rol significativo en la conducta profesional sin convertirla en la única disciplina admisible ("Professionalism and TDD (Reprise)", 2014).
+- La estructura interna del libro *Clean Craftsmanship* (2021) no fue confirmada directamente en las fuentes; este skill se apoya en los posts del blog, el paper de 2000, *Clean Code* cap. 1–3 y *The Clean Coder*.
+- Deriví los lanes explícitamente: TDD-como-loop-por-defecto y la forma de respuesta del repo → `modern-software-engineering`; el micro-ritmo, las limpiezas y la economía de timing de tidy → `empirical-software-design`; la decisión de delegar en IA → `ai-assisted-engineering`.

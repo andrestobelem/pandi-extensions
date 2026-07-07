@@ -1,44 +1,32 @@
-# Andrej Karpathy — programming, learning, and using AI (compact source summary)
+# Andrej Karpathy — programar, aprender y usar IA (resumen compacto de fuentes)
 
-Distilled source for the `ai-assisted-engineering` skill. Fuller project research:
+Fuente destilada para la skill `ai-assisted-engineering`.
+Investigación más completa del proyecto:
 `docs/research/2026-06-25-karpathy-programming-recommendations.md`.
 
-## Primary sources
+## Fuentes primarias
 
-- Homepage: https://karpathy.ai/
-- Sequoia Ascent 2026 / Software 3.0 / agentic engineering: https://karpathy.bearblog.dev/sequoia-ascent-2026/
+- Sitio personal: https://karpathy.ai/
+- Sequoia Ascent 2026 / Software 3.0 / ingeniería agéntica: https://karpathy.bearblog.dev/sequoia-ascent-2026/
 - Vibe coding MenuGen: https://karpathy.bearblog.dev/vibe-coding-menugen/
 - Software 2.0: https://karpathy.medium.com/software-2-0-a64152b37c35
 - A Recipe for Training Neural Networks: https://karpathy.github.io/2019/04/25/recipe/
 - micrograd: https://github.com/karpathy/micrograd
 - nanoGPT: https://github.com/karpathy/nanoGPT
-- Empirical cross-check on vibe coding: https://arxiv.org/abs/2506.23253
+- Contraste empírico sobre vibe coding: https://arxiv.org/abs/2506.23253
 
-## Practical synthesis
+## Síntesis práctica
 
-1. **Learn by building from scratch.** Small, readable, complete implementations to
-   understand fundamentals; avoid hidden magic (micrograd, nanoGPT, Zero to Hero).
-2. **Understand before delegating.** AI lowers the friction of creating but does not
-   replace technical judgment when the system matters (vibe-coding MenuGen documents
-   real frictions: auth, payments, deploy, API, reliability).
-3. **Software 3.0.** Software 1.0 = explicit code; 2.0 = learned weights; 3.0 = LLMs
-   programmed via prompts, context, examples, memory, and tools. Those are part of the
-   programming interface, not secondary details.
-4. **Vibe coding ≠ production guarantee.** Great for prototypes, demos, personal apps,
-   rapid exploration. Production needs specs, permissions, diff review, tests/evals,
-   security, and human ownership. Separate explore/generate from verify/commit.
-5. **Incremental debugging and simple baselines.** Inspect the data, start simple, verify
-   assumptions, overfit a small case, add complexity gradually ("A Recipe for Training
-   Neural Networks").
-6. **The expert's role shifts** toward specifying, evaluating, and debugging — managing
-   context, reviewing outputs, designing tests, and deciding whether something is correct.
+1. **Aprender construyendo desde cero.** Implementaciones pequeñas, legibles y completas para entender los fundamentos; evitar la magia oculta (`micrograd`, `nanoGPT`, Zero to Hero).
+2. **Entender antes de delegar.** La IA baja la fricción de crear, pero no reemplaza el juicio técnico cuando el sistema importa (`vibe-coding MenuGen` documenta fricciones reales: auth, payments, deploy, API, reliability).
+3. **Software 3.0.** Software 1.0 = código explícito; 2.0 = pesos aprendidos; 3.0 = LLMs programados con prompts, contexto, ejemplos, memoria y herramientas. Todo eso es parte de la interfaz de programación, no un detalle secundario.
+4. **`vibe coding` ≠ garantía de producción.** Sirve muy bien para prototipos, demos, apps personales y exploración rápida. Producción exige especificaciones, permisos, revisión de diffs, tests/evals, seguridad y responsabilidad humana. Separar explore/generate de verify/commit.
+5. **Depuración incremental y baselines simples.** Inspeccionar los datos, empezar simple, verificar supuestos, sobreajustar un caso chico y agregar complejidad de a poco (`A Recipe for Training Neural Networks`).
+6. **El rol de la persona experta cambia** hacia especificar, evaluar y debuggear: gestionar contexto, revisar salidas, diseñar tests y decidir si algo es correcto.
 
-## Implications for this project
+## Implicancias para este proyecto
 
-- Visualize *which agentic pattern* is in use (fan-out, judge, feedback, pipeline,
-  routing), not just which call happened.
-- Prompts are readable "programs": evidence contract, allowed tools, output format, stop
-  conditions.
-- Favor small, educational, runnable examples (micrograd/nanoGPT).
-- For serious tasks, never treat agent output as truth without synthesis-as-judge, tests,
-  or external verification.
+- Visualizar *qué patrón agéntico* está en uso (`fan-out`, `judge`, `feedback`, `pipeline`, `routing`), no solo qué llamada ocurrió.
+- Los prompts son “programas” legibles: evidence contract, herramientas permitidas, formato de salida y stop conditions.
+- Favorecer ejemplos chicos, didácticos y ejecutables (`micrograd`/`nanoGPT`).
+- En tareas serias, nunca tratar la salida de un agente como verdad sin `synthesis-as-judge`, tests o verificación externa.

@@ -1,109 +1,110 @@
 ---
 name: modern-software-engineering
 description: >-
-  Apply Dave Farley-style Modern Software Engineering principles when designing,
-  reviewing, or improving software systems, dynamic workflows, tests, delivery
-  pipelines, or engineering practices. Use to optimize for learning, make TDD
-  the default feedback loop for behavior changes, manage complexity, and judge
-  changes by stability plus throughput.
+  Aplica principios de Modern Software Engineering al estilo Dave Farley al
+  diseñar, revisar o mejorar sistemas de software, dynamic workflows, tests,
+  pipelines de delivery o prácticas de ingeniería. Usar para optimizar el
+  aprendizaje, hacer de TDD el loop de feedback por defecto para cambios de
+  comportamiento, gestionar la complejidad y evaluar cambios por estabilidad más
+  throughput.
 ---
 
-# Modern Software Engineering
+# Ingeniería de Software Moderna
 
-Use this skill when a task asks for software engineering judgment: architecture, refactoring, code review, test strategy, delivery/process improvements, workflow design, or deciding whether a change is worth making.
+Usá este skill cuando una tarea pida criterio de ingeniería de software: arquitectura, refactoring, code review, estrategia de tests, mejoras de delivery/proceso, diseño de workflows o decidir si un cambio vale la pena.
 
-This skill is based on the project research distilled from Dave Farley’s _Modern Software Engineering: Doing What Works to Build Better Software Faster_ and related notes. See `references/dave-farley-modern-software-engineering.md` for the compact source summary.
+Este skill se basa en la investigación del proyecto destilada desde _Modern Software Engineering: Doing What Works to Build Better Software Faster_ de Dave Farley y notas relacionadas. Ver `references/dave-farley-modern-software-engineering.md` para el resumen compacto de la fuente.
 
-## Core lens
+## Lente central
 
-Modern software engineering is practical science applied to software development:
+La ingeniería de software moderna es ciencia práctica aplicada al desarrollo de software:
 
-1. **Optimize for learning.** Treat each change as a hypothesis and seek the fastest high-quality feedback.
-2. **Use TDD for behavior changes.** Start with a failing executable check, make it pass with the smallest change, refactor while preserving green tests, then land it as an atomic Conventional Commit with an explicit scope.
-3. **Manage complexity.** Keep systems understandable enough to change safely.
-4. **Use evidence.** Prefer tests, CI output, runtime observations, and preserved artifacts over fashion, authority, intuition, or AI consensus.
-5. **Judge by stability and throughput.** A practice is useful when it improves quality/reliability/recovery and/or frequent efficient delivery without hurting the other dimension.
+1. **Optimizá para aprender.** Tratá cada cambio como una hipótesis y buscá el feedback de mayor calidad en el menor tiempo posible.
+2. **Usá TDD para cambios de comportamiento.** Empezá con un check ejecutable que falle, hacelo pasar con el cambio más chico, refactorizá manteniendo los tests en verde y luego aterrizalo como un Conventional Commit atómico con scope explícito.
+3. **Gestioná la complejidad.** Mantené los sistemas lo bastante entendibles como para cambiarlos con seguridad.
+4. **Usá evidencia.** Preferí tests, output de CI, observaciones de runtime y artifacts preservados por encima de moda, autoridad, intuición o consenso de IA.
+5. **Juzgá por estabilidad y throughput.** Una práctica sirve cuando mejora calidad/confiabilidad/recuperación y/o delivery frecuente y eficiente sin dañar la otra dimensión.
 
-## TDD as the default feedback loop
+## TDD como loop de feedback por defecto
 
-For behavior-changing work, prefer TDD as the first learning mechanism:
+Cuando el trabajo cambia comportamiento, preferí TDD como primer mecanismo de aprendizaje:
 
-1. **Name the behavior or risk being learned.** What uncertainty are we reducing?
-2. **Red:** write or describe the smallest failing test/check that exposes it. For bugs, reproduce the bug. For refactors, add characterization tests. For new behavior, specify the expected behavior in a test.
-3. **Green:** make the smallest implementation change that passes.
-4. **Refactor:** improve names, boundaries, cohesion, coupling, duplication, and clarity while tests stay green.
-5. **Verify:** run the relevant local checks and CI signal; capture the exact command/result when possible.
-6. **Commit:** land the change as an atomic commit using Conventional Commits with an explicit scope (e.g. `fix(pandi-goal): …`). One coherent change per commit, with the pinning test in the SAME commit as the code it covers.
+1. **Nombrá el comportamiento o riesgo que querés aprender.** ¿Qué incertidumbre estamos reduciendo?
+2. **Red:** escribí o describí el test/check mínimo que falle y lo exponga. Para bugs, reproducí el bug. Para refactors, agregá characterization tests. Para comportamiento nuevo, especificá el resultado esperado en un test.
+3. **Green:** hacé el cambio de implementación más pequeño que pase.
+4. **Refactor:** mejorá nombres, límites, cohesión, coupling, duplicación y claridad mientras los tests siguen en verde.
+5. **Verify:** corré los checks locales relevantes y la señal de CI; cuando se pueda, capturá el comando y el resultado exactos.
+6. **Commit:** aterrizá el cambio como un commit atómico usando Conventional Commits con scope explícito (por ejemplo, `fix(pandi-goal): …`). Un solo cambio coherente por commit, con el test que fija el comportamiento en el SAME commit que el código que cubre.
 
-If TDD is not the right tool for the task, say why and name the replacement evidence: spike result, CI signal, runtime observation, user feedback, metric, or other executable check.
+Si TDD no es la herramienta correcta para la tarea, decí por qué y nombrá la evidencia de reemplazo: resultado de spike, señal de CI, observación de runtime, feedback de usuario, métrica u otro check ejecutable.
 
-## Required response shape when using this skill
+## Forma de respuesta requerida al usar este skill
 
-For plans, reviews, or implementation guidance, include these items unless clearly irrelevant:
+Para planes, reviews o guía de implementación, incluí estos puntos salvo que sean claramente irrelevantes:
 
-- **Learning goal:** the uncertainty or risk being tested.
-- **Smallest safe step:** the narrowest reversible slice.
-- **TDD/feedback plan:** the failing test or check to create first, or the explicit replacement evidence.
-- **Complexity check:** impact on modularity, cohesion, separation of concerns, information hiding, abstraction, and coupling.
-- **Stability/throughput check:** expected effect on reliability, recovery, delivery speed, and change safety.
-- **Stop condition:** what evidence is enough to proceed, stop, or roll back.
+- **Objetivo de aprendizaje:** la incertidumbre o el riesgo que se está probando.
+- **Paso más chico y seguro:** el recorte reversible más angosto.
+- **Plan de TDD/feedback:** el test o check que debería fallar primero, o la evidencia de reemplazo explícita.
+- **Chequeo de complejidad:** impacto en modularidad, cohesión, separación de responsabilidades, encapsulamiento de información, abstracción y acoplamiento.
+- **Chequeo de estabilidad/throughput:** efecto esperado sobre confiabilidad, recuperación, velocidad de delivery y seguridad del cambio.
+- **Condición de stop:** qué evidencia alcanza para seguir, frenar o revertir.
 
-## How to apply it
+## Cómo aplicarlo
 
-When helping with a design, review, plan, implementation, or dynamic workflow:
+Al ayudar con un diseño, review, plan, implementación o dynamic workflow:
 
-1. **State the learning goal as a testable hypothesis.** What observation would prove it wrong?
-2. **Choose the smallest useful slice.** Prefer a reversible increment, spike, or narrow workflow over a broad rewrite.
-3. **Start with TDD for behavior changes.** Name the failing test, fixture, golden output, smoke check, CI signal, or measurement that will prove/disprove the hypothesis.
-4. **Keep increments small and reversible.** Avoid large speculative rewrites unless measured evidence demands them.
-5. **Reduce complexity deliberately.** Check modularity, cohesion, separation of concerns, information hiding, abstraction boundaries, and coupling during the refactor step, not as speculative design.
-6. **Evaluate stability and throughput.** Explain expected impact on quality, reliability, recovery, deployment frequency, and delivery efficiency.
-7. **Report evidence, not confidence.** End with commands, test/CI results, observed signals, or explicit uncertainty.
+1. **Expresá el objetivo de aprendizaje como una hipótesis testeable.** ¿Qué observación la refutaría?
+2. **Elegí el recorte útil más chico.** Preferí un incremento reversible, un spike o un workflow angosto antes que una reescritura amplia.
+3. **Empezá con TDD si cambia comportamiento.** Nombrá el test fallido, fixture, golden output, smoke check, señal de CI o medición que va a probar o refutar la hipótesis.
+4. **Mantené incrementos chicos y reversibles.** Evitá reescrituras grandes y especulativas salvo que la evidencia medida las exija.
+5. **Reducí complejidad de forma deliberada.** Revisá modularidad, cohesión, separación de responsabilidades, encapsulamiento de información, límites de abstracción y acoplamiento durante el paso de Refactor, no como diseño especulativo.
+6. **Evaluá estabilidad y throughput.** Explicá el impacto esperado en calidad, confiabilidad, recuperación, frecuencia de deploy y eficiencia de delivery.
+7. **Reportá evidencia, no confianza.** Cerrá con comandos, resultados de tests/CI, señales observadas o incertidumbre explícita.
 
-## Review checklist
+## Checklist de review
 
-Use these questions during code review, design review, and plan review:
+Usá estas preguntas en code review, design review y plan review:
 
-- **TDD:** What failing test, characterization test, or executable check drove this change? If none, is the exception justified and what evidence replaced it?
-- **Learning:** What did this change prove or disprove? Does it shorten or delay feedback?
-- **Incrementality:** Can it ship or be validated in a smaller reversible slice?
-- **Test quality:** Are tests fast, deterministic, meaningful, behavior-focused, maintainable, and suitable for CI?
-- **Test level:** Is the behavior tested at the cheapest useful level, with integration/acceptance coverage for cross-boundary risk?
-- **Deployability:** Does it preserve safe release, rollback, and recovery paths?
-- **Modularity:** Are responsibilities isolated behind clear interfaces?
-- **Cohesion:** Do the pieces that change together live together?
-- **Coupling:** Does this introduce dependencies that make future changes expensive?
-- **Information hiding:** Are internal details hidden, or are callers forced to know too much?
-- **Stability:** What failure modes, reliability signals, or recovery paths changed?
-- **Throughput:** Will this make future changes faster, slower, or safer?
-- **Evidence:** Are claims backed by tests, commands, metrics, logs, artifacts, or concrete code evidence?
+- **TDD:** ¿Qué test fallido, characterization test o check ejecutable impulsó este cambio? Si no hubo ninguno, ¿la excepción está justificada y qué evidencia lo reemplazó?
+- **Aprendizaje:** ¿Qué probó o refutó este cambio? ¿Acorta o demora el feedback?
+- **Incrementalidad:** ¿Puede entregarse o validarse en un recorte reversible más chico?
+- **Calidad de tests:** ¿Los tests son rápidos, deterministas, significativos, enfocados en comportamiento, mantenibles y aptos para CI?
+- **Nivel de test:** ¿El comportamiento está testeado en el nivel útil más barato, con cobertura de integración/aceptación para riesgos entre límites?
+- **Deployability:** ¿Preserva caminos seguros de release, rollback y recovery?
+- **Modularidad:** ¿Las responsabilidades están aisladas detrás de interfaces claras?
+- **Cohesión:** ¿Las piezas que cambian juntas viven juntas?
+- **Coupling:** ¿Esto introduce dependencias que encarecen cambios futuros?
+- **Information hiding:** ¿Los detalles internos quedan ocultos o los callers necesitan saber demasiado?
+- **Estabilidad:** ¿Qué modos de falla, señales de confiabilidad o caminos de recovery cambiaron?
+- **Throughput:** ¿Esto hará que futuros cambios sean más rápidos, más lentos o más seguros?
+- **Evidencia:** ¿Las afirmaciones están respaldadas por tests, comandos, métricas, logs, artifacts o evidencia concreta en el código?
 
-## Dynamic workflow guidance
+## Guía para dynamic workflows
 
-For Pi Dynamic Workflows specifically:
+Para Pi Dynamic Workflows en particular:
 
-- Use workflows to shorten learning loops when the work is broad, uncertain, or benefits from genuinely independent perspectives.
-- Start workflow design from the test/feedback loop: what executable check or artifact will decide whether the workflow succeeded?
-- Keep workflow branches independent, small, and evidence-producing. Each branch should return concrete artifacts, not just opinions.
-- Persist artifacts so learning survives chat compaction: test output, failing cases, reproduction steps, synthesized decisions, rejected alternatives, and unresolved risks.
-- Add synthesis-as-judge and adversarial review when correctness matters, but require executable tests or concrete evidence before accepting conclusions.
-- Keep generated workflows small and task-specific until repeated evidence shows reusable value.
-- Treat `maxAgents`, concurrency, model choice, stop conditions, and artifact paths as engineering controls. Set them from the learning goal, cost, risk, and verification strategy rather than copying defaults.
-- Prefer one small workflow plus a fast check over a large orchestration that delays feedback or obscures responsibility.
+- Usá workflows para acortar loops de aprendizaje cuando el trabajo sea amplio, incierto o se beneficie de perspectivas realmente independientes.
+- Empezá el diseño del workflow desde el loop de test/feedback: ¿qué check ejecutable o artifact decidirá si el workflow tuvo éxito?
+- Mantené ramas de workflow independientes, chicas y productoras de evidencia. Cada rama debería devolver artifacts concretos, no solo opiniones.
+- Persistí artifacts para que el aprendizaje sobreviva a la compactación del chat: output de tests, casos fallidos, pasos de reproducción, decisiones sintetizadas, alternativas descartadas y riesgos no resueltos.
+- Agregá synthesis-as-judge y review adversarial cuando la corrección importe, pero exigí tests ejecutables o evidencia concreta antes de aceptar conclusiones.
+- Mantené los workflows generados chicos y específicos de la tarea hasta que evidencia repetida muestre valor reutilizable.
+- Tratá `maxAgents`, concurrency, elección de modelo, condiciones de stop y paths de artifacts como controles de ingeniería. Definilos desde el objetivo de aprendizaje, costo, riesgo y estrategia de verificación en lugar de copiar defaults.
+- Preferí un workflow chico más un check rápido antes que una orquestación grande que demore el feedback u oculte la responsabilidad.
 
-## Anti-patterns to call out
+## Anti-patrones a señalar
 
-- Implementing behavior before specifying the failing test or executable check.
-- Treating TDD as optional when the task changes behavior without naming replacement evidence.
-- Large speculative rewrites that postpone learning.
-- Abstractions, configurability, or process added without evidence that they improve stability, throughput, or complexity control.
-- Slow, flaky, overly integrated tests used where fast focused tests would work.
-- Agent consensus, synthesis, or AI-generated code treated as equivalent to passing tests.
-- Claims of success without commands, CI results, review evidence, metrics, or observable behavior.
+- Implementar comportamiento antes de especificar el test fallido o check ejecutable.
+- Tratar TDD como opcional cuando la tarea cambia comportamiento sin nombrar evidencia de reemplazo.
+- Reescrituras grandes y especulativas que postergan el aprendizaje.
+- Abstracciones, configurabilidad o proceso agregados sin evidencia de que mejoren estabilidad, throughput o control de complejidad.
+- Tests lentos, flaky o demasiado integrados usados donde servirían tests rápidos y enfocados.
+- Consenso entre agentes, síntesis o código generado por IA tratados como equivalentes a tests que pasan.
+- Afirmaciones de éxito sin comandos, resultados de CI, evidencia de review, métricas o comportamiento observable.
 
 ## Guardrails
 
-- Do not add bureaucracy, ceremonies, abstractions, or configurability unless they improve learning, stability, throughput, or complexity control.
-- Do not optimize local speed by skipping tests or evidence.
-- Do not confuse AI-generated output with correctness; require review and verification.
-- If the best next step is a small test, spike, or measurement, prefer that over a grand design.
+- No agregues burocracia, ceremonias, abstracciones ni configurabilidad salvo que mejoren aprendizaje, estabilidad, throughput o control de complejidad.
+- No optimices velocidad local salteando tests o evidencia.
+- No confundas output generado por IA con corrección; exigí review y verificación.
+- Si el mejor próximo paso es un test chico, un spike o una medición, preferilo antes que un gran diseño.

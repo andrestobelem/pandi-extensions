@@ -1,61 +1,61 @@
-# Kent Beck empirical software design summary
+# Resumen de diseño empírico de software según Kent Beck
 
-Source research: four project research branches on Kent Beck (method-mechanics, decision-economics, pitfalls-criticisms, modern-ai-application), grounded in _Test-Driven Development: By Example_ (2002), _Tidy First?_ (2023), and Beck's newsletters.
+Investigación fuente: cuatro ramas de research del proyecto sobre Kent Beck (`method-mechanics`, `decision-economics`, `pitfalls-criticisms`, `modern-ai-application`), apoyadas en _Test-Driven Development: By Example_ (2002), _Tidy First?_ (2023) y newsletters de Beck.
 
-## Canon TDD
+## Canon de TDD
 
-Beck's definitive 2023 restatement: (1) write a test list of expected behavioral variants; (2) turn exactly one item into a concrete, runnable test; (3) make all tests pass, updating the list as you learn; (4) optionally refactor; (5) repeat until the list is empty. Step 4 is explicitly optional in the canon.
+Reformulación definitiva de Beck en 2023: (1) escribir una lista de tests con las variantes de comportamiento esperadas; (2) convertir exactamente un ítem en un test concreto y ejecutable; (3) hacer pasar todos los tests, actualizando la lista a medida que aprendés; (4) refactorizar de forma opcional; (5) repetir hasta vaciar la lista. En el canon, el paso 4 es explícitamente opcional.
 
-## Green-bar gears
+## Gears de green bar
 
-From _TDD: By Example_ Part III (via chapter notes): Obvious Implementation (type the real code when clear and quick), Fake It (return a constant, then replace constants with variables), Triangulate (generalize only when two or more examples force it). Gears set step size: bigger when confident, smaller when a red bar surprises you.
+De la Parte III de _TDD: By Example_ (vía notas de capítulos): Obvious Implementation (escribir el código real cuando está claro y es rápido), Fake It (devolver una constante y luego reemplazar constantes por variables), Triangulate (generalizar solo cuando dos o más ejemplos lo fuerzan). Estos gears ajustan el tamaño del paso: más grande cuando hay confianza, más chico cuando un red bar te sorprende.
 
 ## TCR
 
-`test && commit || revert`: run tests after each tiny change; green commits, red reverts to the last passing state. Beck framed it as an experiment forcing smaller increments (Medium, 2018). Thoughtworks Radar rates it "Trial" — tiny steps, fast deterministic tests, risk tolerance. Whether Beck endorses TCR as ongoing practice: INSUFFICIENT_EVIDENCE.
+`test && commit || revert`: correr tests después de cada cambio diminuto; con green se hace commit, con red se revierte al último estado que pasaba. Beck lo presentó como un experimento para forzar incrementos más chicos (Medium, 2018). Thoughtworks Radar lo clasifica como "Trial": pasos diminutos, tests rápidos y deterministas, tolerancia al riesgo. Sobre si Beck avala TCR como práctica sostenida: INSUFFICIENT_EVIDENCE.
 
-## Tidy First? — structure vs. behavior
+## _Tidy First?_ — estructura vs. comportamiento
 
-- Tidyings change structure, never behavior; keep them in separate commits/PRs, few per PR (ch. 16; ch. 28 "Reversible Structure Changes").
-- Value = behavior today + options on future behavior; time value pushes toward shipping behavior now, optionality justifies structure investment (Part III).
-- Coupling: one element changing necessitates changing another, relative to a particular likely change (ch. 29, paraphrase). Cohesion: put elements that change together, together (ch. 32).
-- Timing (ch. 21; "First, After, Later, Never" post): First when it lowers the cost/risk of the immediate change or is needed to understand the code; After when you will touch the area again soon; Later when the payoff is real but deferrable and trackable; Never when the code will not change.
-- Economic test (paraphrase via book notes): tidy first when cost(tidying) + cost(change after) < cost(change without). Exact DCF/option formulas: INSUFFICIENT_EVIDENCE.
+- Los tidyings cambian estructura, nunca comportamiento; mantenelos en commits/PRs separados y con pocos tidyings por PR (ch. 16; ch. 28 "Reversible Structure Changes").
+- Valor = comportamiento hoy + opciones sobre comportamiento futuro; el valor temporal empuja a entregar comportamiento ahora, mientras que la optionality justifica invertir en estructura (Parte III).
+- Coupling: que el cambio en un elemento obligue a cambiar otro, respecto de un cambio probable concreto (ch. 29, paráfrasis). Cohesion: poner juntos los elementos que cambian juntos (ch. 32).
+- Timing (ch. 21; post "First, After, Later, Never"): First cuando baja el costo/riesgo del cambio inmediato o hace falta para entender el código; After cuando vas a tocar esa zona otra vez pronto; Later cuando el beneficio es real pero diferible y rastreable; Never cuando ese código no va a cambiar.
+- Test económico (paráfrasis vía notas del libro): hacer tidy first cuando cost(tidying) + cost(change after) < cost(change without). Fórmulas exactas de DCF/options: INSUFFICIENT_EVIDENCE.
 
-## The 15 tidyings (Part I)
+## Los 15 tidyings (Parte I)
 
-Guard Clauses; Dead Code; Normalize Symmetries; New Interface, Old Implementation; Reading Order; Cohesion Order; Move Declaration and Initialization Together; Explaining Variables; Explaining Constants; Explicit Parameters; Chunk Statements; Extract Helper; One Pile; Explaining Comments; Delete Redundant Comments (O'Reilly TOC).
+Guard Clauses; Dead Code; Normalize Symmetries; New Interface, Old Implementation; Reading Order; Cohesion Order; Move Declaration and Initialization Together; Explaining Variables; Explaining Constants; Explicit Parameters; Chunk Statements; Extract Helper; One Pile; Explaining Comments; Delete Redundant Comments (TOC de O'Reilly).
 
-## Four rules of simple design
+## Cuatro reglas del diseño simple
 
-Priority-ordered; sources disagree on the middle two. _XP Explained_ 1st ed. p. 57 (via Fowler): runs all the tests → no duplicated logic → states every intention → fewest classes/methods. Fowler's Beck-reviewed shorthand: passes the tests → reveals intention → no duplication → fewest elements. Rules 1 and 4 are stable. Verbatim wording: INSUFFICIENT_EVIDENCE.
+Están ordenadas por prioridad; las fuentes discrepan sobre las dos del medio. _XP Explained_ 1st ed. p. 57 (vía Fowler): runs all the tests → no duplicated logic → states every intention → fewest classes/methods. Shorthand de Fowler, revisado por Beck: passes the tests → reveals intention → no duplication → fewest elements. Las reglas 1 y 4 son estables. Redacción verbal exacta: INSUFFICIENT_EVIDENCE.
 
 ## 3X: Explore / Expand / Extract
 
-Explore (payoff unknown): many cheap, small, uncorrelated experiments; optimize learning; tolerate throwaway code. Expand: singular focus on the next growth bottleneck. Extract: optimize margin, reliability, repeatability via standardization and automation. Phases carry different tools and value systems and cannot safely be mixed. No sourced practice-by-phase mapping: INSUFFICIENT_EVIDENCE.
+Explore (payoff desconocido): muchos experimentos baratos, chicos y no correlacionados; optimizar aprendizaje; tolerar código descartable. Expand: foco singular en el siguiente cuello de botella para crecer. Extract: optimizar margen, confiabilidad y repetibilidad mediante estandarización y automatización. Cada fase trae herramientas y sistemas de valor distintos, y no pueden mezclarse con seguridad. No hay mapeo de prácticas por fase respaldado por fuente: INSUFFICIENT_EVIDENCE.
 
-## Limits and misuse (Beck's own caveats)
+## Límites y malos usos (caveats del propio Beck)
 
-- Confidence-based test depth (Stack Overflow, 2008, paraphrase): test as little as possible to reach a given confidence — more where mistakes are likely, less where a class of mistakes empirically does not occur.
-- TDD value degrades with slow tests, failures with many possible causes, tests coupled to implementation, low-fidelity environments ("Is TDD Dead?", 2014).
-- TDD does not make design decisions for you (paraphrase, "TDD Outcomes"). Misuse pattern: test-induced design damage — indirection added solely for test isolation; Beck's counter: blame the design judgment, not TDD (DHH 2014; Fowler's debate record).
+- Profundidad de tests basada en confianza (Stack Overflow, 2008, paráfrasis): testear lo mínimo necesario para alcanzar un nivel dado de confianza; más donde es probable equivocarse, menos donde una clase de errores empíricamente no aparece.
+- El valor de TDD se degrada con tests lentos, fallas con muchas causas posibles, tests acoplados a la implementación y entornos de baja fidelidad ("Is TDD Dead?", 2014).
+- TDD no toma decisiones de diseño por vos (paráfrasis, "TDD Outcomes"). Patrón de mal uso: test-induced design damage — indirección agregada solo para aislar tests; la respuesta de Beck es culpar al juicio de diseño, no a TDD (DHH 2014; registro del debate en Fowler).
 
 ## Augmented coding (2024–2025)
 
-- AI shifts costs, not correctness; respond with many small experiments and fast feedback ("Exploring AI").
-- Augmented ≠ vibe coding: the human still cares about complexity, tests, coverage, tidy design ("Beyond the Vibes").
-- Tests as executable, binary agent guardrails; keep a large fast suite running constantly (Pragmatic Engineer interview, 2025).
-- Persistent prompting rules: no code without a failing test; only enough code to pass; green before commit; never delete tests.
-- Failure-mode watchlist ("Genie Wants to Leap"): loops, unrequested scope, deleted tests/assertions, fake implementations.
-- Copy-from-simpler-language: implement in Python first, then have the agent translate tests plus code.
+- La IA desplaza costos, no corrección; la respuesta es hacer muchos experimentos chicos y ciclos rápidos de feedback ("Exploring AI").
+- Augmented ≠ vibe coding: la persona sigue siendo responsable de complejidad, tests, coverage y tidy design ("Beyond the Vibes").
+- Los tests funcionan como guardrails ejecutables y binarios para agentes; conviene mantener corriendo de forma constante una suite grande y rápida (entrevista en Pragmatic Engineer, 2025).
+- Reglas de persistent prompting: no code without a failing test; only enough code to pass; green before commit; never delete tests.
+- Lista de fallas a vigilar ("Genie Wants to Leap"): loops, scope no pedido, tests/assertions borrados, implementaciones fake.
+- Copy-from-simpler-language: implementar primero en Python y luego hacer que el agente traduzca tests y código.
 - Outcomes over orchestration ("Genie Lessons: Nobody Wants Agents").
-- No primary source links TCR with agents: INSUFFICIENT_EVIDENCE.
+- Ninguna fuente primaria vincula TCR con agentes: INSUFFICIENT_EVIDENCE.
 
-## Quoting policy and gaps
+## Política de citas y huecos
 
-Only licensed verbatim quote: Beck's 2012 tweet — "for each desired change, make the change easy (warning: this may be hard), then make the easy change." All book wording: paraphrase and attribute. The human/social side of design is thinly sourced (ch. 16 review economics; outcomes-over-orchestration); do not extrapolate beyond it.
+La única cita textual licenciada es el tuit de Beck de 2012: "for each desired change, make the change easy (warning: this may be hard), then make the easy change" ("para cada cambio deseado, hacé que el cambio sea fácil — advertencia: esto puede ser difícil — y después hacé el cambio fácil"). Todo el wording de los libros debe ir parafraseado y atribuido. El lado humano/social del diseño tiene respaldo de fuentes más fino (economía de review en ch. 16; outcomes-over-orchestration); no extrapolar más allá de eso.
 
-## Sources
+## Fuentes
 
 - https://tidyfirst.substack.com/p/canon-tdd
 - https://medium.com/@kentbeck_7670/test-commit-revert-870bbd756864

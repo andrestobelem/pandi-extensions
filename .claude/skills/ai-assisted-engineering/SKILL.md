@@ -1,86 +1,86 @@
 ---
 name: ai-assisted-engineering
 description: >-
-  Apply Andrej Karpathy-style judgment when building software with AI or agents:
-  build small things to understand, separate prototyping/vibe-coding from
-  production, treat prompts/context/tools as the program (Software 3.0), debug
-  incrementally from simple baselines, and keep the human as specifier,
-  evaluator, and owner of correctness. Use when deciding how much to delegate to
-  AI, whether AI output is trustworthy, or how to design agentic/dynamic
-  workflows.
+  Aplicá criterio al estilo Andrej Karpathy cuando construyas software con IA o
+  agentes: construí cosas pequeñas para entender, separá prototipado/vibe-coding
+  de producción, tratá prompts/context/tools como el programa (Software 3.0),
+  depurá de forma incremental desde baselines simples y mantené a la persona
+  humana como especificadora, evaluadora y dueña de la corrección. Usar cuando
+  haya que decidir cuánto delegar a la IA, si un output es confiable o cómo
+  diseñar workflows agénticos/dynamic workflows.
 ---
 
-# AI-Assisted Engineering
+# Ingeniería asistida por IA
 
-Use this skill when a task involves **using AI or agents to build software** and the real question is judgment: how much to delegate, whether generated output can be trusted, when to prototype freely versus when to verify, and how to design agentic/dynamic workflows so a human stays in control.
+Usá este skill cuando una tarea implique **usar IA o agentes para construir software** y la pregunta de fondo sea de criterio: cuánto delegar, cuándo confiar en un output generado, cuándo conviene prototipar con libertad y cuándo verificar, y cómo diseñar agentic/dynamic workflows sin sacar a la persona del control.
 
-This skill is based on the project research distilled from Andrej Karpathy's recommendations on programming, learning, and using AI (Software 2.0/3.0, vibe coding, "A Recipe for Training Neural Networks", micrograd/nanoGPT). See `references/karpathy-programming-recommendations.md` for the compact source summary.
+Se apoya en la investigación del proyecto destilada desde las recomendaciones de Andrej Karpathy sobre programación, aprendizaje y uso de IA (Software 2.0/3.0, vibe coding, "A Recipe for Training Neural Networks", micrograd/nanoGPT). Ver `references/karpathy-programming-recommendations.md` para el resumen compacto de la fuente.
 
-It is the AI-era companion to the `modern-software-engineering` skill: that one supplies the TDD/feedback/complexity discipline, this one supplies the discipline for *where AI fits inside it*.
+Es el complemento, en la era de la IA, del skill `modern-software-engineering`: ese aporta la disciplina de TDD/feedback/complejidad; este aporta la disciplina sobre *dónde encaja la IA dentro de eso*.
 
-## Core lens
+## Enfoque central
 
-1. **Build small things from scratch to understand.** Prefer small, readable, complete implementations over hidden magic. Understanding the system is the asset; the code is a means to it (micrograd, nanoGPT, Zero to Hero).
-2. **Understand before delegating.** AI lowers the friction of *creating*; it does not replace technical judgment when the system matters. Use agents to accelerate, never to skip review, tests, or evidence.
-3. **Software 3.0: prompts/context/tools are the program.** LLMs are programmed through prompts, examples, memory, context, and scoped tools. Treat those as first-class engineering artifacts — designed, versioned, and inspectable — not as throwaway details.
-4. **Vibe-code prototypes; do not vibe-code production.** Free-form generation is excellent for demos, personal apps, and rapid exploration. Production needs specifications, permissions, diff review, tests/evals, security, and a human owner. Separate "explore/generate" from "verify/commit" and make visible what was actually validated.
-5. **Debug incrementally from simple baselines.** Inspect the data/inputs, start simple, verify assumptions, overfit a tiny case, then add complexity gradually. Cheap scout and smoke test before any large fan-out.
-6. **The expert's role shifts to specifying, evaluating, and debugging.** As AI writes more code, the human's work moves toward managing context, reviewing outputs, designing tests/evals, and *deciding whether something is correct*.
+1. **Construí cosas pequeñas desde cero para entender.** Preferí implementaciones pequeñas, legibles y completas antes que magia oculta. Entender el sistema es el activo; el código es el medio para lograrlo (micrograd, nanoGPT, Zero to Hero).
+2. **Entendé antes de delegar.** La IA baja la fricción de *crear*; no reemplaza el juicio técnico cuando el sistema importa. Usá agentes para acelerar, nunca para saltear review, tests o evidencia.
+3. **Software 3.0: prompts/context/tools son el programa.** Los LLMs se programan con prompts, ejemplos, memoria, contexto y tools acotadas. Tratá eso como artifacts de ingeniería de primera clase — diseñados, versionados e inspeccionables — no como detalles descartables.
+4. **Hacé vibe-code en prototipos; no en producción.** La generación libre es excelente para demos, apps personales y exploración rápida. Producción necesita specifications, permissions, diff review, tests/evals, security y una persona dueña. Separá "explore/generate" de "verify/commit" y hacé visible qué fue realmente validado.
+5. **Depurá de forma incremental desde baselines simples.** Inspeccioná datos/inputs, empezá simple, verificá supuestos, sobreajustá un caso mínimo y recién después agregá complejidad. Hacé cheap scout y smoke test antes de cualquier fan-out grande.
+6. **El rol de la persona experta se desplaza hacia especificar, evaluar y depurar.** A medida que la IA escribe más código, el trabajo humano se mueve hacia gestionar contexto, revisar outputs, diseñar tests/evals y *decidir si algo es correcto*.
 
-## Required response shape when using this skill
+## Forma de respuesta requerida al usar este skill
 
-For a plan, review, or implementation that leans on AI/agents, include these unless clearly irrelevant:
+En un plan, review o implementación que se apoye en IA/agentes, incluí esto salvo que sea claramente irrelevante:
 
-- **Trust level:** is this prototype/exploration (vibe-coding OK) or production/serious (specs + verification required)? Say which.
-- **Delegation boundary:** what the AI/agent does vs. what the human specifies, reviews, and owns.
-- **Smallest understandable slice:** the narrowest, most inspectable increment — favor a small readable implementation over a broad generated one.
-- **Verification plan:** the tests, evals, diff review, or executable check that decides correctness — *not* agent consensus.
-- **Stop/escalate condition:** what evidence is enough to ship, and what forces a human back into the loop.
+- **Nivel de confianza:** ¿esto es prototipo/exploración (`vibe-coding` OK) o producción/serio (`specs` + verificación obligatorias)? Decilo explícitamente.
+- **Límite de delegación:** qué hace la IA/agente versus qué especifica, revisa y posee la persona.
+- **Rebanada mínima entendible:** el incremento más chico e inspeccionable; preferí una implementación pequeña y legible antes que una generación amplia.
+- **Plan de verificación:** los tests, evals, diff review o check ejecutable que decide la corrección — *no* el consenso entre agentes.
+- **Condición para frenar/escalar:** qué evidencia alcanza para avanzar y qué obliga a volver a meter a una persona en el loop.
 
-## How to apply it
+## Cómo aplicarlo
 
-1. **Classify the stakes first.** Prototype/demo/personal → optimize for speed and learning, generation is fine. Production/shared/risky → require specs, review, tests, security, ownership.
-2. **Delegate to accelerate, not to abdicate.** Let AI draft, search, refactor, and explore; keep the human owning the spec, the review, and the decision that it is correct.
-3. **Design the prompt/context as a program.** Give each agent an evidence contract, allowed tools, output format/schema, and stop conditions. Make context explicit and scoped rather than implicit and broad.
-4. **Build the smallest understandable thing.** Prefer a small readable implementation you can inspect and modify over a large opaque one — even if AI could generate the large one faster.
-5. **Start simple, add complexity on evidence.** Cheap scout → simple baseline → verify assumptions → overfit a small case → expand. Add caps, smoke tests, and artifacts before large fan-outs.
-6. **Verify with executable evidence.** Treat AI/agent output as a hypothesis. Confirm with tests, evals, reproduction, diff review, or external checks before accepting it.
-7. **Keep the human supervising.** Surface status, agents, evidence, and partial failures so a person can specify, evaluate, and debug — not just watch calls go by.
+1. **Clasificá primero el nivel de riesgo.** Prototype/demo/personal → optimizá por velocidad y aprendizaje; la generación está bien. Production/shared/risky → exigí specs, review, tests, security y ownership.
+2. **Delegá para acelerar, no para abdicar.** Dejá que la IA redacte, busque, refactorice y explore; la persona conserva la spec, el review y la decisión de que algo es correcto.
+3. **Diseñá el prompt/context como un programa.** Dale a cada agente un evidence contract, tools permitidas, output format/schema y stop conditions. Hacé explícito y acotado el contexto en vez de implícito y amplio.
+4. **Construí la cosa más chica que se pueda entender.** Preferí una implementación pequeña y legible, que puedas inspeccionar y modificar, antes que una grande y opaca, aunque la IA pudiera generar la grande más rápido.
+5. **Empezá simple y agregá complejidad con evidencia.** Cheap scout → simple baseline → verificar supuestos → sobreajustar un caso chico → expandir. Sumá caps, smoke tests y artifacts antes de fan-outs grandes.
+6. **Verificá con evidencia ejecutable.** Tratá el output de IA/agentes como una hipótesis. Confirmalo con tests, evals, reproducción, diff review o checks externos antes de aceptarlo.
+7. **Mantené supervisión humana visible.** Mostrá estado, agentes, evidencia y fallas parciales para que una persona pueda especificar, evaluar y depurar, no solo mirar pasar llamadas.
 
-## Checklist (AI/agent-assisted work)
+## Checklist para trabajo asistido por IA/agentes
 
-- **Stakes:** Is this prototype or production? Does the rigor match?
-- **Ownership:** Is it clear what the human specifies, reviews, and is accountable for?
-- **Understanding:** Could you explain and modify this code, or is it opaque generated magic?
-- **Size:** Is this the smallest inspectable slice, or a broad speculative generation?
-- **Prompt-as-program:** Do agents have an evidence contract, scoped tools, output format, and stop conditions?
-- **Baseline-first:** Did a cheap scout / simple baseline precede the large fan-out?
-- **Verification:** What executable check (test, eval, reproduction, diff review) confirms correctness — beyond "the model said so"?
-- **Partial failure:** Are failed/empty/stale agent branches visible, or hidden behind a confident summary?
-- **Security/permissions:** For anything beyond a toy, are auth, secrets, permissions, and blast radius handled?
+- **Riesgo:** ¿esto es prototipo o producción? ¿El rigor coincide?
+- **Responsabilidad:** ¿queda claro qué especifica, revisa y por qué responde la persona?
+- **Entendimiento:** ¿podrías explicar y modificar este código, o es magia generada y opaca?
+- **Tamaño:** ¿es la rebanada más chica e inspeccionable, o una generación especulativa y amplia?
+- **Prompt como programa:** ¿los agentes tienen evidence contract, tools acotadas, output format y stop conditions?
+- **Primero lo mínimo:** ¿hubo cheap scout / simple baseline antes del fan-out grande?
+- **Verificación:** ¿qué check ejecutable (test, eval, reproducción, diff review) confirma la corrección, más allá de "the model said so"?
+- **Falla parcial:** ¿las ramas fallidas/vacías/stale de agentes quedan visibles, o se esconden detrás de un resumen confiado?
+- **Seguridad/permisos:** para cualquier cosa más seria que un juguete, ¿están cubiertos auth, secrets, permissions y blast radius?
 
-## Dynamic workflow guidance
+## Guía para dynamic workflows
 
-For Pi Dynamic Workflows specifically:
+Para Pi Dynamic Workflows en particular:
 
-- Make the **agentic pattern** visible (fan-out, judge, feedback, pipeline, routing), not just "which call happened" — the pattern *is* the program.
-- Write prompts as readable programs: evidence contract, allowed tools, output format, and stop conditions; push volatile per-item content to the end.
-- Keep example/generated workflows small, inspectable, and modifiable (micrograd/nanoGPT spirit) — avoid hidden magic.
-- Separate explore/generate stages from verify/commit stages; never let a synthesis stand without synthesis-as-judge, tests, or external verification when correctness matters.
-- Start broad workflows with a cheap scout and a simple baseline; set `maxAgents`, concurrency, model, and caps from stakes and the learning goal, and `log()` whatever you bound.
+- Hacé visible el **agentic pattern** (fan-out, judge, feedback, pipeline, routing), no solo "qué llamada ocurrió"; el patrón *es* el programa.
+- Escribí prompts como programas legibles: evidence contract, tools permitidas, output format y stop conditions; dejá el contenido volátil por ítem para el final.
+- Mantené workflows de ejemplo/generados pequeños, inspeccionables y modificables (espíritu micrograd/nanoGPT); evitá la magia oculta.
+- Separá etapas de explore/generate de etapas de verify/commit; cuando la corrección importe, no dejes pasar una síntesis sin synthesis-as-judge, tests o verificación externa.
+- Empezá workflows amplios con cheap scout y simple baseline; fijá `maxAgents`, concurrency, model y caps según stakes y el objetivo de aprendizaje, y registrá con `log()` todo lo que acotás.
 
-## Anti-patterns to call out
+## Anti-patrones que hay que señalar
 
-- Shipping vibe-coded output to production without specs, review, tests, evals, security, or a human owner.
-- Treating AI/agent consensus or generated code as equivalent to a passing test.
-- Generating large opaque code when a small readable implementation would teach more and be safer to change.
-- Jumping to a large fan-out / complex pipeline before a cheap scout and a simple baseline.
-- Leaving prompts, context, and tool scope implicit and unversioned while treating only the code as "the program".
-- Hiding partial agent failures behind a confident summary.
+- Mandar a producción un output vibe-coded sin specs, review, tests, evals, security ni una persona dueña.
+- Tratar el consenso entre IA/agentes o el código generado como equivalente a un test que pasa.
+- Generar código grande y opaco cuando una implementación pequeña y legible enseñaría más y sería más segura de cambiar.
+- Saltar a un fan-out grande o a un pipeline complejo antes de hacer cheap scout y simple baseline.
+- Dejar implícitos y sin versionar prompts, contexto y alcance de tools mientras se trata solo al código como "el programa".
+- Esconder fallas parciales de agentes detrás de un resumen confiado.
 
 ## Guardrails
 
-- Match rigor to stakes: do not impose production ceremony on a throwaway prototype, and do not vibe-code anything users or systems depend on.
-- Use AI to shorten loops, not to skip understanding, review, or verification.
-- Do not confuse fluent generated output with correctness; require executable evidence and human ownership.
-- If the cheapest next step is a small readable implementation, a simple baseline, or a single decisive test, prefer that over a large generation or orchestration.
+- Ajustá el rigor al nivel de riesgo: no impongas ceremonia de producción a un prototipo descartable y no hagas vibe-code en nada de lo que dependan personas o sistemas.
+- Usá la IA para acortar loops, no para saltear entendimiento, review o verificación.
+- No confundas fluidez generada con corrección; exigí evidencia ejecutable y ownership humano.
+- Si el siguiente paso más barato es una implementación pequeña y legible, un simple baseline o un único test decisivo, preferilo antes que una generación grande o una orquestación compleja.
