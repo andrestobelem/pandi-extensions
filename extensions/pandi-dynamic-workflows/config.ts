@@ -58,12 +58,13 @@ export function limitParamsFromInput(input: unknown): Partial<DynamicWorkflowToo
 	return out;
 }
 
+function clampInt(value: number, min: number, max: number): number {
+	return Math.min(Math.max(Math.floor(value), min), max);
+}
+
 export function buildLimits(params: Partial<DynamicWorkflowToolParams> = {}): RunLimits {
-	const concurrency = Math.min(
-		Math.max(Math.floor(params.concurrency ?? DEFAULT_CONCURRENCY), 1),
-		HARD_MAX_CONCURRENCY,
-	);
-	const maxAgents = Math.min(Math.max(Math.floor(params.maxAgents ?? DEFAULT_MAX_AGENTS), 1), HARD_MAX_AGENTS);
+	const concurrency = clampInt(params.concurrency ?? DEFAULT_CONCURRENCY, 1, HARD_MAX_CONCURRENCY);
+	const maxAgents = clampInt(params.maxAgents ?? DEFAULT_MAX_AGENTS, 1, HARD_MAX_AGENTS);
 	return {
 		concurrency,
 		maxAgents,
