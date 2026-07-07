@@ -201,7 +201,18 @@ check(
 	monitorText.includes("output: boom output for monitor"),
 	monitorSlice,
 );
-check("run report remains script-free", !/<script/i.test(html));
+// El contrato ya no es "cero <script>": desde el diagrama Mermaid del run (pineado en
+// run-report-security.test.mjs) hay exactamente dos <script> fijos (loader CDN + init
+// securityLevel:"sandbox"). Acá solo confirmamos que no aparece NINGÚN OTRO <script>.
+const templateScriptTags = html.match(/<script\b[^>]*>[\s\S]*?<\/script>/gi) ?? [];
+check(
+	"run report only contains the two pinned mermaid <script> tags, nothing else",
+	templateScriptTags.length <= 2 &&
+		templateScriptTags.every(
+			(tag) => tag.includes("cdn.jsdelivr.net/npm/mermaid@") || tag.includes('securityLevel:"sandbox"'),
+		),
+	templateScriptTags.join("\n"),
+);
 
 const interruptedHtml = mod.buildRunReportHtml({
 	...model(),

@@ -4,15 +4,30 @@
  * Contrato (pineado por run-report-security.test.mjs):
  * - Cada string del modelo es UNTRUSTED DATA: la mayoría de strings renderiza vía el escaper de 5 chars;
  *   las salidas de agentes renderizan como Markdown solo vía marked + sanitize-html con allowlist estricta.
- * - La página emitida contiene CERO bloques <script>: el colapso usa
- *   <details>/<summary> nativos, así no hay ningún sink DOM para contenido inyectado.
+ * - La página emite EXACTAMENTE dos bloques <script>, ambos literales fijos para el
+ *   renderer del diagrama Mermaid del run: el loader (URL de CDN pineada a una versión
+ *   exacta + hash Subresource Integrity, así una CDN comprometida/con contenido distinto
+ *   falla cerrado — el browser se niega a correrlo — en vez de ejecutar JS arbitrario) y
+ *   el init call (`securityLevel: "sandbox"`: el diagrama renderiza en un iframe aislado,
+ *   sin acceso al DOM de la página padre). Ningún otro <script> puede aparecer nunca, y
+ *   ninguno de estos dos interpola strings del modelo. El resto de los colapsables usa
+ *   <details>/<summary> nativos, sin sink DOM para contenido inyectado.
  * - Los hrefs son solo relativos: paths absolutos, parent traversal y esquemas URL se
  *   rechazan (el collector también chequea contención; esto es defense-in-depth), y
  *   los valores de atributos se URL-encodean por segmento de path.
- * - Autocontenido: solo CSS inline (tokens pandi, claro+oscuro); sin assets de red.
+ * - Autocontenido salvo esa única excepción pineada (el <script src> de Mermaid): solo CSS
+ *   inline (tokens pandi, claro+oscuro) y esa CDN; ningún otro asset de red.
  * - Sin fs, sin ctx, sin Date.now(): todos los tiempos vienen del modelo (generatedAt),
  *   así la regeneración desde un modelo fijo es byte-stable.
  */
+
+const MERMAID_CDN_VERSION = "11.15.0";
+const MERMAID_CDN_URL = `https://cdn.jsdelivr.net/npm/mermaid@${MERMAID_CDN_VERSION}/dist/mermaid.min.js`;
+// Hash SHA-384 calculado en local contra el mermaid.min.js publicado en npm para esta
+// versión exacta (node_modules/mermaid/dist/mermaid.min.js) — no se confió en la CDN a
+// ciegas. Si el archivo servido por la CDN alguna vez no matchea, el navegador se niega a
+// ejecutarlo (Subresource Integrity): falla cerrado, nunca ejecuta contenido inesperado.
+const MERMAID_CDN_INTEGRITY = "sha384-yQ4mmBBT+vhTAwjFH0toJXNYJ6O4usWnt6EPIdWwrRvx2V/n5lXuDZQwQFeSFydF";
 
 import { mermaidLabel } from "./graph-parse.js";
 import { formatElapsedMs } from "./presentation.js";
@@ -952,8 +967,11 @@ export function buildRunReportHtml(model: RunReportModel): string {
 		: "";
 
 	const mermaidSection = model.agents.length
-		? `<details><summary>Run diagram (Mermaid source, ${model.agents.length} agent(s))</summary><div class="body">` +
-			`<div class="kv muted">Texto Mermaid del run — pegalo en un visor Mermaid (mermaid.live u otro) para verlo como diagrama.</div>` +
+		? `<h2>Run diagram</h2><div class="mermaid">${escapeHtml(buildRunMermaidSource(model))}</div>` +
+			`<script src="${MERMAID_CDN_URL}" integrity="${MERMAID_CDN_INTEGRITY}" crossorigin="anonymous"></script>` +
+			`<script>mermaid.initialize({startOnLoad:false,securityLevel:"sandbox"});mermaid.run({querySelector:".mermaid"});</script>` +
+			`<details><summary>Run diagram (Mermaid source text)</summary><div class="body">` +
+			`<div class="kv muted">Si el diagrama de arriba no renderiza (JS deshabilitado o CDN bloqueada), pegá este texto en un visor Mermaid (mermaid.live u otro).</div>` +
 			`<pre>${escapeHtml(buildRunMermaidSource(model))}</pre></div></details>`
 		: "";
 

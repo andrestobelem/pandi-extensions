@@ -2,9 +2,15 @@
  * run-report-security — the FIRST pin for the run-report HTML builder (design record
  * §6.1, run bd039ef9): run-dir content is UNTRUSTED DATA. Strings either render
  * through the shared escaper or, for agent output Markdown, through the strict
- * sanitizer allowlist. The page must contain ZERO <script> blocks (native
- * <details> only), hrefs must be relative + containment-safe, and no external
- * http(s) asset may appear in src/href.
+ * sanitizer allowlist. hrefs must be relative + containment-safe, and no external
+ * http(s) asset may appear in src/href — with exactly ONE pinned exception: the
+ * Mermaid run-diagram renderer, loaded from a version-pinned CDN URL with a
+ * Subresource Integrity hash (so a compromised/mismatched CDN response fails
+ * closed — the browser refuses to run it — rather than silently swapping in
+ * arbitrary JS), initialized with `securityLevel: "sandbox"` (diagram renders
+ * inside an iframe with no access to the parent page). No OTHER <script> block
+ * may ever appear, and neither script may interpolate any model-sourced string
+ * (the CDN URL, integrity hash and init call are all fixed literals).
  *
  * Pure-module suite: bundles run-report-html.ts standalone (no SDK imports).
  */
@@ -101,8 +107,37 @@ async function main() {
 	const html = mod.buildRunReportHtml(hostileModel());
 	check("returns a non-empty HTML document", typeof html === "string" && html.startsWith("<!doctype html>"));
 
-	// 1) Zero scripts: the strongest possible XSS posture for a static report.
-	check("emits no <script> block at all", !/<script/i.test(html), "found <script");
+	// 1) Exactly two <script> tags total, both fixed literals for the Mermaid run-diagram
+	//    renderer — the version-pinned+SRI-hashed CDN load, and the fixed init call. No other
+	//    <script> may ever appear, and neither embeds any model-sourced string.
+	const scriptTags = html.match(/<script\b[^>]*>[\s\S]*?<\/script>/gi) ?? [];
+	check("exactly two <script> blocks (mermaid loader + fixed init)", scriptTags.length === 2, scriptTags.length);
+	const mermaidLoaderTag = scriptTags.find((tag) => /\bsrc=/.test(tag));
+	check(
+		"mermaid loader pinned to an exact version on the CDN",
+		!!mermaidLoaderTag &&
+			/src="https:\/\/cdn\.jsdelivr\.net\/npm\/mermaid@\d+\.\d+\.\d+\/dist\/mermaid\.min\.js"/.test(
+				mermaidLoaderTag ?? "",
+			),
+		mermaidLoaderTag,
+	);
+	check(
+		"mermaid loader carries a Subresource Integrity hash + crossorigin",
+		!!mermaidLoaderTag &&
+			/integrity="sha384-[A-Za-z0-9+/]+=*"/.test(mermaidLoaderTag ?? "") &&
+			/crossorigin="anonymous"/.test(mermaidLoaderTag ?? ""),
+	);
+	const mermaidInitTag = scriptTags.find((tag) => !/\bsrc=/.test(tag));
+	check(
+		"mermaid init call locks securityLevel to sandbox (isolated iframe, no parent DOM access)",
+		!!mermaidInitTag && /securityLevel\s*:\s*"sandbox"/.test(mermaidInitTag ?? ""),
+	);
+	check(
+		"mermaid init call is a fixed literal (no model-sourced string interpolated)",
+		!!mermaidInitTag &&
+			!(mermaidInitTag ?? "").includes(ATTR_PAYLOAD) &&
+			!(mermaidInitTag ?? "").includes(SCRIPT_PAYLOAD),
+	);
 
 	// 2) Raw payloads never appear unescaped anywhere.
 	check("script payload only escaped", !html.includes(SCRIPT_PAYLOAD));
@@ -124,8 +159,27 @@ async function main() {
 	check("Markdown sanitizer removes unsafe hrefs", !/href\s*=\s*"(?:javascript:|https?:)/i.test(html));
 	check("Markdown sanitizer does not leak external URL payload", !html.includes(HTTPS_URL_PAYLOAD));
 
-	// 5) Self-contained: no external network assets in src/href (relative links only).
-	check("no http(s) src/href", !/(src|href)\s*=\s*"https?:/i.test(html));
+	// 5) Self-contained except for the one pinned Mermaid CDN <script src>: no OTHER external
+	//    network asset may appear in src/href (in particular, never in an href — only that one
+	//    <script src> is allowed to be external, and only to that exact pinned URL).
+	check("no http(s) href anywhere", !/href\s*=\s*"https?:/i.test(html));
+	const nonMermaidHttpSrc = (html.match(/\bsrc\s*=\s*"https?:[^"]*"/gi) ?? []).filter(
+		(src) => !src.includes("cdn.jsdelivr.net/npm/mermaid@"),
+	);
+	check(
+		"no http(s) src other than the pinned mermaid CDN url",
+		nonMermaidHttpSrc.length === 0,
+		nonMermaidHttpSrc.join(", "),
+	);
+
+	// 5b) The diagram itself renders hostile agent names/phase labels without leaking any raw
+	//     payload — mermaidLabel() strips bracket/quote/angle chars before the string ever
+	//     reaches the .mermaid div, and the div content is still HTML-escaped on top of that.
+	check("mermaid diagram div is present", html.includes('<div class="mermaid">'));
+	check(
+		"mermaid diagram source text is also shown as a plain-text fallback",
+		/<pre>[\s\S]*flowchart TD[\s\S]*<\/pre>/.test(html),
+	);
 
 	// 6) Clean relative links still work, URL-encoded in attribute context.
 	check(
