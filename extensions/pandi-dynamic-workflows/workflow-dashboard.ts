@@ -60,6 +60,12 @@ function windowLabel(total: number, start: number, count: number): string {
 	return ` · ${start + 1}–${end}/${total}`;
 }
 
+// Ventana de scroll: `before` es el margen antes del elemento seleccionado; `windowSize` es el
+// total visible (típicamente before*2). Clampa el inicio entre 0 y length-windowSize.
+function windowStart(selectedIndex: number, length: number, before: number, windowSize: number): number {
+	return Math.max(0, Math.min(selectedIndex - before, length - windowSize));
+}
+
 function reselectIndexByKey<T>(previous: T[], previousIndex: number, next: T[], keyOf: (item: T) => string): number {
 	const clamped = Math.min(previousIndex, Math.max(0, next.length - 1));
 	const prev = previous[previousIndex];
@@ -957,7 +963,7 @@ export class WorkflowDashboard {
 	): void {
 		if (model.agents.length === 0) return;
 		lines.push(line(muted("")));
-		const start = Math.max(0, Math.min(this.monitorAgentIndex - 6, model.agents.length - 12));
+		const start = windowStart(this.monitorAgentIndex, model.agents.length, 6, 12);
 		const visible = model.agents.slice(start, start + 12);
 		lines.push(
 			line(
@@ -1023,7 +1029,7 @@ export class WorkflowDashboard {
 		const parallelNow = activeRuns.reduce((sum, run) => sum + getRunParallelAgents(run), 0);
 		const parallelLimit = activeRuns.reduce((sum, run) => sum + (getRunAgentConcurrency(run) ?? 0), 0);
 		const parallelText = parallelLimit > 0 ? `${parallelNow}/${parallelLimit}` : String(parallelNow);
-		const start = Math.max(0, Math.min(this.agentIndex - 7, this.agentEntries.length - 14));
+		const start = windowStart(this.agentIndex, this.agentEntries.length, 7, 14);
 		const visible = this.agentEntries.slice(start, start + 14);
 		lines.push(
 			line(
@@ -1080,7 +1086,7 @@ export class WorkflowDashboard {
 				`${accent("Pi sessions")} ${muted(`(${this.piSessions.length})`)} ${live ? success(`live:${live}`) : muted("live:0")} ${stale ? warning(`stale:${stale}`) : muted("stale:0")} ${muted(`heartbeat:${formatElapsedMs(PI_SESSION_HEARTBEAT_MS)}`)}`,
 			),
 		);
-		const start = Math.max(0, Math.min(this.sessionIndex - 6, this.piSessions.length - 12));
+		const start = windowStart(this.sessionIndex, this.piSessions.length, 6, 12);
 		const visible = this.piSessions.slice(start, start + 12);
 		for (let i = 0; i < visible.length; i++) {
 			const index = start + i;
@@ -1154,7 +1160,7 @@ export class WorkflowDashboard {
 			lines.push(line(muted("Create one with /workflow new <name> or dynamic_workflow action=write.")));
 			return;
 		}
-		const start = Math.max(0, Math.min(this.workflowIndex - 6, this.workflows.length - 12));
+		const start = windowStart(this.workflowIndex, this.workflows.length, 6, 12);
 		const visible = this.workflows.slice(start, start + 12);
 		for (let i = 0; i < visible.length; i++) {
 			const index = start + i;
@@ -1193,7 +1199,7 @@ export class WorkflowDashboard {
 				`${accent("Pattern catalog")} ${muted(`(${WORKFLOW_PATTERN_CATALOG.length})`)} ${muted("• choose a scaffold, then edit before saving")}`,
 			),
 		);
-		const start = Math.max(0, Math.min(this.patternIndex - 6, WORKFLOW_PATTERN_CATALOG.length - 12));
+		const start = windowStart(this.patternIndex, WORKFLOW_PATTERN_CATALOG.length, 6, 12);
 		const visible = WORKFLOW_PATTERN_CATALOG.slice(start, start + 12);
 		for (let i = 0; i < visible.length; i++) {
 			const index = start + i;
@@ -1238,7 +1244,7 @@ export class WorkflowDashboard {
 			lines.push(line(muted(START_WORKFLOW_HINT)));
 			return;
 		}
-		const start = Math.max(0, Math.min(this.runIndex - 6, this.runs.length - 12));
+		const start = windowStart(this.runIndex, this.runs.length, 6, 12);
 		const visible = this.runs.slice(start, start + 12);
 		lines.push(
 			line(`${accent("Runs")} ${muted(`(${this.runs.length})`)}${muted(windowLabel(this.runs.length, start, 12))}`),
@@ -1318,7 +1324,7 @@ export class WorkflowDashboard {
 			lines.push(line(muted(START_WORKFLOW_HINT)));
 			return;
 		}
-		const start = Math.max(0, Math.min(this.activityIndex - 7, this.activity.length - 14));
+		const start = windowStart(this.activityIndex, this.activity.length, 7, 14);
 		const visible = this.activity.slice(start, start + 14);
 		for (let i = 0; i < visible.length; i++) {
 			const index = start + i;
