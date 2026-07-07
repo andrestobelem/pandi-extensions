@@ -14,6 +14,7 @@
  *   así la regeneración desde un modelo fijo es byte-stable.
  */
 
+import { mermaidLabel } from "./graph-parse.js";
 import { formatElapsedMs } from "./presentation.js";
 import { renderRunReportMarkdown } from "./run-report-markdown.js";
 import { artifactViewerHref, escapeHtml, safeRelativeHref } from "./run-report-safe-html.js";
@@ -268,6 +269,76 @@ a { color:var(--link); }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:12px; }
 .kv { color:var(--ink2); font-size:12.5px; }
 `;
+
+function mermaidStateClass(agent: RunReportAgent): "completed" | "failed" | "running" | "other" {
+	if (agent.ok === false || agent.state === "failed") return "failed";
+	if (agent.state === "completed" || agent.ok === true) return "completed";
+	if (agent.state === "running") return "running";
+	return "other";
+}
+
+const MERMAID_STATE_STYLES: Record<string, string> = {
+	completed: "fill:#3fb950,color:#0b0c0c,stroke:#2ea043",
+	failed: "fill:#f85149,color:#0b0c0c,stroke:#da3633",
+	running: "fill:#58a6ff,color:#0b0c0c,stroke:#1f6feb",
+	other: "fill:#8b949e,color:#0b0c0c,stroke:#6e7681",
+};
+
+/**
+ * Flowchart Mermaid (texto fuente, sin renderizar) del run concreto: agentes agrupados por
+ * fase en orden de aparición, coloreados por estado. Complementa — no reemplaza — el grafo
+ * estático de workflow-graph.ts (que dibuja la ESTRUCTURA del código, no una corrida). Se
+ * emite como texto en un bloque colapsable: el contrato "cero <script>" de este módulo
+ * (pineado por run-report-security.test.mjs) prohíbe renderizarlo client-side.
+ */
+export function buildRunMermaidSource(model: RunReportModel): string {
+	if (model.agents.length === 0) {
+		return 'flowchart TD\n  none["No agents in this run"]';
+	}
+
+	const groups = new Map<string, { label: string; agentIds: number[] }>();
+	for (const agent of model.agents) {
+		const key = agent.phaseId !== undefined ? `p${agent.phaseId}` : "none";
+		const label = agent.phaseLabel ?? (agent.phaseId !== undefined ? `Phase ${agent.phaseId}` : "Agents");
+		const group = groups.get(key);
+		if (group) group.agentIds.push(agent.id);
+		else groups.set(key, { label, agentIds: [agent.id] });
+	}
+	const agentById = new Map(model.agents.map((agent) => [agent.id, agent]));
+
+	const lines = ["flowchart TD"];
+	const phaseIds: string[] = [];
+	let index = 0;
+	for (const { label, agentIds } of groups.values()) {
+		index += 1;
+		const phaseId = `phase${index}`;
+		phaseIds.push(phaseId);
+		lines.push(`  subgraph ${phaseId}["${mermaidLabel(label)}"]`);
+		for (const agentId of agentIds) {
+			const agent = agentById.get(agentId);
+			if (!agent) continue;
+			lines.push(`    A${agent.id}["${mermaidLabel(agent.name)}"]`);
+		}
+		lines.push("  end");
+	}
+	for (let i = 0; i < phaseIds.length - 1; i += 1) {
+		lines.push(`  ${phaseIds[i]} --> ${phaseIds[i + 1]}`);
+	}
+
+	const usedClasses = new Set<string>();
+	const classLines: string[] = [];
+	for (const agent of model.agents) {
+		const cls = mermaidStateClass(agent);
+		usedClasses.add(cls);
+		classLines.push(`  class A${agent.id} ${cls}`);
+	}
+	for (const cls of usedClasses) {
+		lines.push(`  classDef ${cls} ${MERMAID_STATE_STYLES[cls]}`);
+	}
+	lines.push(...classLines);
+
+	return lines.join("\n");
+}
 
 function pillClass(state: string, ok?: boolean): string {
 	if (state === "completed" && ok !== false) return "ok";
@@ -880,6 +951,12 @@ export function buildRunReportHtml(model: RunReportModel): string {
 			`</div>`
 		: "";
 
+	const mermaidSection = model.agents.length
+		? `<details><summary>Run diagram (Mermaid source, ${model.agents.length} agent(s))</summary><div class="body">` +
+			`<div class="kv muted">Texto Mermaid del run — pegalo en un visor Mermaid (mermaid.live u otro) para verlo como diagrama.</div>` +
+			`<pre>${escapeHtml(buildRunMermaidSource(model))}</pre></div></details>`
+		: "";
+
 	const basedOnRows = (model.basedOn ?? [])
 		.map((item) => {
 			const detail = [item.role, item.desc].filter(Boolean).join(" · ");
@@ -950,6 +1027,7 @@ ${integritySection}
 ${metricsSection}
 ${basedOnSection}
 ${phaseSection}
+${mermaidSection}
 <h2>Agents (${model.agents.length})</h2>
 ${model.agents.map(renderAgent).join("\n")}
 ${logSection}
