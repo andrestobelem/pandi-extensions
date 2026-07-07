@@ -1,72 +1,78 @@
 ---
 name: sync-doc-mirrors
 description: >-
-  Check and regenerate a repo's committed md ↔ html doc mirrors with the
-  pandi-docs mirror engine (sync-doc-mirrors.mjs --check / sync). Use after
-  editing any mirrored markdown doc, when asked whether the doc mirrors are in
-  sync, or to set up manifest-driven mirrors (mirrors.json) in a new repo.
-  Invoked with /sync-doc-mirrors.
+  Verifica y regenera los mirrors committeados md ↔ html de un repo con el
+  motor de mirrors de pandi-docs (`sync-doc-mirrors.mjs --check / sync`).
+  Usar después de editar cualquier doc markdown espejado, cuando te pregunten
+  si los mirrors de docs están en sync, o para configurar mirrors guiados por
+  manifest (`mirrors.json`) en un repo nuevo. Se invoca con
+  `/sync-doc-mirrors`.
 ---
 
 # sync-doc-mirrors
 
-Keep a repo's markdown docs and their committed, styled HTML mirrors in sync.
-The mechanism is `scripts/sync-doc-mirrors.mjs` in the `pandi-docs` extension:
-each mirror pair is an entry `{source, out?, kicker?, tokens?, css?, artifact?}`,
-declared in a committed `mirrors.json` plus an optional gitignored
-`mirrors.local.json` sibling (per-developer docs). Rendering uses the pandi
-converter; a repo with its own look points `css` (full stylesheet) or `tokens`
-(palette only) at its own file.
+Mantené en sync los docs markdown de un repo y sus mirrors HTML estilizados y
+committeados. El mecanismo es `scripts/sync-doc-mirrors.mjs` dentro de la
+extensión `pandi-docs`: cada par de mirror es una entrada
+`{source, out?, kicker?, tokens?, css?, artifact?}`, declarada en un
+`mirrors.json` committeado y, opcionalmente, en un `mirrors.local.json`
+hermano gitignored para docs por desarrollador. El render usa el convertidor
+Pandi; si el repo tiene su propia estética, apuntá `css` (stylesheet completa)
+o `tokens` (solo paleta) a un archivo propio.
 
-## Locate the engine
+## Ubicá el motor
 
-- **In pandi-extensions itself:** don't call the engine directly for `docs/html/`
-  — use the policy wrapper: `npm run sync:docs:html` / `npm run sync:docs:html:check`.
-- **In a consuming repo:** the engine ships with the installed package
+- **En `pandi-extensions`:** no llames el motor directo para `docs/html/`.
+  Usá el wrapper de política: `npm run sync:docs:html` o
+  `npm run sync:docs:html:check`.
+- **En un repo consumidor:** el motor viene con el paquete instalado
   (`node_modules/@pandi-coding-agent/pandi-docs/scripts/sync-doc-mirrors.mjs`)
-  or a checkout of this repo (`extensions/pandi-docs/scripts/sync-doc-mirrors.mjs`).
-  Prefer wiring it as an npm script (`docs:sync` / `docs:check`) so CI and
-  pre-commit call the same entry point.
+  o con un checkout de este repo
+  (`extensions/pandi-docs/scripts/sync-doc-mirrors.mjs`). Mejor cablearlo como
+  script de npm (`docs:sync` / `docs:check`) para que CI y pre-commit llamen
+  el mismo entry point.
 
-## Steps
+## Pasos
 
-1. From the repo root, check for drift:
+1. Desde la raíz del repo, verificá drift:
 
    ```bash
    node <engine>/sync-doc-mirrors.mjs --config path/to/mirrors.json --check
    ```
 
-   - Exit 0 (`mirrors en sync`) → report that and stop.
-   - Exit 1 → it lists each stale mirror (or a bad-href source error); continue.
-2. If it reported `.html` links whose `.md` twin is in the set, fix the source
-   markdown first — in-set docs link to `.md`; the mirror owns the `.md → .html`
-   rewrite.
-3. Regenerate (writes only the mirrors whose content actually changed):
+   - Exit 0 (`mirrors en sync`) → reportalo y frená.
+   - Exit 1 → lista cada mirror desactualizado (o un source error por
+     `bad-href`); seguí.
+2. Si reportó links `.html` cuyo gemelo `.md` está dentro del set, corregí
+   primero el markdown fuente. Los docs dentro del set enlazan a `.md`; el
+   mirror se encarga de reescribir `.md → .html`.
+3. Regenerá. Escribe solo los mirrors cuyo contenido cambió de verdad:
 
    ```bash
    node <engine>/sync-doc-mirrors.mjs --config path/to/mirrors.json
    ```
 
-4. Commit each `.md` and its regenerated `.html` **in the same commit** as the
-   edit that caused the drift. `mirrors.local.json` pairs are gitignored —
-   nothing to commit for those.
-5. `↳ redeploy artifact <url>` lines appear only under mirrors that really
-   changed and have an `artifact` entry. For each one, redeploy the regenerated
-   HTML to that same url (keeping the manifest's `favicon`) so all three layers
-   (md → html → artifact) stay aligned.
+4. Committeá cada `.md` y su `.html` regenerado **en el mismo commit** que la
+   edición que causó el drift. Los pares de `mirrors.local.json` son
+   gitignored: no hay nada para commitear ahí.
+5. Las líneas `↳ redeploy artifact <url>` aparecen solo bajo mirrors que
+   realmente cambiaron y tienen una entrada `artifact`. Para cada una,
+   redeployá el HTML regenerado a esa misma url, conservando el `favicon` del
+   manifest, para que las tres capas (`md → html → artifact`) sigan alineadas.
 
-## New pair / new repo
+## Par nuevo / repo nuevo
 
-- Add an entry to `mirrors.json`: `source` (repo-relative `.md`) is enough;
-  `out` defaults to the sibling `.html`. Add `kicker` for the header label,
-  `artifact {url, favicon}` if the page is published as a Claude artifact,
-  and `tokens` or `css` if the doc needs a non-pandi look.
-- Gate it: add the `--check` invocation to the repo's test script, CI, or
-  pre-commit hook so drift fails fast.
+- Agregá una entrada a `mirrors.json`: `source` (un `.md` relativo al repo)
+  alcanza; `out` por default apunta al `.html` hermano. Sumá `kicker` para la
+  etiqueta del header, `artifact {url, favicon}` si la página se publica como
+  Claude artifact, y `tokens` o `css` si el doc necesita una estética no-Pandi.
+- Gatealo: agregá la invocación con `--check` al script de tests del repo, a
+  CI o al hook de pre-commit para que el drift falle rápido.
 
-## Notes
+## Notas
 
-- `skip:` lines mean the source md is missing on this branch — fine, not an error.
-- Never hand-edit a generated `.html`; fix the markdown and re-sync.
-- One-off conversions (no manifest) use `/docs <file.md>` or the
-  `markdown_to_html` tool instead.
+- Las líneas `skip:` significan que el source md no existe en esta branch: está
+  bien, no es un error.
+- Nunca edites a mano un `.html` generado; corregí el markdown y resincronizá.
+- Para conversiones one-off (sin manifest), usá `/docs <file.md>` o el tool
+  `markdown_to_html`.

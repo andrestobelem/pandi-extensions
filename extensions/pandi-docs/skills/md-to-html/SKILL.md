@@ -1,53 +1,68 @@
 ---
 name: md-to-html
 description: >-
-  Convert one markdown doc into a self-contained, pandi-styled HTML page with
-  the pandi-docs converter. Use when asked to create an HTML version/mirror of
-  a markdown doc, hand someone a report as a single .html, or style a doc with
-  a project's own palette or stylesheet. Invoked with /md-to-html
-  <path/to/doc.md>.
+  Convierte un documento Markdown en una página HTML autocontenida, con estilo
+  Pandi, usando el convertidor de `pandi-docs`. Usar cuando te pidan crear una
+  versión o mirror HTML de un documento Markdown, entregar un informe como un
+  único archivo `.html`, o aplicar a un doc la paleta o la hoja de estilos
+  propia de un proyecto. Se invoca con /md-to-html <path/to/doc.md>.
 ---
 
 # md-to-html
 
-Convert one markdown doc into a self-contained, styled HTML page — one file,
-no build step, light + dark baked in.
+Convierte un documento Markdown en una página HTML autocontenida y estilada:
+un solo archivo, sin paso de compilación, con variantes clara y oscura incluidas.
 
-## Pick the surface
+## En 30 segundos
 
-- **Inside a pi session:** use the `/docs` command or the `markdown_to_html`
-  tool from the `pandi-docs` extension — same converter with path resolution
-  and feedback on top. Prefer these when available.
-- **Anywhere else (Claude Code, CI, plain shell):** run the CLI. The converter
-  ships with the installed package
+Usá este skill cuando necesites entregar un `.md` como `.html` listo para
+compartir. Si ya estás dentro de pi, preferí `/docs` o el tool
+`markdown_to_html`; fuera de pi, corré el CLI del convertidor.
+
+```bash
+node <converter>/markdown-to-html.mjs <path/to/doc.md> --kicker "Proyecto · Área"
+```
+
+El archivo de salida queda junto al origen, salvo que pases `-o`.
+
+## Dónde correrlo
+
+- **Dentro de una sesión de pi:** usá el comando `/docs` o el tool
+  `markdown_to_html` de la extensión `pandi-docs`. Ambos usan el mismo
+  convertidor, con resolución de paths y feedback por encima. Preferilos si
+  están disponibles.
+- **En cualquier otro lado (`Claude Code`, CI, shell común):** corré el CLI.
+  El convertidor viene con el paquete instalado
   (`node_modules/@pandi-coding-agent/pandi-docs/scripts/markdown-to-html.mjs`)
-  or a checkout of pandi-extensions
+  o con un checkout de pandi-extensions
   (`extensions/pandi-docs/scripts/markdown-to-html.mjs`).
 
-## Steps
+## Pasos
 
-1. Generate (output lands next to the source unless `-o` is given):
+1. **Generar el HTML.**
 
    ```bash
    node <converter>/markdown-to-html.mjs <path/to/doc.md> --kicker "Proyecto · Área"
    ```
 
-   Pick the kicker from the doc's area (`Policy`, `Research`, `Informe`,
-   `Docs`); default is `Pandi artifact`.
-2. Styling beyond the default pandi look:
-   - `--tokens palette.css` — swap only the color palette (custom properties),
-     keeping the pandi layout.
-   - `--css style.css` — replace the entire stylesheet with the project's own
-     (wins over `--tokens`).
-3. Open or read the output to sanity-check: masthead title from the first
-   `# h1`, kicker, TOC (appears at 4+ `##` sections), labeled callouts from
-   `[!NOTE]`-style markers, highlighted code fences, mermaid diagrams.
-4. If the doc should stay permanently mirrored, add it to the repo's
-   `mirrors.json` and hand off to `/sync-doc-mirrors` — that flow owns
-   check/sync, redeploy reminders, and orphan pruning.
+   Elegí el `--kicker` según el área del doc (`Policy`, `Research`, `Informe`,
+   `Docs`); el valor por defecto es `Pandi artifact`.
+2. **Ajustar el estilo si hace falta.**
+   - `--tokens palette.css` — cambia solo la paleta de colores (custom
+     properties) y conserva el layout Pandi.
+   - `--css style.css` — reemplaza toda la hoja de estilos por la propia del
+     proyecto; tiene prioridad sobre `--tokens`.
+3. **Revisar el resultado.** Abrí o leé la salida y verificá: título del
+   masthead tomado del primer `# h1`, kicker, TOC (aparece con 4 o más
+   secciones `##`), callouts etiquetados desde marcadores tipo `[!NOTE]`,
+   bloques de código con resaltado y diagramas mermaid.
+4. **Si el mirror debe quedar permanente,** agregá el doc a `mirrors.json` y
+   derivá a `/sync-doc-mirrors`. Ese flujo se ocupa de `check`/`sync`, los
+   recordatorios de redeploy y la poda de huérfanos.
 
-## Notes
+## Notas
 
-- The markdown is the source of truth — never edit the generated `.html` by hand.
-- The full look-and-feel contract (tokens, layout, callouts, mermaid theming)
-  lives in the `pandi-artifact-style` skill.
+- El Markdown es la fuente de verdad: nunca edites a mano el `.html`
+  generado.
+- El contrato completo de apariencia visual (tokens, layout, callouts y
+  tematización de mermaid) vive en el skill `pandi-artifact-style`.
