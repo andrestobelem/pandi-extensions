@@ -1,11 +1,12 @@
 /**
- * Characterization tests for the `/plan` approval handshake helpers.
+ * Tests de caracterización para los helpers del handshake de aprobación de `/plan`.
  *
- * The overlay component has its own integration suite. This pins the higher-level
- * handshake contract: prefer custom overlay, fall back to confirm, and reject stale
- * approval decisions for old submissions.
+ * El componente de overlay ya tiene su propia suite de integración. Acá se pinnea
+ * el contrato de más alto nivel del handshake: preferir el overlay custom, caer a
+ * `confirm` como fallback y rechazar decisiones de aprobación viejas para envíos
+ * anteriores.
  *
- * Run it:    node extensions/pandi-plan/tests/integration/approval-handshake-coverage.test.mjs
+ * Ejecutar:    node extensions/pandi-plan/tests/integration/approval-handshake-coverage.test.mjs
  */
 
 import * as fs from "node:fs/promises";
