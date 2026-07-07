@@ -1,35 +1,38 @@
 # args
 
-`args` is how a run's caller hands parameters — the request text, target
-paths, model/effort budgets — down into the script. Reach for it any time your
-script needs to know what it was asked to do, instead of hardcoding it.
+`args` es la forma en que quien lanza una corrida le pasa parámetros al script:
+el texto del pedido, los paths objetivo o los budgets de `model`/`effort`.
+Usalo cuando tu script necesite saber qué se le pidió, en vez de hardcodearlo.
 
 ```js
 const input = typeof args === "string" ? JSON.parse(args) : (args ?? {});
 console.log(input.request);
 ```
 
-**Runtime:** shared (pi + Claude Code)
+**Runtime:** compartido (pi + Claude Code)
 
-**Signature:** `args` (value) — the workflow input
+**Signature:** `args` (value) — el input del workflow
 
-The input passed to the workflow (`dynamic_workflow` `input`, or `Workflow`
-`args` on Claude). A top-level script reads it as the `args` global; an
-`export default async function main(ctx, input)` also receives it as `input`.
+Es el input que se le pasa al workflow (`dynamic_workflow` `input`, o
+`Workflow` `args` en Claude). Un script de nivel superior lo lee como la global
+`args`; `export default async function main(ctx, input)` también lo recibe como
+`input`.
 
-**Returns:** the input value (object, or a JSON string on Claude).
+**Returns:** el valor de input (un objeto, o un JSON string en Claude).
 
-## When to use / not
+## Cuándo usarlo / cuándo no
 
-- **Use** to read the task/config the run was launched with (request, target
-  paths, `model`/`effort` budgets, per-role maps).
-- **Not** as mutable state — treat it as the run's read-only parameters.
+- **Usalo** para leer la tarea o configuración con la que se lanzó la corrida
+  (`request`, rutas objetivo, budgets de `model`/`effort`, mapas por rol).
+- **No lo uses** como estado mutable: tratá `args` como los parámetros de solo
+  lectura de la corrida.
 
-## Gotchas
+## Cosas a tener en cuenta
 
-- **Parse defensively:** on Claude `args` may arrive **JSON-stringified** — guard
-  with `typeof args === "string" ? JSON.parse(args) : args`.
-- Per-node budgets (`model`, `models`, `efforts`) are conventionally passed inside
+- **Parseá defensivamente:** en Claude, `args` puede llegar
+  **JSON-stringified**. Protegelo con
+  `typeof args === "string" ? JSON.parse(args) : args`.
+- Los budgets por nodo (`model`, `models`, `efforts`) suelen pasarse dentro de
   `args`.
 
 ## Example

@@ -1,9 +1,11 @@
 # pipeline
 
-`pipeline` runs each item through the **same sequence of dependent steps**,
-one item at a time through its own chain — no merging across items. Reach
-for it whenever a task looks like "for each item: step 1, then step 2, then
-step 3" (e.g. classify → deep-review → summarize).
+**Runtime:** shared (pi + Claude Code)
+
+`pipeline` hace pasar cada item por la **misma secuencia de etapas
+dependientes**, una cadena propia por item, sin merge entre items. Usalo
+cuando la tarea se vea como «para cada item: paso 1, después paso 2,
+después paso 3» (por ejemplo, classify → deep-review → summarize).
 
 ```js
 const summaries = await pipeline(
@@ -14,40 +16,46 @@ const summaries = await pipeline(
 log(`reviewed ${summaries.filter(Boolean).length}/${files.length}`);
 ```
 
-**Runtime:** shared (pi + Claude Code)
+## Firma
 
-**Signature:** `pipeline(items, ...stages, [options]) → Promise<(result | null)[]>`
+`pipeline(items, ...stages, [options]) → Promise<(result | null)[]>`
 
-Each stage is called as `stage(value, originalItem, index)`: `value` is the
-previous stage's output for that item (the raw item on the first stage),
-`originalItem`/`index` are always the untouched original item and its
-position — handy for ids in prompts even deep in the chain. Items run
-concurrently up to the workflow's `concurrency` limit; pass `{ inFlight: n }`
-as a trailing options object to cap it lower for this call. Max 4096 items
-per call (chunk larger work-lists yourself).
+Cada etapa se llama como `stage(value, originalItem, index)`:
 
-**Returns:** an array aligned to `items`; each entry is the last stage's
-output for that item, or `null` if any stage threw for it — failed items
-never sink the batch.
+- `value`: salida de la etapa anterior para ese item; en la primera etapa es
+  el item crudo.
+- `originalItem` / `index`: siempre son el item original intacto y su
+  posición. Sirven para ids estables en prompts incluso al fondo de la
+  cadena.
 
-## When to use / not
+Los items corren en paralelo hasta el límite `concurrency` del workflow. Para
+bajarlo solo en esta llamada, pasá `{ inFlight: n }` como objeto de options al
+final. Máximo 4096 items por llamada; si tenés una work-list más grande,
+partila vos.
 
-| Situation | Use |
+**Devuelve:** un array alineado con `items`. Cada entrada es la salida de la
+última etapa para ese item, o `null` si alguna etapa lanzó para ese item; un
+item fallido nunca hunde el lote.
+
+## Cuándo usarlo
+
+| Situación | Primitiva |
 | --- | --- |
-| Same N dependent steps per item, items independent | `pipeline` (default for multi-stage per-item work) |
-| One step per item | `agents` |
-| A later step needs ALL items at once (e.g. rank/dedupe together) | `parallel` |
-| N alternative approaches to the same item, keep the first good one | `race` |
+| Mismas N etapas dependientes por item, con items independientes | `pipeline` (predeterminada para trabajo multi-stage por item) |
+| Un solo paso por item | `agents` |
+| Un paso posterior necesita TODOS los items juntos (por ejemplo, rank o dedupe global) | `parallel` |
+| N enfoques alternativos para el mismo item y querés quedarte con el primero que salga bien | `race` |
 
-## Gotchas
+## Cosas a tener en cuenta
 
-- Put a **stable item id/index** into prompts generated inside stages — use
-  the `originalItem`/`index` stage args, not just the running `value` (cache
-  + resume correctness).
-- Failed items are `null`, not thrown — `filter(Boolean)` and `log()` the
-  count before any final merge, or a silent drop looks like success.
-- `{ inFlight }` only lowers concurrency for this call; it can never exceed
-  the workflow's own `limits.concurrency`.
+- Meté un **id/index estable del item** en los prompts generados dentro de las
+  etapas: usá `originalItem` / `index`, no solo el `value` que va corriendo
+  por la cadena (corrección de caché + reanudación).
+- Los items fallidos vuelven como `null`, no se lanzan. Hacé
+  `filter(Boolean)` y `log()` del conteo antes de cualquier combinación final, o una
+  caída silenciosa puede parecer éxito.
+- `{ inFlight }` solo baja la concurrencia de esta llamada; nunca puede pasar
+  el `limits.concurrency` del workflow.
 
 ## Example
 

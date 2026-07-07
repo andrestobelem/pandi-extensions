@@ -1,9 +1,6 @@
 # bash
 
-`bash()` runs a shell command in the run's `cwd` and returns its captured
-output. Reach for it whenever a workflow step is a cheap, deterministic
-probe or command — listing files, running a build/test, calling `git` — not
-an LLM call (that's `agent()`).
+`bash()` ejecuta un comando de shell en el `cwd` del run y devuelve su salida capturada. Usalo cuando un paso del workflow necesite una sonda o comando barato y determinista — listar archivos, correr un build/test, invocar `git` — y no una llamada a un LLM (para eso está `agent()`).
 
 ```js
 const { stdout } = await bash("git ls-files '*.ts'", { cache: true });
@@ -13,37 +10,30 @@ log(`work-list: ${files.length} files`);
 
 **Runtime:** pi runtime
 
-**Signature:** `bash(command, options?) → Promise<BashResult>`
+**Firma:** `bash(command, options?) → Promise<BashResult>`
 
-**Options:** `{ cwd?, timeoutMs?, throwOnError?, cache? }` — all optional.
-`cwd` defaults to the run's cwd, `timeoutMs` defaults to the run's agent
-timeout, `throwOnError` throws instead of returning a failed result.
+## Referencia rápida
 
-**Returns:** a `BashResult`:
+**Opciones:** `{ cwd?, timeoutMs?, throwOnError?, cache? }` — todas opcionales.
+`cwd` por defecto es el `cwd` del run, `timeoutMs` por defecto usa el timeout del agent del run, y `throwOnError` hace throw en vez de devolver un resultado fallido.
+
+**Devuelve:** un `BashResult`:
 
 ```ts
 { ok: boolean, code: number, killed: boolean, elapsedMs: number, stdout: string, stderr: string }
 ```
 
-## When to use / not
+## Cuándo usarlo
 
-- **Use** for deterministic, cheap probes and side-effect-light commands
-  (`git ls-files`, `rg`, build/test invocations) that feed the workflow.
-- **Not** for anything you want cached-by-default (it isn't — see Gotchas)
-  or for untrusted/destructive commands without care.
+- **Sí** para sondas deterministas, baratas y con pocos efectos colaterales (`git ls-files`, `rg`, invocaciones de build/test) que alimentan el workflow.
+- **No** para algo que quieras con cache por defecto (no lo tiene; ver Cosas a tener en cuenta) ni para comandos no confiables o destructivos sin cuidado.
 
-## Gotchas
+## Advertencias
 
-- **Caching is opt-in.** Unlike `agent()`, which caches by default, `bash()`
-  only caches when you pass `{ cache: true }`. Without it, the command
-  re-runs in full on every resume.
-- A command whose arguments depend on `Date.now()` or `Math.random()` won't
-  produce a stable cache key and will re-run on resume even with `cache: true`.
-- Runs a real shell (`bash -lc command`); treat its stdout/stderr as
-  **untrusted** data before feeding it back into prompts or decisions.
-- `throwOnError: true` throws `Error("Command failed (<code>): <command>")`
-  with stderr/stdout appended — use it when a failure should abort the step
-  rather than be handled inline.
+- **El cache es opt-in.** A diferencia de `agent()`, que cachea por defecto, `bash()` solo cachea cuando pasás `{ cache: true }`. Sin eso, el comando se vuelve a ejecutar completo en cada resume.
+- Un comando cuyos argumentos dependan de `Date.now()` o `Math.random()` no va a producir una cache key estable y se volverá a ejecutar en cada resume incluso con `cache: true`.
+- Corre un shell real (`bash -lc command`); tratá su stdout/stderr como datos **untrusted** antes de reutilizarlos en prompts o decisiones.
+- `throwOnError: true` lanza `Error("Command failed (<code>): <command>")` con stderr/stdout anexados. Usalo cuando un fallo deba abortar el paso en vez de manejarse inline.
 
 ## Example
 

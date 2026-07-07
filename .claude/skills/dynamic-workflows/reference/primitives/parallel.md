@@ -1,9 +1,9 @@
 # parallel
 
-`parallel()` fans out a **fixed, small list of branches** and waits for **all**
-of them before a later step runs — a barrier. Reach for it when a step
-genuinely needs every branch's result together (merge, dedup, rank), not just
-"run these at once."
+`parallel()` abre en paralelo una **lista fija y chica de ramas** y espera a
+**todas** antes de correr el paso siguiente: actúa como una barrera. Usalo
+cuando un paso realmente necesita todos los resultados juntos (merge, dedup,
+rank), no solo para “correr varias cosas a la vez”.
 
 ```js
 const [byGrep, bySemantic, byTests] = await parallel([
@@ -14,39 +14,41 @@ const [byGrep, bySemantic, byTests] = await parallel([
 const merged = dedupe([byGrep, bySemantic, byTests].filter(Boolean));
 ```
 
-**Runtime:** shared (pi + Claude Code)
+**Runtime:** compartido (pi + Claude Code)
 
 **Signature:** `parallel(thunks) → Promise<results[]>`
 
-- `thunks`: array of zero-arg functions, each returning a promise (typically
-  wrapping one or more `agent()` calls).
-- Concurrency is capped at `limits.concurrency` automatically — no options
-  argument to set it.
+- `thunks`: arreglo de funciones sin argumentos; cada una devuelve una promise
+  y normalmente envuelve una o más llamadas a `agent()`.
+- La concurrencia se limita sola a `limits.concurrency`: no hay un argumento
+  de opciones para configurarla.
 
-## Returns
+## Devuelve
 
-An array of branch results, aligned to `thunks`. A branch that throws settles
-to `null` instead of rejecting the whole batch, so one failure never sinks
-the others.
+Un arreglo de resultados alineado con `thunks`. Si una rama lanza una
+excepción, se resuelve como `null` en vez de rechazar el lote completo; así,
+una falla no hunde a las demás.
 
-## When to use / not
+## Cuándo usarlo y cuándo no
 
-| Situation | Primitive |
+| Situación | Primitive |
 | --- | --- |
-| A later step needs ALL branch results at once (merge, dedup, rank, early-exit on combined total) | `parallel` |
-| Same one step over a list of independent items | `agents` |
-| 2+ dependent stages per item, no cross-branch merge | `pipeline` |
+| Un paso posterior necesita TODOS los resultados de las ramas a la vez (merge, dedup, rank, early-exit sobre el total combinado) | `parallel` |
+| El mismo paso sobre una lista de ítems independientes | `agents` |
+| 2+ etapas dependientes por ítem, sin merge entre ramas | `pipeline` |
 
-Smell test: `parallel → transform-with-no-cross-item-dependency → parallel`
-should be ONE `pipeline`. `map`/`filter`/formatting alone never justify a
-barrier.
+Prueba de olor: `parallel → transform-with-no-cross-item-dependency → parallel`
+debería ser UN solo `pipeline`. `map`/`filter`/formateo, por sí solos, nunca
+justifican una barrera.
 
-## Gotchas
+## Cosas a tener en cuenta
 
-- Filter nulls before merging and `log()` how many branches failed.
-- Prefer `pipeline` unless a later step genuinely needs ALL results together.
-- `thunks` is a fixed list of branches, not a per-item map — for N items use
-  `agents` instead.
+- Filtrá los `null` antes de hacer merge y registrá con `log()` cuántas ramas
+  fallaron.
+- Preferí `pipeline` salvo que un paso posterior realmente necesite TODOS los
+  resultados juntos.
+- `thunks` es una lista fija de ramas, no un map por ítem: para N ítems, usá
+  `agents`.
 
 ## Example
 

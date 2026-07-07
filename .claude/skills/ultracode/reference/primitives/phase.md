@@ -1,9 +1,11 @@
 # phase
 
-`phase(label)` is a sticky label for "what stage is this run in right now" —
-purely for humans watching the dashboard/logs, not for the workflow's own
-logic. Reach for it whenever a run has more than one visible stage and you
-want the log/dashboard to read as a story instead of a flat list of calls.
+`phase(label)` agrega una etiqueta persistente para indicar en qué etapa está
+la corrida en este momento. Es solo para personas que miran el
+dashboard/logs: no influye en la lógica del workflow.
+
+Usalo cuando una corrida tenga más de una etapa visible y quieras que el
+log/dashboard se lea como una historia, no como una lista plana de llamadas.
 
 ```js
 phase("scout");
@@ -14,33 +16,33 @@ phase("synthesize");
 return await agent(`Synthesize:\n${compact(findings)}`, { effort: "high" });
 ```
 
-**Runtime:** shared (pi + Claude Code)
+**Runtime:** compartido (pi + Claude Code)
 
 **Signature:** `phase(label) → void`
 
-Writes `phase: <label>` to the log and groups subsequent activity under that
-label in the dashboard/live view, until the next `phase()` call. `phase(null)`
-clears the current label (and logs nothing).
+Escribe `phase: <label>` en el log y agrupa la actividad siguiente bajo esa
+etiqueta en el dashboard/live view hasta la próxima llamada a `phase()`. Si
+usás `phase(null)`, limpia la etiqueta actual y no escribe nada en el log.
 
-**Returns:** nothing.
+**Returns:** nada.
 
-## When to use / not
+## Cuándo usarlo y cuándo no
 
-| Situation | Use `phase()`? |
+| Situación | ¿Usar `phase()`? |
 | --- | --- |
-| Multi-stage run (scout → fan-out → synthesize) | Yes — labels the story for readers |
-| One-shot single `agent()` call | No — nothing to label |
-| Need to branch behavior on the current stage | No — it's observability-only, not state to read back |
-| Gating/waiting for a stage to finish | No — use `await`/`pipeline()`, `phase()` changes no behavior |
+| Corrida con varias etapas (scout → fan-out → synthesize) | Sí — etiqueta la historia para quien lee |
+| Una sola llamada a `agent()` | No — no hay nada para etiquetar |
+| Necesitás ramificar el comportamiento según la etapa actual | No — es solo observabilidad; no es estado para leer de vuelta |
+| Necesitás gatear o esperar a que una etapa termine | No — usá `await`/`pipeline()`; `phase()` no cambia el comportamiento |
 
-## Gotchas
+## Cosas a tener en cuenta
 
-- Cosmetic only: it never gates, awaits, or blocks anything — a workflow with
-  zero `phase()` calls behaves identically, just with a flatter log.
-- Labels show up verbatim in the log/dashboard; keep them short, stable,
-  human-readable strings ("fan-out", not a changing progress percentage).
-- `phase(null)` clears the label without emitting a log line — use it between
-  unrelated stages if you don't want a trailing label to linger.
+- Es solo cosmético: nunca gatea, espera ni bloquea nada. Un workflow con
+  cero llamadas a `phase()` se comporta igual, solo con un log más plano.
+- Las etiquetas aparecen verbatim en el log/dashboard; mantenelas cortas,
+  estables y legibles para humanos (`"fan-out"`, no un porcentaje cambiante).
+- `phase(null)` limpia la etiqueta sin emitir una línea de log. Usalo entre
+  etapas no relacionadas si no querés que quede colgando la etiqueta anterior.
 
 ## Example
 

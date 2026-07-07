@@ -1,10 +1,6 @@
 # limits
 
-`limits` is the run's effective caps (concurrency, budgets, timeouts),
-injected as a frozen, read-only global. It exists so a workflow can size its
-own fan-out to what the run actually allows instead of guessing or hardcoding
-numbers. Reach for it whenever you're about to spawn N subagents and need to
-know how many can run at once.
+`limits` expone los topes efectivos del run (`concurrency`, budgets, `timeouts`) como una global congelada y de solo lectura. Sirve para que un workflow ajuste su propio fan-out a lo que el run permite de verdad, en vez de adivinar o hardcodear números. Usalo cuando estés por lanzar N subagentes y necesites saber cuántos pueden correr a la vez.
 
 ```js
 const want = files.length;
@@ -17,31 +13,29 @@ const results = await agents(files, { concurrency: conc, settle: true });
 
 **Signature:** `limits` (frozen object) — `{ concurrency, maxAgents, timeoutMs, agentTimeoutMs, syncTimeoutMs }`
 
-- `concurrency`: max in-flight subagents.
-- `maxAgents`: total agent budget for the run.
-- `timeoutMs`: overall run timeout.
-- `agentTimeoutMs`: per-agent call timeout.
-- `syncTimeoutMs`: timeout for the synchronous top-level script execution.
+- `concurrency`: máximo de subagentes en vuelo.
+- `maxAgents`: budget total de agentes para el run.
+- `timeoutMs`: timeout total del run.
+- `agentTimeoutMs`: timeout por llamada de agente.
+- `syncTimeoutMs`: timeout de la ejecución sincrónica del script de nivel superior.
 
-## Returns
+## Devuelve
 
-An object of caps (see above), frozen — reassigning or mutating fields is a
-no-op or throws under strict mode.
+Devuelve un objeto de topes (ver arriba), congelado: reasignar campos o mutarlos no hace nada o lanza bajo strict mode.
 
-## When to use / not
+## Cuándo usarlo y cuándo no
 
-| Situation | Do this |
+| Situación | Hacé esto |
 | --- | --- |
-| Sizing fan-out to the run's budget | `Math.min(desired, limits.concurrency)` |
-| Deciding how many branches to spawn | Check against `limits.maxAgents` |
-| Calling `agents()`/`parallel()`/`pipeline()` | No manual clamp needed — they already clamp `concurrency` to `limits.concurrency` |
-| Trying to raise the cap at runtime | Don't — `limits` is frozen; caps come from the tool call that started the run |
+| Ajustar fan-out al budget del run | `Math.min(desired, limits.concurrency)` |
+| Decidir cuántas ramas lanzar | Verificá `limits.maxAgents` |
+| Llamar `agents()`/`parallel()`/`pipeline()` | No hace falta clamp manual: ya ajustan `concurrency` a `limits.concurrency` |
+| Intentar subir el tope en runtime | No: `limits` está congelado; los topes vienen del tool call que inició el run |
 
-## Gotchas
+## Cosas a tener en cuenta
 
-- Read-only (frozen): clamping *total agent count* against `maxAgents` is
-  still your job — nothing enforces it automatically.
-- **Log any clamp** you apply so the cap is inspectable in run artifacts.
+- Aunque sea read-only (`frozen`), ajustar el *total agent count* contra `maxAgents` sigue siendo tu responsabilidad: nada lo aplica automáticamente.
+- **Logueá cualquier clamp** que apliques para que el tope quede inspeccionable en los run artifacts.
 
 ## Example
 

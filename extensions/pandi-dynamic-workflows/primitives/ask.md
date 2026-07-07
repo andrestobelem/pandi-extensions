@@ -1,51 +1,52 @@
 # ask
 
-Pauses a branch to get a decision from a human, mid-run. Reach for it when
-the workflow itself cannot safely decide — a risky action needs sign-off, or
-a choice depends on judgment the model doesn't have.
+Pausa una rama para pedirle una decisión a una persona en medio de la corrida.
+Usalo cuando el workflow no puede decidir con seguridad por sí solo: hace
+falta aprobación para una acción riesgosa, o la elección depende de un juicio
+que el modelo no tiene.
 
 ```js
 const proceed = await ask("Apply the migration to all 200 files?", {
-  default: false, // headless fallback: no UI → answer "no"
+  default: false, // fallback headless: sin UI → responde "no"
 });
 if (!proceed) return { skipped: true };
 ```
 
-**Runtime:** pi runtime (not on the Claude Code Workflow tool)
+**Runtime:** pi runtime (no está disponible en la Claude Code Workflow tool)
 
-**Signature:** `ask(question, options?) → Promise<string | boolean>`
+**Firma:** `ask(question, options?) → Promise<string | boolean>`
 
-`options.kind` picks the dialog: `input` (free text, default), `confirm`
-(yes/no — inferred when `default` is boolean), or `select` (from
-`choices` — inferred when `choices` is set). Other options: `placeholder`,
-`default`, `timeoutMs`, `cache` (default `true`), `secret` (never
-persisted/replayed), and `signal` (so a `race()` loser's dialog is
-dismissed).
+`options.kind` elige el diálogo: `input` (texto libre, por defecto), `confirm`
+(sí/no — se infiere cuando `default` es boolean), o `select` (a partir de
+`choices` — se infiere cuando `choices` está definido). Otras opciones:
+`placeholder`, `default`, `timeoutMs`, `cache` (por defecto `true`), `secret`
+(nunca se persiste ni se reproduce) y `signal` (para descartar el diálogo de
+la rama perdedora de `race()`).
 
-**Returns:** a **string** for `input`/`select`, a **boolean** for `confirm`.
+**Devuelve:** un **string** para `input`/`select`, un **boolean** para `confirm`.
 
-## When to use / not
+## Cuándo usarlo y cuándo no
 
-| Situation | Use `ask()`? |
+| Situación | ¿Usar `ask()`? |
 | --- | --- |
-| A user-authored draft needs a human approval gate mid-run | Yes |
-| An autonomous catalog scaffold meant to run unattended | No — infer instead (see `contract-gate`) |
-| A cross-runtime scaffold (must also run on Claude Code Workflow) | No — pi-only primitive |
-| Loser dialog inside a `race()` | Yes, pass `{ signal }` to auto-dismiss |
+| Un draft redactado por la persona usuaria necesita una aprobación humana a mitad de la corrida | Sí |
+| Un scaffold autónomo de catálogo pensado para correr sin supervisión | No — inferilo en su lugar (ver `contract-gate`) |
+| Un scaffold cross-runtime (también debe correr en Claude Code Workflow) | No — es una primitiva solo de pi |
+| Un diálogo perdedor dentro de `race()` | Sí, pasá `{ signal }` para auto-descartarlo |
 
-## Gotchas
+## Puntos a tener en cuenta
 
-- **Resume-safe:** the answer is journaled by `(key, occ)` and replayed on
-  resume — never re-asked, unless `cache: false`.
-- **Headless-honest:** with `hasUI:false` it uses `options.default` or
-  throws a clear error — it never hangs. Unlike `agent()`, `ask()` does
-  **not** swallow errors: a host error rejects (surfaces as a thrown error).
-- **Ambiguous kind:** passing both `choices` and a boolean `default` throws —
-  set `options.kind` explicitly to disambiguate.
-- **`select` needs its default in `choices`**, and `choices` must be a
-  non-empty array.
-- `secret: true` skips the journal entirely — the answer is never written
-  to disk, and it will be re-asked on resume.
+- **Seguro al reanudar:** la respuesta se journaled por `(key, occ)` y se reproduce
+  en `resume`; no se vuelve a preguntar, salvo que `cache: false`.
+- **Honesto en modo headless:** con `hasUI:false` usa `options.default` o lanza un
+  error claro; nunca queda colgado. A diferencia de `agent()`, `ask()` **no**
+  traga errores: un error del host hace reject (aparece como un error lanzado).
+- **Tipo ambiguo:** si pasás `choices` y además un `default` boolean,
+  lanza error; definí `options.kind` explícitamente para desambiguar.
+- **`select` necesita que su `default` esté en `choices`** y `choices` debe ser un array
+  no vacío.
+- `secret: true` omite por completo el journal: la respuesta nunca se escribe
+  a disco y se volverá a pedir en `resume`.
 
 ## Example
 

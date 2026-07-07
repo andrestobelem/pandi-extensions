@@ -1,9 +1,9 @@
 # json
 
-`json` turns any value into a string you can safely paste into a prompt or
-write to an artifact — long objects get cut off instead of blowing your
-context budget. Reach for it whenever you're about to embed structured data
-(state, results, config) as text.
+`json` convierte cualquier valor en un string que podés pegar con seguridad en
+un prompt o escribir en un artifact. Si el objeto es largo, lo recorta en vez
+de gastar de más tu presupuesto de contexto. Usalo cuando vayas a incrustar
+como texto datos estructurados (`state`, resultados, config).
 
 ```js
 await writeArtifact("state.json", json(state));
@@ -13,30 +13,33 @@ await writeArtifact("state.json", json(state));
 
 **Signature:** `json(value, maxChars?) → string`
 
-## Concepts
+## Conceptos
 
-`json(value, maxChars)` serializes `value` with `JSON.stringify` (2-space
-indent, circular refs replaced with `"[Circular]"`) and truncates the result
-to `maxChars` characters, defaulting to 24000 (the runtime's max tool-text
-budget). Strings pass through unserialized. If the text exceeds the limit, it
-is cut and a trailing `...[truncated N chars]` marker is appended.
+`json(value, maxChars)` serializa `value` con `JSON.stringify` (indentación de
+2 espacios y referencias circulares reemplazadas por `"[Circular]"`) y luego
+trunca el resultado a `maxChars` caracteres. Por defecto usa 24000, que es el
+máximo presupuesto de texto de tools del runtime. Los strings pasan sin
+serializar. Si el texto supera el límite, se recorta y se agrega al final la
+marca `...[truncated N chars]`.
 
-**Returns:** a bounded string representation.
+**Devuelve:** una representación en string acotada.
 
-## When to use / not
+## Cuándo usarlo y cuándo no
 
-- **Use** to serialize structured data for a prompt or an artifact without
-  risking an unbounded dump.
-- **Not** when you need the raw, exact serialization of untruncated data — write
-  it to an artifact instead (see the example above, without wrapping in `json`).
+- **Usalo** para serializar datos estructurados hacia un prompt o un artifact
+  sin arriesgar un volcado sin límite.
+- **No lo uses** cuando necesites la serialización exacta, cruda y sin truncar:
+  en ese caso escribila en un artifact (como en el ejemplo de arriba, pero sin
+  envolverla con `json`).
 
-## Gotchas
+## Ojo con esto
 
-- The output is **truncated** — it is for display/prompt embedding, not for
-  round-tripping exact data.
-- Functionally the same bounded stringify as [`compact`](compact.md) (same
-  implementation, same 24000-char default); use `compact` in prompt-building
-  for intent clarity, `json` when the value is going into a `.json` artifact.
+- La salida queda **truncada**. Sirve para mostrar o incrustar en prompts, no
+  para reconstruir datos exactos.
+- A nivel funcional hace el mismo bounded stringify que
+  [`compact`](compact.md): misma implementación y mismo valor por defecto de 24000
+  caracteres. Usá `compact` al construir prompts por claridad de intención, y
+  `json` cuando el valor vaya a un artifact `.json`.
 
 ## Example
 

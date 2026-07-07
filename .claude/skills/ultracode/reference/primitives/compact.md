@@ -1,9 +1,9 @@
 # compact
 
-Turns any value (object, array, string) into a bounded string — stringify plus
-truncate, in one call. Use it whenever you build a synthesis/judge prompt from
-several branch results: it keeps the combined prompt under budget instead of
-blowing past the model's context.
+`compact()` convierte cualquier valor (objeto, array o string) en un string
+acotado: serializa y trunca en una sola llamada. Usalo cuando armes un prompt
+de síntesis o judge a partir de varios resultados de ramas: mantiene el prompt
+combinado dentro del presupuesto en vez de pasarse del contexto del modelo.
 
 ```js
 const findings = (await agents(files, { concurrency: 8, settle: true })).filter(Boolean);
@@ -13,31 +13,35 @@ return await agent(
 );
 ```
 
-**Runtime:** shared (pi + Claude Code)
+**Runtime:** compartido (pi + Claude Code)
 
-**Signature:** `compact(value, maxChars?) → string`
+**Firma:** `compact(value, maxChars?) → string`
 
-- `value` — string, object, or array; non-strings are `JSON.stringify`'d
-  (2-space indent, circular refs replaced with `"[Circular]"`).
-- `maxChars` — defaults to the runtime's max tool-text budget (24000).
+- `value` — string, objeto o array; lo que no sea string se serializa con
+  `JSON.stringify` (indentación de 2 espacios, refs circulares reemplazadas por
+  `"[Circular]"`).
+- `maxChars` — por defecto usa el presupuesto máximo de texto de herramientas del
+  runtime (24000).
 
-**Returns:** the value as a string, truncated to `maxChars` with a
-`...[truncated N chars]` suffix when it overflows.
+## Qué devuelve
 
-## When to use / not
+Devuelve el valor como string, truncado a `maxChars` con el sufijo
+`...[truncated N chars]` cuando se pasa.
 
-- **Use** when packing many branch results into a judge/synthesis prompt — cap
-  the size so lost-in-the-middle and context blow-ups are avoided.
-- **Not** for exact data round-trips (it truncates) — persist those with
-  [`writeArtifact`](writeArtifact.md).
+## Cuándo usarlo
 
-## Gotchas
+| Situación | Usá |
+| --- | --- |
+| Empaquetar muchos resultados de ramas en un prompt de judge/síntesis | `compact()`: limita el tamaño y evita lost-in-the-middle o desbordes de contexto |
+| Conservar datos exactos para round-trip | [`writeArtifact`](writeArtifact.md): `compact()` trunca |
 
-- Truncation cuts the **tail**, so pair it with an evidence contract that puts
-  the most-important-first — otherwise the cut part may be the critical one.
-- On Claude Code, `compact()` ships beside the `fence(kind, data)` helper in
-  every scaffold — `fence` wraps untrusted data for the prompt, `compact` caps
-  its size; they're typically used together.
+## Ojo
+
+- El truncado corta la **cola**. Combinalo con un contrato de evidencia que
+  ponga lo más importante primero; si no, la parte cortada puede ser la clave.
+- En Claude Code, `compact()` viene junto al ayudante `fence(kind, data)` en cada
+  plantilla: `fence` envuelve datos no confiables para el prompt y `compact`
+  limita su tamaño; suelen usarse juntos.
 
 ## Example
 

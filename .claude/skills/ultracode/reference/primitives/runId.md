@@ -1,32 +1,33 @@
 # runId
 
-`runId` is the unique id of the current workflow run, injected as a
-read-only global string. Use it to tag logs, artifacts, or messages so a
-human (or another tool) can find this exact run later — for example in
-`/workflow view <runId>` or `resume`.
+`runId` es el id único de la ejecución actual del workflow, inyectado como
+string global de solo lectura. Usalo para etiquetar logs, artifacts o mensajes
+para que una persona humana —u otra herramienta— pueda encontrar esta
+ejecución exacta más tarde, por ejemplo con `/workflow view <runId>` o
+`resume`.
 
 ```js
 log(`starting run ${runId}`);
 await writeArtifact("meta.json", { runId });
 ```
 
-**Runtime:** pi runtime (read-only run context)
+**Runtime:** runtime de pi (contexto de ejecución de solo lectura)
 
-**Signature:** `runId` (string) — this run's id
+**Firma:** `runId` (string) — id de esta ejecución
 
-**Returns:** the run id string.
+**Devuelve:** el string del id de ejecución.
 
-## When to use / not
+## Cuándo usarlo y cuándo no
 
-- **Use** to correlate logs/artifacts with the run, or to reference it in
-  messages (`/workflow view <runId>`, `resume`).
-- **Not** in prompts or cache keys as a varying token — it changes per run
-  and would bust the prompt cache.
+- **Usalo** para correlacionar logs o artifacts con la ejecución, o para
+  referenciarla en mensajes (`/workflow view <runId>`, `resume`).
+- **No lo uses** en prompts ni en cache keys como token variable: cambia en
+  cada ejecución y rompería el prompt cache.
 
-## Gotchas
+## Cosas a tener en cuenta
 
-- Read-only. Prefer artifacts under `runDir` over embedding `runId` into
-  content.
+- Es de solo lectura. Preferí artifacts bajo `runDir` antes que incrustar
+  `runId` en el contenido.
 
 ## Example
 

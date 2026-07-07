@@ -1,33 +1,35 @@
 # runDir
 
-A read-only global string holding the absolute path to the current run's
-directory — the folder where artifacts, events, and the journal for this
-workflow run live. Reach for it when you need to log or reason about *where*
-things landed, not to write files directly.
+`runDir` es un string global de solo lectura con la ruta absoluta del
+directorio de la corrida actual: la carpeta donde viven los artifacts, los
+eventos y el journal de esta corrida del workflow. Usalo cuando necesites registrar o
+razonar sobre *dónde* quedó algo, no para escribir archivos directo.
 
 ```js
 log(`artifacts for this run live in ${runDir}`);
 await writeArtifact("summary.md", summary); // resolved under runDir, emits an event
 ```
 
-**Runtime:** pi runtime (read-only run context)
+**Runtime:** pi runtime (contexto de corrida de solo lectura)
 
-**Signature:** `runDir` (string) — this run's directory
+**Signature:** `runDir` (string) — directorio de esta corrida
 
-**Returns:** the absolute run-directory path.
+**Returns:** la ruta absoluta del directorio de la corrida.
 
-## When to use / not
+## Cuándo usarlo y cuándo no
 
-- **Use** for awareness of where run-scoped output lands. Prefer the
-  [`writeArtifact`](writeArtifact.md)/[`appendArtifact`](appendArtifact.md)
-  helpers (they resolve names under `runDir` and emit events) over building paths
-  by hand.
-- **Not** for repo/workspace output — that belongs under [`cwd`](cwd.md).
+- **Usalo** para saber dónde cae la salida asociada a la corrida. Preferí
+  [`writeArtifact`](writeArtifact.md) y
+  [`appendArtifact`](appendArtifact.md) antes que armar rutas a mano: resuelven
+  nombres bajo `runDir` y emiten eventos.
+- **No lo uses** para salida del repo o workspace: eso va bajo
+  [`cwd`](cwd.md).
 
-## Gotchas
+## Cosas a tener en cuenta
 
-- Read-only. Files written straight to `runDir` (bypassing `writeArtifact`) won't
-  emit an `artifact` event, so they won't show in the dashboard.
+- Es de solo lectura. Si escribís archivos directo en `runDir` (salteando
+  `writeArtifact`), no emitirán un event `artifact`, así que no aparecerán en
+  el dashboard.
 
 ## Example
 

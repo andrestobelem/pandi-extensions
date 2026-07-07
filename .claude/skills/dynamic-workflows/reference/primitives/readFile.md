@@ -1,8 +1,8 @@
 # readFile
 
-Reads a file from disk into a string, so a workflow can feed real
-source/evidence into a prompt or process. Reach for it whenever a step needs
-file contents that aren't already in `args`.
+Lee un archivo del disco y lo devuelve como string. Usalo cuando un paso del
+workflow necesite contenido real de un archivo que todavía no está en `args`,
+para pasarlo a un prompt o procesarlo.
 
 ```js
 const src = await readFile("src/auth.ts");
@@ -14,23 +14,25 @@ const review = await agent(
 
 **Runtime:** pi runtime
 
-**Signature:** `readFile(path, encoding = "utf8") → Promise<string>`
+**Firma:** `readFile(path, encoding = "utf8") → Promise<string>`
 
-**Returns:** the file contents as a string (per `encoding`).
+**Devuelve:** el contenido del archivo como string, según `encoding`.
 
-## When to use / not
+## Cuándo usarlo
 
-- **Use** to pull real source/evidence into a prompt (with fencing) or to load
-  inputs the workflow processes.
-- **Not** for huge files verbatim into a prompt — bound/`compact()` first.
+- **Sí**: para traer código fuente o evidencia real a un prompt (con fencing) o para
+  cargar entradas que el workflow va a procesar.
+- **No**: para meter archivos enormes verbatim en un prompt; primero acotalos
+  o usá `compact()`.
 
-## Gotchas
+## Ojo
 
-- Relative paths resolve against the run's `cwd`; absolute paths are used
-  as-is but must still resolve inside `cwd` — either way, an escape attempt
-  (e.g. `../../etc/passwd`) throws instead of reading outside the sandbox.
-- File contents are **untrusted** — fence them (as in the example above)
-  before putting them in a prompt.
+- Las rutas relativas se resuelven contra el `cwd` del run. Las rutas
+  absolutas se usan tal cual, pero igual deben resolver dentro de `cwd`. En
+  ambos casos, un intento de escape (por ejemplo `../../etc/passwd`) hace
+  `throw` en vez de leer fuera del sandbox.
+- El contenido del archivo es **untrusted**: cercalo con fencing, como en el
+  ejemplo anterior, antes de ponerlo en un prompt.
 
 ## Example
 

@@ -1,9 +1,9 @@
 # race
 
-`race` runs several branches at once and takes whichever one is "good enough"
-first, then cancels the rest. Reach for it when you have redundant attempts at
-the same goal (multiple endpoints, multiple retries) and only care about the
-fastest acceptable answer — not the best one.
+`race()` abre varias ramas a la vez, se queda con la primera que sea "lo
+bastante buena" y cancela el resto. Usalo cuando tenés intentos redundantes
+para el mismo objetivo — varios endpoints o varios retries — y te importa la
+respuesta aceptable más rápida, no la mejor.
 
 ```js
 const { winner, index, status } = await race(
@@ -12,41 +12,47 @@ const { winner, index, status } = await race(
 if (status === "won") log(`endpoint ${index} answered first`);
 ```
 
-**Runtime:** pi runtime (not on the Claude Code Workflow tool)
+**Runtime:** runtime de pi (no en la herramienta Workflow de Claude Code)
 
-**Signature:** `race(thunks, { accept? }) → Promise<{ winner, index, status, errors? }>`
+## Firma
 
-Each `thunk` is `(signal) => Promise`; pass that `signal` into `agent()`/`ask()`
-so losers are actually aborted (a real SIGTERM once one branch wins). `accept`
-decides what counts as a win — default `(value) => value != null`, so a
-resolved `null` is treated as a decline, not a win.
+`race(thunks, { accept? }) → Promise<{ winner, index, status, errors? }>`
 
-**Returns:**
+- `thunks`: cada `thunk` es `(signal) => Promise`.
+- `accept`: decide qué cuenta como victoria. El valor por defecto es
+  `(value) => value != null`, así que un `null` resuelto cuenta como declinación,
+  no como victoria.
 
-- `status: "won"` → `winner` is the accepted value, `index` its position.
-- `status: "empty"` → no branch was accepted; `winner` is `null`, `index` is
-  `-1`.
-- `errors?: [{ index, error }]` → present when one or more branches REJECTED
-  (threw), so a genuine thunk bug is debuggable instead of looking like a
-  clean all-decline. A plain decline (resolved `null`) adds no error entry.
+Pasá ese `signal` a `agent()`/`ask()` para que las ramas perdedoras se aborten
+de verdad: cuando una rama gana, el runtime envía un SIGTERM real a las demás.
 
-## When to use / not
+## Devuelve
 
-| Situation | Use |
+- `status: "won"` → `winner` es el valor aceptado y `index` su posición.
+- `status: "empty"` → ninguna rama fue aceptada; `winner` es `null` e `index`
+  es `-1`.
+- `errors?: [{ index, error }]` → aparece cuando una o más ramas hicieron
+  REJECT (lanzaron una excepción), para que un bug real en un `thunk` se pueda
+  depurar en vez de parecer una declinación limpia de todas las ramas. Una
+  declinación común (`null` resuelto) no agrega ninguna entrada a `errors`.
+
+## Cuándo usarlo y cuándo no
+
+| Situación | Primitiva |
 | --- | --- |
-| Hedge a flaky or slow call with redundant attempts | `race` — optimizes latency |
-| Elegí la mejor respuesta por *calidad*, no por velocidad | `tournament` / `judge-escalate` — a judge must see every candidate |
-| Just run N things and keep all results | `agents` / `parallel` |
+| Cubrir una llamada lenta o inestable con intentos redundantes | `race` — optimiza latencia |
+| Elegir la mejor respuesta por *calidad*, no por velocidad | `tournament` / `judge-escalate` — un juez debe ver todas las candidatas |
+| Ejecutar N cosas y conservar todos los resultados | `agents` / `parallel` |
 
-## Gotchas
+## Advertencias
 
-- Thunks MUST be functions taking `signal`; a non-empty array is required —
-  `race([])` or non-function entries throw synchronously.
-- Thread the `signal` through to `agent()`/`ask()`/`bash()`; if you don't,
-  losers keep running after the race is decided.
-- `errors` is additive: even with rejections, `winner`/`index`/`status` keep
-  their normal meaning — check `status`, not `errors`, to know if you have a
-  winner.
+- `thunks` DEBE ser un arreglo no vacío de funciones que reciban `signal`:
+  `race([])` o entradas que no sean funciones hacen throw sincrónico.
+- Propagá `signal` a `agent()`/`ask()`/`bash()`; si no, las ramas perdedoras
+  siguen corriendo después de que la carrera ya se decidió.
+- `errors` es aditivo: aunque haya rechazos, `winner`/`index`/`status`
+  conservan su significado normal. Para saber si hubo ganador, mirá `status`,
+  no `errors`.
 
 ## Example
 

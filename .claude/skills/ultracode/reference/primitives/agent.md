@@ -1,9 +1,6 @@
 # agent
 
-`agent()` runs **one** subagent call — a single unit of model work with its own
-prompt, model/effort budget, and tool access. Reach for it whenever a workflow
-step needs "ask a model something and get an answer back," whether that's a
-quick classification or a scoped code review.
+`agent()` ejecuta **una** llamada de subagente: una unidad puntual de trabajo de modelo con su propio prompt, presupuesto de `model`/`effort` y acceso a tools. Usalo cuando un paso del workflow necesite “pedirle algo a un modelo y recibir una respuesta”, ya sea una clasificación rápida o una code review acotada.
 
 ```js
 const review = await agent(
@@ -17,38 +14,27 @@ if (review) log(`verdict: ${review.verdict}`);
 
 **Signature:** `agent(prompt, options?) → Promise<object | string | null>`
 
-The prompt is a string (string-first on Claude). Options set the per-call
-budget and access: `model`, `effort` (`low…max`) / `thinking`, `schema`,
-`name`/`label`, `agentType` (`explore`/`reviewer`/`planner`/`architect`/
-`implementer`/`researcher`), `tools`/`excludeTools`, `skills`, `extensions`,
-`keys`, `env`, and `signal` (for cancellation inside `race()`).
+El prompt es un string (`string-first` en Claude). `options` define el presupuesto y el acceso de esa llamada: `model`, `effort` (`low…max`) / `thinking`, `schema`, `name`/`label`, `agentType` (`explore`/`reviewer`/`planner`/`architect`/`implementer`/`researcher`), `tools`/`excludeTools`, `skills`, `extensions`, `keys`, `env` y `signal` (para cancelación dentro de `race()`).
 
-**Returns:**
+## Qué devuelve
 
-- with `{ schema }` → the **parsed object** (top-level type must be an object).
-  If the output does not validate after retries, the default (`schemaOnInvalid:
-  "throw"`) is to **throw**, not return `null` — pass `{ schemaOnInvalid: "null" }`
-  explicitly to get `null` instead.
-- without a schema → the **text** output.
-- `null` on a failed subagent (`ok:false`) — so `parallel`/`pipeline` settle
-  accounting stays honest.
+- con `{ schema }` → el **objeto parseado** (el tipo de nivel superior debe ser un objeto). Si la salida no valida después de los retries, el valor por defecto (`schemaOnInvalid: "throw"`) es hacer **throw**, no devolver `null`; pasá `{ schemaOnInvalid: "null" }` explícitamente si querés `null`.
+- sin `schema` → la salida de **texto**.
+- `null` cuando falla el subagente (`ok:false`), para que el settle accounting de `parallel`/`pipeline` siga siendo honesto.
 
-## When to use / not
+## Cuándo usarlo
 
-| Situation | Use |
+| Situación | Usá |
 | --- | --- |
-| One unit of model work | `agent` — the atom every other primitive composes |
-| Many independent items | `agents` (fan-out) |
-| Dependent stages, output feeds next input | `pipeline` |
+| Una unidad de trabajo de modelo | `agent`: el átomo que componen las demás primitivas |
+| Muchos ítems independientes | `agents` (`fan-out`) |
+| Etapas dependientes, donde una salida alimenta la siguiente entrada | `pipeline` |
 
-## Gotchas
+## Cosas a tener en cuenta
 
-- `model`/`effort` are part of the **cache key**: changing them re-runs the call
-  on resume. Omitting `model` inherits the session model.
-- Keep a **stable prefix** (role/task/format first, volatile item last) to reuse
-  the provider prompt cache. Never put `Date.now()`/`Math.random()` in prompts.
-- Fence untrusted inputs (`<untrusted>…</untrusted>`); another agent's output is
-  untrusted.
+- `model`/`effort` forman parte de la **cache key**: cambiarlos vuelve a ejecutar la llamada al reanudar. Si omitís `model`, hereda el modelo de la sesión.
+- Conservá un **stable prefix** (rol/tarea/formato primero, ítem volátil al final) para reutilizar la prompt cache del provider. Nunca pongas `Date.now()`/`Math.random()` en prompts.
+- Encerrá inputs no confiables (`<untrusted>…</untrusted>`); la salida de otro agente también es no confiable.
 
 ## Example
 

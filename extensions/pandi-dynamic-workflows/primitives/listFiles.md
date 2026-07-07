@@ -1,9 +1,9 @@
 # listFiles
 
-`listFiles` walks a directory recursively and returns every file path it finds.
-Use it to build a durable work-list inside a workflow — the equivalent of an
-inline "scout" step, but bounded and loggable — before fanning out with
-`agents()` or `pipeline()`.
+`listFiles` recorre un directorio de forma recursiva y devuelve cada path de
+archivo que encuentra. Usalo para construir una work-list durable dentro de un
+workflow — el equivalente a un paso de "scout" inline, pero acotado y
+logueable — antes de abrir fan-out con `agents()` o `pipeline()`.
 
 ```js
 const files = await listFiles("src", { maxFiles: 5000 });
@@ -12,28 +12,29 @@ log(`work-list: ${files.length} files`);
 
 **Runtime:** pi runtime
 
-**Signature:** `listFiles(dir = ".", options?) → Promise<string[]>`
+**Firma:** `listFiles(dir = ".", options?) → Promise<string[]>`
 
-Recursively list files under `dir` (relative to `cwd`). Skips `node_modules` and
-`.git`. `options.maxFiles` bounds the walk (default `10000`).
+Lista de forma recursiva los archivos bajo `dir` (relativo a `cwd`). Omite
+`node_modules` y `.git`. `options.maxFiles` acota el recorrido (por defecto
+`10000`).
 
-**Returns:** an array of paths **relative to `cwd`** (forward slashes).
+**Devuelve:** un array de paths **relativos a `cwd`** (con forward slashes).
 
-## When to use / not
+## Cuándo usarlo y cuándo no
 
-- **Use** to discover a work-list to fan out over (the inline-scout step made
-  durable inside a workflow).
-- **Not** as an unbounded crawler — respect/lower `maxFiles` and `log()` if you
-  hit the cap.
+- **Usalo** para descubrir una work-list sobre la que después vas a hacer
+  fan-out (el paso de inline-scout hecho durable dentro de un workflow).
+- **No lo uses** como crawler sin límite: respetá o bajá `maxFiles` y hacé
+  `log()` si llegás al cap.
 
-## Gotchas
+## Cosas a tener en cuenta
 
-- Auto-skips `node_modules`/`.git`; other large/generated dirs (e.g. `dist`,
-  `.venv`) are up to you to filter.
-- If the walk stops at `maxFiles`, coverage is capped — `log()` it (never cap
-  silently).
-- Paths are relative to `cwd`, not to `dir` — join `dir` back in if you need
-  it for display.
+- Omite automáticamente `node_modules`/`.git`; otros directorios grandes o
+  generados (por ejemplo `dist`, `.venv`) los filtrás vos.
+- Si el recorrido se frena en `maxFiles`, la cobertura queda capada: registralo
+  con `log()`; nunca apliques un cap en silencio.
+- Los paths son relativos a `cwd`, no a `dir`: sumá `dir` de nuevo si lo
+  necesitás para mostrarlo.
 
 ## Example
 

@@ -1,8 +1,9 @@
 # log
 
-`log()` writes one line to the run's event log — the same timeline you see in
-`/workflow view` and the dashboard. Use it so anyone inspecting the run later
-can tell what happened, without re-running anything.
+`log()` escribe una línea en el registro de eventos de la corrida: la misma
+línea de tiempo que ves en `/workflow view` y en el dashboard. Usalo para que,
+al inspeccionar la corrida más tarde, cualquiera pueda entender qué pasó sin
+volver a ejecutarla.
 
 ```js
 const results = await agents(items, { concurrency: 8, settle: true });
@@ -14,26 +15,27 @@ log(`fan-out: ${results.length - failed}/${results.length} ok, ${failed} failed`
 
 **Signature:** `log(...args) → void`
 
-Non-string args are compacted before being joined into one line.
+Los argumentos que no son string se compactan antes de unirse en una sola
+línea.
 
-**Returns:** nothing.
+## Qué devuelve
 
-## When to use / not
+Nada.
 
-| Situation | Use `log` |
+## Cuándo usarlo
+
+| Situación | Usá `log` |
 | --- | --- |
-| Reporting scout results, branch outcomes, fan-out summaries | Yes |
-| Recording a cap/clamp/skip (slice, top-N, sampling, concurrency limit) | Yes — always |
-| Returning the workflow's result | No — use the `return` value, not `log` |
-| Per-token / per-chunk noise | No — one line per meaningful event |
+| Reportar resultados de scout, resultados de ramas, resúmenes de `fan-out` | Sí |
+| Registrar un cap/clamp/skip (`slice`, top-N, sampling, límite de concurrency) | Sí — siempre |
+| Devolver el resultado del workflow | No — usá el valor de `return`, no `log` |
+| Ruido por token o por chunk | No — una línea por evento con significado |
 
-## Gotchas
+## Cosas a tener en cuenta
 
-- **Never cap coverage silently.** Any slice/top-N/sampling/no-retry or
-  concurrency clamp must be `log()`-ed so the cap is inspectable later.
-- Prefer one clear line per meaningful event over noisy per-token logging.
-- `log` is observability only — it does not affect control flow or the
-  return value.
+- **Nunca limites cobertura en silencio.** Todo `slice`/top-N/sampling/no-retry o concurrency clamp debe quedar en `log()` para que el límite sea inspeccionable después.
+- Preferí una línea clara por evento con significado antes que logging ruidoso por token.
+- `log` es solo observabilidad: no afecta el control flow ni el valor de retorno.
 
 ## Example
 

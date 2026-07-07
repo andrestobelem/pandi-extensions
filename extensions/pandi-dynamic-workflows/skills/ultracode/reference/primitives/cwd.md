@@ -1,38 +1,40 @@
 # cwd
 
-`cwd` is a read-only global string injected into every workflow script: the
-absolute working directory of the run. Reach for it when you need to build a
-path yourself or just want to log where the run is operating — most of the
-time you won't need it, because the file helpers already resolve against it.
+`cwd` es una string global de solo lectura inyectada en cada script de workflow:
+el directorio de trabajo absoluto de la corrida. Usala cuando necesites armar
+a mano un path absoluto o registrar dónde está operando la corrida. La mayoría
+de las veces no la vas a necesitar, porque los helpers de archivos ya resuelven
+contra ella.
 
 ```js
 log(`workflow cwd: ${cwd}`);
-const files = await listFiles("."); // resolved relative to cwd
+const files = await listFiles("."); // se resuelve relativo a cwd
 ```
 
-**Runtime:** pi runtime (read-only run context)
+**Runtime:** pi runtime (contexto de ejecución de solo lectura)
 
-**Signature:** `cwd` (string) — the workflow's working directory
+**Firma:** `cwd` (string) — el directorio de trabajo del workflow
 
-**Returns:** the absolute working-directory path.
+**Devuelve:** el path absoluto del directorio de trabajo.
 
-File helpers ([`readFile`](readFile.md)/[`writeFile`](writeFile.md)/
-[`appendFile`](appendFile.md)/[`listFiles`](listFiles.md)) resolve relative
-paths against `cwd` and are confined to it — they cannot escape it, even via
-symlinks.
+Los helpers de archivos
+([`readFile`](readFile.md)/[`writeFile`](writeFile.md)/[`appendFile`](appendFile.md)/[`listFiles`](listFiles.md))
+resuelven los paths relativos contra `cwd` y quedan confinados dentro de ese
+root: no pueden escapar, ni siquiera a través de symlinks.
 
-## When to use / not
+## Cuándo usarlo
 
-- **Use** to reason about where repo/workspace reads and writes land, or to
-  build an absolute path when a helper needs one.
-- **Not** for run-scoped inspectable output — that goes under
-  [`runDir`](runDir.md) via `writeArtifact`.
+- **Sí:** para razonar dónde caen las lecturas y escrituras del repo o del
+  workspace, o para construir un path absoluto cuando un helper lo necesite.
+- **No:** para output inspeccionable acotado a la corrida. Eso va bajo
+  [`runDir`](runDir.md) mediante `writeArtifact`.
 
-## Gotchas
+## Cosas a tener en cuenta
 
-- Read-only — you cannot reassign it.
-- The file helpers already resolve against `cwd`, so prefer plain relative
-  paths (`"."`, `"src/foo.ts"`) over prefixing `${cwd}/...` by hand.
+- Es de solo lectura: no podés reasignarla.
+- Los helpers de archivos ya resuelven contra `cwd`, así que preferí paths
+  relativos simples (`"."`, `"src/foo.ts"`) en vez de prefijar `${cwd}/...`
+  a mano.
 
 ## Example
 

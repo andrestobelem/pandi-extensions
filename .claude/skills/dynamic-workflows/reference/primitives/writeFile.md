@@ -1,9 +1,9 @@
 # writeFile
 
-Save a file into the workspace (`cwd`) from inside a workflow — for example, a
-generated report or a file the workflow is meant to produce as its final
-output. Parent directories are created automatically; paths cannot escape
-`cwd`.
+Guarda un archivo en el workspace (`cwd`) desde dentro de un workflow. Sirve, por
+ ejemplo, para escribir un reporte generado o el archivo final que el workflow
+ debe entregar. Los directorios padre se crean automáticamente y el path no
+ puede escapar de `cwd`.
 
 ```js
 const report = await agent("Write the audit report as Markdown", { effort: "high" });
@@ -13,25 +13,25 @@ log(`wrote ${path}`);
 
 **Runtime:** pi runtime
 
-**Signature:** `writeFile(path, data) → Promise<{ path }>`
+**Firma:** `writeFile(path, data) → Promise<{ path }>`
 
-**Returns:** `{ path }` — the absolute path written.
+**Devuelve:** `{ path }` — el path absoluto escrito.
 
-## When to use / not
+## Cuándo usarlo y cuándo no
 
-- **Use** to emit a workflow's product into the repo/workspace (a report, a
-  generated file) when it belongs in `cwd`.
-- **Not** for run-scoped, inspectable intermediate outputs — use
-  [`writeArtifact`](writeArtifact.md), which lives under `runDir` and shows in the
+- **Usalo** para emitir el producto del workflow dentro del repo/workspace (por
+  ejemplo, un reporte o un archivo generado) cuando pertenece a `cwd`.
+- **No lo uses** para salidas intermedias inspeccionables y acotadas a la run:
+  usá [`writeArtifact`](writeArtifact.md), que vive bajo `runDir` y aparece en el
   dashboard.
 
-## Gotchas
+## Cosas a tener en cuenta
 
-- Confined to `cwd`: a path that resolves outside it (via `..` or a symlink)
-  throws `Path escapes workflow cwd`, it is not silently clamped.
-- Parent directories are created for you — no need to `mkdir` first.
-- Never run untrusted-data neutralization on content written **verbatim** — fence
-  only the inputs, not the output.
+- Está confinado a `cwd`: si un path resuelve fuera de ahí (vía `..` o un
+  symlink), lanza `Path escapes workflow cwd`; no se recorta en silencio.
+- Los directorios padre se crean por vos: no hace falta correr `mkdir` antes.
+- Nunca apliques neutralización de datos no confiables sobre contenido escrito
+  **verbatim**: encerrá solo los inputs, no el output.
 
 ## Example
 

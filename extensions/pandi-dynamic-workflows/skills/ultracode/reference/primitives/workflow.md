@@ -1,44 +1,33 @@
 # workflow
 
-**Runtime:** shared (pi + Claude Code)
-
-`workflow()` lets one workflow script call another saved workflow by name and
-get back its return value — no human decision gate in between. Use it to
-reuse a scaffold (e.g. a `*-lib` verifier) instead of re-implementing it
-inline.
+`workflow()` deja que un script de workflow llame a otro workflow guardado por nombre y reciba su valor de retorno, sin un gate de decisión humana entre medio. Usalo para reutilizar un scaffold — por ejemplo, un verificador `*-lib` — en vez de reimplementarlo inline.
 
 ```js
-// inside a driver workflow
+// dentro de un workflow driver
 const verified = await workflow("verify-claims-lib", { claims, evidence });
 return verified.filter((c) => c.status === "confirmed");
 ```
 
-**Signature:** `workflow(name, args) → Promise<result>`
+**Runtime:** compartido (pi + Claude Code)
 
-**Returns:** the sub-workflow's returned value.
+**Firma:** `workflow(name, args) → Promise<result>`
 
-## When to use / not
+**Devuelve:** el valor que retorna el sub-workflow.
 
-| Situation | Do this |
+## Cuándo usarlo
+
+| Situación | Hacé esto |
 | --- | --- |
-| Reusable sub-step, no decision needed on its result | `workflow("name", args)` |
-| Must inspect the sub-result before choosing the next phase | run separate workflows sequentially instead |
-| The reusable step needs to itself call another sub-workflow | not supported — flatten it, or make it a sibling top-level workflow |
+| Subpaso reutilizable, sin necesidad de decidir según su resultado | `workflow("name", args)` |
+| Necesitás inspeccionar el subresultado antes de elegir la siguiente fase | corré workflows separados en secuencia |
+| El paso reutilizable necesita llamar a otro sub-workflow | no está soportado: aplanalo o convertí ese paso en un workflow top-level hermano |
 
-## Gotchas
+## Ojo con esto
 
-- **Composition is depth-1, strictly.** A sub-workflow's own `workflow` call
-  throws `"workflow() composition depth limit is 1: sub-workflows cannot
-  call other sub-workflows."` — only the top-level workflow may compose. This
-  is the same in pi and Claude Code (shared runtime code).
-- **No calling your own file.** Calling a workflow that resolves to the same
-  file as the current one throws (`refused recursive call`) — no
-  self-recursion via `workflow()`.
-- Don't confuse this with `PI_DYNAMIC_WORKFLOWS_MAX_DEPTH` (pi only, default
-  2): that guards *nested top-level runs* started by a subagent's
-  `dynamic_workflow` tool, a separate mechanism from `workflow()` composition.
-- Declare provenance: set `meta.basedOn` (array of `{ name, role }`) for every
-  scaffold you compose.
+- **La composición es depth-1, estrictamente.** Si un sub-workflow llama a `workflow()`, lanza `"workflow() composition depth limit is 1: sub-workflows cannot call other sub-workflows."`. Solo el workflow top-level puede componer. Esto vale igual en pi y en Claude Code (comparten runtime).
+- **No podés llamar tu propio archivo.** Si un workflow resuelve al mismo archivo que el actual, lanza (`refused recursive call`). No hay self-recursion vía `workflow()`.
+- No lo confundas con `PI_DYNAMIC_WORKFLOWS_MAX_DEPTH` (solo pi, por defecto 2): eso protege *nested top-level runs* iniciados por el tool `dynamic_workflow` de un subagente. Es un mecanismo distinto de la composición con `workflow()`.
+- Declará la procedencia: seteá `meta.basedOn` (array de `{ name, role }`) en cada scaffold que compongas.
 
 ## Example
 

@@ -1,20 +1,12 @@
-# `~/.claude/workflows` — the workflow catalog
+# `~/.claude/workflows` — el catálogo de workflows
 
-> **Provenance.** The `*.js` files here are **generated artifacts** — do NOT
-> hand-edit them. `.claude/scripts/generate-claude-workflows.mjs` produces them
-> from the canonical pi scaffolds (`extensions/pandi-dynamic-workflows/scaffolds/`),
-> byte-identical to the repo's `.claude/workflows/` catalog, and the
-> `claude-parity` test gates both destinations against drift. The copy lives
-> inside the skill so it stays self-contained when the skill is installed
-> standalone. pi does **not** load these: pi's own scaffolds are read from disk
-> on demand (served by `dynamic_workflow action=scaffold`). These use Claude
-> paths and the top-level-`return` form.
+> **Procedencia.** Los archivos `*.js` de este directorio son **artefactos generados**: NO los edites a mano. `.claude/scripts/generate-claude-workflows.mjs` los genera a partir de los scaffolds canónicos de pi (`extensions/pandi-dynamic-workflows/scaffolds/`), byte-idénticos al catálogo `.claude/workflows/` del repo, y el test `claude-parity` controla el drift en ambos destinos. La copia vive dentro del skill para que siga siendo autocontenida cuando el skill se instala standalone. pi **no** carga estos archivos: sus propios scaffolds de pi se leen desde disco on demand (servidos por `dynamic_workflow action=scaffold`). Estos usan paths de Claude y la forma `return` a nivel superior.
 
-**What these are.** Each `*.js` file here is an **orchestration script** run by the **Workflow tool**. A script is plain JavaScript that calls a few injected **helper-globals** (`agent`, `parallel`, `pipeline`, `workflow`, `phase`, `log`, plus `args`) to fan out subagents, loop, verify, and compose — there is no `import`, no `require`, no `ctx.*`. You pass a JSON `args` object; the script returns a value. This catalog has **25** workflows.
+**Qué son.** Cada archivo `*.js` de este directorio es un **script de orquestación** que ejecuta la **Workflow tool**. Un script es JavaScript plano que llama a unos pocos **helper-globals** inyectados (`agent`, `parallel`, `pipeline`, `workflow`, `phase`, `log`, más `args`) para abrir subagentes, iterar, verificar y componer; no hay `import`, ni `require`, ni `ctx.*`. Le pasás un objeto JSON `args`; el script devuelve un valor. Este catálogo tiene **25** workflows.
 
-> **Golden rule — start simple.** A single agent call beats a workflow for almost everything. Reach for a workflow only when you need one of three things: **exhaustiveness** (cover a whole repo/corpus), **confidence** (verify before you trust), or **scale** (more than one context window). As Anthropic puts it: *"add complexity only when it delivers measurable value."*
+> **Regla de oro: empezá simple.** Una sola llamada a `agent` le gana a un workflow en casi todo. Usá un workflow solo cuando necesites una de estas tres cosas: **exhaustividad** (cubrir un repo/corpus entero), **confianza** (verificar antes de confiar) o **escala** (más de una ventana de contexto). Como dice Anthropic: *"add complexity only when it delivers measurable value."*
 
-```
+```text
 one agent  ──good enough?──>  ✅ done
      │ no (need coverage / confidence / scale)
      ▼
@@ -23,43 +15,43 @@ one agent  ──good enough?──>  ✅ done
 
 ---
 
-## 1. Quickstart
+## 1. Inicio rápido
 
-You invoke a workflow two ways:
+Podés invocar un workflow de dos maneras:
 
-| Way | When | Example |
+| Forma | Cuándo | Ejemplo |
 |---|---|---|
-| `name` | The workflow was present at session start | `{ name: 'self-consistency', args: {...} }` |
-| `scriptPath` (absolute) | New file, a `drafts/` file, or anything in a subfolder | `{ scriptPath: '/Users/you/.claude/workflows/router.js', args: {...} }` |
+| `name` | El workflow ya estaba presente al iniciar la sesión | `{ name: 'self-consistency', args: {...} }` |
+| `scriptPath` (absoluto) | Archivo nuevo, archivo en `drafts/` o cualquier cosa en una subcarpeta | `{ scriptPath: '/Users/you/.claude/workflows/router.js', args: {...} }` |
 
-> **The 2-line caveat.** Name discovery is a **session-start snapshot** and is **NOT recursive** into subfolders. A workflow created mid-session, or living under `drafts/`, won't resolve by `name`. Fix: call it by absolute `scriptPath`, or symlink it into `~/.claude/workflows/` and start a new session.
+> **La advertencia de 2 líneas.** El descubrimiento por nombre es un **snapshot del inicio de la sesión** y **NO** recorre subcarpetas. Un workflow creado en mitad de la sesión, o ubicado bajo `drafts/`, no va a resolver por `name`. Solución: llamalo por `scriptPath` absoluto, o hacé un symlink dentro de `~/.claude/workflows/` e iniciá una sesión nueva.
 
-**Minimal copy-paste:**
+**Copy-paste mínimo:**
 
 ```js
 Workflow({ name: 'complex-research', args: {
-  question: 'What are the tradeoffs of WASM vs NAPI for Node FFI in 2026?'
+  question: '¿Cuáles son los tradeoffs entre WASM y NAPI para Node FFI en 2026?'
 } });
 ```
 
 ---
 
-## 2. Catalog map
+## 2. Mapa del catálogo
 
-The 25 workflows by **family**. Arrows show **composition** (one workflow calling another via `workflow()`).
+Los 25 workflows agrupados por **familia**. Las flechas muestran **composición** (un workflow llama a otro vía `workflow()`).
 
 ```mermaid
 flowchart TB
-  subgraph GG["Gate & guard"]
+  subgraph GG["Acotar y proteger"]
     CG[contract-gate]
     GR[guardrails]
   end
-  subgraph RO["Route & orchestrate"]
+  subgraph RO["Rutear y orquestar"]
     RT[router]
     OW[orchestrator-workers]
     MR[map-reduce]
   end
-  subgraph DF["Discover & fan-out"]
+  subgraph DF["Descubrir y abrir fan-out"]
     FO[fan-out-and-synthesize]
     SF[scout-fanout]
     RB[repo-bug-hunt]
@@ -91,7 +83,7 @@ flowchart TB
   end
 
   CG -. "generate=true" .-> WF
-  RT == "dispatch (any workflow)" ==> DF
+  RT == "dispatch (cualquier workflow)" ==> DF
   GR -. "protect:{name}" .-> RO
   CD --> VL
   SR -. "useJury" .-> AV
@@ -101,63 +93,63 @@ flowchart TB
   RC == "then dispatch" ==> RT
 ```
 
-**Reading it:** `contract-gate` may hand off to `workflow-factory`; `router` dispatches to *any* catalog workflow; `guardrails` wraps *any* workflow; `composition-driver` calls `verify-claims-lib`; `self-refine` can use `adversarial-verify` as its critic; `orchestrator-workers` is internally planner→workers→integrator; `reflexion`/`react-scout`/`bug-verify` are *grounded* (they run real commands/observations).
+**Cómo leerlo.** `contract-gate` puede derivar en `workflow-factory`; `router` despacha a *cualquier* workflow del catálogo; `guardrails` envuelve *cualquier* workflow; `composition-driver` llama a `verify-claims-lib`; `self-refine` puede usar `adversarial-verify` como crítico; `orchestrator-workers` internamente sigue planner→workers→integrator; `reflexion`/`react-scout`/`bug-verify` son workflows *grounded* (anclados en evidencia: ejecutan comandos u observaciones reales).
 
 ---
 
-## 3. Choosing a workflow
+## 3. Cómo elegir un workflow
 
-Start at the top; take the first row that matches.
+Empezá arriba y tomá la primera fila que aplique.
 
-| If you want to… | Use |
+| Si querés… | Usá |
 |---|---|
-| **Scope a vague ask** before doing anything (ask vs proceed) | `contract-gate` |
-| **Pick the right workflow** for me and run it | `router` |
-| **Broad independent coverage** of a work-list / repo | `fan-out-and-synthesize`, `scout-fanout`, `repo-bug-hunt` |
-| **Find bugs across a repo** (leads, not confirmed) | `repo-bug-hunt`, `scout-fanout` |
-| **Agree on one answer** across many reasoning paths | `self-consistency` |
-| **Discover an unknown-size set** (keep going till dry) | `loop-until-dry` |
-| **Ground each step in real observations** before fanning out | `react-scout` |
-| **Verify claims / findings** (prune false ones) | `adversarial-verify`, `verify-claims-lib` |
-| **Confirm code bugs by running them** | `bug-verify` |
-| **Best of N** candidates | `judge-escalate`, `tournament` |
-| **Iterate to quality** on one artifact | `self-refine`, `reflexion` |
-| **Explore a solution space** with intermediate steps | `tree-of-thoughts` |
-| **Decompose an open goal** into a subtask graph | `orchestrator-workers` |
-| **Process a huge corpus** past one context window | `map-reduce` |
-| **Enforce hard limits** around a run (tripwire) | `guardrails` |
-| **Research a question** with citations | `complex-research` |
-| **Review a plan** before building | `adversarial-plan-review` |
-| **Apply a large code migration** safely | `large-migration` |
-| **Generate a NEW workflow** for a task | `workflow-factory` |
-| **Compose a parent + reusable sub-workflow** | `composition-driver` (+ `verify-claims-lib`) |
+| **Acotar un pedido vago** antes de hacer nada (preguntar vs seguir) | `contract-gate` |
+| **Que elija por mí** el workflow correcto y lo ejecute | `router` |
+| **Cobertura amplia e independiente** de una work-list / repo | `fan-out-and-synthesize`, `scout-fanout`, `repo-bug-hunt` |
+| **Encontrar bugs en un repo** (pistas, no confirmaciones) | `repo-bug-hunt`, `scout-fanout` |
+| **Converger en una respuesta** a partir de muchos caminos de razonamiento | `self-consistency` |
+| **Descubrir un conjunto de tamaño desconocido** (seguir hasta secarse) | `loop-until-dry` |
+| **Anclar cada paso en observaciones reales** antes de abrir fan-out | `react-scout` |
+| **Verificar claims / findings** (podar los falsos) | `adversarial-verify`, `verify-claims-lib` |
+| **Confirmar bugs de código ejecutándolos** | `bug-verify` |
+| **Best of N** candidatos | `judge-escalate`, `tournament` |
+| **Iterar hasta llegar a calidad** sobre un artifact | `self-refine`, `reflexion` |
+| **Explorar un espacio de soluciones** con pasos intermedios | `tree-of-thoughts` |
+| **Descomponer un goal abierto** en un grafo de subtareas | `orchestrator-workers` |
+| **Procesar un corpus enorme** que excede una ventana de contexto | `map-reduce` |
+| **Imponer límites duros** alrededor de una corrida (tripwire) | `guardrails` |
+| **Investigar una pregunta** con citas | `complex-research` |
+| **Revisar un plan** antes de construir | `adversarial-plan-review` |
+| **Aplicar una migración grande de código** con seguridad | `large-migration` |
+| **Generar un workflow NUEVO** para una tarea | `workflow-factory` |
+| **Componer un workflow padre + uno reutilizable** | `composition-driver` (+ `verify-claims-lib`) |
 
 ```mermaid
 flowchart TD
-  A[Raw ask] --> B{Ambiguous or high-stakes?}
-  B -- yes --> CG[contract-gate]
-  B -- no --> C{Know which workflow?}
+  A[Pedido crudo] --> B{¿Es ambiguo o de alto riesgo?}
+  B -- sí --> CG[contract-gate]
+  B -- no --> C{¿Sabés qué workflow usar?}
   C -- no --> RT[router]
-  C -- yes --> D{What is the job?}
-  D -- cover a repo/corpus --> E[fan-out / scout-fanout / repo-bug-hunt / map-reduce]
-  D -- be confident --> F[adversarial-verify / bug-verify / self-consistency]
-  D -- pick best of N --> G[judge-escalate / tournament / tree-of-thoughts]
-  D -- improve one artifact --> H[self-refine / reflexion / large-migration]
-  D -- decompose a goal --> I[orchestrator-workers]
-  D -- make a new workflow --> J[workflow-factory]
+  C -- sí --> D{¿Cuál es el trabajo?}
+  D -- cubrir un repo/corpus --> E[fan-out / scout-fanout / repo-bug-hunt / map-reduce]
+  D -- ganar confianza --> F[adversarial-verify / bug-verify / self-consistency]
+  D -- elegir el mejor de N --> G[judge-escalate / tournament / tree-of-thoughts]
+  D -- mejorar un artifact --> H[self-refine / reflexion / large-migration]
+  D -- descomponer un goal --> I[orchestrator-workers]
+  D -- crear un workflow nuevo --> J[workflow-factory]
 ```
 
 ---
 
-## 4. Phase 0 — `contract-gate`
+## 4. Fase 0 — `contract-gate`
 
-> **When/why.** Run this **first**, before routing or building, whenever an ask is vague, high-stakes, or could mean two different things. It turns "do X" into an inspectable **contract** and decides the one human question that matters: **ask now, or proceed on a recorded assumption?** A clean spec is the biggest lever on downstream quality.
+> **Cuándo/por qué.** Corré esto **primero**, antes de rutear o construir, siempre que el pedido sea vago, de alto riesgo o pueda significar dos cosas distintas. Convierte “hacé X” en un **contrato** inspeccionable y decide la única pregunta humana que importa: **¿preguntar ahora o seguir con una suposición registrada?** Una spec limpia es la palanca más grande sobre la calidad aguas abajo.
 
 ```mermaid
 flowchart TD
   RAW["raw ask"] --> AN["Analyze: N independent reviewers + synthesis"]
   AN --> GATE{"value-of-information gate"}
-  GATE -- "BLOCKED (HIGH impact, no safe default)" --> Q["status=NEEDS_CLARIFICATION\nreturn questions · STOP"]
+  GATE -- "BLOCKED (impacto ALTO, sin valor por defecto seguro)" --> Q["status=NEEDS_CLARIFICATION\ndevolver preguntas · STOP"]
   GATE -- "PROCEED (assume + record)" --> RW["Rewrite → rewrittenPrompt (improvePrompt)"]
   RW --> RP["resourcePlan (per-node model·effort, if dynamic-workflow)"]
   RP --> HO{"generate=true AND routing=dynamic-workflow?"}
@@ -165,21 +157,21 @@ flowchart TD
   HO -- no --> OUT["return contract + rewrittenPrompt"]
 ```
 
-**Params** (`request` required; aliases `task`/`text`/`question`):
+**Parámetros** (`request` requerido; aliases `task`/`text`/`question`):
 
-| Param | Default | Meaning |
+| Parámetro | Por defecto | Significado |
 |---|---|---|
-| `reviewers` | `3` (clamp 1..5) | Independent contract reviewers + synthesis; 1 = single cheap analyze |
-| `improvePrompt` | `true` | Rewrite the contract into a clean, self-contained `rewrittenPrompt`; `false` forwards raw request + contract |
-| `generate` | `false` | On PROCEED **and** `routing=dynamic-workflow`, hand off to `workflow-factory` |
-| `planResources` | `true` | Emit `resourcePlan` (suggested per-node model·effort for the recommended workflow, scaled to stakes) |
-| `maxQuestions` | `4` → clamped to **1..3** | Cap on blocking questions |
-| `context` | `""` | Optional extra context attached to the analysis + rewrite |
-| `name`, `write` | — / `true` | Passed to `workflow-factory` on handoff |
+| `reviewers` | `3` (clamp 1..5) | Revisores independientes del contrato + síntesis; 1 = un único análisis barato |
+| `improvePrompt` | `true` | Reescribe el contrato como un `rewrittenPrompt` limpio y autocontenido; `false` reenvía el pedido crudo + el contrato |
+| `generate` | `false` | En PROCEED **y** con `routing=dynamic-workflow`, deriva a `workflow-factory` |
+| `planResources` | `true` | Emite `resourcePlan` (sugerencia de model·effort por nodo para el workflow recomendado, escalada según el riesgo) |
+| `maxQuestions` | `4` → clamped a **1..3** | Tope de preguntas bloqueantes |
+| `context` | `""` | Contexto extra opcional que se adjunta al análisis + rewrite |
+| `name`, `write` | — / `true` | Se pasan a `workflow-factory` en el handoff |
 
-**Returns:** `{ status, verdict, contract, rewrittenPrompt, questions?, routing, resourcePlan?, generated? }` where `verdict ∈ {PROCEED, BLOCKED}` and `status` mirrors it (`PROCEED` / `NEEDS_CLARIFICATION`).
+**Devuelve:** `{ status, verdict, contract, rewrittenPrompt, questions?, routing, resourcePlan?, generated? }`, donde `verdict ∈ {PROCEED, BLOCKED}` y `status` lo refleja (`PROCEED` / `NEEDS_CLARIFICATION`).
 
-**Example A — clear ask → PROCEED:**
+**Ejemplo A — pedido claro → PROCEED:**
 ```js
 Workflow({ name: 'contract-gate', args: {
   request: 'Audit packages/coding-agent/src/core for null-deref bugs and produce a cited, prioritized list.'
@@ -189,7 +181,7 @@ Workflow({ name: 'contract-gate', args: {
 //     resourcePlan:{ tier:'balanced', pattern:'repo-bug-hunt', models:{...}, efforts:{...} } }
 ```
 
-**Example B — ambiguous ask → NEEDS_CLARIFICATION:**
+**Ejemplo B — pedido ambiguo → NEEDS_CLARIFICATION:**
 ```js
 Workflow({ name: 'contract-gate', args: { request: 'Make the streaming faster.' } });
 // → { status:'NEEDS_CLARIFICATION', verdict:'BLOCKED',
@@ -198,57 +190,57 @@ Workflow({ name: 'contract-gate', args: { request: 'Make the streaming faster.' 
 //                 { question:'What is the acceptance bar / target?', rationale:'...' } ] }   // STOP — no rewrite, no handoff
 ```
 
-**Feeding `rewrittenPrompt` downstream** — it's the durable handoff artifact:
+**Cómo pasar `rewrittenPrompt` aguas abajo** — es el artefacto durable del handoff:
 ```js
 const gate = Workflow({ name: 'contract-gate', args: { request: rawAsk } });
 if (gate.status === 'PROCEED') {
-  Workflow({ name: 'router',           args: { request: gate.rewrittenPrompt } });        // let router pick + run
-  // or: Workflow({ name: 'workflow-factory', args: { task: gate.rewrittenPrompt } });    // generate a new workflow
-  // or hand rewrittenPrompt to any specific workflow you already chose
+  Workflow({ name: 'router',           args: { request: gate.rewrittenPrompt } });        // dejar que router elija + corra
+  // or: Workflow({ name: 'workflow-factory', args: { task: gate.rewrittenPrompt } });    // generar un workflow nuevo
+  // o pasar rewrittenPrompt a cualquier workflow específico que ya hayas elegido
 }
 ```
 
 ---
 
-## 5. How to compose
+## 5. Cómo componer
 
-There are exactly **four composition seams**. Everything else is just an `agent()` call.
+Hay exactamente **cuatro costuras de composición**. Todo lo demás es solo una llamada a `agent()`.
 
 ```mermaid
 flowchart LR
-  subgraph S1["a) sub-workflow call"]
-    P[parent] -->|"workflow(name,args)"| C[verify-claims-lib]
+  subgraph S1["a) llamada a sub-workflow"]
+    P[padre] -->|"workflow(name,args)"| C[verify-claims-lib]
   end
-  subgraph S2["b) wrapper"]
-    G["guardrails (protect:{name,args})"] --> W[any workflow]
+  subgraph S2["b) wrapper / envoltorio"]
+    G["guardrails (protect:{name,args})"] --> W[cualquier workflow]
   end
-  subgraph S3["c) dispatch"]
-    R[router] -->|"chooses + runs"| X[any workflow]
+  subgraph S3["c) dispatch / despacho"]
+    R[router] -->|"elige + corre"| X[cualquier workflow]
   end
-  subgraph S4["d) generation"]
-    F[workflow-factory] -->|"writes"| N["drafts/new.js"]
+  subgraph S4["d) generación"]
+    F[workflow-factory] -->|"escribe"| N["drafts/new.js"]
   end
 ```
 
-| Seam | How | Canonical example |
+| Costura | Cómo | Ejemplo canónico |
 |---|---|---|
-| **a) sub-workflow** | `workflow(name, args)` inside a parent | `composition-driver` → `verify-claims-lib` |
-| **b) wrapper** | `guardrails` with `protect:{ name, args }` | tripwire IN/OUT around any run |
-| **c) dispatch** | `router` reads the catalog, picks one, runs it | hand it a raw task |
-| **d) generation** | `workflow-factory` plans→generates→writes a new file | scaffold a task-specific workflow |
+| **a) sub-workflow** | `workflow(name, args)` dentro de un padre | `composition-driver` → `verify-claims-lib` |
+| **b) wrapper** | `guardrails` con `protect:{ name, args }` | tripwire IN/OUT alrededor de cualquier corrida |
+| **c) dispatch** | `router` lee el catálogo, elige uno y lo ejecuta | dale una tarea cruda |
+| **d) generation** | `workflow-factory` planifica→genera→escribe un archivo nuevo | scaffold de un workflow específico para la tarea |
 
-**End-to-end worked example** (scope → route → guard the chosen run):
+**Ejemplo completo** (acotar → rutear → proteger la corrida elegida):
 ```js
-// 1) SCOPE the ask.
+// 1) ACOTAR el pedido.
 const gate = Workflow({ name: 'contract-gate', args: { request: rawAsk } });
-if (gate.status !== 'PROCEED') return gate.questions;     // ask the human, stop
+if (gate.status !== 'PROCEED') return gate.questions;     // preguntarle al humano y frenar
 
-// 2) ROUTE: recommend-only, so we can wrap the choice rather than run it raw.
+// 2) RUTEAR: solo recomendación, para poder envolver la elección en vez de correrla en crudo.
 const pick = Workflow({ name: 'router', args: {
   request: gate.rewrittenPrompt, runSelected: false       // → { selected, suggestedArgs, ... }
 } });
 
-// 3) GUARD: run the chosen workflow behind input/output tripwires.
+// 3) PROTEGER: ejecutar el workflow elegido detrás de tripwires de input/output.
 Workflow({ name: 'guardrails', args: {
   inputRules:  ['must stay within packages/coding-agent', 'read-only — no file writes'],
   outputRules: ['every finding cites a file:line'],
@@ -256,219 +248,219 @@ Workflow({ name: 'guardrails', args: {
 } });
 ```
 
-### Recursion & depth (nesting is bounded)
+### Recursión y profundidad (el anidamiento es acotado)
 
-Composition can **recurse**: a composed workflow may itself compose another — and a node can even call the **Phase-0 gate** (`workflow('contract-gate', …)`) to re-scope a sub-task before going deeper. But nesting is **depth-limited by the runtime**:
+La composición puede **recursar**: un workflow compuesto puede a su vez componer otro, e incluso un nodo puede llamar a la **Fase 0** (`workflow('contract-gate', …)`) para volver a acotar una subtarea antes de profundizar. Pero el runtime **limita la profundidad**:
 
-| Runtime | Max nesting | Notes |
+| Runtime | Profundidad máxima | Notas |
 |---|---|---|
-| **Claude Code Workflow tool** | **depth-1** | a child's `workflow()` throws — only the **top level** composes. Calling Phase-0 from inside a node is depth-2 → not allowed here. |
-| **pi** | **depth 2 (default), configurable** | raise via `PI_DYNAMIC_WORKFLOWS_MAX_DEPTH` (e.g. `3`) → more freedom; Phase-0-from-inside works. |
+| **Claude Code Workflow tool** | **depth-1** | el `workflow()` de un hijo lanza error: solo el **nivel superior** compone. Llamar a Phase-0 desde dentro de un nodo sería depth-2 → acá no está permitido. |
+| **pi** | **depth 2 (por defecto), configurable** | podés subirlo con `PI_DYNAMIC_WORKFLOWS_MAX_DEPTH` (por ejemplo `3`) → más libertad; Phase-0-from-inside funciona. |
 
-Beyond the limit the runtime refuses with a **recursion guard**. Design within the depth budget; for deeper work, let the orchestrator run the sub-workflows.
+Más allá del límite, el runtime rechaza la ejecución con un **recursion guard**. Diseñá dentro de ese presupuesto de profundidad; para ir más hondo, dejá que el orquestador ejecute los sub-workflows.
 
-> **Worked reference — `recursive-compose.js`.** Chains exactly this: `contract-gate` (re-scope, depth 1) → `router` dispatch (depth 2) → the chosen scaffold's own sub-call (depth 3). It's **pi-only** and caps at depth 3, so `PI_DYNAMIC_WORKFLOWS_MAX_DEPTH>=3` covers it; on the Claude Code depth-1 runtime it returns `DEPTH_BLOCKED` instead of crashing. It also forwards the gate's `resourcePlan` (per-node model/effort) into the dispatched run.
+> **Referencia trabajada — `recursive-compose.js`.** Encadena exactamente esto: `contract-gate` (re-acotar, depth 1) → dispatch de `router` (depth 2) → la sub-llamada propia del scaffold elegido (depth 3). Es **solo para pi** y queda topeado en depth 3, así que `PI_DYNAMIC_WORKFLOWS_MAX_DEPTH>=3` lo cubre; en el runtime depth-1 de Claude Code devuelve `DEPTH_BLOCKED` en vez de romper. También propaga el `resourcePlan` del gate (model/effort por nodo) hacia la corrida despachada.
 
 ---
 
-## 6. The 25 workflows by family
+## 6. Los 25 workflows por familia
 
-Each entry: **purpose** · **use when** · **key params (defaults)** · **example** · **use cases**.
+Cada entrada incluye: **propósito** · **usar cuando** · **parámetros clave (valores por defecto)** · **ejemplo** · **casos de uso**.
 
-### Gate & guard
+### Acotar y proteger
 
-**`contract-gate`** — Phase-0 contract gate (full detail in §4).
-- *Use when:* the ask is vague or high-stakes and you want ask-vs-proceed decided first.
-- *Params:* `request` (req) · `reviewers=3` · `improvePrompt=true` · `generate=false` · `maxQuestions=4→1..3`.
-- *Use cases:* scoping a fuzzy ticket; gating before a costly multi-agent run.
+**`contract-gate`** — gate de contrato de Fase 0 (detalle completo en §4).
+- *Usar cuando:* el pedido es vago o de alto riesgo y querés decidir primero preguntar-vs-seguir.
+- *Parámetros:* `request` (req) · `reviewers=3` · `improvePrompt=true` · `generate=false` · `maxQuestions=4→1..3`.
+- *Casos de uso:* acotar un ticket borroso; poner un gate antes de una corrida multiagente costosa.
 
-**`guardrails`** — cheap input/output tripwire that **HALTS** on a clear violation.
-- *Use when:* you must enforce hard limits cheaply around a run, or validate one artifact.
-- *Params:* `inputRules[]` / `outputRules[]` (or `rules[]`) · `content` (validator mode) · `protect:{name,args}` (wrapper mode) · `strict=false` (fail-closed: a crashed guard counts as tripped).
-- *Example:*
+**`guardrails`** — tripwire barato de input/output que **HALTS** ante una violación clara.
+- *Usar cuando:* necesitás imponer límites duros con bajo costo alrededor de una corrida, o validar un artifact.
+- *Parámetros:* `inputRules[]` / `outputRules[]` (o `rules[]`) · `content` (modo validator) · `protect:{name,args}` (modo wrapper) · `strict=false` (fail-closed: si el guard crashea, cuenta como disparado).
+- *Ejemplo:*
   ```js
   Workflow({ name:'guardrails', args:{ outputRules:['no secrets in output'], content: draft } });
   ```
-- *Use cases:* scope/safety gate before running an agent; PII/secret check on an output.
+- *Casos de uso:* gate de alcance/seguridad antes de correr un agente; chequeo de PII/secrets sobre una salida.
 
-### Route & orchestrate
+### Rutear y orquestar
 
-**`router`** — classify a request and **dispatch** to the single best catalog workflow.
-- *Use when:* you don't want to name the workflow yourself.
-- *Params:* `request` (req; aliases `task`/`text`) · `candidates?[]` · `runSelected=true` · `args?` · `context?` · `maxCandidates=60` (clamp 1..200).
-- *Example:*
+**`router`** — clasifica un pedido y hace **dispatch** al mejor workflow único del catálogo.
+- *Usar cuando:* no querés nombrar vos el workflow.
+- *Parámetros:* `request` (req; aliases `task`/`text`) · `candidates?[]` · `runSelected=true` · `args?` · `context?` · `maxCandidates=60` (clamp 1..200).
+- *Ejemplo:*
   ```js
-  Workflow({ name:'router', args:{ request:'Audit ./src/auth for IDOR and missing checks; cited report.' } });
+  Workflow({ name:'router', args:{ request:'Auditá ./src/auth en busca de IDOR y controles faltantes; entregá un informe con citas.' } });
   // → { selected:'repo-bug-hunt', why, dispatched:true, output:<that workflow's result>, candidates:[...] }
   ```
-- *Use cases:* a single front door for raw tasks; recommend-only (`runSelected:false`) to preview the pick.
+- *Casos de uso:* una única puerta de entrada para tareas crudas; modo recomendación (`runSelected:false`) para previsualizar la elección.
 
-**`orchestrator-workers`** — a **planner** decomposes an open goal into a `dependsOn` subtask graph, **workers** execute it level-by-level (topological, partial-failure visible), an **integrator** merges results.
-- *Use when:* the goal is open-ended and its subtasks/shape aren't known up front.
-- *Params:* `goal` (req; aliases `task`/`text`) · `context?` · `maxSubtasks=8` (clamp 1..30) · `concurrency?`.
-- *Example:*
+**`orchestrator-workers`** — un **planner** descompone un goal abierto en un grafo de subtareas `dependsOn`, los **workers** lo ejecutan nivel por nivel (topológico, con fallas parciales visibles) y un **integrator** fusiona resultados.
+- *Usar cuando:* el goal es abierto y sus subtareas o su forma no se conocen de antemano.
+- *Parámetros:* `goal` (req; aliases `task`/`text`) · `context?` · `maxSubtasks=8` (clamp 1..30) · `concurrency?`.
+- *Ejemplo:*
   ```js
   Workflow({ name:'orchestrator-workers', args:{
-    goal:'Produce a launch-readiness brief: assess SSE parity, enumerate rollback triggers, draft the rollout sequence, write the exec summary.',
+    goal:'Prepará un brief de launch readiness: evaluá la paridad de SSE, enumerá triggers de rollback, redactá la secuencia de rollout y escribí el resumen ejecutivo.',
     maxSubtasks:6, concurrency:3, efforts:{ planner:'xhigh', integrator:'high' } } });
   // → { result, plan:{ subtasks:[{id,description,dependsOn}], schedule, ... }, workers:[{id,status,output}] }
   ```
-- *Use cases:* multi-part deliverables; research/build goals with interdependencies.
+- *Casos de uso:* entregables multiparte; goals de investigación/construcción con interdependencias.
 
-**`map-reduce`** — hierarchical (recursive) map-reduce: per-chunk **map** under an evidence contract → **reduce** in bounded batches until one summary-of-summaries remains.
-- *Use when:* the input is bigger than one context window.
-- *Params:* `instruction` (req) · `items?[]` **or** `content?` (one required; `items` wins) · `chunkChars=8000` (500..200000) · `reduceBatch=5` (2..20) · `maxChunks=400` (1..2000) · adaptive `maxRounds`.
-- *Example:*
+**`map-reduce`** — map-reduce jerárquico (recursivo): **map** por chunk bajo un contrato de evidencia → **reduce** en lotes acotados hasta que queda un único summary-of-summaries.
+- *Usar cuando:* el input es más grande que una ventana de contexto.
+- *Parámetros:* `instruction` (req) · `items?[]` **o** `content?` (uno requerido; `items` gana) · `chunkChars=8000` (500..200000) · `reduceBatch=5` (2..20) · `maxChunks=400` (1..2000) · `maxRounds` adaptativo.
+- *Ejemplo:*
   ```js
   Workflow({ name:'map-reduce', args:{
     instruction:'Extract every breaking API change with affected symbol + one-line migration note; cite the span.',
     content: veryLongChangelog, chunkChars:6000, reduceBatch:4 } });
   // → { result, chunks, mapCount, reduceRounds }
   ```
-- *Use cases:* summarize a huge doc/log; roll up hundreds of tickets.
+- *Casos de uso:* resumir un doc/log enorme; consolidar cientos de tickets.
 
-### Discover & fan-out
+### Descubrir y abrir fan-out
 
-**`fan-out-and-synthesize`** — scatter-gather base pattern: scout a work-list → one reviewer per item (parallel, settle) → synthesize-as-judge with coverage/failure notes.
-- *Use when:* you need broad independent coverage of a known-ish work-list.
-- *Params:* `limit=12` · `pattern='code'` (preset `code|docs|web|config` or raw regex) · `lens='code'` (preset `code|security|prose` or free text) · `files?[]`.
-- *Example:* `Workflow({ name:'fan-out-and-synthesize', args:{ lens:'security', limit:20 } });`
-- *Use cases:* spread review across many files; multi-angle synthesis.
+**`fan-out-and-synthesize`** — patrón base scatter-gather: scout de una work-list → un reviewer por ítem (paralelo, settle) → síntesis-como-juez con notas de cobertura/fallas.
+- *Usar cuando:* necesitás cobertura amplia e independiente de una work-list más o menos conocida.
+- *Parámetros:* `limit=12` · `pattern='code'` (preset `code|docs|web|config` o regex cruda) · `lens='code'` (preset `code|security|prose` o texto libre) · `files?[]`.
+- *Ejemplo:* `Workflow({ name:'fan-out-and-synthesize', args:{ lens:'security', limit:20 } });`
+- *Casos de uso:* repartir review entre muchos archivos; síntesis multiángulo.
 
-**`scout-fanout`** — scout → **adaptive-depth** pipeline: cheaply risk-classify *every* file, deep-review only high/medium; low-risk short-circuits.
-- *Use when:* you want coverage but only want to pay for the risky items.
-- *Params:* `pattern='code'` · `lens='code'` · `maxFiles=40` (clamp 1..200) · `files?[]`.
-- *Example:* `Workflow({ name:'scout-fanout', args:{ pattern:'config', lens:'security' } });`
-- *Use cases:* triage-then-review a large tree; classify-and-act passes.
+**`scout-fanout`** — scout → pipeline de **profundidad adaptativa**: clasifica barato el riesgo de *cada* archivo y hace deep-review solo sobre los de riesgo alto/medio; los de riesgo bajo cortan temprano.
+- *Usar cuando:* querés cobertura, pero solo querés pagar por los ítems riesgosos.
+- *Parámetros:* `pattern='code'` · `lens='code'` · `maxFiles=40` (clamp 1..200) · `files?[]`.
+- *Ejemplo:* `Workflow({ name:'scout-fanout', args:{ pattern:'config', lens:'security' } });`
+- *Casos de uso:* triage-y-review sobre un árbol grande; pasadas de clasificar-y-actuar.
 
-**`repo-bug-hunt`** — scout code files → per-file bug reviewers → judge dedupes + prioritizes with citations. **Findings are leads, not confirmed bugs.**
-- *Use when:* you want a prioritized, cited list of suspected bugs across a repo.
-- *Params:* `files?[]` · `maxFiles=40` · `concurrency=6` · `pattern='code'` · `lens='code'`.
-- *Example:* `Workflow({ name:'repo-bug-hunt', args:{ maxFiles:30, lens:'security' } });`
-- *Use cases:* repo audit; pre-review sweep (then confirm with `bug-verify`).
+**`repo-bug-hunt`** — scout de archivos de código → reviewers de bugs por archivo → juez que deduplica y prioriza con citas. **Los findings son pistas, no bugs confirmados.**
+- *Usar cuando:* querés una lista priorizada y citada de bugs sospechados en un repo.
+- *Parámetros:* `files?[]` · `maxFiles=40` · `concurrency=6` · `pattern='code'` · `lens='code'`.
+- *Ejemplo:* `Workflow({ name:'repo-bug-hunt', args:{ maxFiles:30, lens:'security' } });`
+- *Casos de uso:* auditoría de repo; pasada previa a review (después confirmar con `bug-verify`).
 
-**`loop-until-dry`** — keep fanning out finders until **K consecutive quiet rounds** or `maxRounds`.
-- *Use when:* the set you're discovering is unknown-size and you want exhaustiveness.
-- *Params:* `target`/`scope`/`task` (req) · `quietRounds=2` · `maxRounds=8` · `finders=3` (clamp 1..6).
-- *Example:* `Workflow({ name:'loop-until-dry', args:{ target:'all places we parse SSE chunks', quietRounds:2 } });`
-- *Use cases:* enumerate all call-sites/edge-cases; "find everything that…".
+**`loop-until-dry`** — sigue abriendo fan-out de finders hasta **K rondas consecutivas en silencio** o `maxRounds`.
+- *Usar cuando:* el conjunto que estás descubriendo tiene tamaño desconocido y querés exhaustividad.
+- *Parámetros:* `target`/`scope`/`task` (req) · `quietRounds=2` · `maxRounds=8` · `finders=3` (clamp 1..6).
+- *Ejemplo:* `Workflow({ name:'loop-until-dry', args:{ target:'all places we parse SSE chunks', quietRounds:2 } });`
+- *Casos de uso:* enumerar todos los call-sites/casos borde; “encontrá todo lo que…”.
 
-**`react-scout`** — ReAct reason→act→observe loop: each step grounds a thought in a **real read-only observation** before the next.
-- *Use when:* you need an evidence-grounded scout before committing or fanning out.
-- *Params:* `question` (req; aliases `q`/`text`/`topic`) · `maxSteps=6` (clamp 1..50) · `tools=['read','grep','find','ls','web_search']`.
-- *Example:* `Workflow({ name:'react-scout', args:{ question:'Where does the WASM decoder get fed bytes?' } });`
-- *Use cases:* grounded investigation; produce `result.trace` to hand to a fan-out.
+**`react-scout`** — loop ReAct reason→act→observe: cada paso ancla un pensamiento en una **observación real de solo lectura** antes del siguiente.
+- *Usar cuando:* necesitás un scout basado en evidencia antes de comprometerte o abrir fan-out.
+- *Parámetros:* `question` (req; aliases `q`/`text`/`topic`) · `maxSteps=6` (clamp 1..50) · `tools=['read','grep','find','ls','web_search']`.
+- *Ejemplo:* `Workflow({ name:'react-scout', args:{ question:'Where does the WASM decoder get fed bytes?' } });`
+- *Casos de uso:* investigación anclada en evidencia; producir `result.trace` para dárselo a un fan-out.
 
-**`complex-research`** — independent research angles (each runs web search) → synthesis-as-judge with citations and coverage gaps.
-- *Use when:* you need a cited answer to an external question.
-- *Params:* `question` (req; aliases `q`/`text`) · `angles?[]` (default 4: primary sources / options & tradeoffs / risks & migration / best recommendation).
-- *Example:* `Workflow({ name:'complex-research', args:{ question:'WASM vs NAPI FFI for Node in 2026?' } });`
-- *Use cases:* technology comparisons; literature/landscape scans. *Pair with a verify step for consequential answers.*
+**`complex-research`** — ángulos de investigación independientes (cada uno corre web search) → síntesis-como-juez con citas y huecos de cobertura.
+- *Usar cuando:* necesitás una respuesta citada a una pregunta externa.
+- *Parámetros:* `question` (req; aliases `q`/`text`) · `angles?[]` (por defecto 4: fuentes primarias / opciones y tradeoffs / riesgos y migración / mejor recomendación).
+- *Ejemplo:* `Workflow({ name:'complex-research', args:{ question:'WASM vs NAPI FFI for Node in 2026?' } });`
+- *Casos de uso:* comparaciones tecnológicas; barridos de literatura/panorama. *Conviene emparejarlo con un paso de verify si la respuesta tiene consecuencias.*
 
 ### Verify
 
-**`adversarial-verify`** — per-finding **skeptic jury** that prunes by majority refutation; default-to-doubt.
-- *Use when:* you have findings/claims and want only the ones that survive refutation.
-- *Params:* `findings?[]` (else discovered from `topic`) · `skeptics=3` (clamp 1..99) · `maxFindings=8`.
-- *Example:* `Workflow({ name:'adversarial-verify', args:{ topic:'security claims about our token flow', skeptics:5 } });`
-- *Use cases:* prune a noisy findings list; sanity-check claims before acting.
+**`adversarial-verify`** — **jury escéptico** por finding que poda por refutación mayoritaria; duda por defecto.
+- *Usar cuando:* ya tenés findings/claims y querés quedarte solo con los que sobreviven la refutación.
+- *Parámetros:* `findings?[]` (si no, se descubren desde `topic`) · `skeptics=3` (clamp 1..99) · `maxFindings=8`.
+- *Ejemplo:* `Workflow({ name:'adversarial-verify', args:{ topic:'security claims about our token flow', skeptics:5 } });`
+- *Casos de uso:* podar una lista ruidosa de findings; sanity-check de claims antes de actuar.
 
-**`bug-verify`** — confirm suspected bugs by **REPRODUCTION**: a bug is real only if a run actually fails on current code; optional FAIL→PASS fix check and minimization.
-- *Use when:* you must *prove* a bug, not just argue it. Runs **sequentially** on the working tree.
-- *Params:* `bugs?[]` **or** `topic` · `verifyCmd` (e.g. `"npm test"`) · `attemptFix=false` · `minimize=false` · `maxBugs=12`.
-- *Example:* `Workflow({ name:'bug-verify', args:{ topic:'SSE decoder drops final chunk', verifyCmd:'npm test', attemptFix:true } });`
-- *Use cases:* confirm `repo-bug-hunt` leads; reproduce-and-fix loop.
+**`bug-verify`** — confirma bugs sospechados por **REPRODUCTION**: un bug es real solo si una corrida falla de verdad sobre el código actual; opcionalmente chequea FAIL→PASS tras un fix y hace minimización.
+- *Usar cuando:* necesitás *probar* un bug, no solo argumentarlo. Corre **en secuencia** sobre el working tree.
+- *Parámetros:* `bugs?[]` **o** `topic` · `verifyCmd` (por ejemplo, `"npm test"`) · `attemptFix=false` · `minimize=false` · `maxBugs=12`.
+- *Ejemplo:* `Workflow({ name:'bug-verify', args:{ topic:'SSE decoder drops final chunk', verifyCmd:'npm test', attemptFix:true } });`
+- *Casos de uso:* confirmar pistas de `repo-bug-hunt`; loop de reproducir-y-arreglar.
 
-**`verify-claims-lib`** — reusable **sub-workflow**: verify `{claims, skeptics?}` with skeptic juries.
-- *Use when:* a parent workflow needs verification as a building block.
-- *Params:* `claims[]` (req) · `skeptics=3` (clamp 1..64) · `topic?`.
-- *Returns:* `{ verified, dropped, votes, coverage }`.
-- *Use cases:* called by `composition-driver`; any parent that discovers then verifies.
+**`verify-claims-lib`** — **sub-workflow** reutilizable: verifica `{claims, skeptics?}` con juries escépticos.
+- *Usar cuando:* un workflow padre necesita verificación como bloque de construcción.
+- *Parámetros:* `claims[]` (req) · `skeptics=3` (clamp 1..64) · `topic?`.
+- *Devuelve:* `{ verified, dropped, votes, coverage }`.
+- *Casos de uso:* lo llama `composition-driver`; útil para cualquier padre que primero descubre y después verifica.
 
-**`adversarial-plan-review`** — N fixed-angle reviewers (correctness, security, maintainability, scope) → synthesize a revised plan.
-- *Use when:* you want a plan stress-tested before building.
-- *Params:* `plan`/`text` (req). Fan-out capped at 4 reviewers; all-fail → `INSUFFICIENT_EVIDENCE`.
-- *Example:* `Workflow({ name:'adversarial-plan-review', args:{ plan: theImplementationPlan } });`
-- *Use cases:* design/RFC review; pre-implementation gate.
+**`adversarial-plan-review`** — N reviewers de ángulos fijos (correctness, security, maintainability, scope) → sintetizan un plan revisado.
+- *Usar cuando:* querés stress-testear un plan antes de construir.
+- *Parámetros:* `plan`/`text` (req). El fan-out queda topeado en 4 reviewers; si todos fallan → `INSUFFICIENT_EVIDENCE`.
+- *Ejemplo:* `Workflow({ name:'adversarial-plan-review', args:{ plan: theImplementationPlan } });`
+- *Casos de uso:* review de diseño/RFC; gate previo a implementación.
 
 ### Generate & select
 
-**`judge-escalate`** — generate candidates from distinct angles → typed judge → **escalate only when confidence is low**.
-- *Use when:* best-of-N where you'd rather deepen than commit to a weak winner.
-- *Params:* `question` (req; aliases `q`/`text`) · `angles=['risk-first','simplicity-first','user-first']` (max 8) · `maxEscalations=2`.
-- *Example:* `Workflow({ name:'judge-escalate', args:{ question:'Best rollback strategy for the gate?' } });`
-- *Use cases:* decisions with a clear winner most of the time; adaptive spend.
+**`judge-escalate`** — genera candidatos desde ángulos distintos → juez tipado → **escala solo cuando la confianza es baja**.
+- *Usar cuando:* querés best-of-N y preferís profundizar antes que comprometerte con un ganador débil.
+- *Parámetros:* `question` (req; aliases `q`/`text`) · `angles=['risk-first','simplicity-first','user-first']` (máx. 8) · `maxEscalations=2`.
+- *Ejemplo:* `Workflow({ name:'judge-escalate', args:{ question:'Best rollback strategy for the gate?' } });`
+- *Casos de uso:* decisiones con ganador claro la mayoría de las veces; gasto adaptativo.
 
-**`tournament`** — single-elimination bracket: pairwise judge rounds until one survives (`ceil(log2 n)` rounds; odd field gets a bye).
-- *Use when:* absolute scoring is unreliable but pairwise comparison is easy.
-- *Params:* `candidates?[]` (else generated from `angles`) · `topic?` · `angles=['risk-first','simplicity-first','user-first','cost-first']`.
-- *Example:* `Workflow({ name:'tournament', args:{ candidates:[a,b,c,d] } });`
-- *Use cases:* pick the best of several drafts/designs by head-to-head.
+**`tournament`** — bracket de eliminación simple: rondas de juez por pares hasta que sobrevive uno (`ceil(log2 n)` rondas; si el campo es impar, alguien pasa con bye).
+- *Usar cuando:* el scoring absoluto no es confiable, pero la comparación de a pares sí.
+- *Parámetros:* `candidates?[]` (si no, se generan desde `angles`) · `topic?` · `angles=['risk-first','simplicity-first','user-first','cost-first']`.
+- *Ejemplo:* `Workflow({ name:'tournament', args:{ candidates:[a,b,c,d] } });`
+- *Casos de uso:* elegir el mejor entre varios drafts/diseños mediante enfrentamientos head-to-head.
 
-**`self-consistency`** — sample N independent reasoning paths → pick the answer by **consensus** (vote), tie-broken by an evidence-weighing judge.
-- *Use when:* a single chain might be wrong and agreement is the signal you trust.
-- *Params:* `question` (req; aliases `q`/`text`) · `samples=5` (clamp 2..20). Samplers run `cache:false` for genuine independence.
-- *Example:* `Workflow({ name:'self-consistency', args:{ question:'Does this code path leak the handle?', samples:7 } });`
-- *Use cases:* high-variance reasoning/math/judgment; report the consensus margin.
+**`self-consistency`** — muestrea N caminos de razonamiento independientes → elige la respuesta por **consensus** (voto), y desempata con un juez que pondera evidencia.
+- *Usar cuando:* una sola cadena podría estar mal y la señal que más confiás es el acuerdo.
+- *Parámetros:* `question` (req; aliases `q`/`text`) · `samples=5` (clamp 2..20). Los samplers corren con `cache:false` para que la independencia sea real.
+- *Ejemplo:* `Workflow({ name:'self-consistency', args:{ question:'Does this code path leak the handle?', samples:7 } });`
+- *Casos de uso:* razonamiento/matemática/juicio de alta varianza; conviene reportar el margen de consenso.
 
-**`tree-of-thoughts`** — beam-search over partial solutions: expand K thoughts → judge-score → prune to top-B → recurse to depth → commit.
-- *Use when:* the problem has **intermediate steps** worth exploring, not just final candidates.
-- *Params:* `problem` (req; aliases `question`/`text`/`task`) · `branching=3` (clamp 2..8) · `beam=2` (clamp 1..16) · `depth=3`.
-- *Example:* `Workflow({ name:'tree-of-thoughts', args:{ problem:'Design the gate rollout in 4 staged steps.' } });`
-- *Use cases:* multi-step planning/design search; `judge-escalate` is this at depth=1, beam=1.
+**`tree-of-thoughts`** — beam-search sobre soluciones parciales: expandir K thoughts → juez puntúa → poda al top-B → recursa hasta la profundidad → commit.
+- *Usar cuando:* el problema tiene **pasos intermedios** que vale la pena explorar, no solo candidatos finales.
+- *Parámetros:* `problem` (req; aliases `question`/`text`/`task`) · `branching=3` (clamp 2..8) · `beam=2` (clamp 1..16) · `depth=3`.
+- *Ejemplo:* `Workflow({ name:'tree-of-thoughts', args:{ problem:'Design the gate rollout in 4 staged steps.' } });`
+- *Casos de uso:* búsqueda de diseño/planificación multi-step; `judge-escalate` equivale a esto con depth=1 y beam=1.
 
 ### Iterate & refine
 
-**`self-refine`** — bounded in-place generate→critique→refine with verbal memory; quiet-stop when the critic is satisfied.
-- *Use when:* you want to polish **one** artifact and the critique can be intrinsic.
-- *Params:* `task` (req; aliases `question`/`text`) · `maxRounds=4` · `useJury=false` (swap the critic for the `adversarial-verify` jury — a stronger independent signal) · `skeptics=3` (jury size, used when `useJury`).
-- *Example:* `Workflow({ name:'self-refine', args:{ task:'Write the migration guide section.', useJury:true } });`
-- *Use cases:* doc/spec/code polish where returns diminish fast.
+**`self-refine`** — loop acotado generate→critique→refine in-place con memoria verbal; corta en silencio cuando el crítico queda satisfecho.
+- *Usar cuando:* querés pulir **un** artifact y la crítica puede ser intrínseca.
+- *Parámetros:* `task` (req; aliases `question`/`text`) · `maxRounds=4` · `useJury=false` (reemplaza el crítico por el jury de `adversarial-verify`, una señal independiente más fuerte) · `skeptics=3` (tamaño del jury cuando `useJury`).
+- *Ejemplo:* `Workflow({ name:'self-refine', args:{ task:'Write the migration guide section.', useJury:true } });`
+- *Casos de uso:* pulido de docs/specs/código donde el retorno cae rápido.
 
-**`reflexion`** — verbal-RL **outer trial loop**: re-attempt the whole task each trial, carrying a bounded buffer of self-reflections; the evaluator can be **externally grounded** (runs `verifyCmd`).
-- *Use when:* a fresh re-attempt beats editing in place, and you have an objective oracle.
-- *Params:* `task` (req; aliases `question`/`text`) · `verifyCmd?` (grounds the evaluator) · `maxTrials=3` · `memoryCap=3` · `actorModel?` / `evaluatorModel?`.
-- *Example:* `Workflow({ name:'reflexion', args:{ task:'Make the failing decoder test pass.', verifyCmd:'npm test -- decoder' } });`
-- *Use cases:* code-with-tests; tasks with a pass/fail signal. (Distinct from `self-refine`: reset & re-attempt vs edit-in-place.)
+**`reflexion`** — loop externo de verbal-RL **por intento**: vuelve a intentar la tarea completa en cada trial y arrastra un buffer acotado de self-reflections; el evaluator puede estar **anclado externamente** (ejecuta `verifyCmd`).
+- *Usar cuando:* conviene más volver a intentar desde cero que editar in-place, y además tenés un oráculo objetivo.
+- *Parámetros:* `task` (req; aliases `question`/`text`) · `verifyCmd?` (ancla el evaluator) · `maxTrials=3` · `memoryCap=3` · `actorModel?` / `evaluatorModel?`.
+- *Ejemplo:* `Workflow({ name:'reflexion', args:{ task:'Make the failing decoder test pass.', verifyCmd:'npm test -- decoder' } });`
+- *Casos de uso:* código-con-tests; tareas con señal pass/fail. (Distinto de `self-refine`: reset y reintento vs edición in-place.)
 
-**`large-migration`** — a real **applier**: green-baseline gate → per-file apply→verify→bounded-repair → **rollback on failure**. Sequential over the working tree.
-- *Use when:* you're mutating many files and must never leave a broken one behind.
-- *Params:* `instruction` (req; aliases `task`/`text`) · `files?[]` **or** `pattern` (default code exts) · `verifyCmd` · `maxRepairs=2` · `maxFiles=50` · `triage=true` · `dryRun=false`.
-- *Example:* `Workflow({ name:'large-migration', args:{ instruction:'Replace X(...) with Y(...)', verifyCmd:'npm run build && npm test', dryRun:true } });`
-- *Use cases:* API/codemod rollouts; framework upgrades.
+**`large-migration`** — un **applier** real: gate de baseline verde → por archivo hace apply→verify→repair acotado → **rollback on failure**. Recorre el working tree en secuencia.
+- *Usar cuando:* vas a mutar muchos archivos y no podés dejar ninguno roto.
+- *Parámetros:* `instruction` (req; aliases `task`/`text`) · `files?[]` **o** `pattern` (por defecto: extensiones de código) · `verifyCmd` · `maxRepairs=2` · `maxFiles=50` · `triage=true` · `dryRun=false`.
+- *Ejemplo:* `Workflow({ name:'large-migration', args:{ instruction:'Replace X(...) with Y(...)', verifyCmd:'npm run build && npm test', dryRun:true } });`
+- *Casos de uso:* rollouts de API/codemod; upgrades de framework.
 
 ### Compose & meta
 
-**`composition-driver`** — parent: discover claims → delegate verification to `verify-claims-lib` → synthesize.
-- *Use when:* you want a worked example of parent + reusable sub-workflow, or that exact discover→verify flow.
-- *Params:* `topic` (req; aliases `question`/`text`) · `maxClaims=8` (clamp 1..20) · `skeptics=3`.
-- *Example:* `Workflow({ name:'composition-driver', args:{ topic:'claims in our SSE parity doc' } });`
-- *Use cases:* fact-check a document; the canonical composition reference.
+**`composition-driver`** — workflow padre: descubre claims → delega la verificación a `verify-claims-lib` → sintetiza.
+- *Usar cuando:* querés un ejemplo trabajado de workflow padre + sub-workflow reutilizable, o exactamente ese flujo descubrir→verificar.
+- *Parámetros:* `topic` (req; aliases `question`/`text`) · `maxClaims=8` (clamp 1..20) · `skeptics=3`.
+- *Ejemplo:* `Workflow({ name:'composition-driver', args:{ topic:'claims in our SSE parity doc' } });`
+- *Casos de uso:* fact-check de un documento; referencia canónica de composición.
 
-**`workflow-factory`** — meta: catalog → plan → generate → review → refine → **write** `.claude/workflows/drafts/<slug>.js`.
-- *Use when:* no existing workflow fits and you want a task-specific one scaffolded.
-- *Params:* `task` (req; aliases `request`/`text`) · `name?` (slug) · `write=true` (`false` returns the JS only).
-- *Example:* `Workflow({ name:'workflow-factory', args:{ task:'Audit GraphQL resolvers for N+1 queries and emit a cited report.' } });`
-- *Use cases:* bootstrap a new pattern; specialize the closest existing scaffold. **Output is a draft — inspect before trusting it for costly/mutating work.**
+**`workflow-factory`** — meta: catálogo → plan → generate → review → refine → **write** `.claude/workflows/drafts/<slug>.js`.
+- *Usar cuando:* ningún workflow existente encaja y querés scaffoldear uno específico para la tarea.
+- *Parámetros:* `task` (req; aliases `request`/`text`) · `name?` (slug) · `write=true` (`false` devuelve solo el JS).
+- *Ejemplo:* `Workflow({ name:'workflow-factory', args:{ task:'Audit GraphQL resolvers for N+1 queries and emit a cited report.' } });`
+- *Casos de uso:* bootstrap de un patrón nuevo; especializar el scaffold existente más cercano. **La salida es un draft: inspeccionala antes de confiarle trabajo costoso o mutante.**
 
-**`recursive-compose`** — REFERENCE (pi, depth≤3): a node re-gates a sub-task via Phase-0 `contract-gate`, then dispatches the recommended scaffold via `router` — bounded recursive composition.
-- *Use when:* you want the worked pattern for **Phase-0-from-inside** + recursive dispatch.
-- *Params:* `task` (req; aliases `request`/`text`) · `context?` · `args?` (forwarded to the chosen workflow).
-- *Example:* `Workflow({ name:'recursive-compose', args:{ task:'audit + fix the SSE decoder' } });` *(pi; on Claude Code's depth-1 runtime the nested dispatch returns `DEPTH_BLOCKED`)*
-- *Use cases:* self-similar gate→compose pipelines; carry the gate's `resourcePlan` budget into a deeper run.
+**`recursive-compose`** — REFERENCIA (pi, depth≤3): un nodo re-acota una subtarea vía la Fase 0 `contract-gate` y luego despacha el scaffold recomendado vía `router`: composición recursiva acotada.
+- *Usar cuando:* querés el patrón trabajado de **Phase-0-from-inside** + dispatch recursivo.
+- *Parámetros:* `task` (req; aliases `request`/`text`) · `context?` · `args?` (se reenvían al workflow elegido).
+- *Ejemplo:* `Workflow({ name:'recursive-compose', args:{ task:'audit + fix the SSE decoder' } });` *(pi; en el runtime depth-1 de Claude Code el dispatch anidado devuelve `DEPTH_BLOCKED`)*
+- *Casos de uso:* pipelines auto-semejantes de gate→compose; llevar el presupuesto `resourcePlan` del gate a una corrida más profunda.
 
 ---
 
-## 7. Per-node model, effort, tools & skills
+## 7. Model, effort, tools y skills por nodo
 
-> **When/why.** Every workflow routes each agent call ("node") through a `node(role, extra)` helper, so you can set the **model**, **reasoning effort**, **tools** and **skills** per node from the input — no code edits. Spend the budget where it pays (judges/verifiers/synthesis), keep scouts cheap, and scope each node to only the tools/skills it needs.
+> **Cuándo/por qué.** Cada workflow enruta cada llamada a `agent` (“nodo”) a través de un helper `node(role, extra)`, así que podés definir **model**, **reasoning effort**, **tools** y **skills** por nodo desde el input, sin tocar el código. Gastá presupuesto donde paga (judges/verifiers/synthesis), mantené baratos los scouts y dale a cada nodo solo las tools/skills que necesita.
 
-- `model` / `effort` — **global defaults** applied to every node (e.g. `{ "effort": "low" }`).
-- `models` / `efforts` — **per-role overrides** keyed by the role name (e.g. `{ "models": { "synthesis": "opus" } }`).
-- `tools` / `skills` — **global** allowlists, and `excludeTools` a **global** denylist (arrays) applied to every node.
-- `toolsByRole` / `skillsByRole` / `excludeByRole` — **per-role overrides** (maps `role → array`).
-- **Precedence (all knobs):** per-role override > global default > the call-site default baked into the file.
-- `effort ∈ low | medium | high | xhigh | max`; `model ∈ haiku | sonnet | opus | fable` or a full model id.
+- `model` / `effort`: **valores por defecto globales** aplicados a todos los nodos (por ejemplo `{ "effort": "low" }`).
+- `models` / `efforts`: **overrides por rol** indexados por el nombre del rol (por ejemplo `{ "models": { "synthesis": "opus" } }`).
+- `tools` / `skills`: allowlists **globales**, y `excludeTools` una denylist **global** (arrays) aplicadas a todos los nodos.
+- `toolsByRole` / `skillsByRole` / `excludeByRole`: **overrides por rol** (mapas `role → array`).
+- **Precedencia (todos los knobs):** override por rol > valor por defecto global > valor por defecto del call-site horneado en el archivo.
+- `effort ∈ low | medium | high | xhigh | max`; `model ∈ haiku | sonnet | opus | fable` o un id completo de modelo.
 
 ```json
 { "models": { "scout": "haiku", "synthesis": "opus" }, "efforts": { "scout": "low", "synthesis": "high" },
@@ -476,7 +468,7 @@ Each entry: **purpose** · **use when** · **key params (defaults)** · **exampl
   "skillsByRole": { "synthesis": ["/path/to/skill"] } }
 ```
 
-The helper is byte-identical across all files:
+El helper es byte-idéntico en todos los archivos:
 ```js
 const node = (role, extra = {}) => {
   const o = { label: role, ...extra };
@@ -489,11 +481,11 @@ const node = (role, extra = {}) => {
 };
 ```
 
-> **⚠️ Runtime caveat for `tools`/`skills`/`excludeTools`.** Per-agent **tool/skill scoping is enforced under the pi runtime** (where it's a documented agent option) — there it genuinely sandboxes each node. Under the **Claude Code Workflow runtime it is advisory/not enforced** (verified: a scoped subagent still kept full file access), though `model`/`effort` **are** honored. So treat tools/skills as intent + pi-enforcement, not a security boundary on Claude Code.
+> **Nota de runtime para `tools`/`skills`/`excludeTools`.** El scoping de tools/skills por agente **se hace cumplir en el runtime de pi** (donde es una opción documentada del agente); ahí sí aísla cada nodo de verdad. En el **runtime Workflow de Claude Code es advisory / no enforced** (verificado: un subagente scopeado igual conservó acceso completo a archivos), aunque `model`/`effort` **sí** se respetan. Así que tratá tools/skills como intención + enforcement en pi, no como frontera de seguridad en Claude Code.
 
-### Role keys per workflow — `role → suggested default (model · effort)`
+### Claves de rol por workflow — `role → valor sugerido (model · effort)`
 
-| Workflow | Roles → suggested default |
+| Workflow | Roles → valor sugerido |
 |---|---|
 | `adversarial-plan-review` | `reviewer` (sonnet·medium), `plan-synthesis` (opus·high) |
 | `adversarial-verify` | `finder` (haiku·low), `skeptic` (opus·high) |
@@ -509,8 +501,8 @@ const node = (role, extra = {}) => {
 | `map-reduce` | `mapper` (haiku·low), `reducer` (sonnet·medium) |
 | `orchestrator-workers` | `planner` (opus·high), `worker` (sonnet·medium), `integrator` (opus·high) |
 | `react-scout` | `reason` (sonnet·medium), `observe` (haiku·low), `answer` (opus·high) |
-| `recursive-compose` | *(no own role keys — bounded recursive composition; delegates to `contract-gate`/`router`, whose rows apply)* |
-| `reflexion` | `actor` (sonnet·medium), `evaluator` (opus·high), `reflection` (opus·high) — also `actorModel`/`evaluatorModel` |
+| `recursive-compose` | *(sin claves de rol propias: composición recursiva acotada; delega a `contract-gate`/`router`, cuyas filas aplican)* |
+| `reflexion` | `actor` (sonnet·medium), `evaluator` (opus·high), `reflection` (opus·high) — además `actorModel`/`evaluatorModel` |
 | `repo-bug-hunt` | `scout` (haiku·low), `bug-hunt` (sonnet·medium), `synthesis` (opus·high) |
 | `router` | `catalog-scan` (haiku·low), `route` (opus·high) |
 | `scout-fanout` | `scout` (haiku·low), `classify` (haiku·low), `deep` (sonnet·medium), `synthesis` (opus·high) |
@@ -521,47 +513,47 @@ const node = (role, extra = {}) => {
 | `verify-claims-lib` | `skeptic` (opus·high) |
 | `workflow-factory` | `catalog-scan` (haiku·low), `workflow-plan` (opus·high), `workflow-codegen` (sonnet·medium), `workflow-review` (sonnet·medium), `workflow-refine` (sonnet·medium), `write-file` (haiku·low) |
 
-> `contract-gate` can also **suggest** this whole table for the recommended workflow via `resourcePlan` (`{ tier, models, efforts }`) — splat it into the downstream run or override it.
+> `contract-gate` también puede **sugerir** esta tabla completa para el workflow recomendado vía `resourcePlan` (`{ tier, models, efforts }`): podés splattearla en la corrida aguas abajo o sobreescribirla.
 
-### Cross-provider models & effort (Codex / OpenAI)
+### Modelos y effort cross-provider (Codex / OpenAI)
 
-The values above are for the **Claude Code Workflow runtime**, where `model` is Claude-only (`haiku | sonnet | opus | fable`). The **pi runtime** resolves `provider/id[:thinking]`, so the same knobs can target **OpenAI Codex**:
+Los valores de arriba corresponden al **runtime Workflow de Claude Code**, donde `model` es solo Claude (`haiku | sonnet | opus | fable`). El **runtime de pi** resuelve `provider/id[:thinking]`, así que esos mismos knobs también pueden apuntar a **OpenAI Codex**:
 
 ```json
 { "models": { "synthesis": "openai/gpt-5.3-codex", "judge": "openai/gpt-5.3-codex" },
   "efforts": { "synthesis": "xhigh", "judge": "high" } }
 ```
 
-| Codex model (mid-2026) | Notes |
+| Modelo Codex (mediados de 2026) | Notas |
 |---|---|
-| `gpt-5.3-codex` | most capable agentic coding model; ~25% faster |
-| `gpt-5.2-codex` | SOTA on SWE-Bench Pro / Terminal-Bench 2.0 |
-| `gpt-5.1-codex-max` | trained across multiple context windows via compaction |
-| `gpt-5.5` / `gpt-5.4` | general frontier; strong agentic coding |
+| `gpt-5.3-codex` | modelo de coding agéntico más capaz; ~25% más rápido |
+| `gpt-5.2-codex` | estado del arte en SWE-Bench Pro / Terminal-Bench 2.0 |
+| `gpt-5.1-codex-max` | entrenado sobre múltiples ventanas de contexto mediante compaction |
+| `gpt-5.5` / `gpt-5.4` | frontera generalista; sólidos para coding agéntico |
 
-**Reasoning effort** (Codex `low · medium · high · xhigh`) lines up 1:1 with our `effort`. *medium* is the daily driver; *xhigh* thinks longer.
+**Esfuerzo de razonamiento** (Codex `low · medium · high · xhigh`) se alinea 1:1 con nuestro `effort`. *medium* es el caballo de batalla diario; *xhigh* piensa más tiempo.
 
-> **Runtime caveat:** Claude model names (`haiku`/`sonnet`/`opus`/`fable`) apply under the Claude Code runtime; `provider/id` model names like the Codex ids apply only when running under **pi**.
+> **Advertencia de runtime:** los nombres de modelo de Claude (`haiku`/`sonnet`/`opus`/`fable`) aplican bajo el runtime de Claude Code; los nombres `provider/id` como los ids de Codex aplican solo cuando corre bajo **pi**.
 
 ---
 
-## 8. Runtime conventions & authoring
+## 8. Convenciones de runtime y authoring
 
-> **When/why.** Read this before editing or writing a workflow — the runtime injects helpers and enforces a few hard rules.
+> **Cuándo/por qué.** Leé esto antes de editar o escribir un workflow: el runtime inyecta helpers y hace cumplir unas pocas reglas duras.
 
-**Conventions checklist:**
-- ✅ Helper-globals only: `agent`, `parallel`, `pipeline`, `workflow`, `phase`, `log`, `args`. **No** `import` / `require` / `ctx.*` / Node globals.
-- ✅ `agent(promptString, opts)` — **string first**, then options (`{ label, phase, effort, schema, cache, model, tools, skills, excludeTools }`). Never `agent({ prompt })`.
-- ✅ With `{ schema }` → returns the **parsed object**; without → the **text string**.
-- ✅ `args` arrives **JSON-stringified** — parse it defensively: `typeof args === "string" ? JSON.parse(args) : (args || {})`.
-- ✅ `agent({ schema })` top-level type **MUST be `object`** — wrap arrays in an object.
-- ✅ Route every agent call through `node(role, extra)`; keep role names stable (they're the `models`/`efforts` keys).
-- ✅ `parallel([thunks])` is a barrier; use **settle** semantics so one crashed branch resolves to `null` instead of sinking the round.
-- ✅ Every loop is **bounded on both ends** (hard cap + a quiet/satisfied stop). **No silent caps** — `log()` whenever you clamp or drop.
-- ✅ `meta.name` must equal the filename; keep `meta` a pure literal.
-- ✅ **Base it on the closest scaffold(s) and declare that provenance** — `meta.basedOn` is an array of `{ name, role }` literals, one per scaffold reused/specialized/composed (e.g. `meta.basedOn = [{ name: 'fan-out-and-synthesize', role: 'scatter-gather base' }]`). This fills the artifact **Based-on** tab (it reads `meta.basedOn` as a string or `[{name, role?, desc?}]` array, else a leading `Paper:/Based on:/Source:` comment); set `[]` only if truly built from scratch.
+**Checklist de convenciones:**
+- ✅ Solo helper-globals: `agent`, `parallel`, `pipeline`, `workflow`, `phase`, `log`, `args`. **No** `import` / `require` / `ctx.*` / globals de Node.
+- ✅ `agent(promptString, opts)`: **primero string**, después opciones (`{ label, phase, effort, schema, cache, model, tools, skills, excludeTools }`). Nunca `agent({ prompt })`.
+- ✅ Con `{ schema }` devuelve el **objeto parseado**; sin eso devuelve el **string de texto**.
+- ✅ `args` llega **JSON-stringified**: parsealo de forma defensiva con `typeof args === "string" ? JSON.parse(args) : (args || {})`.
+- ✅ El tipo de nivel superior de `agent({ schema })` **DEBE ser `object`**: envolvé los arrays dentro de un objeto.
+- ✅ Enrutá cada llamada a `agent` a través de `node(role, extra)`; mantené estables los nombres de rol (son las keys de `models`/`efforts`).
+- ✅ `parallel([thunks])` es una barrera; usá semántica de **settle** para que una rama que crashea resuelva a `null` en vez de hundir toda la ronda.
+- ✅ Todo loop es **acotado por los dos lados** (tope duro + condición de parada por silencio/satisfacción). **No** pongas topes silenciosos: hacé `log()` cada vez que hagas clamp o drop.
+- ✅ `meta.name` debe ser igual al nombre del archivo; mantené `meta` como un literal puro.
+- ✅ **Basalo en el scaffold existente más cercano y declaralo en la procedencia**: `meta.basedOn` es un array literal de `{ name, role }`, uno por cada scaffold reutilizado/especializado/compuesto (por ejemplo `meta.basedOn = [{ name: 'fan-out-and-synthesize', role: 'scatter-gather base' }]`). Esto llena la pestaña **Based-on** del artifact (lee `meta.basedOn` como string o como array `[{name, role?, desc?}]`; si no, busca un comentario inicial `Paper:/Based on:/Source:`); usá `[]` solo si de verdad se construyó desde cero.
 
-**Authoring a new one:** **base it on the closest existing scaffold(s) — never reinvent — and record that in `meta.basedOn`.** Don't hand-roll it — run **`workflow-factory`** with a `task`. It reads the catalog, prefers reusing/specializing the closest scaffold, composes reusable sub-steps via `workflow()`, and writes a draft to `.claude/workflows/drafts/<slug>.js`. Inspect/edit the draft, then symlink or rename it into `~/.claude/workflows/` and start a new session so it resolves by `name`.
+**Cómo crear uno nuevo.** **Basalo en el scaffold existente más cercano; no reinventes, y registralo en `meta.basedOn`.** No lo hagas a mano: corré **`workflow-factory`** con un `task`. Lee el catálogo, prioriza reutilizar/especializar el scaffold más cercano, compone subpasos reutilizables vía `workflow()` y escribe un draft en `.claude/workflows/drafts/<slug>.js`. Inspeccioná/editá el draft y después creá un symlink o renombralo dentro de `~/.claude/workflows/`; por último, iniciá una sesión nueva para que resuelva por `name`.
 
 ```mermaid
 flowchart LR

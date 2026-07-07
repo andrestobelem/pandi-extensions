@@ -1,9 +1,6 @@
 # appendFile
 
-Adds data to the end of a file relative to the run's `cwd`, creating parent
-directories on the way if needed. Reach for it when a workflow step needs to
-accumulate lines into a plain file over time — a log, a growing report, a
-running summary — without a full agent or `bash` call.
+Agrega datos al final de un archivo relativo al `cwd` del run y crea los directorios padre en el camino si hacen falta. Usalo cuando un paso de un workflow necesita ir acumulando líneas en un archivo común con el tiempo — un log, un reporte que crece, un resumen en curso — sin recurrir a un agente completo ni a una llamada a `bash`.
 
 ```js
 for (const line of summaryLines) {
@@ -15,19 +12,23 @@ for (const line of summaryLines) {
 
 **Signature:** `appendFile(path, data) → Promise<{ path }>`
 
-**Returns:** `{ path }` — the absolute path written.
+Agrega contenido a un archivo bajo el `cwd` del run.
 
-## When to use / not
+**Returns:** `{ path }` — el path absoluto escrito.
 
-- **Use** to accumulate lines into a `cwd` file across steps.
-- **Not** for a run-scoped artifact that multiple concurrent agents append to —
-  use [`appendArtifact`](appendArtifact.md), which serializes per-path so
-  concurrent appends never interleave.
+## Cuándo usarlo
 
-## Gotchas
+- **Sí**: para acumular líneas en un archivo dentro de `cwd` a lo largo de
+  varios pasos.
+- **No**: para un artifact scoped al run al que varios agentes concurrentes
+  hacen append. En ese caso usá [`appendArtifact`](appendArtifact.md), que
+  serializa por path para que los appends concurrentes no se intercalen.
 
-- Confined to `cwd`; parent dirs are created automatically.
-- No cross-call locking here — for concurrent appenders prefer `appendArtifact`.
+## Detalles a tener en cuenta
+
+- Está confinado a `cwd`; los directorios padre se crean automáticamente.
+- No hay locking entre llamadas. Si hay appenders concurrentes, preferí
+  `appendArtifact`.
 
 ## Example
 

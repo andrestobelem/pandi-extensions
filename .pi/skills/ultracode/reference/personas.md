@@ -1,64 +1,48 @@
-# Agent personas (`agentType`)
+# Personas de agente (`agentType`)
 
-A **persona** is a named preset of `AgentOptions` you attach to a subagent with
-`agentType: "<name>"`. It sets sensible defaults for `tools`, reasoning
-(`thinking`), and a role `systemPrompt`, so you don't re-specify them per call.
+Una **persona** es un preset con nombre de `AgentOptions` que adjuntás a un subagente con `agentType: "<name>"`. Define valores razonables por defecto para `tools`, el razonamiento (`thinking`) y un `systemPrompt` de rol, para no repetirlos en cada llamada.
 
-Source of truth: `BUILTIN_AGENT_PERSONAS` in
-`extensions/pandi-dynamic-workflows/agent-env-persona.ts`. Projects can override a
-built-in (or add their own) with a trusted `.pi/personas/<name>.json` file whose
-keys are limited to the persona-safe `AgentOptions` allowlist.
+Fuente de verdad: `BUILTIN_AGENT_PERSONAS` en `extensions/pandi-dynamic-workflows/agent-env-persona.ts`. Los proyectos pueden sobreescribir una built-in —o agregar las suyas— con un archivo confiable `.pi/personas/<name>.json`, cuyas claves están limitadas a la allowlist persona-safe de `AgentOptions`.
 
-## Precedence & merge
+## Precedencia y merge
 
 ```
 agent({ agentType: "reviewer", model: "…", appendSystemPrompt: "…" })
-  → project .pi/personas/reviewer.json  (if present & project trusted)
+  → .pi/personas/reviewer.json del proyecto (si existe y el proyecto es trusted)
   ?? BUILTIN_AGENT_PERSONAS["reviewer"]
-  → merged with the call's explicit options
+  → se mezcla con las opciones explícitas de la llamada
 ```
 
-- **Explicit options always win** over the persona (`{ ...persona, ...options }`).
-- **`appendSystemPrompt` is concatenated** (persona base + your text, `\n\n`), not overwritten.
-- An unknown `agentType` throws — it is never silently ignored.
+- **Las opciones explícitas siempre ganan** sobre la persona (`{ ...persona, ...options }`).
+- **`appendSystemPrompt` se concatena** (base de la persona + tu texto, `\n\n`), no se sobrescribe.
+- Un `agentType` desconocido lanza error: nunca se ignora en silencio.
 
-## The built-in menu
+## Menú built-in
 
-Every built-in persona defaults to **read-only tools** (`READ_ONLY_AGENT_TOOLS`):
-inspect, cite, and propose — never edit. This is a deliberate security invariant.
-If a step must write/execute, grant tools explicitly on that call (the explicit
-`tools` override wins), or don't use a persona for it.
+Todas las personas built-in usan por defecto **tools de solo lectura** (`READ_ONLY_AGENT_TOOLS`): inspeccionar, citar y proponer; nunca editar. Esta es una invariante de seguridad deliberada.
 
-| `agentType` | reasoning | Use it for | Role prompt (gist) |
+Si un paso necesita escribir o ejecutar, otorgá tools explícitamente en esa llamada (gana el override explícito de `tools`) o no uses una persona para ese paso.
+
+| `agentType` | razonamiento | Usalo para | Prompt de rol (resumen) |
 | --- | --- | --- | --- |
-| `explore` | medium | Broad scouting / discovery over a codebase or corpus | Explore broadly but stay evidence-based; prefer read-only inspection, cite files/lines, call out uncertainty. |
-| `researcher` | high | Independent evidence gathering, comparing alternatives | Gather independent evidence, compare alternatives, cite sources or files, separate facts from assumptions. |
-| `planner` | high | Decomposition, dependency/risk mapping, routing | Decompose the task, identify dependencies and risks, propose a minimal verifiable plan with clear trade-offs. |
-| `architect` | high | Solution **design** (distinct from planning) | Shape the solution design: define components, interfaces, boundaries, and data flow; weigh trade-offs and constraints; justify against requirements. |
-| `implementer` | medium | Designing a concrete patch/diff | Prefer minimal changes, preserve existing behavior, explain verification steps; do not edit unless the caller explicitly allows it. |
-| `reviewer` | high | Skeptical review / QA / gating risky output | Look for correctness, security, concurrency, and maintainability risks; cite concrete evidence; do not edit files. |
+| `explore` | medium | Exploración o descubrimiento amplio sobre un repositorio o corpus | Explorar con amplitud, pero con evidencia; priorizar inspección read-only, citar archivos/líneas y señalar incertidumbre. |
+| `researcher` | high | Recolección independiente de evidencia, comparación de alternativas | Reunir evidencia independiente, comparar alternativas, citar fuentes o archivos y separar hechos de supuestos. |
+| `planner` | high | Descomposición, mapeo de dependencias/riesgos, enrutamiento | Descomponer la tarea, identificar dependencias y riesgos, y proponer un plan mínimo verificable con costos/beneficios claros. |
+| `architect` | high | **Diseño** de la solución (distinto de la planificación) | Dar forma al diseño de la solución: definir componentes, interfaces, límites y flujo de datos; sopesar costos/beneficios y restricciones; justificar según los requisitos. |
+| `implementer` | medium | Diseño de un patch/diff concreto | Preferir cambios mínimos, preservar el comportamiento existente y explicar los pasos de verificación; no editar salvo que quien llama lo permita explícitamente. |
+| `reviewer` | high | Revisión escéptica / QA / gating de output riesgoso | Buscar riesgos de corrección, seguridad, concurrencia y mantenibilidad; citar evidencia concreta; no editar archivos. |
 
 ## `planner` vs `architect`
 
-They are complementary, not redundant — the split mirrors the recurring
-multi-agent role taxonomy (e.g. MetaGPT's Planner/PM vs. Architect):
+Son complementarias, no redundantes. La separación refleja una taxonomía recurrente de roles multiagente (por ejemplo, Planner/PM vs. Architect de MetaGPT):
 
-- **`planner`** owns *decomposition and routing*: what steps, in what order, with
-  what dependencies and risks.
-- **`architect`** owns *solution shape*: components, interfaces, boundaries, data
-  flow, and the trade-offs behind them.
+- **`planner`** se ocupa de la *descomposición y el enrutamiento*: qué pasos dar, en qué orden, con qué dependencias y riesgos.
+- **`architect`** se ocupa de la *forma de la solución*: componentes, interfaces, límites, flujo de datos y los costos/beneficios detrás.
 
-Use `planner` to decide **what to do**; use `architect` to decide **how the
-solution is structured**.
+Usá `planner` para decidir **qué hacer**; usá `architect` para decidir **cómo se estructura la solución**.
 
-## Notes
+## Notas
 
-- Reasoning defaults map onto the engine's effort scale; pass `effort`/`thinking`
-  explicitly to override.
-- Personas set only the persona-safe option keys (`tools`, `excludeTools`,
-  `skills`, `includeSkills`, `extensions`, `model`, `provider`, `thinking`,
-  `includeExtensions`, `approve`, `useContextFiles`, `systemPrompt`,
-  `appendSystemPrompt`, `timeoutMs`, `keys`, `env`, `inheritEnv`).
-- There is intentionally **no `executor`** built-in: a tool/code runner would
-  break the read-only-by-default invariant. Grant write/exec tools explicitly on
-  a specific call instead, as a conscious decision.
+- Los valores por defecto de razonamiento se mapean a la escala de esfuerzo del motor; pasá `effort`/`thinking` explícitamente para sobreescribirlos.
+- Las personas solo configuran las claves de opción persona-safe (`tools`, `excludeTools`, `skills`, `includeSkills`, `extensions`, `model`, `provider`, `thinking`, `includeExtensions`, `approve`, `useContextFiles`, `systemPrompt`, `appendSystemPrompt`, `timeoutMs`, `keys`, `env`, `inheritEnv`).
+- Intencionalmente no hay ningún built-in `executor`: un ejecutor de tools/código rompería la invariante de solo lectura por defecto. En cambio, otorgá tools de escritura/ejecución explícitamente en una llamada específica, como decisión consciente.

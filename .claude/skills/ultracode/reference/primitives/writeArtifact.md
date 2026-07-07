@@ -1,8 +1,9 @@
 # writeArtifact
 
-Saves a named file under the run's own output folder (`runDir`) instead of the
-chat log, so findings, drafts, and reports stay inspectable after the run ends
-and show up live in the dashboard / `/workflow view`.
+Guarda un archivo con nombre dentro de la carpeta de salida de la corrida
+(`runDir`), no en el chat log. Eso hace que hallazgos, borradores e informes
+sigan siendo inspeccionables cuando termina la corrida y aparezcan en vivo en
+el dashboard y en `/workflow view`.
 
 ```js
 const findings = await agents(files, { concurrency: 8, settle: true });
@@ -15,29 +16,32 @@ await writeArtifact("summary.md", summary);
 
 **Signature:** `writeArtifact(name, data) → Promise<{ path }>`
 
-**Returns:** `{ path }` — the absolute artifact path.
+**Returns:** `{ path }` — la ruta absoluta del artifact.
 
-## Concept
+## Concepto
 
-`data` is written as-is when it's a `string` or `Uint8Array`; anything else
-(objects, arrays, numbers) is JSON-serialized for you. Each call also emits an
-`artifact` event, which is what makes the file appear live in the dashboard.
+Si `data` es un `string` o `Uint8Array`, se escribe tal cual. Cualquier otro
+valor (objetos, arrays, números) se serializa a JSON automáticamente. Además,
+cada llamada emite un evento `artifact`, que es lo que hace que el archivo
+aparezca en vivo en el dashboard.
 
-## When to use / not
+## Cuándo usarlo
 
-| Situation | Use |
+| Situación | Usá |
 | --- | --- |
-| Intermediate/final output you want auditable after the run (findings, synthesis, evidence) | `writeArtifact` |
-| A file that belongs in the repo/workspace | [`writeFile`](writeFile.md) (targets `cwd`, not `runDir`) |
-| Building up one artifact incrementally across calls (e.g. a live log) | [`appendArtifact`](appendArtifact.md) — `writeArtifact` overwrites each call |
+| Output intermedio o final que querés auditar después de la corrida (hallazgos, síntesis, evidencia) | `writeArtifact` |
+| Un archivo que pertenece al repo o workspace | [`writeFile`](writeFile.md) (escribe en `cwd`, no en `runDir`) |
+| Construir un artifact de forma incremental entre llamadas (por ejemplo, un log en vivo) | [`appendArtifact`](appendArtifact.md) — `writeArtifact` sobrescribe en cada llamada |
 
-## Gotchas
+## Cosas a tener en cuenta
 
-- Lives under `runDir` (run-scoped), not `cwd` — don't reach for it to write
-  workspace files.
-- Overwrites on every call; use `appendArtifact` for incremental writes so
-  concurrent agents don't corrupt a shared file.
-- Prefer artifacts over dumping large intermediate results into the chat/log.
+- Vive bajo `runDir` (scope de corrida), no bajo `cwd`: no lo uses para
+  escribir archivos del workspace.
+- Sobrescribe en cada llamada; usá `appendArtifact` para escrituras
+  incrementales y así evitar que agentes concurrentes corrompan un archivo
+  compartido.
+- Preferí artifacts antes que volcar resultados intermedios grandes en el
+  chat/log.
 
 ## Example
 

@@ -1,8 +1,8 @@
 # sleep
 
-`sleep(ms)` pauses a workflow step for `ms` milliseconds — a plain,
-cancellable delay. Reach for it when you need a deliberate pause, e.g.
-gentle backoff between polling probes.
+`sleep(ms)` pausa un paso del workflow durante `ms` milisegundos: es una
+espera simple y cancelable. Usalo cuando necesitás una pausa deliberada, por
+ejemplo un backoff suave entre probes de polling.
 
 ```js
 for (let i = 0; i < maxTries; i++) {
@@ -14,27 +14,27 @@ for (let i = 0; i < maxTries; i++) {
 
 **Runtime:** pi runtime
 
-**Signature:** `sleep(ms) → Promise<void>`
+**Firma:** `sleep(ms) → Promise<void>`
 
-**Returns:** nothing — the promise resolves after the delay, or rejects if
-the run/branch is aborted while waiting.
+**Devuelve:** nada. La promesa resuelve después de la espera, o rechaza si la
+run/branch se aborta mientras espera.
 
-## When to use / not
+## Cuándo usarlo y cuándo no
 
-| Situation | Use `sleep`? |
+| Situación | ¿Usar `sleep`? |
 | --- | --- |
-| Backoff between polling probes | Yes |
-| Waiting for a fixed, known interval | Yes |
-| Busy-polling work the harness already tracks | No — let the harness track it |
-| "Fixing" a race condition | No — sequence with `await` instead |
+| Backoff entre probes de polling | Sí |
+| Esperar un intervalo fijo y conocido | Sí |
+| Hacer busy-polling de trabajo que el harness ya trackea | No — dejá que el harness lo trackee |
+| “Arreglar” una race condition | No — secuenciá con `await` en su lugar |
 
-## Gotchas
+## Ojo
 
-- **Abortable.** The delay is bound to the run's abort signal, so it stops
-  promptly if the run/branch is aborted (e.g. a `race()` loser) — it does not
-  block cleanup.
-- **Nondeterminism.** A duration derived from `Date.now()` is
-  nondeterministic — avoid using such values in prompts/cache keys.
+- **Cancelable.** La espera queda ligada a la abort signal de la run, así que
+  se detiene enseguida si la run/branch se aborta (por ejemplo, si pierde en
+  `race()`). No bloquea la limpieza.
+- **No determinismo.** Una duración derivada de `Date.now()` es
+  no determinista. Evitá usar esos valores en prompts o cache keys.
 
 ## Example
 

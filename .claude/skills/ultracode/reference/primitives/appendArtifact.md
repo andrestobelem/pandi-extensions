@@ -1,9 +1,9 @@
 # appendArtifact
 
-Append bytes or text to a shared, run-scoped log file — safely, even when many
-concurrent agents write to it at once. Reach for it when you want a single
-"findings.log" or "trace.jsonl" that every branch of a `parallel`/`agents` fan-out
-appends a line to as it finishes.
+Agrega texto o bytes a un artefacto compartido del run, de forma segura incluso
+si muchos agentes concurrentes escriben al mismo tiempo. Usalo cuando querés un
+solo `findings.log` o `trace.jsonl` al que cada rama de un fan-out con
+`parallel` o `agents` le agregue una línea al terminar.
 
 ```js
 const results = await agents(items, { concurrency: 8, settle: true });
@@ -14,27 +14,29 @@ for (const [i, r] of results.entries()) {
 
 **Runtime:** pi runtime
 
-**Signature:** `appendArtifact(name, data) → Promise<{ path }>`
+**Firma:** `appendArtifact(name, data) → Promise<{ path }>`
 
-Append to a named artifact under the run's `runDir`. `data` is a string or
-`Uint8Array`. Writes are **serialized per path** (an internal mutex, one per
-resolved file) so concurrent agents appending to the same artifact never
-interleave a partial write and corrupt it. Emits an `artifact_append` event.
+Agrega contenido a un artefacto nombrado bajo el `runDir` del run. `data` puede
+ser un string o un `Uint8Array`. Las escrituras se **serializan por path**
+(mediante un mutex interno por archivo resuelto), así que varios agentes que
+appenden al mismo artifact no intercalan una escritura parcial ni corrompen el
+archivo. Emite un evento `artifact_append`.
 
-**Returns:** `{ path }` — the absolute artifact path.
+**Devuelve:** `{ path }` — el path absoluto del artifact.
 
-## When to use / not
+## Cuándo usarlo
 
-- **Use** to stream a shared, run-scoped log/artifact from many concurrent
-  branches (e.g. each agent appends its finding line).
-- **Not** for `cwd` files (use [`appendFile`](appendFile.md)) or one-shot writes
-  (use [`writeArtifact`](writeArtifact.md)).
+- **Sí**: para transmitir un log o artefacto compartido del run desde muchas
+  ramas concurrentes; por ejemplo, cuando cada agente agrega su línea de
+  hallazgo.
+- **No**: para archivos en `cwd` (usá [`appendFile`](appendFile.md)) ni para
+  escrituras de una sola vez (usá [`writeArtifact`](writeArtifact.md)).
 
-## Gotchas
+## Detalles a tener en cuenta
 
-- Concurrency-safe by design (per-path mutex) — this is why it beats `appendFile`
-  for parallel appenders.
-- Run-scoped (`runDir`), inspectable in the dashboard.
+- Es seguro ante concurrencia por diseño gracias al mutex por path; por eso conviene
+  más que `appendFile` cuando hay agregadores en paralelo.
+- Vive en el alcance del run (`runDir`) y se puede inspeccionar en el dashboard.
 
 ## Example
 

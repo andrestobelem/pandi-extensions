@@ -1,13 +1,13 @@
 ---
 name: default
-description: Use when the user asks for the legacy default Dynamic Workflows pattern. Route to the fan-out-and-synthesize pattern.
+description: Usar cuando la persona usuaria pida el patrón legacy por defecto de Dynamic Workflows. Derivar al patrón `fan-out-and-synthesize`.
 ---
 
-# Default dynamic workflow
+# Workflow dinámico por defecto
 
-Use the Dynamic Workflows `fan-out-and-synthesize` pattern for this request.
+Para esta solicitud, usá el patrón `fan-out-and-synthesize` de Dynamic Workflows.
 
-1. Treat the user's task as input for `fan-out-and-synthesize`.
-2. Inspect the pattern first with `dynamic_workflow action=scaffold name=fan-out-and-synthesize` when you need the scaffold.
-3. If a workflow is warranted, run or draft `fan-out-and-synthesize` rather than resolving `default` as a pattern alias.
-4. Preserve the normal router gates: scout first, orchestrate only for scale, confidence, or exhaustiveness.
+1. Tratá la tarea de la persona usuaria como input de `fan-out-and-synthesize`.
+2. Si necesitás el scaffold, inspeccioná primero el patrón con `dynamic_workflow action=scaffold name=fan-out-and-synthesize`.
+3. Si corresponde usar un workflow, ejecutá o redactá `fan-out-and-synthesize` en vez de resolver `default` como alias de patrón.
+4. Conservá los gates normales del router: scout primero; orquestá solo por escala, confianza o exhaustividad.
