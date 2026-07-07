@@ -556,6 +556,61 @@ async function defaultThresholdContract(url) {
 	);
 }
 
+async function optionListsPutRunFirst(url) {
+	const mod = await loadModule(url);
+	const menuOptions = Array.isArray(mod.MENU_OPTIONS) ? mod.MENU_OPTIONS : [];
+	const menuValues = menuOptions.map((option) => String(option).split(" — ")[0]);
+	const expectedMenuValues = [
+		"run",
+		"status",
+		"on",
+		"off",
+		"bar on",
+		"bar off",
+		"snapshot on",
+		"snapshot off",
+		"snapshots",
+		"summary on",
+		"summary off",
+		"clear-tools on",
+		"clear-tools off",
+		"threshold",
+	];
+	check(
+		"options: menu shows run first and keeps the remaining order",
+		sameList(menuValues, expectedMenuValues),
+		`expected ${JSON.stringify(expectedMenuValues)}, got ${JSON.stringify(menuValues)}`,
+	);
+
+	const completionValuesOnly = completionValues(Array.isArray(mod.ARG_COMPLETIONS) ? mod.ARG_COMPLETIONS : []).filter(
+		(value) => !/^\d+$/.test(value),
+	);
+	const expectedCompletionValuesOnly = [
+		"run",
+		"status",
+		"on",
+		"off",
+		"bar",
+		"bar on",
+		"bar off",
+		"snapshot",
+		"snapshot on",
+		"snapshot off",
+		"snapshots",
+		"summary",
+		"summary on",
+		"summary off",
+		"clear-tools",
+		"clear-tools on",
+		"clear-tools off",
+	];
+	check(
+		"options: autocomplete shows run first and keeps the remaining command order",
+		sameList(completionValuesOnly, expectedCompletionValuesOnly),
+		`expected ${JSON.stringify(expectedCompletionValuesOnly)}, got ${JSON.stringify(completionValuesOnly)}`,
+	);
+}
+
 async function argumentCompletions(url) {
 	const mod = await loadModule(url);
 	const canonicalCompletions = Array.isArray(mod.ARG_COMPLETIONS) ? mod.ARG_COMPLETIONS : [];
@@ -1182,6 +1237,7 @@ async function main() {
 	await barToggleClearsAndRestores(url);
 	await barClearedWhenDisabled(url);
 	await defaultThresholdContract(url);
+	await optionListsPutRunFirst(url);
 	await argumentCompletions(url);
 	await bareCommandOpensMenuAndDisables(url);
 	await menuThresholdPresetSetsThreshold(url);

@@ -9,10 +9,10 @@ type CommandAction = {
 };
 
 const COMMAND_ACTIONS: readonly CommandAction[] = [
+	{ value: "run", menuDescription: "compactar el contexto ahora", completion: true },
 	{ value: "status", menuDescription: "mostrar la configuración actual", completion: true },
 	{ value: "on", menuDescription: "activar la auto-compactación", completion: true },
 	{ value: "off", menuDescription: "desactivar la auto-compactación", completion: true },
-	{ value: "run", menuDescription: "compactar el contexto ahora", completion: true },
 	{ value: "bar", completionDescription: "Alternar la barra de progreso del footer" },
 	{ value: "bar on", menuDescription: "mostrar la barra de progreso del footer", completion: true },
 	{ value: "bar off", menuDescription: "ocultar la barra de progreso del footer", completion: true },
