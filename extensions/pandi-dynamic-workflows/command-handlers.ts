@@ -148,10 +148,7 @@ export async function handleTool(
 			{ background: resumeInBackground, force: !!params.force, limits: limitParamsFromInput(params) },
 			signal,
 			(logs) => {
-				const preview = logs
-					.slice(-8)
-					.map((entry) => `${entry.time.slice(11, 19)} ${entry.message}`)
-					.join("\n");
+				const preview = formatLogPreview(logs);
 				onUpdate?.({ content: [text(preview)], details: { action, logCount: logs.length } });
 			},
 		);
@@ -239,10 +236,7 @@ export async function handleTool(
 		const workflowInput = normalizeWorkflowInput(params.input);
 		const limits = buildLimits({ ...limitParamsFromInput(workflowInput), ...params });
 		const result = await runWorkflowWithUi(pi, ctx, workflow, workflowInput, limits, signal, (logs) => {
-			const preview = logs
-				.slice(-8)
-				.map((entry) => `${entry.time.slice(11, 19)} ${entry.message}`)
-				.join("\n");
+			const preview = formatLogPreview(logs);
 			onUpdate?.({
 				content: [text(preview)],
 				details: { action, workflow, logCount: logs.length },
@@ -268,6 +262,14 @@ export interface CleanupArgs {
 	includeHeartbeatStale: boolean;
 	dryRun: boolean;
 	yes: boolean;
+}
+
+// Centraliza el preview de las últimas N líneas de log, formateadas como HH:MM:SS + mensaje.
+function formatLogPreview(logs: WorkflowLogEntry[], max = 8): string {
+	return logs
+		.slice(-max)
+		.map((entry) => `${entry.time.slice(11, 19)} ${entry.message}`)
+		.join("\n");
 }
 
 function parseCleanupDurationMs(raw: string): number | undefined {
