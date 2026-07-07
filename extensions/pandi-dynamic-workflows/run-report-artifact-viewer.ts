@@ -33,6 +33,45 @@ async function readPreview(
 	}
 }
 
+/** Una línea no vacía "parece" JSONL si, recortada, arranca con { o [. */
+function looksLikeJsonLine(line: string): boolean {
+	const trimmed = line.trim();
+	return trimmed.length > 0 && (trimmed[0] === "{" || trimmed[0] === "[");
+}
+
+/**
+ * Si `text` es JSONL (cada línea no vacía parsea como JSON y arranca con { o [), re-emite
+ * cada línea con JSON.stringify(..., null, 2), separadas por una línea en blanco — legible
+ * en el <pre> estático del viewer en vez de una sola línea gigante por evento (típico de
+ * `agents/*.stdout.log`, transcripciones de sesión). Cualquier archivo que no sea JSONL
+ * uniforme pasa sin tocarse.
+ *
+ * Cuando el preview vino truncado a un límite de bytes (`opts.truncated`), la última línea
+ * puede estar cortada a mitad de objeto; en ese caso se descarta esa línea parcial en vez
+ * de abortar el formateo de las líneas completas, y se deja una nota al final.
+ */
+export function formatArtifactPreviewText(text: string, opts: { truncated?: boolean } = {}): string {
+	const nonBlank = text.split(/\r?\n/).filter((line) => line.trim().length > 0);
+	if (nonBlank.length === 0) return text;
+
+	const droppedPartialTail = opts.truncated && nonBlank.length > 1;
+	const candidates = droppedPartialTail ? nonBlank.slice(0, -1) : nonBlank;
+	if (candidates.length === 0 || !candidates.every(looksLikeJsonLine)) return text;
+
+	const pretty: string[] = [];
+	for (const line of candidates) {
+		try {
+			pretty.push(JSON.stringify(JSON.parse(line), null, 2));
+		} catch {
+			return text; // cualquier línea completa que no parsea: conservador, no tocar nada
+		}
+	}
+	const body = pretty.join("\n\n");
+	return droppedPartialTail
+		? `${body}\n\n… (última línea truncada por el límite de bytes del preview, omitida)`
+		: body;
+}
+
 function containedFile(runDir: string, rel: string): string | undefined {
 	if (!safeRelativeHref(rel)) return undefined;
 	const root = path.resolve(runDir);
@@ -56,7 +95,7 @@ export async function buildRunArtifactViewerHtml(model: RunReportModel, runDir: 
 		);
 		const body = preview?.empty
 			? `<div class="empty">Empty file.</div>`
-			: `<pre>${escapeHtml(preview?.text ?? "Unable to read file.")}</pre>`;
+			: `<pre>${escapeHtml(formatArtifactPreviewText(preview?.text ?? "Unable to read file.", { truncated: preview?.truncated }))}</pre>`;
 		sections.push(
 			`<section id="${anchor}"><h2>${escapeHtml(artifact.path)}</h2>` +
 				`<div class="meta">${escapeHtml(size || "size unknown")}` +
