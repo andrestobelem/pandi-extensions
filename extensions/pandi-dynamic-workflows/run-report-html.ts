@@ -14,6 +14,7 @@
  *   así la regeneración desde un modelo fijo es byte-stable.
  */
 
+import { formatElapsedMs } from "./presentation.js";
 import { renderRunReportMarkdown } from "./run-report-markdown.js";
 import { artifactViewerHref, escapeHtml, safeRelativeHref } from "./run-report-safe-html.js";
 
@@ -405,16 +406,6 @@ function progressValue(summary: ProgressSummary): string {
 	return `${summary.done}/${summary.total}${summary.openEnded ? "+" : ""}`;
 }
 
-function formatReportElapsedMs(ms: number): string {
-	const seconds = Math.max(0, Math.round(ms / 1000));
-	if (seconds < 60) return `${seconds}s`;
-	const minutes = Math.floor(seconds / 60);
-	const remainder = seconds % 60;
-	if (minutes < 60) return `${minutes}m${remainder.toString().padStart(2, "0")}s`;
-	const hours = Math.floor(minutes / 60);
-	return `${hours}h${(minutes % 60).toString().padStart(2, "0")}m`;
-}
-
 function formatReportAgentPhase(agent: RunReportAgent): string | undefined {
 	if (!agent.phaseIndex || !agent.phaseTotal) return undefined;
 	const batch = agent.phaseId ? `P${agent.phaseId} ` : "";
@@ -534,7 +525,7 @@ function renderMiniChips(chips: string[]): string {
 
 function renderMonitorAgentLine(agent: RunReportAgent): string {
 	const phase = formatReportAgentPhase(agent);
-	const elapsed = agent.elapsedMs === undefined ? "elapsed:…" : `elapsed:${formatReportElapsedMs(agent.elapsedMs)}`;
+	const elapsed = agent.elapsedMs === undefined ? "elapsed:…" : `elapsed:${formatElapsedMs(agent.elapsedMs)}`;
 	return (
 		`<div class="monitor-agent-row">` +
 		`<span class="monitor-agent-state ${pillClass(agent.state, agent.ok)}">${escapeHtml(agentStateText(agent))}</span>` +
@@ -612,7 +603,7 @@ function renderMonitorSelectedAgent(agent: RunReportAgent, failed: boolean): str
 		) +
 		detailLine(
 			"state",
-			`${escapeHtml(agent.state)}${agent.elapsedMs !== undefined ? ` <span class="muted">•</span> ${escapeHtml(formatReportElapsedMs(agent.elapsedMs))}` : ""}${agent.code !== undefined ? ` <span class="muted">•</span> code ${escapeHtml(String(agent.code))}` : ""}`,
+			`${escapeHtml(agent.state)}${agent.elapsedMs !== undefined ? ` <span class="muted">•</span> ${escapeHtml(formatElapsedMs(agent.elapsedMs))}` : ""}${agent.code !== undefined ? ` <span class="muted">•</span> code ${escapeHtml(String(agent.code))}` : ""}`,
 		) +
 		phase +
 		detailLine(
