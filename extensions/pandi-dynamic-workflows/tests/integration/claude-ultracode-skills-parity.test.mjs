@@ -1,24 +1,24 @@
 /**
- * Durable parity test: the Claude orchestration skills are GENERATED artifacts, not
- * hand-maintained. The canonical SOURCE OF TRUTH is the dual-platform pi skill
+ * Test durable de paridad: los skills de orquestación Claude son artifacts GENERADOS, no
+ * mantenidos a mano. La SOURCE OF TRUTH canónica es el skill pi dual-platform
  * `.pi/skills/ultracode/` (SKILL.md + reference/). `scripts/generate-claude-ultracode-skills.mjs`
- * emits two Claude skills from it with a MINIMAL transform (only the `name:` frontmatter field
- * and the `# ` H1 heading are renamed; reference/ is copied verbatim):
+ * emite dos skills Claude desde ahí con una transform MINIMAL (solo se renombran el campo
+ * frontmatter `name:` y el heading H1 `# `; reference/ se copia verbatim):
  *
- *   .pi/skills/ultracode/  ->  .claude/skills/ultracode/         (identity name)
- *                          ->  .claude/skills/dynamic-workflows/ (renamed)
+ *   .pi/skills/ultracode/  ->  .claude/skills/ultracode/         (nombre identity)
+ *                          ->  .claude/skills/dynamic-workflows/ (renombrado)
  *
- * This pins:
- *   - In sync: `generate-claude-ultracode-skills.mjs --check` exits 0 (both .claude skills match
- *     what the generator would emit from the canonical .pi source). Fails on any hand-edit.
- *   - The ultracode target is byte-identical to the canonical .pi SKILL.md (identity transform).
- *   - The dynamic-workflows target differs ONLY by the renamed name/heading (minimal transform).
- *   - reference/ is copied verbatim (a canonical sample is byte-identical in both targets).
- *   - Sensitivity (negative control): a one-char tweak to a generated file is detected as drift.
+ * Esto pinea:
+ *   - En sync: `generate-claude-ultracode-skills.mjs --check` sale 0 (ambos skills .claude
+ *     coinciden con lo que el generador emitiría desde la fuente .pi canónica). Falla ante hand-edit.
+ *   - El target ultracode es byte-identical al SKILL.md .pi canónico (identity transform).
+ *   - El target dynamic-workflows difiere SOLO por name/heading renombrados (minimal transform).
+ *   - reference/ se copia verbatim (una muestra canónica es byte-identical en ambos targets).
+ *   - Sensibilidad (negative control): un tweak de un char en un archivo generado se detecta como drift.
  *
- * No extension build / no model: a pure filesystem + script-process test.
+ * Sin build de extensión / sin modelo: test puro de filesystem + script-process.
  *
- * Run it:
+ * Corrida:
  *   node extensions/pandi-dynamic-workflows/tests/integration/claude-ultracode-skills-parity.test.mjs
  */
 
@@ -51,7 +51,7 @@ function runCheck(repoRoot = REPO_ROOT) {
 async function main() {
 	check("generate-claude-ultracode-skills.mjs exists", fs.existsSync(GEN));
 
-	// 1) Both generated skills are in sync with the canonical .pi source.
+	// 1) Ambos skills generados están en sync con la fuente .pi canónica.
 	const res = runCheck();
 	check(
 		"generate-claude-ultracode-skills.mjs --check is in sync",
@@ -61,7 +61,7 @@ async function main() {
 
 	const canonical = fs.readFileSync(path.join(PI_SKILL, "SKILL.md"), "utf8");
 
-	// 2) ultracode target = byte-identical to the canonical .pi SKILL.md (identity transform).
+	// 2) target ultracode = byte-identical al SKILL.md .pi canónico (identity transform).
 	const ultracodeSkill = path.join(CLAUDE_SKILLS, "ultracode", "SKILL.md");
 	check(".claude/skills/ultracode/SKILL.md exists", fs.existsSync(ultracodeSkill));
 	if (fs.existsSync(ultracodeSkill)) {
@@ -71,21 +71,21 @@ async function main() {
 		);
 	}
 
-	// 3) dynamic-workflows target = canonical with ONLY the name/heading renamed.
+	// 3) target dynamic-workflows = canónico con SOLO name/heading renombrados.
 	const dwSkill = path.join(CLAUDE_SKILLS, "dynamic-workflows", "SKILL.md");
 	check(".claude/skills/dynamic-workflows/SKILL.md exists", fs.existsSync(dwSkill));
 	if (fs.existsSync(dwSkill)) {
 		const dw = fs.readFileSync(dwSkill, "utf8");
 		check("dynamic-workflows target renamed the frontmatter name", /^name: dynamic-workflows$/m.test(dw));
 		check("dynamic-workflows target renamed the H1 heading", /^# dynamic-workflows$/m.test(dw));
-		// Reverse the minimal transform and confirm nothing else changed.
+		// Revertí la transform minimal y confirmá que nada más cambió.
 		const reverted = dw
 			.replace(/^name: dynamic-workflows$/m, "name: ultracode")
 			.replace(/^# dynamic-workflows$/m, "# ultracode");
 		check("dynamic-workflows target differs from canonical ONLY by name/heading", reverted === canonical);
 	}
 
-	// 4) reference/ copied verbatim: a canonical sample is byte-identical in both targets.
+	// 4) reference/ copiado verbatim: una muestra canónica es byte-identical en ambos targets.
 	const sampleRel = path.join("reference", "primitives", "agent.md");
 	const canonSample = path.join(PI_SKILL, sampleRel);
 	if (fs.existsSync(canonSample)) {
@@ -99,7 +99,7 @@ async function main() {
 		}
 	}
 
-	// 5) Sensitivity: mutate a generated file in an isolated repo copy and confirm --check catches it.
+	// 5) Sensibilidad: mutá un archivo generado en una copia aislada del repo y confirmá que --check lo captura.
 	await withIsolatedRepoCopy(REPO_ROOT, async (copyRoot) => {
 		const copyDwSkill = path.join(copyRoot, ".claude", "skills", "dynamic-workflows", "SKILL.md");
 		await withMutatedFile(
