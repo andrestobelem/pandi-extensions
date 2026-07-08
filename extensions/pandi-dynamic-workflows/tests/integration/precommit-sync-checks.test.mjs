@@ -23,25 +23,45 @@ const { check, counts } = createChecker();
 
 const pkg = JSON.parse(fs.readFileSync(PACKAGE_JSON, "utf8"));
 const hook = fs.readFileSync(HOOK, "utf8");
-const syncAll = pkg.scripts?.["sync:check:all"] ?? "";
+const syncAllWrite = pkg.scripts?.["sync:all"] ?? "";
+const syncAllCheck = pkg.scripts?.["sync:check:all"] ?? "";
+const syncGlobalWrite = pkg.scripts?.["sync:all:global"] ?? "";
 const testFast = pkg.scripts?.["test:fast"] ?? "";
 
-check("package.json defines sync:check:all", typeof syncAll === "string" && syncAll.length > 0);
-for (const required of [
-	"format:claude:check",
-	"sync:manifest:check",
-	"sync:settings:check",
-	"sync:skills:check",
-	"sync:skills:vendor:check",
-	"sync:agents:check",
-	"sync:claude:ultracode:check",
+const repoLocalSyncSteps = [
+	"format:claude",
+	"sync:manifest",
+	"sync:settings",
+	"sync:skills",
+	"sync:skills:vendor",
+	"sync:agents",
+	"sync:claude:ultracode",
 	"docs:links:check",
-	"sync:docs:html:check",
-	"sync:personas:check",
-]) {
-	check(`sync:check:all includes ${required}`, syncAll.includes(`npm run -s ${required}`));
+	"sync:docs:html",
+	"sync:personas",
+];
+
+check("package.json defines sync:all", typeof syncAllWrite === "string" && syncAllWrite.length > 0);
+for (const required of repoLocalSyncSteps) {
+	check(`sync:all includes ${required}`, syncAllWrite.includes(`npm run -s ${required}`));
 }
-check("sync:check:all stays repo-local", !syncAll.includes("sync:claude:global:check"));
+check("sync:all stays repo-local", !syncAllWrite.includes("sync:claude:global"));
+
+check("package.json defines sync:check:all", typeof syncAllCheck === "string" && syncAllCheck.length > 0);
+for (const required of repoLocalSyncSteps) {
+	const checkScript = required.endsWith(":check") ? required : `${required}:check`;
+	check(`sync:check:all includes ${checkScript}`, syncAllCheck.includes(`npm run -s ${checkScript}`));
+}
+check("sync:check:all stays repo-local", !syncAllCheck.includes("sync:claude:global:check"));
+
+check("package.json defines sync:all:global", typeof syncGlobalWrite === "string" && syncGlobalWrite.length > 0);
+check("sync:all:global runs repo-local sync first", syncGlobalWrite.includes("npm run -s sync:all"));
+check("sync:all:global updates Claude global mirror", syncGlobalWrite.includes("npm run -s sync:claude:global"));
+check(
+	"sync:all:global verifies repo and global mirrors",
+	syncGlobalWrite.includes("npm run -s sync:check:all") &&
+		syncGlobalWrite.includes("npm run -s sync:claude:global:check"),
+);
 check(
 	"pre-commit reaches sync:check:all via the fast gate",
 	hook.includes("npm run --silent sync:check:all") ||
@@ -49,7 +69,7 @@ check(
 	`hook=${JSON.stringify(hook)} test:fast=${JSON.stringify(testFast)}`,
 );
 
-if (syncAll) {
+if (syncAllCheck) {
 	const res = spawnSync("npm", ["run", "-s", "sync:check:all"], { cwd: REPO_ROOT, encoding: "utf8" });
 	check(
 		"sync:check:all exits 0 in the current tree",
