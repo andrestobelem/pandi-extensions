@@ -8,33 +8,33 @@ for (const line of summaryLines) {
 }
 ```
 
-**Runtime:** pi runtime
+**Runtime:** runtime de pi
 
-**Signature:** `appendFile(path, data) → Promise<{ path }>`
+**Firma:** `appendFile(path, data) → Promise<{ path }>`
 
 Agrega contenido a un archivo bajo el `cwd` del run.
 
-**Returns:** `{ path }` — el path absoluto escrito.
+**Devuelve:** `{ path }` — la ruta absoluta escrita.
 
 ## Cuándo usarlo
 
 - **Sí**: para acumular líneas en un archivo dentro de `cwd` a lo largo de
   varios pasos.
-- **No**: para un artifact scoped al run al que varios agentes concurrentes
+- **No**: para un artifact acotado al run al que varios agentes concurrentes
   hacen append. En ese caso usá [`appendArtifact`](appendArtifact.md), que
   serializa por path para que los appends concurrentes no se intercalen.
 
 ## Detalles a tener en cuenta
 
 - Está confinado a `cwd`; los directorios padre se crean automáticamente.
-- No hay locking entre llamadas. Si hay appenders concurrentes, preferí
+- No hay locking entre llamadas. Si hay escritores concurrentes, preferí
   `appendArtifact`.
 
-## Example
+## Ejemplo
 
 ```js
 for (const line of summaryLines) {
   await appendFile("out/summary.txt", `${line}\n`);
 }
-log("summary written to out/summary.txt");
+log("resumen escrito en out/summary.txt");
 ```
