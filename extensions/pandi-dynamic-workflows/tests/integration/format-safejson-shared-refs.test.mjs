@@ -1,21 +1,21 @@
 #!/usr/bin/env node
 /**
- * Durable behavioral test for extensions/pandi-dynamic-workflows format.ts safeJson.
+ * Test durable de comportamiento para safeJson de extensions/pandi-dynamic-workflows format.ts.
  *
- * Issue #36: safeJson used a global WeakSet that never removed entries, so ANY
- * repeated reference to the same object — even one appearing in two independent,
- * non-overlapping branches of the tree (a DAG, not a cycle) — was wrongly stamped
- * "[Circular]" and lost its real values. The correct pattern (journal.ts
- * stableStringify) tracks "seen" per traversal PATH: add on entering a node, delete
- * on leaving it, so only an ancestor-on-the-current-path trips the sentinel.
+ * Issue #36: safeJson usaba un WeakSet global que nunca removía entries, así que CUALQUIER
+ * referencia repetida al mismo objeto — incluso una que aparecía en dos ramas independientes
+ * y no solapadas del árbol (un DAG, no un ciclo) — se marcaba erróneamente como
+ * "[Circular]" y perdía sus valores reales. El patrón correcto (journal.ts
+ * stableStringify) trackea "seen" por PATH de traversal: agrega al entrar a un nodo, borra
+ * al salir, así solo un ancestro-en-el-path-actual dispara el sentinel.
  *
- * Contract pinned here:
- * - shared-but-not-circular: the SAME child object referenced from two independent
- *   sibling branches serializes with the child's real values in BOTH branches — no
- *   "[Circular]" sentinel anywhere in the output.
- * - genuine self-reference: a node whose descendant points back to an ancestor on
- *   the same path IS still stamped "[Circular]" (proves the test is not vacuous and
- *   that true-cycle protection survives the fix).
+ * Contrato pineado acá:
+ * - shared-but-not-circular: el MISMO objeto child referenciado desde dos ramas sibling
+ *   independientes serializa con los valores reales del child en AMBAS ramas — sin sentinel
+ *   "[Circular]" en ninguna parte del output.
+ * - self-reference genuina: un nodo cuyo descendiente apunta de vuelta a un ancestro en
+ *   el mismo path SÍ sigue marcado como "[Circular]" (prueba que el test no es vacuo y
+ *   que la protección contra true-cycle sobrevive al fix).
  */
 
 import * as fs from "node:fs/promises";
@@ -33,7 +33,7 @@ async function scenarioSharedRefs(url) {
 
 	check("safeJson is exported as a function", typeof safeJson === "function");
 
-	// --- Shared-but-not-circular: same child object in two independent branches ---
+	// --- Shared-but-not-circular: mismo objeto child en dos ramas independientes ---
 	const child = { value: 42, label: "shared" };
 	const root = { a: { child }, b: { child } };
 	const out = safeJson(root);
@@ -49,7 +49,7 @@ async function scenarioSharedRefs(url) {
 		out,
 	);
 
-	// --- Genuine self-reference: a descendant points back to an ancestor on the same path ---
+	// --- Self-reference genuina: un descendiente apunta a un ancestro en el mismo path ---
 	const node = { name: "root" };
 	node.self = node;
 	const cyclic = safeJson(node);
@@ -65,8 +65,8 @@ async function scenarioSharedRefs(url) {
 async function main() {
 	const built = await buildExtension({
 		name: "pi-dw-format-safejson-shared-refs",
-		// format.ts is pure and dependency-free (only MAX_TOOL_TEXT, defined in-file),
-		// so no stubs/aliases are needed to bundle it standalone.
+		// format.ts es puro y dependency-free (solo MAX_TOOL_TEXT, definido in-file),
+		// así que no hacen falta stubs/aliases para bundlearlo standalone.
 		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "format.ts"),
 		outName: "format.mjs",
 	});
