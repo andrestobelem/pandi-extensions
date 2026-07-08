@@ -97,6 +97,18 @@ function trimTrailingConnectors(slug: string): string {
 	return parts.join("-");
 }
 
+function buildSlugWithinLimit(words: string[], maxChars: number): string {
+	let slug = "";
+	for (const word of words) {
+		const candidate = slug ? `${slug}-${word}` : word;
+		if (candidate.length > maxChars) break;
+		slug = candidate;
+	}
+	// Si la primera palabra sola supera maxChars, truncala para no devolver vacío.
+	if (!slug && words.length > 0) return words[0].slice(0, Math.max(0, maxChars));
+	return slug;
+}
+
 export interface SlugOptions {
 	maxChars?: number;
 	maxWords?: number;
@@ -118,20 +130,15 @@ export interface DeriveOptions extends SlugOptions {
 export function slugify(raw: string, opts: SlugOptions = {}): string {
 	const maxChars = opts.maxChars ?? MAX_NAME_CHARS;
 	const maxWords = opts.maxWords ?? MAX_NAME_WORDS;
-	const base = (raw ?? "")
+	const normalized = (raw ?? "")
 		.normalize("NFKD")
 		.replace(/[\u0300-\u036f]/g, "") // quita marcas diacríticas combinadas
 		.toLowerCase();
-	let words = base.split(/[^a-z0-9]+/).filter(Boolean);
-	if (maxWords > 0) words = words.slice(0, maxWords);
-	let slug = "";
-	for (const word of words) {
-		const candidate = slug ? `${slug}-${word}` : word;
-		if (candidate.length > maxChars) break;
-		slug = candidate;
-	}
-	// Si la primera palabra sola supera maxChars: truncá a la fuerza para seguir devolviendo un slug.
-	if (!slug && words.length > 0) slug = words[0].slice(0, Math.max(0, maxChars));
+	const words = normalized
+		.split(/[^a-z0-9]+/)
+		.filter(Boolean)
+		.slice(0, maxWords > 0 ? maxWords : undefined);
+	const slug = buildSlugWithinLimit(words, maxChars);
 	// Mantené el nombre corto, pero que nunca termine en una palabra conectora colgando.
 	return trimTrailingConnectors(slug);
 }

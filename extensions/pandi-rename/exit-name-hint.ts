@@ -29,6 +29,10 @@ interface Holder {
 	name: string | undefined;
 }
 
+export function normalizeExitHintName(name: string | undefined): string | undefined {
+	return name?.trim() || undefined;
+}
+
 /** La línea tenue de una sola línea impresa debajo de la pista de reanudación al salir de pi core. */
 export function formatExitNameHint(name: string): string {
 	const dim = (text: string) => `\x1b[2m${text}\x1b[22m`;
@@ -46,7 +50,7 @@ export function installExitNameHint(
 ): ((name: string | undefined) => void) | undefined {
 	if (!io.isTTY()) return undefined;
 	const makeSetter = (holder: Holder) => (name: string | undefined) => {
-		holder.name = name?.trim() || undefined;
+		holder.name = normalizeExitHintName(name);
 	};
 	const existing = registry[EXIT_HINT_KEY] as Holder | undefined;
 	if (existing) return makeSetter(existing);

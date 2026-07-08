@@ -89,15 +89,19 @@ export function buildSummaryPrompt(entries: unknown, opts: SummarizeOptions = {}
 	].join("\n");
 }
 
-/** Convierte la salida cruda del modelo en un slug: toma la primera línea no vacía y luego aplica slugify (que ya
- * quita comillas, markdown y puntuación). Devuelve "" cuando no queda nada convertible a slug. */
-export function slugFromSummaryOutput(raw: string, opts: SummarizeOptions = {}): string {
-	const firstLine =
+function firstNonEmptyLine(raw: string): string {
+	return (
 		String(raw ?? "")
 			.split(/\r?\n/)
 			.map((line) => line.trim())
-			.find(Boolean) ?? "";
-	return slugify(firstLine, opts);
+			.find(Boolean) ?? ""
+	);
+}
+
+/** Convierte la salida cruda del modelo en un slug: toma la primera línea no vacía y luego aplica slugify (que ya
+ * quita comillas, markdown y puntuación). Devuelve "" cuando no queda nada convertible a slug. */
+export function slugFromSummaryOutput(raw: string, opts: SummarizeOptions = {}): string {
+	return slugify(firstNonEmptyLine(raw), opts);
 }
 
 /**

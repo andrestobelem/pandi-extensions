@@ -25,6 +25,33 @@ export interface ComposeDeps {
 	labelColor?: (value: string) => string;
 }
 
+interface ParsedTopBorder {
+	existing: string;
+	isDecorable: boolean;
+}
+
+function parseTopBorder(line0: string): ParsedTopBorder {
+	const plain = stripAnsi(line0);
+	if (/^─+$/.test(plain)) {
+		return { existing: "", isDecorable: true };
+	}
+
+	const match = plain.match(/^(─+) (.+) (─+)$/);
+	if (!match) {
+		return { existing: "", isDecorable: false };
+	}
+
+	const leftDashes = match[1].length;
+	const rightDashes = match[3].length;
+	// Una etiqueta alineada a la derecha (p. ej. ultracode) tiene pocos guiones finales; una pista
+	// alineada a la izquierda (p. ej. "↑ N more") tiene muchos. Solo combinar con una etiqueta alineada a la derecha.
+	if (rightDashes > leftDashes) {
+		return { existing: "", isDecorable: false };
+	}
+
+	return { existing: match[2].trim(), isDecorable: true };
+}
+
 /**
  * Alinea a la derecha la etiqueta del nombre dentro de una línea de borde superior. Cualquier etiqueta alineada a la derecha
  * existente (p. ej. "ultracode auto") se conserva y se coloca PRIMERO, con el nombre al final, unida por el glifo
@@ -37,26 +64,15 @@ export function composeTopBorder(line0: string, width: number, label: string, de
 	if (!line0 || width <= 0 || !label) return null;
 	const color = deps.color ?? ((value: string) => value);
 	const labelColor = deps.labelColor ?? color;
-	const plain = stripAnsi(line0);
-
-	let existing = "";
-	if (!/^─+$/.test(plain)) {
-		const match = plain.match(/^(─+) (.+) (─+)$/);
-		if (!match) return null; // no es una línea de borde reconocible
-		const leftDashes = match[1].length;
-		const rightDashes = match[3].length;
-		// Una etiqueta alineada a la derecha (p. ej. ultracode) tiene pocos guiones finales; una pista
-		// alineada a la izquierda (p. ej. "↑ N more") tiene muchos. Solo combinar con una etiqueta alineada a la derecha.
-		if (rightDashes > leftDashes) return null;
-		existing = match[2].trim();
-	}
+	const parsed = parseTopBorder(line0);
+	if (!parsed.isDecorable) return null;
 
 	// Conectá la etiqueta existente con el nombre usando el MISMO glifo de borde (─), para que la línea
 	// continúe sin cortes dentro de la pastilla del nombre en vez de usar un separador ASCII espaciado.
 	const pill = ` ${label} `;
 	const joiner = ` ${DASH}${DASH}`;
-	const visibleMiddle = existing ? ` ${existing}${joiner}${pill}` : pill;
-	const styledMiddle = existing ? color(` ${existing}${joiner}`) + labelColor(pill) : labelColor(pill);
+	const visibleMiddle = parsed.existing ? ` ${parsed.existing}${joiner}${pill}` : pill;
+	const styledMiddle = parsed.existing ? color(` ${parsed.existing}${joiner}`) + labelColor(pill) : labelColor(pill);
 
 	const rightDashes = 2;
 	const leftDashes = width - visibleWidth(visibleMiddle) - rightDashes;
