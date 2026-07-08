@@ -1,15 +1,15 @@
 /**
- * Durable guard for extractJsonCandidate's balanced-substring fallback.
+ * Guard durable para el fallback balanced-substring de extractJsonCandidate.
  *
- * Reproduces the multi-segment bug (json-extract.ts): the scanner used to seed
- * candidate starts from ONLY the first '{' and the first '['. When earlier braces
- * form a balanced-but-non-JSON segment, the real JSON value later in the output was
- * never reached, so extraction failed even though a valid object/array followed.
+ * Reproduce el bug multi-segmento (json-extract.ts): el scanner antes sembraba starts de
+ * candidatos SOLO desde el primer '{' y el primer '['. Cuando llaves/corchetes anteriores
+ * formaban un segmento balanceado-pero-no-JSON, nunca se alcanzaba el valor JSON real
+ * posterior en el output, así que la extracción fallaba aunque siguiera un objeto/array válido.
  *
- * Pure: bundles the self-contained json-extract.ts entry (no stubs) and calls the
- * exported function in memory.
+ * Puro: bundlea la entry self-contained json-extract.ts (sin stubs) y llama la función
+ * exportada en memoria.
  *
- * Run it:
+ * Corrida:
  *   node extensions/pandi-dynamic-workflows/tests/integration/json-extract-multi-segment.test.mjs
  */
 import * as path from "node:path";
@@ -30,7 +30,7 @@ async function main() {
 	const { extractJsonCandidate } = await loadRuntime();
 	check("exports extractJsonCandidate", typeof extractJsonCandidate === "function", typeof extractJsonCandidate);
 
-	// Earlier balanced '{...}' segment is NOT valid JSON; the real value comes later.
+	// El segmento balanceado '{...}' anterior NO es JSON válido; el valor real viene después.
 	const multi = 'Reasoning: { not really json here } and the answer is {"answer": 42}';
 	const r1 = extractJsonCandidate(multi);
 	check(
@@ -39,7 +39,7 @@ async function main() {
 		JSON.stringify(r1),
 	);
 
-	// Same shape for arrays: earlier balanced '[...]' non-JSON, valid array later.
+	// Misma forma para arrays: '[...]' anterior balanceado no-JSON, array válido después.
 	const multiArr = "Steps: [ do a thing ] -> result: [1, 2, 3]";
 	const r2 = extractJsonCandidate(multiArr);
 	check(
@@ -48,7 +48,7 @@ async function main() {
 		JSON.stringify(r2),
 	);
 
-	// Regression: a single leading valid object is still returned as before.
+	// Regresión: un único objeto válido inicial sigue devolviéndose como antes.
 	const single = 'prefix {"x": 1} suffix';
 	const r3 = extractJsonCandidate(single);
 	check("still returns a single leading valid object", r3.ok === true && r3.data.x === 1, JSON.stringify(r3));
