@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 /**
- * Behavioral contract for openRunArtifact (run-view.ts): the function that opens a single
- * run artifact in the viewer that fits it.
+ * Contrato de comportamiento para openRunArtifact (run-view.ts): la función que abre un
+ * artifact individual de run en el viewer que corresponde.
  *
- * Pins:
- *   1. Routing — a `.md` artifact opens the Markdown viewer (ctx.ui.custom), a non-markdown
- *      artifact (e.g. `.log`) opens the text editor (ctx.ui.editor). Exactly one, never both.
- *   2. Path containment — a relative path that escapes the run directory is REFUSED with a
- *      warning and never opens any viewer (even when the escaping file exists and is readable).
- *   3. Missing file — surfaces a warning, opens no viewer.
+ * Pinea:
+ *   1. Routing — un artifact `.md` abre el Markdown viewer (ctx.ui.custom), un artifact
+ *      non-markdown (p. ej. `.log`) abre el text editor (ctx.ui.editor). Exactamente uno, nunca ambos.
+ *   2. Path containment — un path relativo que escapa del run directory se RECHAZA con warning
+ *      y nunca abre ningún viewer (incluso cuando el archivo escapado existe y es readable).
+ *   3. Missing file — muestra un warning, no abre viewer.
  *
- * This is a regression/characterization test for already-shipped behavior (openRunArtifact
- * exists), written test-AFTER — stated explicitly rather than labelled as Red-first TDD.
- * Built with stubs; the fake ctx only counts which viewer opener was invoked.
+ * Este es un test de regresión/caracterización para comportamiento ya shipeado (openRunArtifact
+ * existe), escrito test-AFTER — explicitado en vez de etiquetarlo como TDD Red-first.
+ * Buildeado con stubs; el ctx fake solo cuenta qué opener de viewer fue invocado.
  */
 
 import * as fs from "node:fs/promises";
@@ -67,7 +67,7 @@ async function main() {
 	const { openRunArtifact } = await loadModule(url);
 	check("openRunArtifact is exported", typeof openRunArtifact === "function");
 
-	// Build a run dir with a markdown and a non-markdown artifact, plus a sibling OUTSIDE it.
+	// Construí un run dir con un artifact markdown y uno non-markdown, más un sibling AFUERA.
 	const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "pi-openartifact-"));
 	const runDir = path.join(tmp, "run-xyz");
 	await fs.mkdir(runDir, { recursive: true });
@@ -75,19 +75,19 @@ async function main() {
 	await fs.writeFile(path.join(runDir, "stdout.log"), "raw log line", "utf8");
 	await fs.writeFile(path.join(tmp, "secret.md"), "# Secret\n\noutside the run dir", "utf8");
 
-	// 1) .md → markdown viewer (custom), not the editor.
+	// 1) .md → markdown viewer (custom), no el editor.
 	const md = makeCtx();
 	await openRunArtifact(md.ctx, runDir, "output.md");
 	check("'.md' opens the Markdown viewer (custom)", md.customCalls === 1, `custom=${md.customCalls}`);
 	check("'.md' does NOT open the text editor", md.editorCalls === 0, `editor=${md.editorCalls}`);
 
-	// 2) .log → text editor, not the markdown viewer.
+	// 2) .log → text editor, no el markdown viewer.
 	const log = makeCtx();
 	await openRunArtifact(log.ctx, runDir, "stdout.log");
 	check("'.log' opens the text editor", log.editorCalls === 1, `editor=${log.editorCalls}`);
 	check("'.log' does NOT open the Markdown viewer", log.customCalls === 0, `custom=${log.customCalls}`);
 
-	// 3) Path traversal escaping runDir is refused, no viewer opens.
+	// 3) Path traversal que escapa de runDir se rechaza, no abre viewer.
 	const esc = makeCtx();
 	await openRunArtifact(esc.ctx, runDir, "../secret.md");
 	check(
@@ -101,7 +101,7 @@ async function main() {
 		JSON.stringify(esc.notes),
 	);
 
-	// 4) Missing file → warning, no viewer.
+	// 4) Missing file → warning, sin viewer.
 	const miss = makeCtx();
 	await openRunArtifact(miss.ctx, runDir, "does-not-exist.md");
 	check("missing file opens no viewer", miss.customCalls === 0 && miss.editorCalls === 0, JSON.stringify(miss.notes));
