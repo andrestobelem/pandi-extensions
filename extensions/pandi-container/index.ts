@@ -111,11 +111,7 @@ async function runCommand(ctx: ExtensionContext, input: string): Promise<void> {
 		return;
 	}
 	const { action, rest, command } = parseContainerCommand(await resolveContainerInput(input, ctx));
-	const opts = {
-		cwd: ctx.cwd,
-		signal: ctx.signal ?? undefined,
-		timeoutMs: parseTimeoutMs(process.env.PI_CONTAINER_TIMEOUT_MS, DEFAULT_CONTAINER_TIMEOUT_MS),
-	};
+	const opts = buildHandlerOpts(ctx.cwd, ctx.signal);
 
 	if (action === "help" || action === "-h" || action === "--help") {
 		notify(ctx, HELP_TEXT, "info");

@@ -374,18 +374,25 @@ export interface HandlerOpts {
 	timeoutMs?: number;
 }
 
-function invalidMachineNameResult(name: unknown, action: string): HandlerResult {
+function handlerError(action: string, text: string, extraDetails: Record<string, unknown> = {}): HandlerResult {
 	return {
 		ok: false,
-		text: `Nombre de máquina inválido "${String(name)}": usá letras, dígitos, ".", "_", o "-", empezando con una letra o dígito (máx. 64 caracteres).`,
-		details: { isError: true, action },
+		text,
+		details: { isError: true, action, ...extraDetails },
 	};
+}
+
+function invalidMachineNameResult(name: unknown, action: string): HandlerResult {
+	return handlerError(
+		action,
+		`Nombre de máquina inválido "${String(name)}": usá letras, dígitos, ".", "_", o "-", empezando con una letra o dígito (máx. 64 caracteres).`,
+	);
 }
 
 export async function runStatus(run: RunContainer, opts: HandlerOpts): Promise<HandlerResult> {
 	const status = await run(buildStatusArgs(), opts);
 	if (!status.ok) {
-		return { ok: false, text: describeError(status, "system status"), details: { isError: true, action: "status" } };
+		return handlerError("status", describeError(status, "system status"));
 	}
 	const list = await run(buildMachineListArgs(), opts);
 	const machines = list.ok ? parseMachineList(list.stdout) : [];
@@ -396,7 +403,7 @@ export async function runStatus(run: RunContainer, opts: HandlerOpts): Promise<H
 export async function runList(run: RunContainer, opts: HandlerOpts): Promise<HandlerResult> {
 	const result = await run(buildMachineListArgs(), opts);
 	if (!result.ok) {
-		return { ok: false, text: describeError(result, "machine ls"), details: { isError: true, action: "list" } };
+		return handlerError("list", describeError(result, "machine ls"));
 	}
 	const machines = parseMachineList(result.stdout);
 	return {
@@ -408,34 +415,25 @@ export async function runList(run: RunContainer, opts: HandlerOpts): Promise<Han
 
 export async function runCreate(run: RunContainer, params: CreateOptions, opts: HandlerOpts): Promise<HandlerResult> {
 	if (!params.image) {
-		return {
-			ok: false,
-			text: "create requiere un 'image' (ej. alpine:latest).",
-			details: { isError: true, action: "create" },
-		};
+		return handlerError("create", "create requiere un 'image' (ej. alpine:latest).");
 	}
 	if (params.name && !validateMachineName(params.name)) {
 		return invalidMachineNameResult(params.name, "create");
 	}
 	if (params.tier && isTierName(params.tier) && !(MACHINE_TIER_NAMES as readonly string[]).includes(params.tier)) {
 		const machineTiers = describeTiers(MACHINE_TIER_NAMES);
-		return {
-			ok: false,
-			text: `El nivel "${params.tier}" es demasiado chico para una máquina persistente — la CLI requiere al menos 1G de memoria para 'machine create'. Niveles de máquina: ${machineTiers}. Los niveles menores a 1G solo sirven para runs efímeros de imagen.`,
-			details: { isError: true, action: "create" },
-		};
+		return handlerError(
+			"create",
+			`El nivel "${params.tier}" es demasiado chico para una máquina persistente — la CLI requiere al menos 1G de memoria para 'machine create'. Niveles de máquina: ${machineTiers}. Los niveles menores a 1G solo sirven para runs efímeros de imagen.`,
+		);
 	}
 	const size = resolveSize({ tier: params.tier, cpus: params.cpus, memory: params.memory });
 	if (!size.ok) {
-		return {
-			ok: false,
-			text: size.error ?? "Nivel de tamaño inválido.",
-			details: { isError: true, action: "create" },
-		};
+		return handlerError("create", size.error ?? "Nivel de tamaño inválido.");
 	}
 	const result = await run(buildMachineCreateArgs({ ...params, cpus: size.cpus, memory: size.memory }), opts);
 	if (!result.ok) {
-		return { ok: false, text: describeError(result, "machine create"), details: { isError: true, action: "create" } };
+		return handlerError("create", describeError(result, "machine create"));
 	}
 	const name = params.name ?? "(predeterminada)";
 	return {
@@ -462,28 +460,19 @@ function describeRunTarget(params: Pick<ExecParams, "machine" | "image">): strin
 
 export async function runExec(run: RunContainer, params: ExecParams, opts: HandlerOpts): Promise<HandlerResult> {
 	if (!Array.isArray(params.command) || params.command.length === 0) {
-		return {
-			ok: false,
-			text: "run requiere un array 'command' no vacío (argv).",
-			details: { isError: true, action: "run" },
-		};
+		return handlerError("run", "run requiere un array 'command' no vacío (argv).");
 	}
 	if (!params.machine && !params.image) {
-		return {
-			ok: false,
-			text: "run requiere 'machine' (existente) o 'image' (efímero).",
-			details: { isError: true, action: "run" },
-		};
+		return handlerError("run", "run requiere 'machine' (existente) o 'image' (efímero).");
 	}
 	if (params.machine && !validateMachineName(params.machine)) {
 		return invalidMachineNameResult(params.machine, "run");
 	}
 	if (params.machine && params.tier) {
-		return {
-			ok: false,
-			text: `Los niveles de tamaño no aplican a un run dentro de la máquina existente "${params.machine}" — sus recursos quedan fijados en la creación. Usá un nivel en 'create' o en un run efímero de imagen.`,
-			details: { isError: true, action: "run" },
-		};
+		return handlerError(
+			"run",
+			`Los niveles de tamaño no aplican a un run dentro de la máquina existente "${params.machine}" — sus recursos quedan fijados en la creación. Usá un nivel en 'create' o en un run efímero de imagen.`,
+		);
 	}
 	let args: string[];
 	if (params.machine) {
@@ -491,11 +480,7 @@ export async function runExec(run: RunContainer, params: ExecParams, opts: Handl
 	} else {
 		const size = resolveSize({ tier: params.tier, cpus: params.cpus, memory: params.memory });
 		if (!size.ok) {
-			return {
-				ok: false,
-				text: size.error ?? "Nivel de tamaño inválido.",
-				details: { isError: true, action: "run" },
-			};
+			return handlerError("run", size.error ?? "Nivel de tamaño inválido.");
 		}
 		args = buildEphemeralRunArgs({
 			image: params.image as string,
@@ -508,7 +493,7 @@ export async function runExec(run: RunContainer, params: ExecParams, opts: Handl
 	const result = await run(args, opts);
 	const target = describeRunTarget(params);
 	if (!result.ok) {
-		return { ok: false, text: describeError(result, "run"), details: { isError: true, action: "run", target } };
+		return handlerError("run", describeError(result, "run"), { target });
 	}
 	const text = result.stdout.trim() || `(sin salida) — ejecutado en ${target}`;
 	return { ok: true, text, details: { action: "run", target, exitCode: result.exitCode } };
@@ -520,7 +505,7 @@ export async function runStop(run: RunContainer, params: { name?: string }, opts
 	}
 	const result = await run(buildStopArgs(params), opts);
 	if (!result.ok) {
-		return { ok: false, text: describeError(result, "machine stop"), details: { isError: true, action: "stop" } };
+		return handlerError("stop", describeError(result, "machine stop"));
 	}
 	return {
 		ok: true,
@@ -538,15 +523,15 @@ export async function runRemove(
 		return invalidMachineNameResult(params.name, "remove");
 	}
 	if (!params.force) {
-		return {
-			ok: false,
-			text: `Me niego a eliminar la máquina "${params.name}" sin force. Pasá force:true (en la tool) o confirmá (en el comando).`,
-			details: { isError: true, action: "remove", needsForce: true, name: params.name },
-		};
+		return handlerError(
+			"remove",
+			`Me niego a eliminar la máquina "${params.name}" sin force. Pasá force:true (en la tool) o confirmá (en el comando).`,
+			{ needsForce: true, name: params.name },
+		);
 	}
 	const result = await run(buildRemoveArgs({ name: params.name }), opts);
 	if (!result.ok) {
-		return { ok: false, text: describeError(result, "machine delete"), details: { isError: true, action: "remove" } };
+		return handlerError("remove", describeError(result, "machine delete"));
 	}
 	return {
 		ok: true,

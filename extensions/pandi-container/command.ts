@@ -23,6 +23,10 @@ export function parseSizeFlag(tokens: string[]): { tokens: string[]; tier?: stri
 	return tier != null ? { tokens: out, tier } : { tokens: out };
 }
 
+function tokenizeWords(text: string): string[] {
+	return text.trim().split(/\s+/).filter(Boolean);
+}
+
 /** Divide una línea de comando en subcomando y resto, respetando un separador argv `--`. */
 export function parseContainerCommand(input: string): {
 	action: string;
@@ -32,15 +36,8 @@ export function parseContainerCommand(input: string): {
 	const trimmed = (input ?? "").trim();
 	const sepIndex = trimmed.indexOf(" -- ");
 	const head = sepIndex >= 0 ? trimmed.slice(0, sepIndex) : trimmed;
-	const command =
-		sepIndex >= 0
-			? trimmed
-					.slice(sepIndex + 4)
-					.trim()
-					.split(/\s+/)
-					.filter(Boolean)
-			: [];
-	const tokens = head.split(/\s+/).filter(Boolean);
+	const command = sepIndex >= 0 ? tokenizeWords(trimmed.slice(sepIndex + 4)) : [];
+	const tokens = tokenizeWords(head);
 	const action = (tokens.shift() ?? "status").toLowerCase();
 	return { action, rest: tokens, command };
 }

@@ -2,16 +2,16 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { TIER_NAMES } from "./container.js";
 
 export const CONTAINER_ACTIONS = [
-	{ value: "status", selectLabel: "status — resumen del subsistema y las máquinas" },
-	{ value: "list", selectLabel: "list — lista las máquinas del contenedor" },
-	{ value: "create", selectLabel: "create — crea una máquina a partir de una imagen OCI" },
-	{ value: "run", selectLabel: "run — ejecuta un comando en una máquina o en un contenedor efímero" },
-	{ value: "stop", selectLabel: "stop — detiene una máquina" },
-	{ value: "remove", selectLabel: "remove — elimina una máquina (pide confirmación)" },
+	{ value: "status", description: "resumen del subsistema y las máquinas" },
+	{ value: "list", description: "lista las máquinas del contenedor" },
+	{ value: "create", description: "crea una máquina a partir de una imagen OCI" },
+	{ value: "run", description: "ejecuta un comando en una máquina o en un contenedor efímero" },
+	{ value: "stop", description: "detiene una máquina" },
+	{ value: "remove", description: "elimina una máquina (pide confirmación)" },
 ] as const;
 
 /** Opciones con etiqueta humana para el selector de acciones de `/container` sin argumentos (el primer token es el valor). */
-export const CONTAINER_SELECT_ITEMS = CONTAINER_ACTIONS.map(({ selectLabel }) => selectLabel);
+export const CONTAINER_SELECT_ITEMS = CONTAINER_ACTIONS.map(({ value, description }) => `${value} — ${description}`);
 
 const SUBCOMMANDS = CONTAINER_ACTIONS.map(({ value }) => value);
 

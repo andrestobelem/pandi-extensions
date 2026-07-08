@@ -1,6 +1,12 @@
-import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+export type NotifyType = "info" | "warning" | "error";
 
-export function notify(ctx: ExtensionContext, message: string, type: "info" | "warning" | "error" = "info"): void {
+export interface NotifyContext {
+	mode: string;
+	hasUI: boolean;
+	ui: { notify(message: string, type?: NotifyType): void };
+}
+
+export function notify(ctx: NotifyContext, message: string, type: NotifyType = "info"): void {
 	if (ctx.mode === "print") {
 		// stdout lleva la salida legible por máquinas en modo print; dejá warnings/errors en stderr.
 		(type === "info" ? console.log : console.error)(message);
