@@ -180,6 +180,15 @@ async function main() {
 			const html = await fs.readFile(reportPath, "utf8").catch(() => undefined);
 			return html?.includes("</html>") ? html : undefined;
 		});
+		await waitFor("final handoff", () => {
+			const notificationText = ctxState.notifications.map((n) => n.message).join("\n---\n");
+			const wakeText = piState.userMessages.map((m) => m.message).join("\n---\n");
+			return (
+				notificationText.includes(reportPath) &&
+				wakeText.includes(reportPath) &&
+				piState.execCalls.some((call) => call.args?.includes(reportPath))
+			);
+		});
 		const html = await fs.readFile(reportPath, "utf8");
 		const notificationText = ctxState.notifications.map((n) => n.message).join("\n---\n");
 		const wakeText = piState.userMessages.map((m) => m.message).join("\n---\n");
@@ -235,6 +244,15 @@ async function main() {
 		await waitFor("final report after open failure", async () => {
 			const html = await fs.readFile(fallbackReportPath, "utf8").catch(() => undefined);
 			return html?.includes("</html>") ? html : undefined;
+		});
+		await waitFor("final handoff after open failure", () => {
+			const fallbackNotificationText = fallbackCtx.notifications.map((n) => n.message).join("\n---\n");
+			const fallbackWakeText = fallbackPi.userMessages.map((m) => m.message).join("\n---\n");
+			return (
+				fallbackNotificationText.includes(fallbackReportPath) &&
+				fallbackWakeText.includes(fallbackReportPath) &&
+				fallbackPi.execCalls.some((call) => call.args?.includes(fallbackReportPath))
+			);
 		});
 		const fallbackResult = JSON.parse(await fs.readFile(path.join(fallbackStatus.runDir, "result.json"), "utf8"));
 		const fallbackNotificationText = fallbackCtx.notifications.map((n) => n.message).join("\n---\n");
