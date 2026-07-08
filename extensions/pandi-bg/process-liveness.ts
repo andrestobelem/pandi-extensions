@@ -34,6 +34,19 @@ function parseLinuxProcStartId(stat: string): string | undefined {
 	return starttime ? `lin:${starttime}` : undefined;
 }
 
+function readProcessStartIdForPlatform(pid: number): string | undefined {
+	if (process.platform === "linux") {
+		const stat = readFileSync(`/proc/${pid}/stat`, "utf8");
+		return parseLinuxProcStartId(stat);
+	}
+	if (process.platform === "darwin" || process.platform.endsWith("bsd")) {
+		const res = spawnSync("ps", ["-o", "lstart=", "-p", String(pid)], { encoding: "utf8" });
+		const out = res.status === 0 ? (res.stdout ?? "").trim() : "";
+		return out ? `ps:${out}` : undefined;
+	}
+	return undefined;
+}
+
 // Captura una identidad de inicio estable por proceso para que una prueba posterior distinga el
 // proceso de nuestro job de otro no relacionado que reutilizó su pid. Mejor esfuerzo, con
 // degradación entre plataformas: Linux lee /proc (sin subprocess); macOS/BSD ejecuta
@@ -42,16 +55,7 @@ function parseLinuxProcStartId(stat: string): string | undefined {
 export function readProcessStartId(pid: number | undefined): string | undefined {
 	if (!isUsablePid(pid)) return undefined;
 	try {
-		if (process.platform === "linux") {
-			const stat = readFileSync(`/proc/${pid}/stat`, "utf8");
-			return parseLinuxProcStartId(stat);
-		}
-		if (process.platform === "darwin" || process.platform.endsWith("bsd")) {
-			const res = spawnSync("ps", ["-o", "lstart=", "-p", String(pid)], { encoding: "utf8" });
-			const out = res.status === 0 ? (res.stdout ?? "").trim() : "";
-			return out ? `ps:${out}` : undefined;
-		}
-		return undefined;
+		return readProcessStartIdForPlatform(pid);
 	} catch {
 		return undefined;
 	}

@@ -19,18 +19,25 @@ export function projectState(
 	pid: number | undefined,
 ): { state: JobState; persistedState?: string; hint?: string } {
 	if ((persisted === "starting" || persisted === "running") && !activeJobs.has(jobId)) {
-		const live = probeProcessAlive(pid);
-		if (live === "alive") {
-			return {
-				state: "orphaned",
-				persistedState: persisted,
-				hint: `El PID ${pid} podría seguir corriendo (o el PID fue reutilizado). Verificalo antes de usar kill -- -${pid} / taskkill; /bg cancel no le va a enviar una señal a un PID persistido.`,
-			};
-		}
-		if (live === "dead") return { state: "interrupted", persistedState: persisted };
-		return { state: "stale", persistedState: persisted };
+		return projectUnownedActiveState(persisted, pid);
 	}
 	return { state: (persisted ?? "unknown") as JobState };
+}
+
+function projectUnownedActiveState(
+	persisted: "starting" | "running",
+	pid: number | undefined,
+): { state: JobState; persistedState?: string; hint?: string } {
+	const live = probeProcessAlive(pid);
+	if (live === "alive") {
+		return {
+			state: "orphaned",
+			persistedState: persisted,
+			hint: `El PID ${pid} podría seguir corriendo (o el PID fue reutilizado). Verificalo antes de usar kill -- -${pid} / taskkill; /bg cancel no le va a enviar una señal a un PID persistido.`,
+		};
+	}
+	if (live === "dead") return { state: "interrupted", persistedState: persisted };
+	return { state: "stale", persistedState: persisted };
 }
 
 export function deriveState(jobId: string, status: Record<string, unknown> | undefined): JobState {

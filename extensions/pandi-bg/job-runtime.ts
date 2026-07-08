@@ -102,6 +102,12 @@ export function pipeWithBackpressure(
 	}
 }
 
+function deriveFinalJobState(runtime: RuntimeJob, exitCode: number | null, error?: Error): JobState {
+	if (runtime.status.cancelRequested) return "cancelled";
+	if (error) return "failed";
+	return exitCode === 0 ? "completed" : "failed";
+}
+
 export async function finalizeJob(
 	runtime: RuntimeJob,
 	exitCode: number | null,
@@ -111,13 +117,7 @@ export async function finalizeJob(
 	if (runtime.finalized) return;
 	runtime.finalized = true;
 	if (runtime.cancelTimer) clearTimeout(runtime.cancelTimer);
-	const state: JobState = runtime.status.cancelRequested
-		? "cancelled"
-		: error
-			? "failed"
-			: exitCode === 0
-				? "completed"
-				: "failed";
+	const state = deriveFinalJobState(runtime, exitCode, error);
 	// Cleanup (remoción del registro + cierre de streams) corre en finally para que una
 	// escritura de status/event que lanza (disco lleno, límite de FD, runDir desaparecido)
 	// no deje el job medio finalizado: trabado en activeJobs con stream fds filtrados. El

@@ -855,33 +855,26 @@ async function handleBgCommand(args: string, ctx: ExtensionContext): Promise<BgR
 	}
 }
 
+const BG_ARGUMENT_COMPLETIONS = [
+	{ value: "preview", description: "Dry-run (vista previa) de un comando en segundo plano" },
+	{ value: "start", description: "Iniciar un job en segundo plano" },
+	{ value: "cancel", description: "Cancelar un job activo en segundo plano" },
+	{ value: "list", description: "Listar artefactos de jobs en segundo plano" },
+	{ value: "status", description: "Leer el estado del job" },
+	{ value: "logs", description: "Leer logs acotados del job" },
+	{ value: "events", description: "Leer eventos acotados del ciclo de vida del job" },
+	{ value: "delete", description: "Eliminar los artefactos de un job terminado" },
+	{ value: "prune", description: "Vista previa/prune de artefactos de jobs terminados (--yes para eliminar)" },
+].map((item) => ({ ...item, label: item.value }));
+
 export default function bgExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("bg", {
 		description:
 			"Jobs en segundo plano: /bg preview <command> | /bg start <command> | /bg cancel <jobId> | /bg list | /bg status <jobId> | /bg logs <jobId> | /bg events <jobId> | /bg delete <jobId> | /bg prune [--yes]",
 		getArgumentCompletions: (argumentPrefix: string) => {
-			const items = [
-				{
-					value: "preview",
-					label: "preview",
-					description: "Dry-run (vista previa) de un comando en segundo plano",
-				},
-				{ value: "start", label: "start", description: "Iniciar un job en segundo plano" },
-				{ value: "cancel", label: "cancel", description: "Cancelar un job activo en segundo plano" },
-				{ value: "list", label: "list", description: "Listar artefactos de jobs en segundo plano" },
-				{ value: "status", label: "status", description: "Leer el estado del job" },
-				{ value: "logs", label: "logs", description: "Leer logs acotados del job" },
-				{ value: "events", label: "events", description: "Leer eventos acotados del ciclo de vida del job" },
-				{ value: "delete", label: "delete", description: "Eliminar los artefactos de un job terminado" },
-				{
-					value: "prune",
-					label: "prune",
-					description: "Vista previa/prune de artefactos de jobs terminados (--yes para eliminar)",
-				},
-			];
 			const prefix = argumentPrefix.trim().toLowerCase();
-			if (!prefix) return items;
-			return items.filter((i) => i.value.startsWith(prefix));
+			if (!prefix) return BG_ARGUMENT_COMPLETIONS;
+			return BG_ARGUMENT_COMPLETIONS.filter((item) => item.value.startsWith(prefix));
 		},
 		handler: async (args, ctx) => notify(ctx, await handleBgCommand(args, ctx)),
 	});

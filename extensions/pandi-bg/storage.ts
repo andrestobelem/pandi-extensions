@@ -116,11 +116,15 @@ export async function readJson(file: string): Promise<Record<string, unknown> | 
 	}
 }
 
-export async function atomicWriteJson(file: string, value: unknown): Promise<void> {
-	const tmp = path.join(
+function buildAtomicTempPath(file: string): string {
+	return path.join(
 		path.dirname(file),
 		`.${path.basename(file)}.${process.pid}.${Date.now()}.${crypto.randomBytes(4).toString("hex")}.tmp`,
 	);
+}
+
+export async function atomicWriteJson(file: string, value: unknown): Promise<void> {
+	const tmp = buildAtomicTempPath(file);
 	await fs.writeFile(tmp, `${JSON.stringify(value, null, 2)}\n`, "utf8");
 	try {
 		await fs.rename(tmp, file);
