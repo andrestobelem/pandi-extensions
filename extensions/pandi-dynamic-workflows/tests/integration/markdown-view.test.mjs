@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 /**
- * Behavioral contract for the dashboard's shared Markdown viewer (markdown-view.ts):
- * a self-contained viewer built on pi-tui's `Markdown` component (NOT importing pandi-mdview
- * at runtime, per the self-contained-extension rule), used to show run views / agent views
- * / .md artifacts as RENDERED Markdown instead of a plain text editor dump.
+ * Contrato de comportamiento para el Markdown viewer compartido del dashboard (markdown-view.ts):
+ * un viewer self-contained construido sobre el componente `Markdown` de pi-tui (NO importa pandi-mdview
+ * en runtime, por la regla de extensión self-contained), usado para mostrar run views / agent views
+ * / artifacts .md como Markdown RENDERED en vez de un dump de editor de texto plano.
  *
- * Pins:
- *   1. `pickViewerForPath` routes .md/.markdown → "markdown", everything else → "text".
- *   2. `WorkflowMarkdownViewComponent` renders heading + body text and a `q/Esc cerrar` hint,
- *      scrolls, and (when enabled) advertises an `f` archivos affordance + signals "openFiles".
- *   3. `showMarkdown` in print mode emits the content via console.log and opens no UI.
+ * Pinea:
+ *   1. `pickViewerForPath` routea .md/.markdown → "markdown", todo lo demás → "text".
+ *   2. `WorkflowMarkdownViewComponent` renderiza heading + body text y un hint `q/Esc cerrar`,
+ *      scrollea, y (cuando está habilitado) publicita un affordance `f` archivos + señal "openFiles".
+ *   3. `showMarkdown` en modo print emite el contenido vía console.log y no abre UI.
  *
- * Built with REAL deps (no stubs) like the pandi-mdview suite, so the actual Markdown renderer
- * runs and we can assert real rendered output.
+ * Buildeado con deps REALES (sin stubs) como la suite pandi-mdview, así corre el renderer Markdown
+ * real y podemos asertar output renderizado real.
  */
 
 import * as path from "node:path";
@@ -62,7 +62,7 @@ async function main() {
 	check("'.log' → text", pickViewerForPath("agent-1/stdout.log") === "text");
 	check("no extension → text", pickViewerForPath("events") === "text");
 
-	// 2) component renders rendered Markdown + chrome
+	// 2) el componente renderiza Markdown rendered + chrome
 	check("WorkflowMarkdownViewComponent is exported", typeof WorkflowMarkdownViewComponent === "function");
 	let intent;
 	const comp = new WorkflowMarkdownViewComponent(
@@ -81,27 +81,27 @@ async function main() {
 	check("shows q/Esc close hint", /q\/Esc cerrar/i.test(rendered) || /q\/esc/i.test(rendered), rendered);
 	check("advertises the files affordance when enabled", /archivos/i.test(rendered), rendered);
 
-	// scroll changes the visible window (long content + small terminal so it overflows)
+	// scroll cambia la ventana visible (contenido largo + terminal chica para que haya overflow)
 	const longBody = `# Hello Heading\n\n${Array.from({ length: 60 }, (_, i) => `line ${i}`).join("\n")}`;
 	const scroller = new WorkflowMarkdownViewComponent(makeTui(8), makeTheme(), "t", longBody, () => {}, false);
 	const before = scroller.render(80).join("\n");
-	scroller.handleInput("G"); // jump to end
+	scroller.handleInput("G"); // saltar al final
 	const after = scroller.render(80).join("\n");
 	check("scroll input changes the rendered window or position", before !== after, "G should change view");
 
-	// `f` signals openFiles; `q` closes
+	// `f` señala openFiles; `q` cierra
 	comp.handleInput("f");
 	check("'f' signals openFiles intent", intent === "openFiles", JSON.stringify(intent));
 	comp.handleInput("q");
 	check("'q' closes (no special intent)", intent === undefined, JSON.stringify(intent));
 
-	// files affordance hidden when disabled
+	// affordance de files oculto cuando está deshabilitado
 	const noFiles = new WorkflowMarkdownViewComponent(makeTui(), makeTheme(), "t", "# x\n\nbody", () => {}, false)
 		.render(80)
 		.join("\n");
 	check("files affordance hidden when disabled", !/f archivos|f files|f open|open file/i.test(noFiles), noFiles);
 
-	// 3) showMarkdown print mode
+	// 3) showMarkdown en modo print
 	check("showMarkdown is exported", typeof showMarkdown === "function");
 	const logged = [];
 	const origLog = console.log;
