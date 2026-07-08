@@ -119,8 +119,16 @@ async function runCommand(ctx: ExtensionContext, input: string): Promise<void> {
 // Adaptador del resultado de la tool
 // --------------------------------------------------------------------------
 
+function toolResult(text: string, details: Record<string, unknown> = {}) {
+	return { content: [{ type: "text" as const, text }], details };
+}
+
+function toolError(text: string, details: Record<string, unknown> = {}) {
+	return toolResult(text, { ...details, isError: true });
+}
+
 function toToolResult(result: HandlerResult) {
-	return { content: [{ type: "text" as const, text: result.text }], details: result.details };
+	return toolResult(result.text, result.details);
 }
 
 // --------------------------------------------------------------------------
@@ -175,10 +183,7 @@ export default function kittyExtension(pi: ExtensionAPI): void {
 				case "focus-window":
 					return toToolResult(await runFocusWindow(runKitty, { matchId: params.matchId ?? "" }, opts));
 				default:
-					return {
-						content: [{ type: "text" as const, text: `Acción desconocida: ${params.action}` }],
-						details: { isError: true },
-					};
+					return toolError(`Acción desconocida: ${params.action}`);
 			}
 		},
 	});

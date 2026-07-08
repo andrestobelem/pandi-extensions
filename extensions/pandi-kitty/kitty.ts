@@ -171,6 +171,10 @@ export interface HandlerOpts {
 	timeoutMs?: number;
 }
 
+function handlerError(action: string, text: string): HandlerResult {
+	return { ok: false, text, details: { isError: true, action } };
+}
+
 function isWindowType(type: string): type is WindowType {
 	return (WINDOW_TYPES as readonly string[]).includes(type);
 }
@@ -185,25 +189,23 @@ export async function runLaunch(
 	opts: HandlerOpts,
 ): Promise<HandlerResult> {
 	if (!isWindowType(params.type)) {
-		return {
-			ok: false,
-			text: `Tipo de ventana desconocido "${params.type}". Tipos válidos: ${WINDOW_TYPES.join(", ")}.`,
-			details: { isError: true, action: "launch" },
-		};
+		return handlerError(
+			"launch",
+			`Tipo de ventana desconocido "${params.type}". Tipos válidos: ${WINDOW_TYPES.join(", ")}.`,
+		);
 	}
 	if (params.location && !isSplitLocation(params.location)) {
-		return {
-			ok: false,
-			text: `Ubicación de split desconocida "${params.location}". Ubicaciones válidas: ${SPLIT_LOCATIONS.join(", ")}.`,
-			details: { isError: true, action: "launch" },
-		};
+		return handlerError(
+			"launch",
+			`Ubicación de split desconocida "${params.location}". Ubicaciones válidas: ${SPLIT_LOCATIONS.join(", ")}.`,
+		);
 	}
 	const result = await run(
 		buildLaunchArgs({ type: params.type, location: params.location as SplitLocation | undefined, cwd: params.cwd }),
 		opts,
 	);
 	if (!result.ok) {
-		return { ok: false, text: describeError(result, "launch"), details: { isError: true, action: "launch" } };
+		return handlerError("launch", describeError(result, "launch"));
 	}
 	const id = result.stdout.trim();
 	return {
@@ -219,19 +221,11 @@ export async function runGotoLayout(
 	opts: HandlerOpts,
 ): Promise<HandlerResult> {
 	if (!params.layout) {
-		return {
-			ok: false,
-			text: "goto-layout requiere un nombre de layout.",
-			details: { isError: true, action: "goto-layout" },
-		};
+		return handlerError("goto-layout", "goto-layout requiere un nombre de layout.");
 	}
 	const result = await run(buildGotoLayoutArgs(params.layout), opts);
 	if (!result.ok) {
-		return {
-			ok: false,
-			text: describeError(result, "goto-layout"),
-			details: { isError: true, action: "goto-layout" },
-		};
+		return handlerError("goto-layout", describeError(result, "goto-layout"));
 	}
 	return {
 		ok: true,
@@ -247,11 +241,7 @@ export async function runCloseWindow(
 ): Promise<HandlerResult> {
 	const result = await run(buildCloseWindowArgs(params), opts);
 	if (!result.ok) {
-		return {
-			ok: false,
-			text: describeError(result, "close-window"),
-			details: { isError: true, action: "close-window" },
-		};
+		return handlerError("close-window", describeError(result, "close-window"));
 	}
 	return {
 		ok: true,
@@ -266,19 +256,11 @@ export async function runFocusWindow(
 	opts: HandlerOpts,
 ): Promise<HandlerResult> {
 	if (!params.matchId) {
-		return {
-			ok: false,
-			text: "focus-window requiere un id de ventana.",
-			details: { isError: true, action: "focus-window" },
-		};
+		return handlerError("focus-window", "focus-window requiere un id de ventana.");
 	}
 	const result = await run(buildFocusWindowArgs(params.matchId), opts);
 	if (!result.ok) {
-		return {
-			ok: false,
-			text: describeError(result, "focus-window"),
-			details: { isError: true, action: "focus-window" },
-		};
+		return handlerError("focus-window", describeError(result, "focus-window"));
 	}
 	return {
 		ok: true,

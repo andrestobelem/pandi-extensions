@@ -13,16 +13,16 @@ const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 
 const { check, counts } = createChecker();
 
-async function buildBundle() {
+async function buildBundle(src, outName) {
 	return await buildExtension({
 		name: "pi-kitty-build",
-		src: path.join(REPO_ROOT, "extensions", "pandi-kitty", "kitty.ts"),
-		outName: "kitty.mjs",
+		src,
+		outName,
 	});
 }
 
 async function main() {
-	const { url } = await buildBundle();
+	const { url } = await buildBundle(path.join(REPO_ROOT, "extensions", "pandi-kitty", "kitty.ts"), "kitty.mjs");
 	const mod = await loadModule(url);
 
 	check("buildLaunchArgs: tab", () =>
@@ -77,6 +77,25 @@ async function main() {
 	check("runGotoLayout: sin layout -> error", async () => {
 		const result = await mod.runGotoLayout(async () => ({ ok: true, stdout: "", stderr: "" }), { layout: "" }, {});
 		assert.equal(result.ok, false);
+	});
+
+	check("kitty_remote: acción inválida -> toolError canónico", async () => {
+		const bundle = await buildBundle(path.join(REPO_ROOT, "extensions", "pandi-kitty", "index.ts"), "index.mjs");
+		const extensionModule = await loadModule(bundle.url);
+		let registeredTool;
+		extensionModule.default({
+			registerCommand() {},
+			registerTool(tool) {
+				registeredTool = tool;
+			},
+		});
+
+		assert.ok(registeredTool);
+		const result = await registeredTool.execute("call-1", { action: "invalida" }, null, undefined, {
+			cwd: REPO_ROOT,
+		});
+		assert.match(result.content[0].text, /acción desconocida/i);
+		assert.equal(result.details.isError, true);
 	});
 
 	console.log(`\n${counts.passed} pasaron, ${counts.failed} fallaron.`);
