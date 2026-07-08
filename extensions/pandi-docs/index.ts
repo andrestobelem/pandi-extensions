@@ -43,6 +43,14 @@ function defaultOutPath(inputAbs: string): string {
 	return `${inputAbs.replace(/\.md$/i, "")}.html`;
 }
 
+function readUtf8OrThrow(inputAbs: string, errorMessage: string): string {
+	try {
+		return fs.readFileSync(inputAbs, "utf8");
+	} catch {
+		throw new Error(errorMessage);
+	}
+}
+
 export interface ConvertResult {
 	input: string;
 	output: string;
@@ -58,28 +66,17 @@ export function convertMarkdownFile(
 	opts: { cwd: string; out?: string; kicker?: string; tokens?: string; css?: string },
 ): ConvertResult {
 	const inputAbs = resolveUserPath(inputPath, opts.cwd);
-	let md: string;
-	try {
-		md = fs.readFileSync(inputAbs, "utf8");
-	} catch {
-		throw new Error(`No se pudo leer ${inputPath} — revisá la ruta y volvé a intentar`);
-	}
+	const md = readUtf8OrThrow(inputAbs, `No se pudo leer ${inputPath} — revisá la ruta y volvé a intentar`);
 	// `css` reemplaza la hoja de estilos completa; `tokens` solo pisa la paleta pandi.
 	let css: string | undefined;
 	if (opts.css) {
-		try {
-			css = fs.readFileSync(resolveUserPath(opts.css, opts.cwd), "utf8");
-		} catch {
-			throw new Error(`No se pudo leer ${opts.css} — revisá la ruta al CSS`);
-		}
+		const cssAbs = resolveUserPath(opts.css, opts.cwd);
+		css = readUtf8OrThrow(cssAbs, `No se pudo leer ${opts.css} — revisá la ruta al CSS`);
 	}
 	const tokensCssPath = opts.tokens ? resolveUserPath(opts.tokens, opts.cwd) : TOKENS_CSS_PATH;
-	let tokensCss: string | undefined;
-	try {
-		tokensCss = css ? undefined : fs.readFileSync(tokensCssPath, "utf8");
-	} catch {
-		throw new Error(`No se pudo leer ${opts.tokens} — revisá la ruta a los tokens CSS`);
-	}
+	const tokensCss = css
+		? undefined
+		: readUtf8OrThrow(tokensCssPath, `No se pudo leer ${opts.tokens} — revisá la ruta a los tokens CSS`);
 	const html = renderMarkdownToHtml(md, { title: path.basename(inputAbs), kicker: opts.kicker, tokensCss, css });
 	const outAbs = opts.out ? resolveUserPath(opts.out, opts.cwd) : defaultOutPath(inputAbs);
 	fs.mkdirSync(path.dirname(outAbs), { recursive: true });

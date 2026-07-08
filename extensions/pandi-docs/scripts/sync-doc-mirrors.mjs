@@ -99,6 +99,10 @@ export function loadManifest(configAbsPath) {
 	return entries;
 }
 
+function readOptionalUtf8(root, rel) {
+	return rel ? fs.readFileSync(path.join(root, rel), "utf8") : undefined;
+}
+
 // Lista cada .html bajo un directorio como paths relativos a ese directorio.
 function listHtml(dirAbs) {
 	const out = [];
@@ -139,8 +143,8 @@ export function syncDocMirrors(root, opts = {}) {
 			continue;
 		}
 		const md = fs.readFileSync(path.join(root, source), "utf8");
-		const tokensCss = entry.tokens ? fs.readFileSync(path.join(root, entry.tokens), "utf8") : undefined;
-		const css = entry.css ? fs.readFileSync(path.join(root, entry.css), "utf8") : undefined;
+		const tokensCss = readOptionalUtf8(root, entry.tokens);
+		const css = readOptionalUtf8(root, entry.css);
 		const rendered = renderMarkdownToHtml(md, {
 			title: path.posix.basename(source),
 			kicker: entry.kicker,
