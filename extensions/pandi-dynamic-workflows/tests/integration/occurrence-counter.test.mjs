@@ -1,17 +1,17 @@
 #!/usr/bin/env node
 /**
- * Durable behavioral test for extensions/pandi-dynamic-workflows occurrence-counter.ts.
+ * Test durable de comportamiento para extensions/pandi-dynamic-workflows occurrence-counter.ts.
  *
- * `OccurrenceCounter` is the deterministic per-key occurrence index behind the
- * content-addressed resume cache, extracted byte-for-byte from runWorkflow's former
- * nested `nextOcc`/`occCounters`. It is intentionally PURE and mutex-free: the caller
- * (runWorkflow's occAssignMutex) owns the serialization, so this class must NOT reintroduce
- * a lock. This suite pins the counting contract that resume-cache determinism depends on.
+ * `OccurrenceCounter` es el índice determinista de occurrences por key detrás del
+ * resume cache content-addressed, extraído byte-for-byte del antiguo `nextOcc`/`occCounters`
+ * anidado de runWorkflow. Es intencionalmente PURO y sin mutex: el caller
+ * (occAssignMutex de runWorkflow) posee la serialización, así que esta clase NO debe reintroducir
+ * un lock. Esta suite pinea el contrato de conteo del que depende el determinismo del resume-cache.
  *
- * Contract:
- * - next(key) returns 0, 1, 2, … for repeated identical keys (monotonic, starts at 0).
- * - distinct keys count independently (each starts at 0).
- * - two OccurrenceCounter instances are independent (no shared/static state).
+ * Contrato:
+ * - next(key) devuelve 0, 1, 2, … para keys idénticas repetidas (monotónico, empieza en 0).
+ * - keys distintas cuentan independientemente (cada una empieza en 0).
+ * - dos instancias de OccurrenceCounter son independientes (sin estado compartido/static).
  */
 
 import * as fs from "node:fs/promises";
@@ -36,7 +36,7 @@ async function scenarioCounterUnit(url) {
 	);
 
 	const c2 = new OccurrenceCounter();
-	// distinct keys count independently, each from 0
+	// keys distintas cuentan independientemente, cada una desde 0
 	const kx0 = c2.next("x");
 	const ky0 = c2.next("y");
 	const kx1 = c2.next("x");
