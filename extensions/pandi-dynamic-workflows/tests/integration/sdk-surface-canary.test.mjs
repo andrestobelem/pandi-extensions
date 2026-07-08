@@ -1,21 +1,21 @@
 /**
- * Real-SDK surface canary (test-review finding P1).
+ * Canary de superficie del SDK real (hallazgo test-review P1).
  *
- * Every integration suite bundles its extension against HAND-WRITTEN stubs of the SDK packages
- * (harness.mjs STUB_SOURCES / sdkStub), so "125/125 green" proves nothing about whether the REAL
- * @earendil-works packages still expose the surface the extensions import at runtime. The stubs can
- * silently drift from reality (e.g. `convertToLlm` is used by an extension but isn't even in the
- * default sdk stub), and only `tsc` cross-checks against the real *types* — not the runtime values.
+ * Cada suite de integración bundlea su extensión contra stubs ESCRITOS A MANO de los paquetes SDK
+ * (harness.mjs STUB_SOURCES / sdkStub), así que "125/125 green" no prueba si los paquetes REALES
+ * @earendil-works todavía exponen la superficie que las extensiones importan en runtime. Los stubs
+ * pueden derivar silenciosamente de la realidad (p. ej. `convertToLlm` lo usa una extensión pero ni siquiera
+ * está en el sdk stub default), y solo `tsc` cruza contra los *types* reales — no los valores runtime.
  *
- * This canary imports the REAL installed packages and asserts each RUNTIME value the extensions
- * depend on exists with the expected `typeof`, so a breaking SDK upgrade (a renamed/removed export
- * or a value that changed kind) fails HERE instead of only in production.
+ * Este canary importa los paquetes REALES instalados y aserta que cada valor RUNTIME del que dependen
+ * las extensiones existe con el `typeof` esperado, así un upgrade SDK rompedor (un export renombrado/removido
+ * o un valor que cambió de kind) falla ACÁ en vez de recién en producción.
  *
- * Refresh the SURFACE map when an extension starts importing a new runtime value:
+ * Refrescá el mapa SURFACE cuando una extensión empiece a importar un nuevo valor runtime:
  *   grep -rhoE 'import \{[^}]+\} from "@earendil-works/[^"]+"' extensions/*\/*.ts
- * Type-only imports are erased at runtime (covered by tsc), so they are intentionally NOT listed.
+ * Los imports type-only se borran en runtime (cubiertos por tsc), así que intencionalmente NO se listan.
  *
- * Run it:
+ * Corrida:
  *   node extensions/pandi-dynamic-workflows/tests/integration/sdk-surface-canary.test.mjs
  */
 
@@ -23,14 +23,14 @@ import { createChecker } from "../../../shared/test/harness.mjs";
 
 const { check, counts } = createChecker();
 
-// Runtime values imported from @earendil-works/* across extensions/*/*.ts, with their expected kind
-// (a class is `typeof === "function"`; a const string is "string"; a namespace object is "object").
+// Valores runtime importados desde @earendil-works/* en extensions/*/*.ts, con su kind esperado
+// (una clase es `typeof === "function"`; un const string es "string"; un namespace object es "object").
 const SURFACE = {
 	"@earendil-works/pi-coding-agent": {
 		CONFIG_DIR_NAME: "string",
 		getAgentDir: "function",
 		convertToLlm: "function",
-		CustomEditor: "function", // class
+		CustomEditor: "function", // clase
 	},
 	"@earendil-works/pi-ai": {
 		StringEnum: "function",
@@ -39,9 +39,9 @@ const SURFACE = {
 		completeSimple: "function",
 	},
 	"@earendil-works/pi-tui": {
-		Image: "function", // class (imported as TerminalImage)
+		Image: "function", // clase (importada como TerminalImage)
 		Key: "object",
-		Markdown: "function", // class
+		Markdown: "function", // clase
 		getCapabilities: "function",
 		matchesKey: "function",
 		truncateToWidth: "function",
@@ -49,7 +49,7 @@ const SURFACE = {
 	},
 };
 
-// Pure predicate: the names in `expected` that are missing from `mod` or have the wrong `typeof`.
+// Predicado puro: los nombres de `expected` que faltan en `mod` o tienen `typeof` incorrecto.
 function surfaceMismatches(mod, expected) {
 	const out = [];
 	for (const [name, kind] of Object.entries(expected)) {
@@ -60,8 +60,8 @@ function surfaceMismatches(mod, expected) {
 }
 
 async function main() {
-	// Non-vacuousness: the predicate must FAIL a missing / wrong-kind export and PASS a present one,
-	// so the real-import checks below cannot be trivially green.
+	// No-vacuidad: el predicado debe FALLAR ante un export missing / wrong-kind y PASAR ante uno presente,
+	// así los checks de real-import de abajo no pueden quedar verdes trivialmente.
 	check("predicate flags a missing export", surfaceMismatches({}, { foo: "function" }).length === 1);
 	check("predicate flags a wrong-kind export", surfaceMismatches({ foo: 1 }, { foo: "function" }).length === 1);
 	check("predicate passes a present export", surfaceMismatches({ foo: () => {} }, { foo: "function" }).length === 0);
