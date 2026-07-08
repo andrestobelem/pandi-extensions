@@ -20,11 +20,14 @@ import type { AssistantMessage, Message, TextContent } from "@earendil-works/pi-
  * devolver SOLO el prompt reescrito para que el llamador pueda reutilizarlo tal cual (como
  * mensaje) sin parseo extra.
  */
-export const IMPROVE_PROMPT_SYSTEM_PROMPT =
-	"Reescribí BORRADORES DE PROMPT para un agente de programación con IA de modo que queden más claros y accionables. " +
-	"Resolvé ambigüedades, agregá criterios de éxito concretos y verificables cuando aporte valor, y mantené el idioma, la intención y el alcance originales — no inventes requisitos nuevos. " +
-	"Mantenelo conciso: un prompt más claro, no más largo. " +
-	"Devolvé SOLO el texto reescrito — sin preámbulo, sin explicación, sin comillas, sin fences de Markdown.";
+const IMPROVE_PROMPT_SYSTEM_PROMPT_RULES = [
+	"Reescribí BORRADORES DE PROMPT para un agente de programación con IA de modo que queden más claros y accionables.",
+	"Resolvé ambigüedades, agregá criterios de éxito concretos y verificables cuando aporte valor, y mantené el idioma, la intención y el alcance originales — no inventes requisitos nuevos.",
+	"Mantenelo conciso: un prompt más claro, no más largo.",
+	"Devolvé SOLO el texto reescrito — sin preámbulo, sin explicación, sin comillas, sin fences de Markdown.",
+] as const;
+
+export const IMPROVE_PROMPT_SYSTEM_PROMPT = IMPROVE_PROMPT_SYSTEM_PROMPT_RULES.join(" ");
 
 /** Solicitud lista para enviar: prompt de sistema + mensajes, y deliberadamente SIN herramientas. */
 export interface ImproveContext {

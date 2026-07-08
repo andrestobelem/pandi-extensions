@@ -51,6 +51,25 @@ function createMarkdownTheme(theme: Theme): MarkdownTheme {
 	};
 }
 
+type OverlayInputAction =
+	| { readonly type: "close" }
+	| { readonly type: "line"; readonly delta: 1 | -1 }
+	| { readonly type: "page"; readonly delta: 1 | -1 }
+	| { readonly type: "home" }
+	| { readonly type: "end" }
+	| { readonly type: "noop" };
+
+function resolveOverlayInputAction(data: string): OverlayInputAction {
+	if (matchesKey(data, "q") || matchesKey(data, "escape")) return { type: "close" };
+	if (matchesKey(data, "down") || data === "j") return { type: "line", delta: 1 };
+	if (matchesKey(data, "up") || data === "k") return { type: "line", delta: -1 };
+	if (matchesKey(data, "pageDown") || matchesKey(data, "space")) return { type: "page", delta: 1 };
+	if (matchesKey(data, "pageUp")) return { type: "page", delta: -1 };
+	if (matchesKey(data, "home") || data === "g") return { type: "home" };
+	if (matchesKey(data, "end") || data === "G") return { type: "end" };
+	return { type: "noop" };
+}
+
 class AnswerViewComponent implements Component {
 	private readonly markdown: Markdown;
 	private scroll = 0;
@@ -68,18 +87,26 @@ class AnswerViewComponent implements Component {
 	}
 
 	handleInput(data: string): void {
-		if (matchesKey(data, "q") || matchesKey(data, "escape")) {
-			this.done();
-			return;
+		const action = resolveOverlayInputAction(data);
+		switch (action.type) {
+			case "close":
+				this.done();
+				return;
+			case "line":
+				this.scroll += action.delta;
+				break;
+			case "page":
+				this.scroll += action.delta * this.pageSize();
+				break;
+			case "home":
+				this.scroll = 0;
+				break;
+			case "end":
+				this.scroll = Number.MAX_SAFE_INTEGER;
+				break;
+			case "noop":
+				return;
 		}
-
-		if (matchesKey(data, "down") || data === "j") this.scroll += 1;
-		else if (matchesKey(data, "up") || data === "k") this.scroll -= 1;
-		else if (matchesKey(data, "pageDown") || matchesKey(data, "space")) this.scroll += this.pageSize();
-		else if (matchesKey(data, "pageUp")) this.scroll -= this.pageSize();
-		else if (matchesKey(data, "home") || data === "g") this.scroll = 0;
-		else if (matchesKey(data, "end") || data === "G") this.scroll = Number.MAX_SAFE_INTEGER;
-		else return;
 
 		this.tui.requestRender();
 	}
