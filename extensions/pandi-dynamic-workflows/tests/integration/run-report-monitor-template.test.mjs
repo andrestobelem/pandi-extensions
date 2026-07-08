@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * run-report-monitor-template — pins the monitor-first information architecture
- * for /workflow report HTML. The report should open like the TUI Monitor:
- * state, progress, parallelism, artifacts, latest activity, and a compact agent
- * matrix before the deeper raw/debug sections.
+ * run-report-monitor-template — pinea la arquitectura de información monitor-first
+ * para el HTML de /workflow report. El reporte debe abrir como el Monitor TUI:
+ * state, progreso, paralelismo, artifacts, actividad reciente y una matriz compacta
+ * de agentes antes de las secciones raw/debug más profundas.
  */
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
