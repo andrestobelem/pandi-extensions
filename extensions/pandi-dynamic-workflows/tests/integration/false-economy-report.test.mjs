@@ -1,11 +1,11 @@
 /**
- * Durable test for scripts/report-false-economy.mjs (#49).
+ * Test durable para scripts/report-false-economy.mjs (#49).
  *
- * The script turns dynamic-workflow run artifacts into a retrospective signal table:
- * group by (model × effort × rolePrefix) and recommend `low -> medium` only when
- * a low-effort role has at least two recent false-economy signals.
+ * El script convierte artifacts de runs de dynamic-workflow en una tabla retrospectiva de señales:
+ * agrupa por (model × effort × rolePrefix) y recomienda `low -> medium` solo cuando
+ * un rol low-effort tiene al menos dos señales recientes de false-economy.
  *
- * Run it:
+ * Corrida:
  *   node extensions/pandi-dynamic-workflows/tests/integration/false-economy-report.test.mjs
  */
 
