@@ -158,18 +158,25 @@ export function buildTscArgs(tsconfigPath: string): string[] {
  *   3. si no, `npx tsc`.
  * Es puro salvo por los sondeos con existsSync; `env` es inyectable para tests.
  */
-export function resolveTscCommand(tsconfigDir: string, env: NodeJS.ProcessEnv = process.env): TscCommand {
-	const envTsc = env.PI_TS_LSP_TSC?.trim();
-	if (envTsc) return { command: process.execPath, args: [envTsc], kind: "env" };
-
+function findNearestLocalTsc(tsconfigDir: string): string | null {
 	let dir = path.resolve(tsconfigDir);
 	for (;;) {
 		const candidate = path.join(dir, "node_modules", "typescript", "bin", "tsc");
-		if (existsSync(candidate)) return { command: process.execPath, args: [candidate], kind: "local" };
+		if (existsSync(candidate)) return candidate;
 		const parent = path.dirname(dir);
 		if (parent === dir) break;
 		dir = parent;
 	}
+	return null;
+}
+
+export function resolveTscCommand(tsconfigDir: string, env: NodeJS.ProcessEnv = process.env): TscCommand {
+	const envTsc = env.PI_TS_LSP_TSC?.trim();
+	if (envTsc) return { command: process.execPath, args: [envTsc], kind: "env" };
+
+	const localTsc = findNearestLocalTsc(tsconfigDir);
+	if (localTsc) return { command: process.execPath, args: [localTsc], kind: "local" };
+
 	return { command: "npx", args: ["--no-install", "tsc"], kind: "npx" };
 }
 

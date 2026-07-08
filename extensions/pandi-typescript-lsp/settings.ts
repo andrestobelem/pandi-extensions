@@ -13,10 +13,13 @@
 export type FeedbackMode = "advisory" | "autofix";
 export type Scope = "touched" | "project";
 
+function normalizeToken(value: string | undefined): string | undefined {
+	return value?.trim().toLowerCase();
+}
+
 /** Parsea una configuración estilo on/off. Devuelve undefined para input no reconocido. */
 export function parseOnOff(value: string | undefined): boolean | undefined {
-	if (value === undefined) return undefined;
-	const v = value.trim().toLowerCase();
+	const v = normalizeToken(value);
 	if (v === "on" || v === "1" || v === "true" || v === "yes") return true;
 	if (v === "off" || v === "0" || v === "false" || v === "no") return false;
 	return undefined;
@@ -24,8 +27,7 @@ export function parseOnOff(value: string | undefined): boolean | undefined {
 
 /** Parsea la configuración de modo de retroalimentación (`advisory` | `autofix`). */
 export function parseMode(value: string | undefined): FeedbackMode | undefined {
-	if (value === undefined) return undefined;
-	const v = value.trim().toLowerCase();
+	const v = normalizeToken(value);
 	if (v === "advisory" || v === "autofix") return v;
 	return undefined;
 }
@@ -40,8 +42,7 @@ export function parseMax(value: string | undefined): number | undefined {
 
 /** Parsea la configuración de scope (`touched` | `project`). */
 export function parseScope(value: string | undefined): Scope | undefined {
-	if (value === undefined) return undefined;
-	const v = value.trim().toLowerCase();
+	const v = normalizeToken(value);
 	if (v === "touched" || v === "project") return v;
 	return undefined;
 }
