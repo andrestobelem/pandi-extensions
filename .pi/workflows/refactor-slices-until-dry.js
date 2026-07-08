@@ -146,6 +146,23 @@ export default async function main() {
 	const suggestedVerificationCommands = (items) => unique((items || []).map((item) => String(item || "").trim())).filter(
 		isSafeSuggestedVerificationCommand,
 	);
+	const claimsNoChanges = (text) =>
+		/\b(no hice cambios|no hice cambios efectivos|no hubo cambios|sin cambios|ya (?:estaba|ten[ií]a|tiene|cumple)|no hizo falta|no fue necesario)\b/i.test(
+			String(text || ""),
+		);
+	const reconcileImplementationWithGit = (implementation, selected, changedSelected) => {
+		const changedFiles = unique(changedSelected || []);
+		if (!changedFiles.length) return implementation;
+		const reportedTouched = Array.isArray(implementation?.touchedFiles) ? implementation.touchedFiles : [];
+		const contradictoryReport = reportedTouched.length === 0 || claimsNoChanges(implementation?.summary);
+		if (!contradictoryReport) return { ...implementation, touchedFiles: unique([...reportedTouched, ...changedFiles]) };
+		return {
+			...implementation,
+			summary: `Se aplicó el slice "${selected.title}" en ${changedFiles.map((file) => `\`${file}\``).join(", ")}. Nota del workflow: el aplicador reportó una descripción inconsistente con el diff real; se priorizó el estado observado por git.`,
+			touchedFiles: changedFiles,
+			notes: `${implementation?.notes || ""}${implementation?.notes ? "\n\n" : ""}Reconciliado por el workflow: git detectó cambios reales aunque el aplicador reportó que no había editado.`,
+		};
+	};
 
 	log(
 		"refactor-slices-until-dry starting " +
@@ -364,7 +381,7 @@ export default async function main() {
 		}
 
 		phase("Apply");
-		const implementation = await agent(
+		let implementation = await agent(
 			`You are applying ONE tiny refactor slice. Edit only the selected files. Do not commit, push, stage, reset, or format unrelated files.\n\n` +
 				`Slice title: ${selected.title}\n` +
 				`Why: ${selected.whyWorthIt}\n` +
@@ -402,6 +419,7 @@ export default async function main() {
 		phase("Verify");
 		const verification = [];
 		const changedSelected = selectedFiles.filter((file) => dirtyAfter.includes(file));
+		implementation = reconcileImplementationWithGit(implementation, selected, changedSelected);
 		const changedArgs = changedSelected.map(q).join(" ");
 		if (!changedSelected.length) {
 			verification.push({ name: "changed-files", ok: false, detail: "No selected files are dirty after apply" });
