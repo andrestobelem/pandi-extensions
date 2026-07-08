@@ -176,22 +176,22 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <h2 id="en-30-segundos">En 30 segundos</h2>
 <p>Un workflow es un módulo JS cuyo export por defecto es una función <code>async</code>. Lee su entrada desde la global <code>args</code> y llama helpers inyectados (<code>agent</code>, <code>agents</code>, <code>log</code>, <code>writeArtifact</code>, …): no usa <code>import</code>/<code>require</code>, ni <code>ctx</code>.</p>
 <pre><code class="hljs language-js"><span class="hljs-comment">// .pi/workflows/drafts/review-two-files.js</span>
-<span class="hljs-comment">// The default export must NOT be named `workflow` (that shadows the composition</span>
-<span class="hljs-comment">// global). Use `main` — or a top-level script that ends in `return`.</span>
+<span class="hljs-comment">// El export default NO debe llamarse `workflow` (pisaría la global de composición).</span>
+<span class="hljs-comment">// Usá `main` — o un script top-level que termine en `return`.</span>
 <span class="hljs-keyword">export</span> <span class="hljs-keyword">default</span> <span class="hljs-keyword">async</span> <span class="hljs-keyword">function</span> <span class="hljs-title function_">main</span>(<span class="hljs-params"></span>) {
   <span class="hljs-keyword">await</span> <span class="hljs-title function_">log</span>(<span class="hljs-string">&quot;start&quot;</span>, { args });
 
   <span class="hljs-keyword">const</span> items = [
-    { <span class="hljs-attr">label</span>: <span class="hljs-string">&quot;a&quot;</span>, <span class="hljs-attr">prompt</span>: <span class="hljs-string">&quot;Review src/a.ts for bugs&quot;</span>, <span class="hljs-attr">tools</span>: [<span class="hljs-string">&quot;read&quot;</span>, <span class="hljs-string">&quot;grep&quot;</span>, <span class="hljs-string">&quot;find&quot;</span>, <span class="hljs-string">&quot;ls&quot;</span>], <span class="hljs-attr">agentType</span>: <span class="hljs-string">&quot;reviewer&quot;</span> },
-    { <span class="hljs-attr">label</span>: <span class="hljs-string">&quot;b&quot;</span>, <span class="hljs-attr">prompt</span>: <span class="hljs-string">&quot;Review src/b.ts for bugs&quot;</span>, <span class="hljs-attr">tools</span>: [<span class="hljs-string">&quot;read&quot;</span>, <span class="hljs-string">&quot;grep&quot;</span>, <span class="hljs-string">&quot;find&quot;</span>, <span class="hljs-string">&quot;ls&quot;</span>], <span class="hljs-attr">agentType</span>: <span class="hljs-string">&quot;reviewer&quot;</span> },
+    { <span class="hljs-attr">label</span>: <span class="hljs-string">&quot;a&quot;</span>, <span class="hljs-attr">prompt</span>: <span class="hljs-string">&quot;Revisá src/a.ts en busca de bugs&quot;</span>, <span class="hljs-attr">tools</span>: [<span class="hljs-string">&quot;read&quot;</span>, <span class="hljs-string">&quot;grep&quot;</span>, <span class="hljs-string">&quot;find&quot;</span>, <span class="hljs-string">&quot;ls&quot;</span>], <span class="hljs-attr">agentType</span>: <span class="hljs-string">&quot;reviewer&quot;</span> },
+    { <span class="hljs-attr">label</span>: <span class="hljs-string">&quot;b&quot;</span>, <span class="hljs-attr">prompt</span>: <span class="hljs-string">&quot;Revisá src/b.ts en busca de bugs&quot;</span>, <span class="hljs-attr">tools</span>: [<span class="hljs-string">&quot;read&quot;</span>, <span class="hljs-string">&quot;grep&quot;</span>, <span class="hljs-string">&quot;find&quot;</span>, <span class="hljs-string">&quot;ls&quot;</span>], <span class="hljs-attr">agentType</span>: <span class="hljs-string">&quot;reviewer&quot;</span> },
   ];
 
-  <span class="hljs-keyword">const</span> reviews = <span class="hljs-keyword">await</span> <span class="hljs-title function_">agents</span>(items, { <span class="hljs-attr">concurrency</span>: <span class="hljs-number">2</span>, <span class="hljs-attr">settle</span>: <span class="hljs-literal">true</span> }); <span class="hljs-comment">// fan out; failures → null</span>
+  <span class="hljs-keyword">const</span> reviews = <span class="hljs-keyword">await</span> <span class="hljs-title function_">agents</span>(items, { <span class="hljs-attr">concurrency</span>: <span class="hljs-number">2</span>, <span class="hljs-attr">settle</span>: <span class="hljs-literal">true</span> }); <span class="hljs-comment">// fan-out; fallas → null</span>
   <span class="hljs-keyword">const</span> ok = reviews.<span class="hljs-title function_">filter</span>(<span class="hljs-title class_">Boolean</span>);
   <span class="hljs-keyword">await</span> <span class="hljs-title function_">log</span>(<span class="hljs-string">&quot;done&quot;</span>, { <span class="hljs-attr">total</span>: reviews.<span class="hljs-property">length</span>, <span class="hljs-attr">failed</span>: reviews.<span class="hljs-property">length</span> - ok.<span class="hljs-property">length</span> });
 
-  <span class="hljs-keyword">await</span> <span class="hljs-title function_">writeArtifact</span>(<span class="hljs-string">&quot;reviews.json&quot;</span>, reviews); <span class="hljs-comment">// persist outside the chat</span>
-  <span class="hljs-keyword">return</span> <span class="hljs-title function_">compact</span>(ok, <span class="hljs-number">20000</span>); <span class="hljs-comment">// truncated summary → result.json</span>
+  <span class="hljs-keyword">await</span> <span class="hljs-title function_">writeArtifact</span>(<span class="hljs-string">&quot;reviews.json&quot;</span>, reviews); <span class="hljs-comment">// persistir fuera del chat</span>
+  <span class="hljs-keyword">return</span> <span class="hljs-title function_">compact</span>(ok, <span class="hljs-number">20000</span>); <span class="hljs-comment">// resumen truncado → result.json</span>
 }</code></pre>
 <p>Ejecutalo (en una sesión TUI/RPC persistente esto arranca en <strong>background</strong> y devuelve <code>runId</code> al instante):</p>
 <pre><code class="hljs language-text">/workflow run review-two-files
@@ -440,9 +440,9 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </ul>
 <h2 id="corridas-reanudables-idempotentes">Corridas reanudables (idempotentes)</h2>
 <p>Cuando una corrida se interrumpe (la sesión de Pi murió y aparece <code>stale</code>, o terminó <code>failed</code>/<code>cancelled</code>), podés reanudarla sin volver a ejecutar los subagentes que ya terminaron (cada subagente es un <code>pi -p</code> caro):</p>
-<pre><code class="hljs language-text">/workflow resume latest              # background by default in TUI/RPC
-/workflow resume &lt;runId&gt;              # background by default in TUI/RPC
-/workflow resume &lt;runId&gt; --force       # even if the run is already completed</code></pre>
+<pre><code class="hljs language-text">/workflow resume latest              # background por defecto en TUI/RPC
+/workflow resume &lt;runId&gt;              # background por defecto en TUI/RPC
+/workflow resume &lt;runId&gt; --force       # incluso si el run ya está completed</code></pre>
 <p>Desde la herramienta del modelo:</p>
 <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span> <span class="hljs-attr">&quot;action&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;resume&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;&lt;runId&gt;&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;force&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span> <span class="hljs-punctuation">}</span></code></pre>
 <p>Cómo funciona:</p>

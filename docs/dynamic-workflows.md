@@ -10,22 +10,22 @@ Un workflow es un módulo JS cuyo export por defecto es una función `async`. Le
 
 ```js
 // .pi/workflows/drafts/review-two-files.js
-// The default export must NOT be named `workflow` (that shadows the composition
-// global). Use `main` — or a top-level script that ends in `return`.
+// El export default NO debe llamarse `workflow` (pisaría la global de composición).
+// Usá `main` — o un script top-level que termine en `return`.
 export default async function main() {
   await log("start", { args });
 
   const items = [
-    { label: "a", prompt: "Review src/a.ts for bugs", tools: ["read", "grep", "find", "ls"], agentType: "reviewer" },
-    { label: "b", prompt: "Review src/b.ts for bugs", tools: ["read", "grep", "find", "ls"], agentType: "reviewer" },
+    { label: "a", prompt: "Revisá src/a.ts en busca de bugs", tools: ["read", "grep", "find", "ls"], agentType: "reviewer" },
+    { label: "b", prompt: "Revisá src/b.ts en busca de bugs", tools: ["read", "grep", "find", "ls"], agentType: "reviewer" },
   ];
 
-  const reviews = await agents(items, { concurrency: 2, settle: true }); // fan out; failures → null
+  const reviews = await agents(items, { concurrency: 2, settle: true }); // fan-out; fallas → null
   const ok = reviews.filter(Boolean);
   await log("done", { total: reviews.length, failed: reviews.length - ok.length });
 
-  await writeArtifact("reviews.json", reviews); // persist outside the chat
-  return compact(ok, 20000); // truncated summary → result.json
+  await writeArtifact("reviews.json", reviews); // persistir fuera del chat
+  return compact(ok, 20000); // resumen truncado → result.json
 }
 ```
 
@@ -252,9 +252,9 @@ Notas:
 Cuando una corrida se interrumpe (la sesión de Pi murió y aparece `stale`, o terminó `failed`/`cancelled`), podés reanudarla sin volver a ejecutar los subagentes que ya terminaron (cada subagente es un `pi -p` caro):
 
 ```text
-/workflow resume latest              # background by default in TUI/RPC
-/workflow resume <runId>              # background by default in TUI/RPC
-/workflow resume <runId> --force       # even if the run is already completed
+/workflow resume latest              # background por defecto en TUI/RPC
+/workflow resume <runId>              # background por defecto en TUI/RPC
+/workflow resume <runId> --force       # incluso si el run ya está completed
 ```
 
 Desde la herramienta del modelo:
