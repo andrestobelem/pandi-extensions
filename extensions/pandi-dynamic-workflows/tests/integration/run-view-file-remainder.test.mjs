@@ -1,20 +1,19 @@
 #!/usr/bin/env node
 /**
- * run-view: listRunFiles' 80-file cap has no visible remainder in formatRunView.
+ * run-view: el cap de 80 files de listRunFiles no tenía remainder visible en formatRunView.
  *
- * The run-report pathway already solves this — run-report-collector.ts's
- * listArtifacts returns both the capped list AND an `omitted` count, and
- * run-report-html.ts:402 renders a visible "Clamp: N more files not listed."
- * message when that count is truthy. run-view.ts's listRunFiles instead
- * silently truncated at 80 files (a bare `string[]`), and formatRunView's
- * "## Files / artifacts" section rendered the truncated list with no
- * indication that anything was omitted.
+ * El pathway de run-report ya resuelve esto — listArtifacts de run-report-collector.ts
+ * devuelve tanto la lista cappeada COMO un count `omitted`, y run-report-html.ts:402
+ * renderiza un mensaje visible "Clamp: N more files not listed." cuando ese count es truthy.
+ * En cambio, listRunFiles de run-view.ts truncaba silenciosamente en 80 files (un `string[]`
+ * pelado), y la sección "## Files / artifacts" de formatRunView renderizaba la lista truncada
+ * sin indicar que se había omitido algo.
  *
- * Pins:
- *   1. listRunFiles(dir) on a run dir with > 80 files returns both the
- *      capped `files` list AND a non-zero `omitted` count.
- *   2. formatRunView's "## Files / artifacts" section surfaces a visible
- *      "N more files not listed" remainder line for the same run dir.
+ * Pinea:
+ *   1. listRunFiles(dir) sobre un run dir con > 80 files devuelve tanto la lista `files`
+ *      cappeada COMO un count `omitted` no-cero.
+ *   2. La sección "## Files / artifacts" de formatRunView muestra una línea remainder visible
+ *      "N more files not listed" para el mismo run dir.
  */
 
 import * as fs from "node:fs/promises";
@@ -56,12 +55,12 @@ async function main() {
 
 	const { tmp, runDir } = await makeOverflowRunDir();
 
-	// 1) listRunFiles returns both the capped list AND the omitted count.
+	// 1) listRunFiles devuelve tanto la lista cappeada COMO el count omitted.
 	const { files, omitted } = await listRunFiles(runDir);
 	check("files capped at 80", files.length === 80, `files=${files.length}`);
 	check("omitted is reported and > 0", omitted === 10, `omitted=${omitted}`);
 
-	// 2) formatRunView renders a visible remainder line in "## Files / artifacts".
+	// 2) formatRunView renderiza una línea remainder visible en "## Files / artifacts".
 	const run = {
 		workflow: "overflow-wf",
 		runId: "run-overflow",
