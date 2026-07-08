@@ -1,38 +1,30 @@
 /**
- * recursive-compose — REFERENCE example: Phase-0-from-inside + bounded recursive composition.
+ * recursive-compose — ejemplo de referencia: re-gateo Phase-0 + composición recursiva acotada.
  *
- * RUNTIME: this nests workflow() calls, so it needs a runtime that allows nesting depth >= 2.
- *   • pi: works with PI_DYNAMIC_WORKFLOWS_MAX_DEPTH >= 2. This chain tops out at depth 3, so
- *     PI_DYNAMIC_WORKFLOWS_MAX_DEPTH <= 3 is enough (and 3 is the intended cap).
- *   • Claude Code Workflow tool: depth-1 only — the router→chosen-workflow hop is depth 2 and the
- *     runtime throws a recursion guard. This file CATCHES that and returns status "DEPTH_BLOCKED"
- *     with guidance, so it degrades cleanly instead of crashing. (Run it under pi to see the full chain.)
+ * Runtime: anida llamadas a workflow(), así que necesita profundidad >= 2.
+ *   • pi: funciona con PI_DYNAMIC_WORKFLOWS_MAX_DEPTH >= 2. Esta cadena llega a profundidad 3,
+ *     así que 3 alcanza y es el cap esperado.
+ *   • Claude Code Workflow: solo depth-1. El salto router → chosen-workflow cae en depth 2;
+ *     este archivo captura ese guard y devuelve "DEPTH_BLOCKED" con guía, en vez de romper.
  *
- * WHAT IT SHOWS (the composition pattern you asked for): a node RE-GATES a (sub)task with the
- * Phase-0 contract-gate, then DISPATCHES the recommended scaffold via the router — composing the
- * catalog recursively, within the depth budget, and carrying the gate's suggested per-node budget
- * (resourcePlan) down to the dispatched run.
+ * Patrón: un nodo vuelve a gatear una subtarea con contract-gate y luego despacha el scaffold
+ * recomendado vía router. También propaga el budget sugerido por el gate (resourcePlan).
  *
- * DEPTH LEDGER (cap = 3):
- *   depth 0: recursive-compose (this file, run at the top)
- *     → workflow('contract-gate', { generate:false })      depth 1   (Phase-0 re-scope; no deeper nesting)
+ * Depth ledger (cap = 3):
+ *   depth 0: recursive-compose (este archivo)
+ *     → workflow('contract-gate', { generate:false })      depth 1   (re-scope Phase-0)
  *     → workflow('router', { runSelected:true })            depth 1
- *          → router runs the chosen scaffold                depth 2
- *               → if that scaffold is itself a composer     depth 3   (e.g. composition-driver
- *                 (calls workflow(...))                                 → verify-claims-lib) — the cap
+ *          → router ejecuta el scaffold elegido            depth 2
+ *               → si ese scaffold también compone          depth 3   (el cap)
  *
- * This file is PURE COMPOSITION (no agent() nodes of its own): all model/effort/tools knobs flow
- * THROUGH to the composed workflows. The gate's resourcePlan.models/efforts are forwarded into the
- * dispatched run's args so the deep work runs on the gate-suggested budget.
+ * Es composición pura: no define nodos agent() propios. Los knobs de model/effort/tools fluyen a
+ * los workflows compuestos, y resourcePlan.models/efforts se reenvía en args.
  *
- * Differs from `router` (which dispatches ONE workflow) and `contract-gate` (which only scopes):
- * this chains gate → dispatch so the Phase-0 decision actually drives a (possibly deeper) run.
+ * A diferencia de `router` (despacha uno) y `contract-gate` (solo acota), este archivo encadena
+ * gate → dispatch para que la decisión de Phase-0 dispare la ejecución.
  *
- * Input:  { task (REQUIRED; aliases request/text), context?, args? (forwarded to the chosen workflow) }
+ * Input:  { task (required; aliases request/text), context?, args? (forwarded to the chosen workflow) }
  * Output: { status, gate?, dispatched? } — DONE | NEEDS_CLARIFICATION | NO_COMPOSE | DEPTH_BLOCKED
- *
- * Uses: workflow('contract-gate', …) for Phase-0 re-scope, workflow('router', …) for dispatch,
- * try/catch around each nested call so a recursion-guard (depth) error is surfaced, not thrown.
  */
 export const meta = {
 	name: "recursive-compose",
@@ -63,8 +55,8 @@ export default async function main() {
 	if (!task) throw new Error('Pass { task: "..." } (aliases: request, text).');
 	const passArgs = input?.args && typeof input.args === "object" ? input.args : {};
 
-	// depth 1 — Phase-0 RE-SCOPE the task. generate:false so contract-gate itself does NOT nest further
-	// (calling the factory would add a level); we want the depth budget for the dispatch below.
+	// depth 1 — re-scope con Phase-0. generate:false evita un nivel extra y reserva budget para
+	// el dispatch de abajo.
 	phase("Gate");
 	let gate;
 	try {
@@ -96,9 +88,8 @@ export default async function main() {
 		};
 	}
 
-	// depth 1 → 2 (→ 3) — DISPATCH the recommended scaffold via router (router runs the choice at
-	// depth 2; if that choice is itself a composer, its sub-call is depth 3 — the cap). Forward the
-	// gate's suggested per-node budget into the dispatched run's args.
+	// depth 1 → 2 (→ 3) — despacha el scaffold recomendado vía router. Si el elegido también
+	// compone, su sub-llamada cae en depth 3. Reenvía el budget sugerido por el gate en args.
 	phase("Dispatch");
 	const dispatchArgs = {
 		...passArgs,

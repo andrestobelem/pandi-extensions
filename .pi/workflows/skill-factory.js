@@ -1,14 +1,13 @@
 /**
- * skill-factory — deep, per-figure web research on one or more software
- * engineering figures/methods, then author + adversarially review .pi/skills
- * lens-skill directories (SKILL.md + references/<file>.md) matching the repo's
- * lens-skill template.
+ * skill-factory — research one or more software-engineering figures/methods,
+ * then draft and adversarially review `.pi/skills` lens-skill directories
+ * (`SKILL.md` + `references/<file>.md`) matching the repo's lens-skill template.
  *
- * Each figure gets a fully independent research track (default 4 METHOD-focused
- * angles — mechanics, decision economics, pitfalls/criticisms, modern/AI-era
- * application); nothing is merged across figures. Finals are written as run
- * artifacts only — the orchestrator inspects, lints, and installs them into
- * .pi/skills/ afterwards (plus MIRRORED allowlist + persona wiring).
+ * Each figure gets an independent deep research track (by default 4 method-focused
+ * angles: mechanics, decision economics, pitfalls/criticisms, and modern
+ * AI-era application). Nothing is merged across figures. Finals are written
+ * only as run artifacts; the orchestrator later inspects, lints, and installs
+ * them into `.pi/skills/` (plus MIRRORED allowlist + persona wiring).
  *
  * Input (args, JSON):
  *   figures    : required [{ id, display, skill, anchor, refFile? }] —

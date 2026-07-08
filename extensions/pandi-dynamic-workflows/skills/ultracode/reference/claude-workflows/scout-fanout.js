@@ -1,13 +1,12 @@
 /**
- * Scout -> dynamic fan-out -> pipeline with per-item adaptive depth.
+ * Scout -> fan-out dinámico -> pipeline con profundidad adaptativa por archivo.
  *
- * The work-list is DISCOVERED by scouting (not assumed), then each file
- * flows through a pipeline: a cheap structured classification, and a deep review
- * ONLY for the items that turn out high-signal. Low-risk items short-circuit.
- * That per-item branching (spend more only where it pays) is dynamism.
+ * Primero descubre la work-list real; no la asume. Después clasifica cada
+ * archivo barato y hace deep review en los casos con señal high/medium.
+ * Los de bajo riesgo cortan temprano: ahí está el dinamismo.
  *
- * Uses: a discovery agent (scout), pipeline(items, ...stages) with stage
- * (value, originalItem, index), agent({ schema }) for a typed verdict.
+ * Usa un agente scout, `pipeline(items, ...stages)` y `agent({ schema })`
+ * para devolver veredictos tipados.
  */
 
 export const meta = {
@@ -31,11 +30,11 @@ const compact = (d, n = 60000) => {
 	return s.length > n ? `${s.slice(0, n)} …[truncated]` : s;
 };
 
-// Fence untrusted data inside a delimiter DERIVED FROM THE DATA (a content hash): a malicious
-// payload cannot forge the matching close marker, because embedding </untrusted-…> changes the
-// content and therefore the hash, so it no longer matches. Non-mutating (unlike escaping), so it
-// stays safe even when the wrapped content is later written verbatim to disk. No randomness (the
-// runtime forbids Math.random/Date.now). Use instead of hand-building <untrusted …>…</untrusted>.
+// Encierra datos no confiables con un delimitador derivado del contenido.
+// Si el payload intenta forjar el cierre, cambia el hash y deja de matchear.
+// No muta el contenido, así que sigue siendo seguro si después se escribe
+// verbatim a disco. Sin azar: el runtime prohíbe Math.random/Date.now.
+// Preferilo sobre armar <untrusted …>…</untrusted> a mano.
 const fence = (kind, d) => {
 	const s = typeof d === "string" ? d : JSON.stringify(d);
 	let h1 = 0x811c9dc5,

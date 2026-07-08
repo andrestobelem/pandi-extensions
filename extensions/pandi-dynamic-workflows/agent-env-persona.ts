@@ -180,10 +180,9 @@ export function formatAgentAccessMarkdown(options: AgentOptions, envAccess: Agen
 export function sanitizeEnvForCache(env: Record<string, string> | undefined): Record<string, string> | undefined {
 	if (!env) return undefined;
 	const out: Record<string, string> = {};
-	// El cache/journal key se escribe en disk, así nunca pongas raw env values (posibles
-	// secrets) en él — pero SÍ distingue diferentes valores así dos diferentes valores
-	// de la misma var no colisionen en una key y replay un stale journaled result en resume.
-	// Hash el valor.
+	// La key de cache/journal se guarda en disco: nunca pongas valores raw de env.
+	// Hasheá cada valor para ocultar posibles secrets sin perder distinción entre
+	// valores distintos de la misma variable al reanudar un resultado journaled.
 	for (const key of Object.keys(env).sort())
 		out[key] = `sha256:${createHash("sha256")
 			.update(env[key] ?? "")

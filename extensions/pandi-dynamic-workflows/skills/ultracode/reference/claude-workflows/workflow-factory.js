@@ -1,32 +1,30 @@
 /**
  * Workflow factory / meta-workflow.
  *
- * Given a task, spend one workflow run designing the RIGHT task-specific
- * workflow: discover the EXISTING scaffold catalog, improve prompts, choose
- * primitives/patterns, generate code, review it, then write the
- * `.claude/workflows/drafts/<slug>.js` draft by default.
+ * Dada una tarea, usa una corrida para diseñar el workflow específico correcto:
+ * descubre el catálogo de scaffolds, mejora prompts, elige primitives/patterns,
+ * genera código, lo revisa y por default escribe un draft en
+ * `.claude/workflows/drafts/<slug>.js`.
  *
- * CATALOG-AWARE: a Phase-0 discovery step reads the sibling workflows (their
- * meta.name/description) and injects that catalog into Plan/Generate/Review, so
- * the factory PREFERS reusing/specializing the closest scaffold and COMPOSING
- * reusable sub-steps via workflow(name, args) (e.g. verify-claims-lib) instead of
- * reinventing. The planner must justify building from scratch when nothing fits.
+ * CATALOG-AWARE: la Phase 0 lee los workflows hermanos (meta.name/description)
+ * y pasa ese catálogo a Plan/Generate/Review. La factory prefiere
+ * reutilizar/especializar el scaffold más cercano y componer sub-pasos con
+ * workflow(name, args) antes que reinventar. Si nada encaja, el plan debe
+ * justificar construir desde cero.
  *
- * RECURSIVE COMPOSITION (depth-bounded): a generated workflow MAY compose other
- * scaffolds with workflow(name, args), and that composition can RECURSE — including a
- * node calling the Phase-0 gate workflow('contract-gate', …) to RE-SCOPE a sub-task
- * before going deeper. Nesting is DEPTH-LIMITED by the runtime: the Claude Code Workflow
- * tool is depth-1 (a child's workflow() throws — only the TOP level may compose); pi
- * defaults to depth 2 and is configurable via PI_DYNAMIC_WORKFLOWS_MAX_DEPTH (e.g. 3),
- * so it has more freedom. Calling Phase 0 from INSIDE a node is one nesting level → needs
- * depth>=2 (pi), not the Claude Code depth-1 runtime. Beyond the limit the runtime refuses
- * with a recursion guard — design within the budget; for deeper work let the orchestrator
- * run the sub-workflows.
+ * RECURSIVE COMPOSITION (depth-bounded): un workflow generado puede componer
+ * otros scaffolds con workflow(name, args), incluso gateando una sub-tarea con
+ * workflow('contract-gate', …) antes de profundizar. El nesting depende del
+ * runtime: Claude Code permite depth 1 (solo el nivel top puede componer);
+ * pi default-ea a depth 2 y se configura con PI_DYNAMIC_WORKFLOWS_MAX_DEPTH
+ * (por ejemplo 3). Llamar Phase 0 desde dentro de un nodo consume un nivel, así
+ * que requiere depth>=2. Más allá del límite, el runtime lo rechaza con la
+ * recursion guard.
  *
  * Input: { task: "...", name?: "<slug>", write?: boolean }
- * - write=false keeps the generated JS as the returned result only.
- * - The generated workflow is a draft: inspect/edit before trusting it for high
- *   cost or mutating work.
+ * - write=false deja el JS generado solo en el resultado.
+ * - El workflow generado es un draft: inspeccionalo/editálo antes de usarlo en
+ *   trabajo costoso o que muta estado.
  */
 export const meta = {
 	name: "workflow-factory",

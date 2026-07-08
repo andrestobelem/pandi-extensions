@@ -74,7 +74,7 @@
 export const meta = {
 	name: "map-reduce",
 	description:
-		"Map-reduce con reduce jerárquico (recursivo): map barato por chunk bajo contrato de evidencia, luego merge de outputs map en batches ronda a ronda hasta que quede un summary-of-summaries — escala más allá de una sola context window (map-reduce)",
+		"Map-reduce con reduce jerárquico (recursivo): map barato por chunk bajo contrato de evidencia; luego merge en batches, ronda a ronda, hasta un summary-of-summaries. Escala más allá de una sola context window.",
 	phases: [{ title: "Source" }, { title: "Map" }, { title: "Reduce" }],
 	basedOn: [{ name: "MapReduce (Dean & Ghemawat, Google)", role: "pattern (map/reduce over chunks)" }],
 };

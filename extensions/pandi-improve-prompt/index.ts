@@ -67,11 +67,7 @@ function send(pi: ExtensionAPI, ctx: ExtensionCommandContext, improved: string):
 async function handleImprovePrompt(args: string, ctx: ExtensionCommandContext, pi: ExtensionAPI): Promise<void> {
 	const draft = args.trim();
 	if (!draft) {
-		notify(
-			ctx,
-			"Uso: /improve-prompt <tu borrador bruto> — lo reescribe con más claridad y te ofrece enviarlo.",
-			"info",
-		);
+		notify(ctx, "Uso: /improve-prompt <borrador> — lo reescribe y te ofrece enviarlo.", "info");
 		return;
 	}
 
@@ -126,8 +122,8 @@ async function handleImprovePrompt(args: string, ctx: ExtensionCommandContext, p
 		return;
 	}
 
-	// Print/json: no hay confirmación interactiva posible, así que solo mostramos la
-	// reescritura y paramos — enviarla sin revisar sería un efecto secundario silencioso.
+	// Print/json: mostramos la reescritura y paramos.
+	// Enviarla sin revisión sería un efecto secundario silencioso.
 	if (ctx.mode === "print" || !ctx.hasUI) {
 		console.log(improved);
 		return;
@@ -151,7 +147,7 @@ async function handleImprovePrompt(args: string, ctx: ExtensionCommandContext, p
 
 export default function improvePromptExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("improve-prompt", {
-		description: "Reescribe un borrador de prompt con más claridad y luego ofrece enviarlo como tu próximo mensaje.",
+		description: "Reescribe un borrador de prompt y te ofrece enviarlo como tu próximo mensaje.",
 		handler: async (args, ctx) => {
 			await handleImprovePrompt(args, ctx, pi);
 		},

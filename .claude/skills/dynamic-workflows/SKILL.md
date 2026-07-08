@@ -1,18 +1,15 @@
 ---
 name: dynamic-workflows
 description: >-
-  Orquestá una tarea con workflows dinámicos multiagente en vez de resolverla inline — tanto en
-  Claude Code (Anthropic, la tool `Workflow`) como en pi (la tool `dynamic_workflow`, corre sobre
-  Anthropic o Codex). Activar cuando la persona usuaria escriba "ultracode" o "workflow" en
-  cualquier parte del mensaje — incluso en medio del prompt, no solo como prefijo inicial — como
-  pedido de orquestación (no cuando solo pregunta por un workflow existente), O cuando una tarea sea
-  lo bastante grande o valiosa como para justificarla: auditoría o bug-hunt repo-wide, migración de
-  código o codemod, investigación profunda o con múltiples fuentes, verificación adversarial de
-  afirmaciones o hallazgos, generate-and-filter / best-of-N, ranking por torneo,
-  loop-until-done discovery, decompose-an-open-goal, o procesamiento de un corpus más grande que una
-  ventana de contexto. Usar para acotar un pedido ambiguo y de alto riesgo (contract-gate), elegir
-  el workflow correcto (router), crear uno nuevo (workflow-factory), o componer/proteger una
-  corrida multiagente.
+  Orquestá tareas con workflows dinámicos multiagente en vez de resolverlas inline, tanto en Claude
+  Code (tool `Workflow`) como en pi (tool `dynamic_workflow`). Activar cuando la persona usuaria
+  escriba "ultracode" o "workflow" como pedido de orquestación, o cuando una tarea justifique
+  paralelismo por exhaustividad, confianza o escala: auditorías repo-wide, migraciones/codemods,
+  investigación profunda, verificación adversarial, generate-and-filter / best-of-N, ranking por
+  torneo, loop-until-done discovery, decompose-an-open-goal o corpus mayor que una ventana de
+  contexto. Usar para acotar pedidos ambiguos de alto riesgo (contract-gate), elegir el workflow
+  correcto (router), crear uno nuevo (workflow-factory), o componer/proteger una corrida
+  multiagente.
 ---
 
 # dynamic-workflows

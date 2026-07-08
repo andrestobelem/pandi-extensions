@@ -1,12 +1,12 @@
 /**
- * El overlay desplazable y descartable que muestra un resultado de `/improve-prompt` en la TUI.
+ * Overlay desplazable de `/improve-prompt` en la TUI.
  *
- * Copiado de answer-overlay.ts de pandi-btw (la duplicación entre extensiones está permitida
- * para que cada una pueda publicarse de forma autónoma): mismo modelo de desplazamiento,
- * mismo render de Markdown, mismo cerrar con q/Esc. Se renderiza mediante ctx.ui.custom(),
- * así que no queda nada persistido solo por mostrarlo — cerrar el overlay solo devuelve el
- * control al editor; enviar el resultado (si hay alguno) es un paso aparte y explícito que
- * maneja el llamador después.
+ * Está duplicado desde `pandi-btw` a propósito: cada extensión debe poder publicarse sola,
+ * manteniendo el mismo modelo de desplazamiento, el mismo render de Markdown y el mismo
+ * cerrar con q/Esc.
+ * Se monta vía `ctx.ui.custom()`; mostrarlo no persiste ni envía nada por sí solo.
+ * Enviar el resultado es un paso aparte del llamador; al cerrar con q/Esc solo vuelve el
+ * control al editor.
  */
 
 import type { ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
@@ -128,7 +128,7 @@ class AnswerViewComponent implements Component {
 	}
 }
 
-/** Abre el overlay interactivo de resultados; resuelve cuando el usuario lo cierra (q/Esc). */
+/** Abre el overlay de resultados y resuelve al cerrarlo con q/Esc. */
 export function openAnswerOverlay(ctx: ExtensionContext, label: string, body: string): Promise<void> {
 	return ctx.ui.custom<void>((tui, theme, _keybindings, done) => {
 		return new AnswerViewComponent(tui, theme, label, body, () => done(undefined));

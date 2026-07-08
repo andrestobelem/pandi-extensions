@@ -1,6 +1,5 @@
-// didactic-docs — mejora didáctica por lotes de toda la documentación de dynamic workflows:
-// editores en paralelo (guía, README, handbook, 25 primitivas, 25 scaffolds) con contrato de estilo
-// compartido → panel de revisión (accuracy + didáctica) → fixes → verificación (lint + reconversión HTML).
+// didactic-docs — mejora didáctica por lotes de la documentación de dynamic workflows.
+// Editores en paralelo con contrato compartido → revisión (exactitud + didáctica) → fixes → verificación.
 // Input: { concurrency?, skipScaffolds?, skipReview? }
 export const meta = {
 	name: "didactic-docs",
@@ -15,10 +14,10 @@ export default async function main() {
 	const MD_DIR = ".pi/tmp/scaffold-docs";
 	const OUT_DIR = "docs/html/scaffolds";
 	const CONVERTER = "extensions/pandi-docs/scripts/markdown-to-html.mjs";
-	// Contrato de estilo TRACKEADO (single source of truth del estándar didáctico);
-	// nunca leerlo de .pi/tmp/ — ese directorio es efímero y ya perdimos drafts ahí.
+	// Contrato de estilo trackeado: fuente canónica del estándar didáctico.
+	// No leerlo desde .pi/tmp/: es efímero.
 	const style = await readFile(".pi/skills/didactic-docs-style/SKILL.md");
-	// Contrato de dosis de tono Pandi: se pasa junto al didáctico para que el tono sobreviva regeneraciones.
+	// Contrato de tono Pandi: acompaña al didáctico para preservar la dosis correcta.
 	const dose = await readFile(".pi/skills/pandi-prose-style/SKILL.md");
 	const requestedConc = Number.isFinite(+input.concurrency) ? +input.concurrency : (limits.concurrency ?? 4);
 	const conc = Math.max(1, Math.min(requestedConc, limits.concurrency ?? requestedConc));

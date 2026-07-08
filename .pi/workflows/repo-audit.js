@@ -1,8 +1,8 @@
-// TEMP repo-audit (delete after): read-only review for errors & inconsistencies.
-// 1) Deterministic gate (bash): typecheck + biome + markdownlint, captured as evidence.
-// 2) Fan-out reviewers over extension groups + a doc-consistency + a config/manifest branch.
-// 3) Synthesis-as-judge (opus): dedup, drop unsupported, prioritize by severity.
-// All subagents are READ-ONLY. Grounded in file:line evidence.
+// TEMP repo-audit (borrar luego): auditoría de solo lectura de errores e inconsistencias.
+// 1) Gate determinista (bash): typecheck + biome + markdownlint como evidencia.
+// 2) Fan-out por grupos de extensiones + una rama de docs + una de config/manifest.
+// 3) Síntesis como juez (opus): deduplica, descarta lo no sustentado y prioriza por severidad.
+// Todos los subagentes son READ-ONLY y deben citar archivo:línea.
 
 export const meta = {
 	name: "repo-audit",
@@ -67,7 +67,7 @@ export default async function main() {
 	const input = (() => { try { return typeof args === "string" ? JSON.parse(args) || {} : args || {}; } catch { return {}; } })();
 	await log("repo-audit start", { concurrency: limits.concurrency, maxAgents: limits.maxAgents });
 
-	// 1) Deterministic gate — cheap, high-signal grounding (not cached: reflects current tree).
+	// 1) Gate determinista: evidencia barata y de alta señal (sin cache; refleja el árbol actual).
 	const gate = await bash(
 		[
 			"echo '===TYPECHECK==='; npm run typecheck --silent 2>&1 | tail -30 || true",
@@ -79,7 +79,7 @@ export default async function main() {
 	await writeArtifact("gate.txt", gate?.stdout || String(gate || ""));
 	await log("deterministic gate captured", {});
 
-	// 2) Fan-out review areas.
+	// 2) Fan-out de áreas de revisión.
 	const areas = [
 		reviewItem(
 			"core-runtime",
@@ -132,7 +132,7 @@ export default async function main() {
 	await writeArtifact("raw-findings.json", allFindings);
 	await log("findings collected", { total: allFindings.length });
 
-	// 3) Synthesis-as-judge.
+	// 3) Síntesis como juez.
 	const synthPrompt = [
 		"You are the SYNTHESIS JUDGE for a read-only repo audit (bugs + inconsistencies) of a Pi extensions monorepo.",
 		"Task: from the raw findings and the deterministic gate output below, produce a de-duplicated, prioritized report.",

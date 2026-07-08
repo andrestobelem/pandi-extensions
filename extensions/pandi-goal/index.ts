@@ -242,19 +242,18 @@ function advanceGoal(
 }
 
 /**
- * P1: el modelo CONFIRMÓ done desde `verifying`. En vez del cierre inmediato de P0,
- * corre un verificador adversarial INDEPENDIENTE (proceso separado, mirada fresca).
- * Transiciona a `verifying-independent`, lanza el subagente y después resuelve:
- *   - PASS                       → stopGoal(done) (cerrado al fin, confirmado independientemente).
- *   - FAIL (bajo el tope)        → registra la devolución del verificador como assessment de
- *                                  progreso y reinyecta UNA iteración `continue` normal con
- *                                  esa devolución como nextStep; sube independentVerifyAttempts.
- *   - FAIL (tope alcanzado)      → stopGoal(blocked) con la devolución (necesita a un humano).
- * El subagente corre FUERA del turno del modelo; esta función solo reinyecta (wake)
- * DESPUÉS del veredicto, igual que un `continue`, así que la semántica de la compuerta no cambia.
+ * P1: si el modelo CONFIRMA `done` desde `verifying`, no cerramos el goal todavía.
+ * Pasamos a `verifying-independent`, lanzamos un subagente verificador y resolvemos:
+ *   - PASS                  → stopGoal(done).
+ *   - FAIL (bajo el tope)   → incrementar `independentVerifyAttempts`, guardar
+ *                             la devolución como assessment y reinyectar una
+ *                             iteración `continue` con ese nextStep.
+ *   - FAIL (tope alcanzado) → stopGoal(blocked) con la devolución.
  *
- * Concurrencia: protegida por verifierInFlight para que una reentrada suelta (p. ej.
- * una confirmación duplicada) no pueda lanzar dos verificadores para el mismo goal.
+ * El verificador corre fuera del turno del modelo. Esta función solo reinyecta
+ * después del veredicto, así que la compuerta mantiene la misma semántica.
+ *
+ * Concurrencia: verifierInFlight evita lanzar dos verificadores para el mismo goal.
  */
 async function beginIndependentVerification(pi: ExtensionAPI, ctx: ExtensionContext, goal: ActiveGoal): Promise<void> {
 	if (goal.verifierInFlight) return;

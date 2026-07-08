@@ -14,11 +14,11 @@ description: >-
 
 # Diseño empírico de software
 
-Usá este skill para ejercer juicio de diseño fino dentro del loop de coding: dimensionar el próximo paso de TDD, decidir si conviene tidy first, after, later o never, separar estructura de comportamiento, juzgar qué tan simple es suficientemente simple y mantener a un agente de coding dentro de un loop de feedback estrecho.
+Usá este skill para afinar decisiones de diseño dentro del loop de coding: elegir el próximo paso de TDD, decidir si conviene tidy first/after/later/never, separar estructura de comportamiento y mantener a un agente de coding dentro de un loop de feedback corto.
 
 Este skill se basa en la investigación del proyecto destilada de _Test-Driven Development: By Example_, _Tidy First?_, Canon TDD, el modelo 3X y los textos de Kent Beck sobre augmented coding. Ver `references/kent-beck-empirical-software-design.md` para el resumen compacto de fuentes.
 
-Aporta el micro-rhythm y la economía de diseño de Beck dentro de los loops que definen los otros lens skills. `modern-software-engineering` define TDD como feedback loop por defecto del repo y la forma de respuesta requerida: deferile si corresponde aplicar TDD y cuándo. Este skill gobierna el step size y los movimientos de diseño dentro de ese loop. `ai-assisted-engineering` define la decisión de delegación a IA y la apuesta prototype-vs-production; este skill solo agrega los practice patterns de Beck una vez que esa delegación ya está decidida.
+Aporta el micro-rhythm y la economía de diseño de Beck dentro de los loops que definen los otros lens skills. `modern-software-engineering` establece TDD como loop de feedback por defecto del repo para cambios de comportamiento y fija la forma de respuesta del repo; este skill gobierna el step size y los movimientos de diseño dentro de ese loop. `ai-assisted-engineering` decide la delegación a IA y la apuesta prototype-vs-production; este skill solo agrega los practice patterns de Beck una vez tomada esa decisión.
 
 ## Lente central
 

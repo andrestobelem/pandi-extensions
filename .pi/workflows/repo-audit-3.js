@@ -1,13 +1,11 @@
-// TEMP repo-audit-3 (delete after): targeted re-audit of the 6 areas that came back EMPTY in run 2.
-// Root cause of the empties: "empty JSON event stream" — the JSON-output subagent exhausts its turn
-// (especially core-dispatch = index.ts ~1700 lines: reading the whole file eats the turn before it
-// can emit findings). Mitigations here:
-//   1. core-dispatch is SPLIT into two function-focused shards that MUST use grep + targeted reads
-//      (never read the whole file), so the turn budget is spent on analysis, not scrolling.
-//   2. retry-on-empty: any shard whose output is empty/near-empty is re-run ONCE with cache:false
-//      (the empty-stream is transient; a plain re-run would hit the agent() cache and repeat it).
-//   3. all shards at effort high; docs/devtools bumped from medium.
-// Same lenient JSON-block parse + verbosity cap + correct label alignment as repo-audit-2.
+// TEMP repo-audit-3 (delete after): re-audita las 6 áreas que salieron EMPTY en run 2.
+// Causa raíz: "empty JSON event stream". El subagente gasta el turno leyendo archivos grandes
+// (sobre todo core-dispatch: index.ts ~1700 líneas) y no llega a emitir hallazgos.
+// Mitigaciones:
+//   1. core-dispatch se divide en dos shards por función que DEBEN usar grep + lecturas acotadas.
+//   2. retry-on-empty: un shard vacío o casi vacío se reintenta UNA vez con cache:false.
+//   3. todos los shards van con effort high; docs/devtools suben desde medium.
+// Conserva el parse leniente de bloques JSON, el cap de verbosidad y la alineación de labels de repo-audit-2.
 
 export const meta = {
 	name: "repo-audit-3",
@@ -63,7 +61,7 @@ function parseFindings(text) {
 }
 
 const rawOf = (r) => (r ? String(r.output ?? r.text ?? r ?? "") : "");
-// "empty" = branch failed, OR near-empty output (the empty-stream mode), OR parsed 0 without an explicit [].
+// "empty" = rama fallida, salida casi vacía, o parse 0 sin un [] explícito.
 function isEmpty(r) {
 	if (!r) return true;
 	const raw = rawOf(r);
@@ -74,17 +72,17 @@ function isEmpty(r) {
 export default async function main() {
 	const input = (() => { try { return typeof args === "string" ? JSON.parse(args) || {} : args || {}; } catch { return {}; } })();
 	const items = [
-		// core-dispatch SPLIT into two function-focused shards (targeted reads, never the whole file).
+		// core-dispatch se divide en dos shards por función; nunca leer el archivo completo.
 		item("core-dispatch-a", "opusHigh", "extensions/pandi-dynamic-workflows/index.ts — review ONLY these functions (grep for each, read ~80-120 lines around it, do NOT read the whole file): the callSignal AbortSignal ALS, callControllers, the dispatcher, the agent()/ask() call wrap, and runWorkflow. Focus on cancellation wiring, AbortSignal lifecycle, and per-call isolation."),
 		item("core-dispatch-b", "codexHigh", "extensions/pandi-dynamic-workflows/index.ts — review ONLY these functions (grep for each, read ~80-120 lines around it, do NOT read the whole file): journalLookup (resume/journal cache), runSubagent, runBash, runAsk, the makeApi globals factory, and handleTool. Focus on resume/journal correctness, secret redaction, and error handling."),
-		// pandi-loop: known real bug last time (autopilotTurnInFlight gate-bypass); high effort.
+		// pandi-loop: la corrida anterior encontró un bug real (gate-bypass de autopilotTurnInFlight).
 		item("pandi-loop", "codexHigh", "extensions/pandi-loop/*.ts (skip tests/). Focus HARD on: stopLoop vs the module-level autopilotTurnInFlight flag and inFlightOwnerAlive(), drainWakeQueue guards, the agent_end reset of loop.autopilot, state rehydration, delay/iteration/deadline clamps, tui/rpc gating, watchdog force-stop, and GC of terminal state."),
-		// pandi-goal: sonnet came back empty last time — give it high effort + a second (codex) reviewer.
+		// pandi-goal: sonnet volvió vacío la vez anterior; va con high effort y un segundo reviewer.
 		item("pandi-goal", "sonnetHigh", "extensions/pandi-goal/*.ts (skip tests/). Focus on activeGoals cleanup on stop/shutdown (delete/clear symmetry vs pandi-loop), sidecar write-vs-read symmetry, independent-verifier gating & caps, use-after-shutdown of in-flight verifiers, and iteration/wait clamps."),
 		item("pandi-goal", "codexHigh", "extensions/pandi-goal/*.ts (skip tests/). Focus on activeGoals cleanup on stop/shutdown (delete/clear symmetry vs pandi-loop), sidecar write-vs-read symmetry, independent-verifier gating & caps, use-after-shutdown of in-flight verifiers, and iteration/wait clamps."),
-		// devtools-a: bumped to high effort; its twin devtools-b found 8.
+		// devtools-a sube a high effort; su gemelo devtools-b encontró 8 hallazgos.
 		item("devtools-a", "sonnetHigh", "extensions/pandi-typescript-lsp/*.ts + extensions/pandi-bg/*.ts (skip tests/). Focus on tsc resolution & touched-file scoping, spawn-before-abort races, and bg job lifecycle, PID/identity reuse detection, atomic status writes, and trust gating."),
-		// docs + config: bumped to high effort.
+		// docs + config suben a high effort.
 		item("docs-consistency", "codexMedPlus", "Compare the ROOT README.md claims against actual code: slash-command names, model/tool names, PI_* env-var names AND their defaults, and file paths. Read README.md plus the specific source lines it references. Report each drift with BOTH citations (README line + source line)."),
 		item("config-manifest", "sonnetHigh", "package.json (`pi.extensions` vs extensions/ dirs, `files`, `pi.skills`, scripts), biome.jsonc, tsconfig.json, .gitignore, .env.example vs actual PI_* usage in code, and pi scaffolds vs .claude/workflows (parity). Report mismatches with citations."),
 	];
@@ -102,14 +100,14 @@ export default async function main() {
 	await log("fan-out (pass 1)", { items: items.length, concurrency, maxAgents: limits.maxAgents, recommendedMaxAgents });
 	let results = await agents(items, { concurrency, settle: true });
 
-	// Retry-on-empty ONCE with cache:false (the empty-stream is transient; cached re-run would repeat it).
+	// Retry-on-empty UNA vez con cache:false; un re-run cacheado repetiría el empty-stream.
 	const retryIdx = results.map((r, i) => (isEmpty(r) ? i : -1)).filter((i) => i >= 0);
 	if (retryIdx.length) {
 		await log("retry empties (pass 2, cache:false)", { areas: retryIdx.map((i) => items[i].area) });
 		const retryItems = retryIdx.map((i) => ({ ...items[i], cache: false }));
 		const retryResults = await agents(retryItems, { concurrency, settle: true });
 		retryIdx.forEach((origIdx, k) => {
-			// keep whichever attempt produced findings
+			// conservar el intento que sí produjo hallazgos
 			if (isEmpty(results[origIdx]) && !isEmpty(retryResults[k])) results[origIdx] = retryResults[k];
 		});
 	}

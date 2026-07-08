@@ -1,12 +1,13 @@
 /**
- * fan-out-and-synthesize — scatter-gather (fan-out + synthesis-as-judge) BASE PATTERN.
+ * fan-out-and-synthesize — patrón base de scatter-gather.
  *
- * Pattern: scout a work-list -> fan out one independent reviewer per item (parallel,
- * settle) -> synthesize as a single judge that prioritizes findings, discards
- * unsupported claims, and names failed/uncovered branches.
+ * Flujo: descubrir una lista de trabajo -> revisar cada item en paralelo
+ * (settle) -> sintetizar con un único juez que prioriza hallazgos, descarta
+ * afirmaciones sin soporte y nombra ramas fallidas o sin cubrir.
  *
- * Why dynamic: the work-list (repo file count) is unknown at author time, so fan-out
- * width is derived from the scout at runtime and capped by `limit`.
+ * Es dinámico porque el ancho real del fan-out se deriva del scout en runtime:
+ * la work-list se descubre después de autorizar el workflow, cuando todavía no
+ * se conocía su tamaño, y luego se recorta con `limit`.
  *
  * Params (args is JSON-stringified; parsed defensively):
  *   limit   number   default 12. Max items reviewed; excess is logged & dropped.
@@ -25,7 +26,7 @@
 export const meta = {
 	name: "fan-out-and-synthesize",
 	description:
-		"Explorá una work-list, lanzá reviewers independientes y sintetizá como juez con evidencia y notas de fallas parciales (fan-out-and-synthesize)",
+		"Explorá una lista, revisá cada ítem en paralelo con reviewers independientes y sintetizá con evidencia, incluyendo ramas fallidas/parciales/vacías/truncadas (fan-out-and-synthesize)",
 	phases: [{ title: "Scout" }, { title: "Review" }, { title: "Synthesize" }],
 	basedOn: [{ name: "Anthropic: Building Effective Agents", role: "pattern (parallelization / scatter-gather)" }],
 };
