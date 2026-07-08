@@ -50,10 +50,24 @@ function quoteShellish(value: string): string {
 
 export function parsePandiSessionCleanupArgs(args: string): PandiSessionCleanupArgs {
 	const result: PandiSessionCleanupArgs = { dryRun: false, yes: false, includeHeartbeatStale: false };
+	const enableDryRun = (cleanupArgs: PandiSessionCleanupArgs) => {
+		cleanupArgs.dryRun = true;
+	};
+	const enableYes = (cleanupArgs: PandiSessionCleanupArgs) => {
+		cleanupArgs.yes = true;
+	};
+	const enableAllStale = (cleanupArgs: PandiSessionCleanupArgs) => {
+		cleanupArgs.includeHeartbeatStale = true;
+	};
+	const flagEffects: Record<string, (cleanupArgs: PandiSessionCleanupArgs) => void> = {
+		"--dry-run": enableDryRun,
+		"-n": enableDryRun,
+		"--yes": enableYes,
+		"-y": enableYes,
+		"--all-stale": enableAllStale,
+	};
 	for (const token of args.trim().split(/\s+/).filter(Boolean)) {
-		if (token === "--dry-run" || token === "-n") result.dryRun = true;
-		else if (token === "--yes" || token === "-y") result.yes = true;
-		else if (token === "--all-stale") result.includeHeartbeatStale = true;
+		flagEffects[token]?.(result);
 	}
 	return result;
 }

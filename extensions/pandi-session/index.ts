@@ -2,11 +2,23 @@ import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-c
 import { cleanupPandiSessions, listPandiSessions, openPandiSessionDashboard } from "./dashboard.js";
 import { startPandiSessionHeartbeat, stopPandiSessionHeartbeat } from "./session-registry.js";
 
-export const PANDI_SESSION_SELECT_ITEMS = [
-	"dashboard — abrir el panel de sesiones",
-	"list — listar las sesiones del proyecto",
-	"cleanup — limpiar registros stale seguros",
-];
+const PANDI_SESSION_ACTIONS = [
+	{ value: "dashboard", description: "abrir el panel de sesiones" },
+	{ value: "list", description: "listar las sesiones del proyecto" },
+	{ value: "cleanup", description: "limpiar registros stale seguros" },
+] as const;
+
+function formatPandiSessionSelectItem(action: (typeof PANDI_SESSION_ACTIONS)[number]): string {
+	return `${action.value} — ${action.description}`;
+}
+
+export const PANDI_SESSION_SELECT_ITEMS = PANDI_SESSION_ACTIONS.map(formatPandiSessionSelectItem);
+
+function selectedPandiSessionActionValue(choice: string | undefined): string | undefined {
+	if (choice === undefined) return undefined;
+	const action = PANDI_SESSION_ACTIONS.find((candidate) => choice === formatPandiSessionSelectItem(candidate));
+	return action?.value ?? choice.split(/\s+/)[0];
+}
 
 export async function resolvePandiSessionInput(
 	input: string,
@@ -15,7 +27,7 @@ export async function resolvePandiSessionInput(
 	const trimmed = input.trim();
 	if (trimmed || !ctx.hasUI || typeof ctx.ui?.select !== "function") return trimmed;
 	const choice = await ctx.ui.select("Sesiones Pandi", PANDI_SESSION_SELECT_ITEMS);
-	return choice?.split(/\s+/)[0];
+	return selectedPandiSessionActionValue(choice);
 }
 
 function notify(ctx: ExtensionCommandContext, message: string, type: "info" | "warning" | "error" = "info"): void {

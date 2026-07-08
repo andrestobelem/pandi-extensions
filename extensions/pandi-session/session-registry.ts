@@ -251,6 +251,17 @@ function formatElapsedMs(ms: number): string {
 	return `${hours}h${(minutes % 60).toString().padStart(2, "0")}m`;
 }
 
+function formatPandiSessionLines(session: PandiSessionModel): string[] {
+	const status = session.live ? "live" : `stale${session.staleReason ? `:${session.staleReason}` : ""}`;
+	const age = Number.isFinite(session.ageMs) ? `hace ${formatElapsedMs(session.ageMs)}` : "desconocido";
+	const lines = [
+		`- ${status} ${session.mode} pid:${session.pid}${session.current ? " actual" : ""}${session.sessionName ? ` nombre:${session.sessionName}` : ""} actualizado:${age} inactivo:${session.idle === undefined ? "desconocido" : session.idle ? "sí" : "no"}`,
+		`  sesión: ${session.sessionId ?? "desconocida"}`,
+	];
+	if (session.sessionFile) lines.push(`  archivo: ${session.sessionFile}`);
+	return lines;
+}
+
 export function formatPandiSessionList(sessions: PandiSessionModel[]): string {
 	const lines = [`Sesiones Pandi (${sessions.length})`];
 	if (sessions.length === 0) {
@@ -258,13 +269,7 @@ export function formatPandiSessionList(sessions: PandiSessionModel[]): string {
 		return lines.join("\n");
 	}
 	for (const session of sessions) {
-		const status = session.live ? "live" : `stale${session.staleReason ? `:${session.staleReason}` : ""}`;
-		const age = Number.isFinite(session.ageMs) ? `hace ${formatElapsedMs(session.ageMs)}` : "desconocido";
-		lines.push(
-			`- ${status} ${session.mode} pid:${session.pid}${session.current ? " actual" : ""}${session.sessionName ? ` nombre:${session.sessionName}` : ""} actualizado:${age} inactivo:${session.idle === undefined ? "desconocido" : session.idle ? "sí" : "no"}`,
-		);
-		lines.push(`  sesión: ${session.sessionId ?? "desconocida"}`);
-		if (session.sessionFile) lines.push(`  archivo: ${session.sessionFile}`);
+		lines.push(...formatPandiSessionLines(session));
 	}
 	return lines.join("\n");
 }

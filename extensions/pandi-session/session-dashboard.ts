@@ -28,6 +28,10 @@ function statusLabel(session: PandiSessionModel): string {
 	return `stale:${session.staleReason ?? "desconocido"}`;
 }
 
+function limitSelectedIndex(selected: number, sessionCount: number): number {
+	return Math.min(selected, Math.max(0, sessionCount - 1));
+}
+
 export class PandiSessionDashboard {
 	private sessions: PandiSessionModel[];
 	private selected = 0;
@@ -51,9 +55,9 @@ export class PandiSessionDashboard {
 		this.sessions = next;
 		if (previous) {
 			const found = next.findIndex((session) => session.id === previous.id);
-			this.selected = found >= 0 ? found : Math.min(this.selected, Math.max(0, next.length - 1));
+			this.selected = found >= 0 ? found : limitSelectedIndex(this.selected, next.length);
 		} else {
-			this.selected = Math.min(this.selected, Math.max(0, next.length - 1));
+			this.selected = limitSelectedIndex(this.selected, next.length);
 		}
 	}
 
