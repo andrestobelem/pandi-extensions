@@ -20,8 +20,7 @@ import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-c
 /** Notifica al usuario y degrada con gracia fuera de la TUI (como las extensiones hermanas). */
 function notify(ctx: ExtensionCommandContext, message: string, type: "info" | "warning" | "error" = "info"): void {
 	if (ctx.mode === "print") {
-		if (type === "info") console.log(message);
-		else console.error(message);
+		(type === "info" ? console.log : console.error)(message);
 		return;
 	}
 	if (ctx.hasUI) {
