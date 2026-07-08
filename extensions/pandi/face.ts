@@ -60,6 +60,10 @@ function blend([r, g, b]: Rgb, target: number, t: number): Rgb {
 	return [mix(r), mix(g), mix(b)];
 }
 
+function cloneRgb([r, g, b]: Rgb): Rgb {
+	return [r, g, b];
+}
+
 /**
  * Deriva los dos tonos de Pandi desde la tinta del THEME (el color `text`). Los themes no
  * exponen un rol explícito de blanco/negro, así que usamos el ÚNICO extremo que el theme
@@ -77,8 +81,8 @@ function blend([r, g, b]: Rgb, target: number, t: number): Rgb {
  */
 export function pandaPaletteFromInk(ink: Rgb, mode: TerminalMode): PandaPalette {
 	return mode === "light"
-		? { face: blend(ink, 255, 0.6), patch: [ink[0], ink[1], ink[2]] }
-		: { face: [ink[0], ink[1], ink[2]], patch: blend(ink, 0, 0.7) };
+		? { face: blend(ink, 255, 0.6), patch: cloneRgb(ink) }
+		: { face: cloneRgb(ink), patch: blend(ink, 0, 0.7) };
 }
 
 const RESET = "\x1b[0m";

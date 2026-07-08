@@ -187,21 +187,21 @@ function framesKaomoji(
 	};
 }
 
+const KAOMOJI_STYLE_SPECS = {
+	kaomoji: { l: "ʕ ", r: " ʔ", eyeL: "•", eyeR: "•", role: "accent" },
+	ojitos: { l: "ʕ ", r: " ʔ", eyeL: "◕", eyeR: "◕", role: "success" },
+	decidido: { l: "ʕ ", r: " ʔ", eyeL: "•̀", eyeR: "•́", role: "accent" },
+	gatuno: { l: "(=", r: "=)", eyeL: "◕", eyeR: "◕", role: "accent" },
+} satisfies Record<
+	Exclude<FaceStyle, "claude">,
+	{ l: string; r: string; eyeL: string; eyeR: string; role: ThemeColor }
+>;
+
 // Cada estilo del indicador → sus frames. claude tiene su propia animación (◆); los otros
 // cuatro son variantes kaomoji (corchetes/ojos/color).
 export function pandaFrames(theme: Theme, style: FaceStyle): WorkingIndicatorOptions {
-	switch (style) {
-		case "kaomoji":
-			return framesKaomoji(theme, { l: "ʕ ", r: " ʔ", eyeL: "•", eyeR: "•", role: "accent" });
-		case "ojitos":
-			return framesKaomoji(theme, { l: "ʕ ", r: " ʔ", eyeL: "◕", eyeR: "◕", role: "success" });
-		case "decidido":
-			return framesKaomoji(theme, { l: "ʕ ", r: " ʔ", eyeL: "•̀", eyeR: "•́", role: "accent" });
-		case "gatuno":
-			return framesKaomoji(theme, { l: "(=", r: "=)", eyeL: "◕", eyeR: "◕", role: "accent" });
-		default:
-			return framesClaude(theme);
-	}
+	if (style === "claude") return framesClaude(theme);
+	return framesKaomoji(theme, KAOMOJI_STYLE_SPECS[style]);
 }
 
 const PANDI_ACTIONS = [
