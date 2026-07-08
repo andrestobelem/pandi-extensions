@@ -77,15 +77,21 @@ class AnswerViewComponent implements Component {
 			return;
 		}
 
+		if (!this.applyScrollInput(data)) return;
+
+		this.tui.requestRender();
+	}
+
+	private applyScrollInput(data: string): boolean {
 		if (matchesKey(data, "down") || data === "j") this.scroll += 1;
 		else if (matchesKey(data, "up") || data === "k") this.scroll -= 1;
 		else if (matchesKey(data, "pageDown") || matchesKey(data, "space")) this.scroll += this.pageSize();
 		else if (matchesKey(data, "pageUp")) this.scroll -= this.pageSize();
 		else if (matchesKey(data, "home") || data === "g") this.scroll = 0;
 		else if (matchesKey(data, "end") || data === "G") this.scroll = Number.MAX_SAFE_INTEGER;
-		else return;
+		else return false;
 
-		this.tui.requestRender();
+		return true;
 	}
 
 	invalidate(): void {

@@ -65,6 +65,19 @@ function setBtwStatus(ctx: ExtensionCommandContext, value: string | undefined): 
 	return true;
 }
 
+async function presentBtwAnswer(ctx: ExtensionCommandContext, question: string, answer: string): Promise<void> {
+	// Mostrá sin persistir: overlay en la TUI, salida simple en otro caso.
+	if (ctx.mode === "tui" && ctx.hasUI) {
+		await openAnswerOverlay(ctx, question, answer);
+	} else if (ctx.mode === "print") {
+		console.log(answer);
+	} else if (ctx.hasUI) {
+		ctx.ui.notify(answer, "info");
+	} else {
+		console.log(answer);
+	}
+}
+
 async function handleBtw(args: string, ctx: ExtensionCommandContext, pi: ExtensionAPI): Promise<void> {
 	const question = args.trim();
 	if (!question) {
@@ -130,16 +143,7 @@ async function handleBtw(args: string, ctx: ExtensionCommandContext, pi: Extensi
 		return;
 	}
 
-	// Mostrá sin persistir: overlay en la TUI, salida simple en otro caso.
-	if (ctx.mode === "tui" && ctx.hasUI) {
-		await openAnswerOverlay(ctx, question, answer);
-	} else if (ctx.mode === "print") {
-		console.log(answer);
-	} else if (ctx.hasUI) {
-		ctx.ui.notify(answer, "info");
-	} else {
-		console.log(answer);
-	}
+	await presentBtwAnswer(ctx, question, answer);
 }
 
 export default function btwExtension(pi: ExtensionAPI): void {
