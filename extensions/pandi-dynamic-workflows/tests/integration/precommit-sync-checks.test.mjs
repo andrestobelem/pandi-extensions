@@ -12,6 +12,7 @@ import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
+import { planSyncScripts } from "../../../../scripts/sync-all.mjs";
 import { createChecker } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -40,27 +41,40 @@ const repoLocalSyncSteps = [
 	"sync:docs:html",
 	"sync:personas",
 ];
+const repoLocalCheckSteps = [
+	"format:claude:check",
+	"sync:manifest:check",
+	"sync:settings:check",
+	"sync:skills:check",
+	"sync:skills:vendor:check",
+	"sync:agents:check",
+	"sync:claude:ultracode:check",
+	"docs:links:check",
+	"sync:docs:html:check",
+	"sync:personas:check",
+];
 
-check("package.json defines sync:all", typeof syncAllWrite === "string" && syncAllWrite.length > 0);
-for (const required of repoLocalSyncSteps) {
-	check(`sync:all includes ${required}`, syncAllWrite.includes(`npm run -s ${required}`));
-}
-check("sync:all stays repo-local", !syncAllWrite.includes("sync:claude:global"));
-
-check("package.json defines sync:check:all", typeof syncAllCheck === "string" && syncAllCheck.length > 0);
-for (const required of repoLocalSyncSteps) {
-	const checkScript = required.endsWith(":check") ? required : `${required}:check`;
-	check(`sync:check:all includes ${checkScript}`, syncAllCheck.includes(`npm run -s ${checkScript}`));
-}
-check("sync:check:all stays repo-local", !syncAllCheck.includes("sync:claude:global:check"));
-
-check("package.json defines sync:all:global", typeof syncGlobalWrite === "string" && syncGlobalWrite.length > 0);
-check("sync:all:global runs repo-local sync first", syncGlobalWrite.includes("npm run -s sync:all"));
-check("sync:all:global updates Claude global mirror", syncGlobalWrite.includes("npm run -s sync:claude:global"));
+check("package.json defines sync:all as the sync runner", syncAllWrite === "node scripts/sync-all.mjs");
 check(
-	"sync:all:global verifies repo and global mirrors",
-	syncGlobalWrite.includes("npm run -s sync:check:all") &&
-		syncGlobalWrite.includes("npm run -s sync:claude:global:check"),
+	"package.json defines sync:check:all as the sync runner check mode",
+	syncAllCheck === "node scripts/sync-all.mjs --check",
+);
+check(
+	"package.json defines sync:all:global as the sync runner global mode",
+	syncGlobalWrite === "node scripts/sync-all.mjs --global",
+);
+check(
+	"sync runner keeps the repo-local write plan",
+	JSON.stringify(planSyncScripts()) === JSON.stringify(repoLocalSyncSteps),
+);
+check(
+	"sync runner keeps the repo-local check plan",
+	JSON.stringify(planSyncScripts({ checkOnly: true })) === JSON.stringify(repoLocalCheckSteps),
+);
+check(
+	"sync runner global mode writes global mirror and verifies after writing",
+	JSON.stringify(planSyncScripts({ includeGlobal: true })) ===
+		JSON.stringify([...repoLocalSyncSteps, "sync:claude:global", ...repoLocalCheckSteps, "sync:claude:global:check"]),
 );
 check(
 	"pre-commit reaches sync:check:all via the fast gate",
