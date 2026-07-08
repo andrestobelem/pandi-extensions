@@ -1,18 +1,18 @@
 /**
- * run-report-security — the FIRST pin for the run-report HTML builder (design record
- * §6.1, run bd039ef9): run-dir content is UNTRUSTED DATA. Strings either render
- * through the shared escaper or, for agent output Markdown, through the strict
- * sanitizer allowlist. hrefs must be relative + containment-safe, and no external
- * http(s) asset may appear in src/href — with exactly ONE pinned exception: the
- * Mermaid run-diagram renderer, loaded from a version-pinned CDN URL with a
- * Subresource Integrity hash (so a compromised/mismatched CDN response fails
- * closed — the browser refuses to run it — rather than silently swapping in
- * arbitrary JS), initialized with `securityLevel: "sandbox"` (diagram renders
- * inside an iframe with no access to the parent page). No OTHER <script> block
- * may ever appear, and neither script may interpolate any model-sourced string
- * (the CDN URL, integrity hash and init call are all fixed literals).
+ * run-report-security — el PRIMER pin para el builder HTML run-report (design record
+ * §6.1, run bd039ef9): el contenido del run-dir es UNTRUSTED DATA. Los strings renderizan
+ * vía el escaper compartido o, para Markdown de output de agente, vía la allowlist estricta
+ * del sanitizer. Los hrefs deben ser relativos + containment-safe, y ningún asset externo
+ * http(s) puede aparecer en src/href — con exactamente UNA excepción pineada: el renderer
+ * Mermaid del diagrama del run, cargado desde una URL CDN version-pinned con hash
+ * Subresource Integrity (así una respuesta CDN comprometida/no coincidente falla cerrada
+ * — el browser se niega a ejecutarla — en vez de intercambiar silenciosamente JS arbitrario),
+ * inicializado con `securityLevel: "sandbox"` (el diagrama renderiza dentro de un iframe sin
+ * acceso a la página padre). Ningún OTRO bloque <script> puede aparecer jamás, y ninguno de
+ * los scripts puede interpolar strings originados en modelo (la CDN URL, el integrity hash
+ * y la init call son todos literales fijos).
  *
- * Pure-module suite: bundles run-report-html.ts standalone (no SDK imports).
+ * Suite de módulo puro: bundlea run-report-html.ts standalone (sin imports SDK).
  */
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -73,7 +73,7 @@ function hostileModel() {
 				},
 				data: { text: `{"x":"${SCRIPT_PAYLOAD}"}`, truncated: false },
 				stderrTail: { text: `died ${SCRIPT_PAYLOAD}` },
-				// Hostile recorded paths: the builder must refuse to link these.
+				// Paths hostiles registrados: el builder debe negarse a linkearlos.
 				artifactHref: "../../etc/passwd",
 				stdoutHref: "/etc/passwd",
 			},
@@ -97,7 +97,7 @@ async function main() {
 	check("buildRunReportHtml is exported", typeof mod.buildRunReportHtml === "function");
 	check("escapeHtml is exported", typeof mod.escapeHtml === "function");
 
-	// The escaper covers all five metacharacters in one pass (text + attribute contexts).
+	// El escaper cubre los cinco metacharacters en una pasada (contextos text + attribute).
 	check(
 		"escapeHtml escapes & < > \" '",
 		mod.escapeHtml(`&<>"'`) === "&amp;&lt;&gt;&quot;&#39;",
@@ -107,9 +107,9 @@ async function main() {
 	const html = mod.buildRunReportHtml(hostileModel());
 	check("returns a non-empty HTML document", typeof html === "string" && html.startsWith("<!doctype html>"));
 
-	// 1) Exactly two <script> tags total, both fixed literals for the Mermaid run-diagram
-	//    renderer — the version-pinned+SRI-hashed CDN load, and the fixed init call. No other
-	//    <script> may ever appear, and neither embeds any model-sourced string.
+	// 1) Exactamente dos tags <script> en total, ambos literales fijos para el renderer Mermaid
+	//    del diagrama del run — la carga CDN version-pinned+SRI-hashed y la init call fija. Ningún otro
+	//    <script> puede aparecer jamás, y ninguno embebe strings originados en modelo.
 	const scriptTags = html.match(/<script\b[^>]*>[\s\S]*?<\/script>/gi) ?? [];
 	check("exactly two <script> blocks (mermaid loader + fixed init)", scriptTags.length === 2, scriptTags.length);
 	const mermaidLoaderTag = scriptTags.find((tag) => /\bsrc=/.test(tag));
@@ -146,29 +146,29 @@ async function main() {
 			!(mermaidInitTag ?? "").includes(SCRIPT_PAYLOAD),
 	);
 
-	// 2) Raw payloads never appear unescaped anywhere.
+	// 2) Los payloads raw nunca aparecen sin escape en ninguna parte.
 	check("script payload only escaped", !html.includes(SCRIPT_PAYLOAD));
 	check("attr payload only escaped", !html.includes(ATTR_PAYLOAD));
 	check("escaped script payload present", html.includes("&lt;script&gt;alert(1)&lt;/script&gt;"));
-	// A real inline handler needs a RAW tag context (`<tag … on*=`); escaped payloads
-	// (whose `<` is `&lt;`) can never match this, so it pins tag-context injection only.
+	// Un handler inline real necesita un contexto de tag RAW (`<tag … on*=`); los payloads escapados
+	// (cuyo `<` es `&lt;`) nunca pueden matchear esto, así que pinea solo inyección en contexto tag.
 	check("no on*= handler inside a real tag", !/<[a-z][^>]*\son[a-z]+\s*=/i.test(html));
 
-	// 3) Hostile hrefs are refused: nothing absolute, nothing traversing, no js: URLs.
+	// 3) Los hrefs hostiles se rechazan: nada absoluto, nada traversal, sin URLs js:.
 	check("no javascript: href", !/href\s*=\s*"javascript:/i.test(html));
 	check("no parent-traversal href", !/href\s*=\s*"[^"]*\.\.\//.test(html));
 	check("no absolute-path href", !/href\s*=\s*"\//.test(html));
 
-	// 4) Markdown output is rendered, but then sanitized by allowlist.
+	// 4) El output Markdown se renderiza, pero luego se sanitiza por allowlist.
 	check("safe Markdown emphasis renders", html.includes("<strong>safe markdown</strong>"));
 	check("Markdown sanitizer removes image tags", !/<img\b/i.test(html));
 	check("Markdown sanitizer removes onerror inside real tags", !/<[a-z][^>]*\sonerror\s*=/i.test(html));
 	check("Markdown sanitizer removes unsafe hrefs", !/href\s*=\s*"(?:javascript:|https?:)/i.test(html));
 	check("Markdown sanitizer does not leak external URL payload", !html.includes(HTTPS_URL_PAYLOAD));
 
-	// 5) Self-contained except for the one pinned Mermaid CDN <script src>: no OTHER external
-	//    network asset may appear in src/href (in particular, never in an href — only that one
-	//    <script src> is allowed to be external, and only to that exact pinned URL).
+	// 5) Self-contained salvo por el único <script src> CDN Mermaid pineado: ningún OTRO asset
+	//    externo de red puede aparecer en src/href (en particular, nunca en un href — solo ese
+	//    <script src> puede ser externo, y solo hacia esa URL exacta pineada).
 	check("no http(s) href anywhere", !/href\s*=\s*"https?:/i.test(html));
 	const nonMermaidHttpSrc = (html.match(/\bsrc\s*=\s*"https?:[^"]*"/gi) ?? []).filter(
 		(src) => !src.includes("cdn.jsdelivr.net/npm/mermaid@"),
@@ -179,16 +179,16 @@ async function main() {
 		nonMermaidHttpSrc.join(", "),
 	);
 
-	// 5b) The diagram itself renders hostile agent names/phase labels without leaking any raw
-	//     payload — mermaidLabel() strips bracket/quote/angle chars before the string ever
-	//     reaches the .mermaid div, and the div content is still HTML-escaped on top of that.
+	// 5b) El diagrama mismo renderiza nombres de agentes/phase labels hostiles sin filtrar ningún
+	//     payload raw — mermaidLabel() quita bracket/quote/angle chars antes de que el string
+	//     llegue al div .mermaid, y encima el contenido del div sigue HTML-escaped.
 	check("mermaid diagram div is present", html.includes('<div class="mermaid">'));
 	check(
 		"mermaid diagram source text is also shown as a plain-text fallback",
 		/<pre>[\s\S]*flowchart TD[\s\S]*<\/pre>/.test(html),
 	);
 
-	// 6) Clean relative links still work, URL-encoded in attribute context.
+	// 6) Links relativos limpios siguen funcionando, URL-encoded en contexto attribute.
 	check(
 		"clean agent artifact link uses static viewer",
 		html.includes('href="artifact-viewer.html#artifact-'),
@@ -199,11 +199,11 @@ async function main() {
 		/href="artifact-viewer\.html#artifact-[^"]*0002%20/.test(html),
 	);
 
-	// 7) Pandi light+dark tokens inline.
+	// 7) Tokens Pandi light+dark inline.
 	check("dark tokens present", html.includes("--bg: #242526"));
 	check("light variant present", html.includes("prefers-color-scheme: light"));
 
-	// 8) Failure is never a footnote; clamp notes are visible and escaped.
+	// 8) Failure nunca es footnote; las clamp notes son visibles y escapadas.
 	check("error callout present", /callout error/.test(html) && html.includes("boom &lt;/script&gt;"));
 	check("clamp note visible", html.includes("clamped &lt;/script&gt;"));
 
