@@ -1,120 +1,124 @@
 ---
 name: pandi-prose-style
 description: >-
-  Dose contract for applying Pandi's personality (didactic, concise, warm-zen
-  tone, occasional 🐼) to this repo's PROSE — docs, skills, code comments,
-  user-facing messages, subagent/workflow prompts — and never to code. Use
-  whenever writing, editing, or reviewing any prose surface, by hand or via
-  workflows, to decide how much of each ingredient that surface admits.
-  Defers to didactic-docs-style for the Markdown docs contract and to
-  pandi-artifact-style for HTML artifacts.
+  Contrato de dosis para aplicar la personalidad de Pandi (didáctica,
+  concisa, cálida-zen, con 🐼 ocasional) a la PROSA de este repo — docs,
+  skills, comentarios de código, mensajes de usuario y prompts de
+  subagentes/workflows — y nunca al código. Usar al escribir, editar o revisar
+  cualquier superficie de prosa, a mano o vía workflows, para decidir cuánto de
+  cada ingrediente admite esa superficie. Difiere a didactic-docs-style para el
+  contrato de docs Markdown y a pandi-artifact-style para artifacts HTML.
 ---
 
-# Pandi prose style: the dose matrix
+# Estilo de prosa de Pandi: matriz de dosis
 
-Pandi's personality has three ingredients — **didáctico** (explain clearly,
-simple to deep, minimal examples), **conciso** (didactic ≠ long; less is
-more), and **tono** (warm, zen, occasional 🐼). Personality is a
-*condiment*: it never outranks clarity, accuracy, or actionability. This
-skill answers one question per prose surface: **what dose of each ingredient
-does it admit?** Code itself (identifiers, structure, logic) is out of scope
-— always.
+La personalidad de Pandi tiene tres ingredientes: **didáctico** (explicar con
+claridad, de simple a profundo, con ejemplos mínimos), **conciso** (didáctico
+≠ largo; menos es más) y **tono** (cálido, zen, 🐼 ocasional). La personalidad
+es un *condimento*: nunca está por encima de la claridad, la exactitud ni la
+accionabilidad. Este skill responde una pregunta por superficie de prosa:
+**¿qué dosis de cada ingrediente admite?** El código en sí (identificadores,
+estructura, lógica) queda fuera de alcance, siempre.
 
-Canonical persona source: `extensions/pandi/persona.ts` (read-only for
-this skill; restyling never edits the persona definition).
+Fuente canónica de la persona: `extensions/pandi/persona.ts` (solo lectura
+para este skill; un pase de estilo nunca edita la definición de persona).
 
-## The matrix
+## La matriz
 
-| Surface | Didáctico | Conciso | Tono / 🐼 |
-|---|---|---|---|
-| Docs, READMEs, AGENTS.md | full (via didactic-docs-style) | full | visible condiment; 🐼 ≤ 1 per doc |
-| Skills (`.pi/skills/`) | full | full | light; 🐼 ≤ 1 per skill, never in frontmatter description |
-| User messages: info/status (`notify`, CLI) | teach the next step | full | light warmth; 🐼 only in celebratory messages, at most a trace |
-| User messages: errors | full — teach the fix | full | **zero** adornment, zero 🐼; actionability is sacred |
-| Code comments | clarity only (explain *why*) | full | **zero** adornment, zero 🐼 |
-| Subagent / workflow prompts | precision only, in Spanish | trim redundancy only | **zero** — contractual precision rules; machine tokens frozen in English |
-| Advisor personas (`.pi/personas/`) | — their voice IS their function | tighten descriptions only | **zero** Pandi tone in prompt bodies |
-| Code (identifiers, logic, types) | out of scope | out of scope | out of scope |
-| Commit messages | Conventional Commits only | full | zero |
+| Superficie | Didáctico | Conciso | Tono / 🐼 |
+| --- | --- | --- | --- |
+| Docs, READMEs, AGENTS.md | completo (vía didactic-docs-style) | completo | condimento visible; 🐼 ≤ 1 por doc |
+| Skills (`.pi/skills/`) | completo | completo | liviano; 🐼 ≤ 1 por skill, nunca en la descripción de frontmatter |
+| Mensajes de usuario: info/status (`notify`, CLI) | enseñar el próximo paso | completo | calidez leve; 🐼 solo en mensajes celebratorios, como mucho un rastro |
+| Mensajes de usuario: errores | completo — enseñar el arreglo | completo | **cero** adorno, cero 🐼; la accionabilidad es sagrada |
+| Comentarios de código | claridad solamente (explicar *por qué*) | completo | **cero** adorno, cero 🐼 |
+| Prompts de subagentes/workflows | precisión solamente, en español | recortar redundancia solamente | **cero** — reglas contractuales; tokens de máquina congelados en inglés |
+| Personas advisor (`.pi/personas/`) | — su voz ES su función | ajustar descripciones solamente | **cero** tono Pandi en cuerpos de prompt |
+| Código (identificadores, lógica, tipos) | fuera de alcance | fuera de alcance | fuera de alcance |
+| Mensajes de commit | Conventional Commits solamente | completo | cero |
 
-## Per-surface notes with micro-examples
+## Notas por superficie con micro-ejemplos
 
-### Docs and skills — full personality
+### Docs y skills — personalidad completa
 
-Follow `didactic-docs-style` (its 8 rules own the docs contract; this skill
-only adds the tone dose). Warmth shows in openings and transitions, never in
-reference tables or API facts.
+Seguí `didactic-docs-style` (sus 8 reglas gobiernan el contrato de docs; este
+skill solo agrega la dosis de tono). La calidez aparece en aperturas y
+transiciones, nunca en tablas de referencia ni en datos de API.
 
-> Before: "This document describes the configuration options available."
-> After: "Three options, one decision: where should your workflow run? 🐼"
+> Antes: "Este documento describe las opciones de configuración disponibles."
+> Después: "Tres opciones, una decisión: ¿dónde debería correr tu workflow? 🐼"
 
-### User messages — warm but actionable
+### Mensajes de usuario — cálidos pero accionables
 
-Info/status messages may carry light warmth. Error messages get the full
-didactic dose instead: state what failed, why, and the next step — no
-ornament.
+Los mensajes de info/status pueden llevar calidez leve. Los errores reciben la
+dosis didáctica completa: decir qué falló, por qué y el próximo paso, sin
+ornamento.
 
-> Before (error): `expected an object`
-> After (error): `expected an object — pass meta as a plain object literal`
+> Antes (error): `expected an object`
+> Después (error): `expected an object — pass meta as a plain object literal`
 
-The good pattern already exists in the repo: `"Could not parse … ; keep meta
-a pure object literal."` teaches the fix in one clause. Tests may pin message
-text: update the pinned test in the SAME commit as the message.
+El buen patrón ya existe en el repo: `"Could not parse … ; keep meta a pure
+object literal."` enseña el arreglo en una cláusula. Los tests pueden fijar el
+texto de un mensaje: actualizá el test fijado en el MISMO commit que el mensaje.
 
-### Code comments — clarity, zero condiment
+### Comentarios de código — claridad, cero condimento
 
-Comments explain *why*, tersely. Editing pass is minimal-churn: touch a
-comment only when it materially violates clarity/concision or the file is
-already being edited. Never add personality.
+Los comentarios explican *por qué*, con brevedad. El pase de edición debe ser
+de mínima fricción: tocá un comentario solo cuando viole materialmente claridad
+o concisión, o cuando el archivo ya se esté editando. Nunca agregues
+personalidad.
 
-### Prompts — Spanish prose, token-frozen contracts
+### Prompts — prosa española, contratos con tokens congelados
 
-Prompt prose is written in clear, precise Spanish (zero tone, zero 🐼 — the
-reader is a model, warmth buys nothing). What stays **frozen in English** is
-everything a machine parses or matches — the canonical list lives in
-`docs/handbooks/glosario-prompts.md`:
+La prosa de prompts se escribe en español claro y preciso (cero tono, cero 🐼:
+el lector es un modelo y la calidez no compra nada). Lo que queda **congelado
+en inglés** es todo lo que una máquina parsea o matchea; la lista canónica vive
+en `docs/handbooks/glosario-prompts.md`:
 
-- tool/global/API names, JSON fields, schema keys (`goal_progress`,
+- nombres de tools/globals/APIs, campos JSON y schema keys (`goal_progress`,
   `successCriteria`, `agents(items,{settle:true})`)
-- contract tokens that code parses: `PASS`/`FAIL`, `NO_FINDINGS`,
-  `INSUFFICIENT_EVIDENCE`, verdict labels — translating one breaks a
-  verifier silently
-- model refs, commands, paths, Conventional Commits types
+- tokens contractuales que el código parsea: `PASS`/`FAIL`, `NO_FINDINGS`,
+  `INSUFFICIENT_EVIDENCE`, etiquetas de verdict; traducirlos rompe un verificador
+  en silencio
+- referencias de modelos, comandos, rutas y tipos de Conventional Commits
 
-Structural invariants survive translation untouched: stable prompt-cache
-prefixes (stable framing first, volatile content last), untrusted-data
-fences, success-criteria restatement at start AND end, tool contracts. If a
-sentence's functional status is unclear, leave it byte-identical and flag it.
-Tests that pin prompt text update in the SAME commit as the prompt.
+Las invariantes estructurales sobreviven intactas a la traducción: prefijos
+estables de prompt-cache (framing estable primero, contenido volátil al final),
+fences de datos no confiables, repetición de success criteria al inicio Y al
+final, contratos de tools. Si el estado funcional de una oración no está claro,
+dejala byte-idéntica y señalalo. Los tests que fijan texto de prompts se
+actualizan en el MISMO commit que el prompt.
 
-## Hard invariants (all surfaces)
+## Invariantes duras (todas las superficies)
 
-- Technical accuracy is untouchable — reorder, reword, exemplify; never
-  weaken or drop a fact (didactic-docs-style rule 5, extended repo-wide).
-- Public repo docs use Spanish by default; keep English for commands, API names,
-  literals, package names, external titles, and canonical technical terms when
-  translating would reduce clarity.
-- `docs/html/` is generated — regenerate via `npm run sync:docs:html`, never
-  hand-edit.
-- `npm test` stays green after every commit; markdownlint-cli2 passes on all
-  touched Markdown.
-- Style decisions come from this matrix, not ad-hoc taste — that is what
-  keeps a large fan-out from drifting.
+- La exactitud técnica es intocable: reordená, reescribí, ejemplificá; nunca
+  debilites ni elimines un hecho (regla 5 de didactic-docs-style, extendida a
+  todo el repo).
+- La documentación pública del repo usa español por defecto; mantené inglés
+  para comandos, nombres de API, literales, package names, títulos externos y
+  términos técnicos canónicos cuando traducirlos reduzca claridad.
+- `docs/html/` es generado: regeneralo con `npm run sync:docs:html`; nunca lo
+  edites a mano.
+- `npm test` debe seguir verde después de cada commit; markdownlint-cli2 debe
+  pasar en todo Markdown tocado.
+- Las decisiones de estilo salen de esta matriz, no de gusto ad hoc; eso evita
+  que un fan-out grande derive.
 
-## How it is applied
+## Cómo se aplica
 
-- Docs generators load this contract alongside didactic-docs-style:
-  `.pi/workflows/scaffold-docs-html.js` and `.pi/workflows/didactic-docs.js`
-  pass both to every editor/reviewer agent, so tone survives regeneration.
-- Sweeps: `.pi/workflows/pandi-prose-wave1.js` (docs/skills row). Messages
-  were restyled in wave 2 (one `style(<ext>)` commit per extension).
-- Comments and prompts get NO dedicated sweep: apply their row
-  opportunistically, only when a file is already being touched.
+- Los generadores de docs cargan este contrato junto con didactic-docs-style:
+  `.pi/workflows/scaffold-docs-html.js` y `.pi/workflows/didactic-docs.js`
+  pasan ambos a cada agente editor/reviewer, para que el tono sobreviva a la
+  regeneración.
+- Sweeps: `.pi/workflows/pandi-prose-wave1.js` (fila docs/skills). Los mensajes
+  se ajustaron en la ola 2 (un commit `style(<ext>)` por extensión).
+- Comentarios y prompts NO tienen sweep dedicado: aplicá su fila de manera
+  oportunista, solo cuando el archivo ya se esté tocando.
 
-## Deference wiring
+## Cableado de deferencia
 
-- **didactic-docs-style** owns the Markdown docs contract (structure, shape,
-  hygiene). This skill adds only the tone/🐼 dose on top.
-- **pandi-artifact-style** owns HTML artifacts (layout, palette).
-- This skill owns: the dose matrix, all non-doc prose surfaces, and the
-  personality-as-condiment rule.
+- **didactic-docs-style** gobierna el contrato de docs Markdown (estructura,
+  shape, higiene). Este skill solo suma la dosis de tono/🐼.
+- **pandi-artifact-style** gobierna artifacts HTML (layout, paleta).
+- Este skill gobierna: la matriz de dosis, todas las superficies de prosa no-doc
+  y la regla personalidad-como-condimento.

@@ -1,68 +1,69 @@
 ---
 name: didactic-docs-style
 description: >-
-  Style contract for the didactic documentation of this repo (dynamic
-  workflows guides, scaffold pages, primitives reference, READMEs). Use
-  whenever writing, editing, reviewing, or generating documentation — by hand
-  or via workflows like didactic-docs / scaffold-docs-html — so every doc
-  opens in 30 seconds, discloses progressively, aids decisions with tables or
-  mermaid, ships minimal runnable examples, and never trades accuracy for
-  clarity.
+  Contrato de estilo para la documentación didáctica de este repo (guías de
+  dynamic workflows, páginas de scaffolds, referencia de primitives, READMEs).
+  Usar al escribir, editar, revisar o generar documentación — a mano o vía
+  workflows como didactic-docs / scaffold-docs-html — para que cada doc abra en
+  30 segundos, revele progresivamente, ayude a decidir con tablas o Mermaid,
+  traiga ejemplos mínimos ejecutables y nunca cambie exactitud por claridad.
 ---
 
-# Didactic docs style contract
+# Contrato de estilo para docs didácticas
 
-Goal: make each doc CLEARER and MORE DIDACTIC without losing one bit of
-technical accuracy — clarity and correctness travel together, never traded
-for one another. This contract is the single source of truth for the
-"didactic" documentation standard of this repo; workflows that edit or
-generate docs must load it and pass it to every editor/reviewer agent.
+Objetivo: hacer cada doc MÁS CLARO y MÁS DIDÁCTICO sin perder ni un bit de
+exactitud técnica; claridad y corrección viajan juntas, nunca se intercambian.
+Este contrato es la fuente única del estándar de documentación didáctica del
+repo; los workflows que editan o generan docs deben cargarlo y pasarlo a cada
+agente editor/reviewer.
 
-## The 8 rules
+## Las 8 reglas
 
-1. **30-second opening.** Start with 2-3 plain-language sentences: what this
-   is, what problem it solves, when you'd reach for it. THEN a minimal
-   runnable example, BEFORE any exhaustive reference.
-2. **Progressive disclosure.** Order: quickstart → concepts → reference →
-   advanced/edge cases. Never open with a wall of API details.
-3. **Decision aids.** Where the reader must choose between alternatives
-   (agents vs pipeline vs parallel vs race; run vs start; when to orchestrate
-   at all), add a small decision table or a mermaid flowchart. Prefer one
-   good table over three paragraphs.
-4. **Minimal examples.** Every primitive/command gets a 3-8 line snippet that
-   would actually run. Verify signatures and behavior against the extension
-   source code — never invent.
-5. **Accuracy is untouchable.** Every claim must be checkable in the code. If
-   unsure, read the implementation. Keep every existing fact; you may
-   reorder, reword, exemplify, and illustrate — not weaken or drop.
-6. **Spanish by default for public docs.** Public repo documentation is
-   written in Spanish by default. Keep English only for API names, commands,
-   flags, package names, literals, external titles, and canonical technical
-   terms where translating would reduce clarity.
-7. **Keep it tight.** Didactic ≠ longer. Cut redundancy; primitives docs stay
-   short (they ship in the npm package): target ≤ ~65 lines each.
-8. **Markdown hygiene.** Valid GFM, sensible heading hierarchy, fenced code
-   blocks with language tags, mermaid in ```mermaid fences. Must pass
-   markdownlint defaults (no trailing spaces, single H1, blank lines around
-   headings/lists/fences).
+1. **Apertura en 30 segundos.** Empezá con 2-3 frases en lenguaje claro: qué
+   es, qué problema resuelve y cuándo usarlo. DESPUÉS poné un ejemplo mínimo
+   ejecutable, ANTES de cualquier referencia exhaustiva.
+2. **Disclosure progresivo.** Orden: quickstart → conceptos → referencia →
+   casos avanzados/bordes. Nunca abras con una pared de detalles de API.
+3. **Ayudas para decidir.** Cuando la persona lectora deba elegir entre
+   alternativas (agents vs pipeline vs parallel vs race; run vs start; cuándo
+   orquestar o no), agregá una tabla chica de decisión o un flowchart Mermaid.
+   Preferí una buena tabla a tres párrafos.
+4. **Ejemplos mínimos.** Cada primitive/comando lleva un snippet de 3-8 líneas
+   que realmente podría correr. Verificá firmas y comportamiento contra el
+   código fuente de la extensión; nunca inventes.
+5. **La exactitud es intocable.** Cada afirmación debe poder chequearse en el
+   código. Si dudás, leé la implementación. Conservá todos los hechos
+   existentes; podés reordenar, reescribir, ejemplificar e ilustrar, no
+   debilitar ni eliminar.
+6. **Español por defecto para docs públicas.** La documentación pública del repo
+   se escribe en español por defecto. Mantené inglés solo para nombres de API,
+   comandos, flags, package names, literales, títulos externos y términos
+   técnicos canónicos cuando traducirlos reduzca claridad.
+7. **Mantenelo ajustado.** Didáctico ≠ más largo. Cortá redundancia; los docs de
+   primitives deben ser breves (viajan en el paquete npm): objetivo ≤ ~65 líneas
+   cada uno.
+8. **Higiene Markdown.** GFM válido, jerarquía sensata de headings, fences de
+   código con language tags, Mermaid en fences ```mermaid. Debe pasar los
+   defaults de markdownlint (sin trailing spaces, un solo H1, líneas en blanco
+   alrededor de headings/listas/fences).
 
-## Scaffold pages: required shape
+## Páginas de scaffolds: shape requerido
 
-Every `docs/scaffolds/<key>.md` page additionally follows this section order
-(see any existing page, e.g. `docs/scaffolds/map-reduce.md`):
+Cada página `docs/scaffolds/<key>.md` además sigue este orden de secciones
+(ver cualquier página existente, por ejemplo `docs/scaffolds/map-reduce.md`):
 
-`# <key>` → blurb quote → **En 30 segundos** → **Cómo lanzarlo** (runnable
-`/workflow` commands) → **Diagrama** (mermaid derived from the real code) →
+`# <key>` → blurb quote → **En 30 segundos** → **Cómo lanzarlo** (comandos
+`/workflow` ejecutables) → **Diagrama** (Mermaid derivado del código real) →
 **Qué hace** → **Cuándo usarlo** → **Cómo funciona** → **Input y output** →
 **Fases**.
 
-## How it is applied
+## Cómo se aplica
 
-- Generation: `.pi/workflows/scaffold-docs-html.js` writes the Markdown
-  sources under `docs/scaffolds/` and runs `npm run sync:docs:html` (the
-  `docs/html/` mirror is GENERATED — never hand-edit it).
-- Improvement: `.pi/workflows/didactic-docs.js` edits docs in parallel under
-  this contract, then runs an adversarial review panel (accuracy +
-  didactics) → fixes → verification (markdownlint + HTML reconversion).
-- Both workflows must read this file (`.pi/skills/didactic-docs-style/SKILL.md`)
-  as the style contract, not an ad-hoc copy.
+- Generación: `.pi/workflows/scaffold-docs-html.js` escribe las fuentes Markdown
+  bajo `docs/scaffolds/` y corre `npm run sync:docs:html` (el mirror
+  `docs/html/` es GENERADO; nunca lo edites a mano).
+- Mejora: `.pi/workflows/didactic-docs.js` edita docs en paralelo bajo este
+  contrato y luego corre un panel de review adversarial (exactitud + didáctica)
+  → fixes → verificación (markdownlint + reconversión HTML).
+- Ambos workflows deben leer este archivo (`.pi/skills/didactic-docs-style/SKILL.md`)
+  como contrato de estilo, no una copia ad hoc.
