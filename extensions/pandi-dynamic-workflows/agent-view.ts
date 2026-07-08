@@ -255,6 +255,12 @@ async function readLiveStreamIfSectionMissing(
 	return fs.readFile(streamPath, "utf8").catch(() => "");
 }
 
+function parseBestAgentStdout(stdout: string | undefined, liveStdout: string): ParsedPiStdout | undefined {
+	if (stdout) return parsePiJsonModeOutput(stdout);
+	if (liveStdout) return parsePiJsonModeOutputLenient(liveStdout);
+	return undefined;
+}
+
 function formatStdoutNote(
 	stdoutForParsing: string,
 	parsedStdout: ParsedPiStdout | undefined,
@@ -357,11 +363,7 @@ export async function buildAgentViewParts(run: WorkflowRunRecord, agent: AgentMo
 	const liveStdout = await readLiveStreamIfSectionMissing(liveStdoutPath, stdout);
 	const liveStderr = await readLiveStreamIfSectionMissing(liveStderrPath, stderr);
 	const stdoutForParsing = stdout || liveStdout;
-	const parsedStdout = stdout
-		? parsePiJsonModeOutput(stdout)
-		: liveStdout
-			? parsePiJsonModeOutputLenient(liveStdout)
-			: undefined;
+	const parsedStdout = parseBestAgentStdout(stdout, liveStdout);
 	const modelOutput = agent.output !== undefined ? agent.output : parsedStdout?.ok ? parsedStdout.output : undefined;
 	const stdoutNote = formatStdoutNote(stdoutForParsing, parsedStdout, stdout);
 	const promptFromEvent = agent.promptCopy || undefined;
