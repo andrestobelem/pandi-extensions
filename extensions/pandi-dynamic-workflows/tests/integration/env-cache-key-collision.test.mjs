@@ -1,16 +1,16 @@
 /**
- * sanitizeEnvForCache must DISTINGUISH different env values without LEAKING them.
+ * sanitizeEnvForCache debe DISTINGUIR valores env distintos sin FILTRARLOS.
  *
- * The sanitized env is folded into the agent cache/journal key (via sanitizeAgentOpts ->
- * computeCallKey), and that key is written to disk. Raw values (which can be secrets) must
- * not appear there — but collapsing EVERY value to the constant "[set]" made two different
- * values of the same var produce the SAME key, so on resume the journaled (stale) result was
- * replayed instead of re-executing. The fix hashes the value: no plaintext leak, but distinct
- * values yield distinct keys.
+ * El env sanitizado se pliega dentro de la key de cache/journal del agente (vía sanitizeAgentOpts ->
+ * computeCallKey), y esa key se escribe a disco. Los valores raw (que pueden ser secretos) no deben
+ * aparecer ahí — pero colapsar TODOS los valores a la constante "[set]" hacía que dos valores
+ * distintos de la misma var produjeran la MISMA key, así que al resume se reproducía el resultado
+ * journaled (stale) en vez de re-ejecutar. El fix hashea el valor: sin leak de plaintext, pero
+ * valores distintos producen keys distintas.
  *
- * Pure function test: bundle agent-env-persona.ts and call the exported sanitizeEnvForCache.
+ * Test de función pura: bundlea agent-env-persona.ts y llama el sanitizeEnvForCache exportado.
  *
- * Run it:
+ * Corrida:
  *   node extensions/pandi-dynamic-workflows/tests/integration/env-cache-key-collision.test.mjs
  */
 import * as path from "node:path";
