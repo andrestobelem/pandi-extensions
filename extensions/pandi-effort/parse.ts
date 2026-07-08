@@ -54,11 +54,7 @@ const LEVEL_ALIASES: Record<string, ThinkingLevel> = {
 const STATUS_ALIASES = new Set(["", "status", "show", "current"]);
 const ULTRACODE_ALIASES = new Set(["ultracode", "ultra-code"]);
 
-export function parseEffortTarget(raw: string): EffortTarget {
-	const value = raw.trim().toLowerCase();
-	if (STATUS_ALIASES.has(value)) return { kind: "status" };
-	if (ULTRACODE_ALIASES.has(value)) return { kind: "ultracode" };
-
+function resolveMeaningfulToken(value: string): string {
 	// Acepta `/effort thinking=high`, `/effort level high`, etc. usando el
 	// token significativo final después de separadores y palabras prefijo livianas.
 	const tokens = value
@@ -66,8 +62,15 @@ export function parseEffortTarget(raw: string): EffortTarget {
 		.split(/\s+/)
 		.filter(Boolean)
 		.filter((token) => !PREFIX_WORDS.includes(token));
-	const token = tokens[tokens.length - 1] ?? value;
-	const level = LEVEL_ALIASES[token];
+	return tokens[tokens.length - 1] ?? value;
+}
+
+export function parseEffortTarget(raw: string): EffortTarget {
+	const value = raw.trim().toLowerCase();
+	if (STATUS_ALIASES.has(value)) return { kind: "status" };
+	if (ULTRACODE_ALIASES.has(value)) return { kind: "ultracode" };
+
+	const level = LEVEL_ALIASES[resolveMeaningfulToken(value)];
 	if (level) return { kind: "level", level };
 	return { kind: "invalid", value: raw.trim() };
 }

@@ -30,9 +30,15 @@ const ALIAS_COMPLETIONS: { value: string; description: string }[] = [
 	{ value: "ultra-code", description: "Alias de ultracode" },
 ];
 
-const COMPLETIONS: { value: string; description: string }[] = [
-	...CANONICAL_EFFORT_OPTIONS.map(({ value, description }) => ({ value, description })),
-	...ALIAS_COMPLETIONS,
+const toCompletionItem = ({ value, description }: { value: string; description: string }) => ({
+	value,
+	label: value,
+	description,
+});
+
+const COMPLETION_ITEMS: { value: string; label: string; description: string }[] = [
+	...CANONICAL_EFFORT_OPTIONS.map(toCompletionItem),
+	...ALIAS_COMPLETIONS.map(toCompletionItem),
 ];
 
 const SELECT_ITEMS = CANONICAL_EFFORT_OPTIONS.flatMap((item) => (item.selectLabel ? [item.selectLabel] : []));
@@ -44,15 +50,9 @@ export function getEffortArgumentCompletions(prefix: string):
 			description: string;
 	  }[]
 	| null {
-	const needle = prefix.trim().toLowerCase();
-	const items = COMPLETIONS.filter((item) => item.value.startsWith(needle));
-	return items.length > 0
-		? items.map((item) => ({
-				value: item.value,
-				label: item.value,
-				description: item.description,
-			}))
-		: null;
+	const normalizedPrefix = prefix.trim().toLowerCase();
+	const items = COMPLETION_ITEMS.filter((item) => item.value.toLowerCase().startsWith(normalizedPrefix));
+	return items.length > 0 ? items : null;
 }
 
 export async function resolveEffortCommandValue(args: string, ctx: ExtensionContext): Promise<string> {
