@@ -11,7 +11,7 @@ await writeArtifact("state.json", json(state));
 
 **Runtime:** pi runtime
 
-**Firma:** `json(value, maxChars?) → string`
+**Signature:** `json(value, maxChars?) → string`
 
 ## Conceptos
 
@@ -41,12 +41,12 @@ marca `...[truncated N chars]`.
   caracteres. Usá `compact` al construir prompts por claridad de intención, y
   `json` cuando el valor vaya a un artifact `.json`.
 
-## Ejemplo
+## Example
 
 ```js
 export default async function main() {
   const results = await parallel(
-    ["api", "db", "ui"].map((area) => () => agent(`revisá ${area}`)),
+    ["api", "db", "ui"].map((area) => () => agent(`review ${area}`)),
   );
   const summary = { reviewed: results.length, results };
   await writeArtifact("summary.json", json(summary));

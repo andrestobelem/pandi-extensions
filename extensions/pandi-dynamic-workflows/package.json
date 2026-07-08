@@ -1,6 +1,6 @@
 {
 	"name": "@pandi-coding-agent/pandi-dynamic-workflows",
-	"version": "0.4.2",
+	"version": "0.4.3",
 	"description": "Extensión de Pi para workflows JavaScript dinámicos, subagentes en paralelo, artifacts y routing Ultracode.",
 	"license": "MIT",
 	"repository": {

@@ -352,20 +352,19 @@ por sí mismo).
 - **Bound generators:** acotá longitud/formato de todo output generado, sobre todo si alimenta otro
   prompt o se escribe a un archivo.
 
-## Templates respaldados por investigación
+## Research-backed templates
 
-Mapeá papers y frameworks comunes de agentes al diseño de workflows en Pi:
+Map common agent papers/frameworks to Pi workflow design:
 
-- **ReAct** -> scout/observe con tools antes del fan-out; mantené el razonamiento atado a la evidencia.
-- **Self-consistency** -> samplear ramas independientes y luego seleccionar por consistencia/evidencia en vez de confiar en un solo camino.
-- **Reflexion / Self-Refine** -> loops generate -> critique -> refine, siempre acotados por rondas, quiet stops, `maxAgents` y timeout.
-- **Tree of Thoughts** -> ramificar alternativas, evaluarlas/podarlas con un judge y luego comprometerse con un camino.
-- **Multiagent debate** -> reviewers adversariales + synthesis-as-judge; las afirmaciones sin sustento se descartan.
-- **AutoGen / CAMEL / MetaGPT** -> roles explícitos, artifacts estables y contratos de handoff claros.
-- **SWE-agent / DSPy** -> importan la interfaz y los contratos: tools acotadas, schemas/formatos fijos y checks reproducibles.
+- **ReAct** -> scout/observe with tools before fan-out; keep reasoning tied to evidence.
+- **Self-consistency** -> sample independent branches, then select by consistency/evidence rather than trusting one path.
+- **Reflexion / Self-Refine** -> generate -> critique -> refine loops, always bounded by rounds, quiet stops, `maxAgents`, and timeout.
+- **Tree of Thoughts** -> branch alternatives, evaluate/prune with a judge, then commit to one path.
+- **Multiagent debate** -> adversarial reviewers plus synthesis-as-judge; unsupported claims are dropped.
+- **AutoGen / CAMEL / MetaGPT** -> explicit roles, stable artifacts, and clear handoff contracts.
+- **SWE-agent / DSPy** -> interface and contracts matter: narrow tools, schemas/fixed formats, and reproducible checks.
 
-Usalos como patrones, no como ceremonia: cada rama necesita una razón, un contrato y una condición
-de parada.
+Use these as patterns, not ceremony: every branch needs a reason, a contract, and a stop condition.
 
 Varios de estos vienen como archivos **scaffold** concretos bajo
 `extensions/pandi-dynamic-workflows/scaffolds/` (mirror para runtime Claude en
@@ -502,8 +501,7 @@ llamada vía `model`/`provider`. *No* es "Codex"; Codex es apenas uno de los pro
   `json`, `limits`, `runId`, `runDir`, `cwd`. Ver [Globals inyectados (referencia completa)](#globals-inyectados-referencia-completa)
   y los docs por primitiva incluidos en [`reference/primitives/`](reference/primitives/).
 - **Per-node budget** es por llamada: `model` (pattern o `provider/id`, con `:<effort>` opcional),
-  `provider`, `effort` (`low…max`, mapeado a la escala de reasoning del engine). Las personas
-  `agentType` setean defaults (`reviewer`/`planner`/`architect`/`researcher` → high;
+  `provider`, `effort` (`low…max`, mapeado a la escala de reasoning del engine). Las `agentType` personas setean defaults (`reviewer`/`planner`/`architect`/`researcher` → high;
   `explore`/`implementer` → medium; catálogo completo + cuándo usarlo en
   [`reference/personas.md`](reference/personas.md)). Limitá acceso con `tools`/`excludeTools`,
   `skills`, `extensions`, `keys`, `env`. Apunta a Anthropic o OpenAI/Codex (ver arriba).

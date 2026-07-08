@@ -5,16 +5,16 @@
 ```js
 const want = files.length;
 const conc = Math.min(want, limits.concurrency);
-if (conc < want) log(`clamp de concurrencia ${want} → ${conc} (limits.concurrency)`);
+if (conc < want) log(`clamping concurrency ${want} → ${conc} (limits.concurrency)`);
 const results = await agents(files, { concurrency: conc, settle: true });
 ```
 
-**Runtime:** runtime de pi (contexto de run de solo lectura)
+**Runtime:** pi runtime (read-only run context)
 
-**Firma:** `limits` (objeto congelado) — `{ concurrency, maxAgents, timeoutMs, agentTimeoutMs, syncTimeoutMs }`
+**Signature:** `limits` (frozen object) — `{ concurrency, maxAgents, timeoutMs, agentTimeoutMs, syncTimeoutMs }`
 
 - `concurrency`: máximo de subagentes en vuelo.
-- `maxAgents`: presupuesto total de agentes para el run.
+- `maxAgents`: budget total de agentes para el run.
 - `timeoutMs`: timeout total del run.
 - `agentTimeoutMs`: timeout por llamada de agente.
 - `syncTimeoutMs`: timeout de la ejecución sincrónica del script de nivel superior.
@@ -34,16 +34,16 @@ Devuelve un objeto de topes (ver arriba), congelado: reasignar campos o mutarlos
 
 ## Cosas a tener en cuenta
 
-- Aunque sea de solo lectura (`frozen`), ajustar el *conteo total de agentes* contra `maxAgents` sigue siendo tu responsabilidad: nada lo aplica automáticamente.
-- **Logueá cualquier clamp** que apliques para que el tope quede inspeccionable en los artifacts del run.
+- Aunque sea read-only (`frozen`), ajustar el *total agent count* contra `maxAgents` sigue siendo tu responsabilidad: nada lo aplica automáticamente.
+- **Logueá cualquier clamp** que apliques para que el tope quede inspeccionable en los run artifacts.
 
-## Ejemplo
+## Example
 
 ```js
 export default async function main(ctx, input) {
   const files = input.files ?? [];
   const conc = Math.min(files.length, limits.concurrency);
-  log(`fan-out sobre ${files.length} archivos con concurrencia ${conc}`);
+  log(`fanning out over ${files.length} files at concurrency ${conc}`);
   const results = await agents(
     files.map((f) => `Revisá ${f} buscando bugs`),
     { concurrency: conc, settle: true },

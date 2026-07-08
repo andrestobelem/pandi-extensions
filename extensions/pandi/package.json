@@ -1,6 +1,6 @@
 {
 	"name": "@pandi-coding-agent/pandi",
-	"version": "0.1.6",
+	"version": "0.1.7",
 	"description": "Extensión de Pi que agrega a Pandi, una mascota panda: un encabezado de arranque, un indicador animado de trabajo y el comando /pandi.",
 	"license": "MIT",
 	"repository": {

@@ -6,15 +6,15 @@ eventos y el journal de esta corrida del workflow. Usalo cuando necesites regist
 razonar sobre *dónde* quedó algo, no para escribir archivos directo.
 
 ```js
-log(`artifacts de este run viven en ${runDir}`);
-await writeArtifact("summary.md", summary); // resuelto bajo runDir; emite un evento
+log(`artifacts for this run live in ${runDir}`);
+await writeArtifact("summary.md", summary); // resolved under runDir, emits an event
 ```
 
 **Runtime:** pi runtime (contexto de corrida de solo lectura)
 
-**Firma:** `runDir` (string) — directorio de esta corrida
+**Signature:** `runDir` (string) — directorio de esta corrida
 
-**Devuelve:** la ruta absoluta del directorio de la corrida.
+**Returns:** la ruta absoluta del directorio de la corrida.
 
 ## Cuándo usarlo y cuándo no
 
@@ -28,16 +28,16 @@ await writeArtifact("summary.md", summary); // resuelto bajo runDir; emite un ev
 ## Cosas a tener en cuenta
 
 - Es de solo lectura. Si escribís archivos directo en `runDir` (salteando
-  `writeArtifact`), no emitirán un evento `artifact`, así que no aparecerán en
+  `writeArtifact`), no emitirán un event `artifact`, así que no aparecerán en
   el dashboard.
 
-## Ejemplo
+## Example
 
 ```js
 export default async function main() {
-  log(`directorio del run: ${runDir}`);
-  const findings = await agent("buscá TODOs en el repo");
+  log(`run directory: ${runDir}`);
+  const findings = await agent("scan the repo for TODOs");
   await writeArtifact("findings.md", findings);
-  return `hallazgos escritos bajo ${runDir}/artifacts/findings.md`;
+  return `wrote findings under ${runDir}/artifacts/findings.md`;
 }
 ```
