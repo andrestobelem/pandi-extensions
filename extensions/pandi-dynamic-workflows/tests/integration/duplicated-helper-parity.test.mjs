@@ -1,20 +1,19 @@
 /**
- * Duplicated-helper parity GUARDIAN: intentionally duplicated runtime helpers must
- * stay byte-identical across the extensions that vendor them.
+ * GUARDIÁN de paridad de helpers duplicados: los runtime helpers duplicados intencionalmente
+ * deben mantenerse byte-identical entre las extensiones que los vendorizan.
  *
- * Why this file exists
- * --------------------
- * Pi loads each extension self-contained (a single file or its own dir); a
- * `../shared/` runtime import only resolves while the whole monorepo is present
- * and breaks when the extension is installed standalone. Per-extension
- * duplication is therefore INTENTIONAL for tiny stable helpers like notify.ts,
- * session-state.ts, and time.ts.
+ * Por qué existe este archivo
+ * --------------------------
+ * Pi carga cada extensión self-contained (un archivo único o su propio dir); un import runtime
+ * `../shared/` solo resuelve mientras el monorepo completo está presente y se rompe cuando
+ * la extensión se instala standalone. Por eso, la duplicación por extensión es INTENCIONAL
+ * para helpers chicos y estables como notify.ts, session-state.ts y time.ts.
  *
- * This guardian makes that contract executable: a declared manifest lists each
- * intentionally duplicated helper family, and the test fails if any member stops
- * being byte-identical to the others.
+ * Este guardián vuelve ejecutable ese contrato: un manifest declarado lista cada familia de
+ * helpers duplicada intencionalmente, y el test falla si cualquier miembro deja de ser
+ * byte-identical a los demás.
  *
- * Run directly:
+ * Corrida directa:
  *   node extensions/pandi-dynamic-workflows/tests/integration/duplicated-helper-parity.test.mjs
  */
 
