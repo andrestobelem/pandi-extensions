@@ -73,10 +73,10 @@ function main() {
 		return finish();
 	}
 
-	// Negative controls must not mutate the live .pi/skills tree: other integration suites run
-	// in parallel and classify that tree. A transient __unclassified-skill-* directory there
-	// caused flakes in skill-mirror-parity / sync:check:all. The scripts honor PANDI_SKILLS_ROOT
-	// so each destructive check below runs against this private copy instead.
+	// Los controles negativos no deben mutar el árbol vivo .pi/skills: otras suites de integración corren
+	// en paralelo y clasifican ese árbol. Un directorio transitorio __unclassified-skill-* ahí
+	// causó flakes en skill-mirror-parity / sync:check:all. Los scripts respetan PANDI_SKILLS_ROOT,
+	// así que cada check destructivo de abajo corre contra esta copia privada.
 	withTempSkillsRoot((skillsRoot, env) => {
 		withMissingSkill(skillsRoot, "github-project", () => {
 			const mirrorCheck = runNode(MIRRORS, ["--check"], env);
