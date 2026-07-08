@@ -117,25 +117,34 @@ function modelArg(ctx: ExtensionContext): string | undefined {
  * la última línea no vacía es el veredicto real de cierre del modelo. Cualquier ambigüedad
  * (sin veredicto encontrado) queda como FAIL conservador.
  */
-function parseVerdict(stdout: string): VerifierVerdict {
-	const text = (stdout || "").trim();
-	const lineRe = /VERDICT:\s*(PASS|FAIL)/i;
-	// Anclar en la última línea no vacía (la línea final de veredicto requerida).
+function lastNonEmptyLine(text: string): string | undefined {
 	const lines = text.split(/\r?\n/);
 	for (let i = lines.length - 1; i >= 0; i--) {
 		const line = lines[i].trim();
-		if (!line) continue;
-		const m = lineRe.exec(line);
+		if (line) return line;
+	}
+	return undefined;
+}
+
+function lastVerdictMatch(text: string): RegExpMatchArray | undefined {
+	const matches = [...text.matchAll(/VERDICT:\s*(PASS|FAIL)/gi)];
+	return matches.at(-1);
+}
+
+function parseVerdict(stdout: string): VerifierVerdict {
+	const text = (stdout || "").trim();
+	const lineRe = /VERDICT:\s*(PASS|FAIL)/i;
+	const finalLine = lastNonEmptyLine(text);
+	if (finalLine) {
+		const m = lineRe.exec(finalLine);
 		if (m) {
 			return { pass: m[1].toUpperCase() === "PASS", feedback: text, unparsed: false };
 		}
-		// Existe última línea no vacía pero no tiene veredicto → caer al scan de todo el texto
-		// en vez de confiar en una línea no final; cortar para no seguir subiendo a ciegas.
-		break;
 	}
-	// Fallback: scan de todo el texto, gana el último match (maneja blanco final/drift de formato).
-	const matches = [...text.matchAll(/VERDICT:\s*(PASS|FAIL)/gi)];
-	if (matches.length === 0) {
+	// Existe última línea no vacía pero no tiene veredicto → caer al scan de todo el texto
+	// en vez de confiar en una línea no final; cortar para no seguir subiendo a ciegas.
+	const last = lastVerdictMatch(text);
+	if (!last) {
 		// Sin veredicto parseable → FAIL conservador (nunca cerrar silenciosamente con un juez malformado).
 		return {
 			pass: false,
@@ -143,7 +152,6 @@ function parseVerdict(stdout: string): VerifierVerdict {
 			unparsed: true,
 		};
 	}
-	const last = matches[matches.length - 1];
 	const pass = last[1].toUpperCase() === "PASS";
 	return { pass, feedback: text, unparsed: false };
 }

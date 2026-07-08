@@ -37,11 +37,11 @@ function renderPromptLines(lines: string[]): string {
 	return lines.join("\n");
 }
 
-/** Molde estable del prompt de iteración reinyectado en cada iteración `pursuing`. */
-export function makeGoalIterationPrompt(goal: GoalState): string {
+function renderGoalAndCriteriaBlock(
+	goal: GoalState,
+	options: { includeMissingCriteriaGuidance: boolean },
+): { lines: string[]; hasCriteria: boolean } {
 	const lines: string[] = [];
-	lines.push(`Estás persiguiendo un /goal (goal ${goal.goalId}).`);
-	lines.push("");
 	lines.push("OBJETIVO (textual):");
 	lines.push(goal.objective);
 	lines.push("");
@@ -50,12 +50,21 @@ export function makeGoalIterationPrompt(goal: GoalState): string {
 	if (criteria) {
 		lines.push("CRITERIOS DE ÉXITO (definición de terminado):");
 		lines.push(criteria);
-	} else {
+	} else if (options.includeMissingCriteriaGuidance) {
 		lines.push("CRITERIOS DE ÉXITO: no se proporcionaron.");
 		lines.push(
 			"PRIMERO, derivá 2 a 5 criterios de éxito concretos y VERIFICABLES a partir del objetivo (cada uno chequeable con un comando, un test o un artefacto inspeccionable). Pasalos en el argumento `successCriteria` de tu PRIMER llamado a goal_progress (NO solo en `assessment`); quedan registrados UNA VEZ como la definición de terminado para el resto de este goal.",
 		);
 	}
+	return { lines, hasCriteria: Boolean(criteria) };
+}
+
+/** Molde estable del prompt de iteración reinyectado en cada iteración `pursuing`. */
+export function makeGoalIterationPrompt(goal: GoalState): string {
+	const lines: string[] = [];
+	lines.push(`Estás persiguiendo un /goal (goal ${goal.goalId}).`);
+	lines.push("");
+	lines.push(...renderGoalAndCriteriaBlock(goal, { includeMissingCriteriaGuidance: true }).lines);
 	lines.push("");
 
 	const log = formatProgressLog(goal);
@@ -93,15 +102,9 @@ export function makeGoalVerificationPrompt(goal: GoalState): string {
 	const lines: string[] = [];
 	lines.push(`CHEQUEO DE COMPLETITUD para /goal ${goal.goalId}.`);
 	lines.push("");
-	lines.push("OBJETIVO (textual):");
-	lines.push(goal.objective);
-	lines.push("");
-	const criteria = effectiveCriteria(goal);
-	if (criteria) {
-		lines.push("CRITERIOS DE ÉXITO (definición de terminado):");
-		lines.push(criteria);
-		lines.push("");
-	}
+	const context = renderGoalAndCriteriaBlock(goal, { includeMissingCriteriaGuidance: false });
+	lines.push(...context.lines);
+	if (context.hasCriteria) lines.push("");
 	lines.push("Declaraste el objetivo completo. NO hagas trabajo nuevo ahora. VERIFICÁ de forma adversarial:");
 	lines.push(
 		"- Para CADA criterio de éxito, presentá evidencia concreta de que se cumple (un comando que corriste y su salida, un test que pasó, un archivo que existe). No afirmes; mostrá.",

@@ -20,27 +20,17 @@ import { GOAL_DIR, GOAL_STATE_TYPE, PROGRESS_LOG_KEEP, STATE_FILE } from "./cons
 import type { ActiveGoal, GoalState } from "./types.js";
 
 export function snapshot(goal: ActiveGoal): GoalState {
+	const {
+		timer: _timer,
+		controller: _controller,
+		rearmedThisTurn: _rearmedThisTurn,
+		verifierInFlight: _verifierInFlight,
+		...state
+	} = goal;
 	return {
-		goalId: goal.goalId,
-		objective: goal.objective,
-		successCriteria: goal.successCriteria,
-		derivedCriteria: goal.derivedCriteria,
-		ultracode: goal.ultracode,
-		iteration: goal.iteration,
-		maxIterations: goal.maxIterations,
-		contextPercentCap: goal.contextPercentCap,
+		...state,
 		// Acotar el log persistido para que la entrada JSONL nunca crezca sin límite.
-		assessments: goal.assessments.slice(-PROGRESS_LOG_KEEP),
-		verifyAttempts: goal.verifyAttempts,
-		independentVerifyAttempts: goal.independentVerifyAttempts,
-		maxIndependentVerifications: goal.maxIndependentVerifications,
-		verifierTimeoutMs: goal.verifierTimeoutMs,
-		verifierTools: goal.verifierTools,
-		gstatus: goal.gstatus,
-		startedAt: goal.startedAt,
-		nextFireAt: goal.nextFireAt,
-		lastReason: goal.lastReason,
-		updatedAt: goal.updatedAt,
+		assessments: state.assessments.slice(-PROGRESS_LOG_KEEP),
 	};
 }
 

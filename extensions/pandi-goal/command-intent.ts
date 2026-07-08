@@ -43,12 +43,17 @@ export function parseGoalArgs(args: string): GoalStartArgs {
 	return { objective, successCriteria: successCriteria || undefined, ultracode };
 }
 
-/** Resuelve el primer token de `/goal` a una intención de comando sin efectos secundarios. */
-export function parseGoalCommandIntent(args: string): GoalCommandIntent {
-	const trimmed = args.trim();
+function parseFirstToken(trimmed: string): { firstSpace: number; firstToken: string; rest: string } {
 	const firstSpace = trimmed.indexOf(" ");
 	const firstToken = (firstSpace === -1 ? trimmed : trimmed.slice(0, firstSpace)).toLowerCase();
 	const rest = firstSpace === -1 ? "" : trimmed.slice(firstSpace + 1).trim();
+	return { firstSpace, firstToken, rest };
+}
+
+/** Resuelve el primer token de `/goal` a una intención de comando sin efectos secundarios. */
+export function parseGoalCommandIntent(args: string): GoalCommandIntent {
+	const trimmed = args.trim();
+	const { firstToken, rest } = parseFirstToken(trimmed);
 
 	// "stop"/"status" son subcomandos solo cuando no hay separador de criterios ` -- `
 	// que los capture como parte de un objetivo.
