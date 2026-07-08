@@ -283,6 +283,10 @@ a { color:var(--link); }
 .muted { color:var(--muted); }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:12px; }
 .kv { color:var(--ink2); font-size:12.5px; }
+/* mermaid.run({securityLevel:"sandbox"}) reemplaza el contenido de .mermaid por un <iframe>:
+   el elemento en sí vive en la página padre y hereda este CSS (su documento interno no). */
+.mermaid { margin: 8px 0 16px; }
+.mermaid iframe { border:0; background:transparent; width:100%; display:block; }
 `;
 
 function mermaidStateClass(agent: RunReportAgent): "completed" | "failed" | "running" | "other" {
@@ -292,19 +296,22 @@ function mermaidStateClass(agent: RunReportAgent): "completed" | "failed" | "run
 	return "other";
 }
 
+// Tonos pastel (no los sólidos/saturados típicos de mermaid): el diagrama vive al lado de
+// la estética más suave del resto del reporte (pills de estado con fondo tenue + borde),
+// y un bloque sólido bien saturado se siente más fuerte que el resto de la página.
 const MERMAID_STATE_STYLES: Record<string, string> = {
-	completed: "fill:#3fb950,color:#0b0c0c,stroke:#2ea043",
-	failed: "fill:#f85149,color:#0b0c0c,stroke:#da3633",
-	running: "fill:#58a6ff,color:#0b0c0c,stroke:#1f6feb",
-	other: "fill:#8b949e,color:#0b0c0c,stroke:#6e7681",
+	completed: "fill:#8fd6ab,color:#0b2e1d,stroke:#3fa066",
+	failed: "fill:#f2a9a3,color:#3a0e0b,stroke:#d1554a",
+	running: "fill:#9dc6f2,color:#0b2440,stroke:#4f86c9",
+	other: "fill:#c7ccd1,color:#1c1f22,stroke:#8b939b",
 };
 
 /**
- * Flowchart Mermaid (texto fuente, sin renderizar) del run concreto: agentes agrupados por
- * fase en orden de aparición, coloreados por estado. Complementa — no reemplaza — el grafo
- * estático de workflow-graph.ts (que dibuja la ESTRUCTURA del código, no una corrida). Se
- * emite como texto en un bloque colapsable: el contrato "cero <script>" de este módulo
- * (pineado por run-report-security.test.mjs) prohíbe renderizarlo client-side.
+ * Flowchart Mermaid del run concreto: agentes agrupados por fase en orden de aparición,
+ * coloreados por estado. Complementa — no reemplaza — el grafo estático de workflow-graph.ts
+ * (que dibuja la ESTRUCTURA del código, no una corrida). La fuente se escapa como texto antes
+ * de llegar al contenedor `.mermaid` y también queda disponible como fallback colapsable; el
+ * render client-side está pineado por run-report-security.test.mjs (CDN exacta + SRI + sandbox).
  */
 export function buildRunMermaidSource(model: RunReportModel): string {
 	if (model.agents.length === 0) {
@@ -332,7 +339,9 @@ export function buildRunMermaidSource(model: RunReportModel): string {
 		for (const agentId of agentIds) {
 			const agent = agentById.get(agentId);
 			if (!agent) continue;
-			lines.push(`    A${agent.id}["${mermaidLabel(agent.name)}"]`);
+			// Forma "stadium" (bordes totalmente redondeados): combina con el estilo pill de
+			// los <span class="rpill"> de estado que usa el resto del reporte.
+			lines.push(`    A${agent.id}(["${mermaidLabel(agent.name)}"])`);
 		}
 		lines.push("  end");
 	}
@@ -967,9 +976,21 @@ export function buildRunReportHtml(model: RunReportModel): string {
 		: "";
 
 	const mermaidSection = model.agents.length
-		? `<h2>Run diagram</h2><div class="mermaid">${escapeHtml(buildRunMermaidSource(model))}</div>` +
+		? `<h2 id="run-diagram">Run diagram</h2><div class="mermaid">${escapeHtml(buildRunMermaidSource(model))}</div>` +
 			`<script src="${MERMAID_CDN_URL}" integrity="${MERMAID_CDN_INTEGRITY}" crossorigin="anonymous"></script>` +
-			`<script>mermaid.initialize({startOnLoad:false,securityLevel:"sandbox"});mermaid.run({querySelector:".mermaid"});</script>` +
+			// theme:"base" + themeVariables sigue prefers-color-scheme (matchMedia fijo, sin
+			// datos del modelo). Los hex de abajo son un subset intencionalmente duplicado de
+			// PANDI_TOKENS_CSS (--paper/--link/--info-bg en light, --raised en dark para que el
+			// cluster se despegue del fondo general en vez de casi fundirse con él): el diagrama sandbox
+			// renderiza en un iframe aislado que NO hereda los custom properties del documento
+			// padre, así que no hay forma de leerlos vs var(...) — hay que repetirlos literales.
+			// Fondo de cluster + líneas con un toque del accent "link" (alpha bajo) en vez de
+			// gris puro: un poco de color, sutil, sin competir con los estados pastel del nodo.
+			// background matchea --paper (pandi) en vez de transparent: probamos transparente y
+			// se volvió atrás a propósito (se veía peor que un fondo sólido consistente).
+			// fontFamily matchea el stack del body (LAYOUT_CSS): el iframe sandbox NO hereda el
+			// CSS de la página padre, así que sin esto mermaid cae al font default del browser.
+			`<script>mermaid.initialize({startOnLoad:false,securityLevel:"sandbox",theme:"base",themeVariables:window.matchMedia&&window.matchMedia("(prefers-color-scheme: light)").matches?{"background":"#F2F1F1","primaryColor":"#FFFFFF","primaryTextColor":"#222223","primaryBorderColor":"#C9C9C9","lineColor":"#0091FF66","clusterBkg":"#EDE4F8","clusterBorder":"#0091FF55","titleColor":"#676B79","fontFamily":"-apple-system, BlinkMacSystemFont, sans-serif"}:{"background":"#292A2B","primaryColor":"#31353A","primaryTextColor":"#E6E6E6","primaryBorderColor":"#3E4250","lineColor":"#6FC1FF66","clusterBkg":"#31353A","clusterBorder":"#6FC1FF55","titleColor":"#BBBBBB","fontFamily":"-apple-system, BlinkMacSystemFont, sans-serif"}});mermaid.run({querySelector:".mermaid"});</script>` +
 			`<details><summary>Run diagram (Mermaid source text)</summary><div class="body">` +
 			`<div class="kv muted">Si el diagrama de arriba no renderiza (JS deshabilitado o CDN bloqueada), pegá este texto en un visor Mermaid (mermaid.live u otro).</div>` +
 			`<pre>${escapeHtml(buildRunMermaidSource(model))}</pre></div></details>`

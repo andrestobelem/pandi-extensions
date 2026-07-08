@@ -5,8 +5,9 @@
  * generador Mermaid para el GRAFO ESTÁTICO del código del workflow (workflow-graph.ts); esto
  * cubre el caso distinto — un flowchart de LA CORRIDA real, agrupado por fase, coloreado por
  * estado (completed/failed/running/...). Sigue el contrato de seguridad pineado en
- * run-report-security.test.mjs: la fuente Mermaid se emite como TEXTO en un bloque
- * colapsable, nunca renderizada client-side (cero <script> en la página).
+ * run-report-security.test.mjs: la fuente Mermaid se escapa como texto dentro del
+ * contenedor que Mermaid renderiza y también queda disponible como fallback colapsable;
+ * el render client-side usa solo scripts fijos pineados con securityLevel:"sandbox".
  */
 
 import * as path from "node:path";
@@ -62,10 +63,20 @@ async function main() {
 	check("agrupa nodos bajo un subgraph por fase (Judge)", mermaid.includes('subgraph phase2["Judge"]'));
 	check("nodo de agente incluye su nombre", mermaid.includes("scout-1"));
 	check("nodo de agente incluye su nombre (judge)", mermaid.includes("judge"));
+	check("nodos de agente usan forma stadium/pill", mermaid.includes('A1(["scout-1"])'));
 	check("conecta las fases en orden de aparición", mermaid.includes("phase1 --> phase2"));
-	check("clasifica el agente failed con su clase de estado", /class A3 .*failed/.test(mermaid) || mermaid.includes("class A3 failed"));
-	check("clasifica los agentes completed con su clase de estado", mermaid.includes("class A1 completed") && mermaid.includes("class A2 completed"));
-	check("define classDef para completed y failed", mermaid.includes("classDef completed") && mermaid.includes("classDef failed"));
+	check(
+		"clasifica el agente failed con su clase de estado",
+		/class A3 .*failed/.test(mermaid) || mermaid.includes("class A3 failed"),
+	);
+	check(
+		"clasifica los agentes completed con su clase de estado",
+		mermaid.includes("class A1 completed") && mermaid.includes("class A2 completed"),
+	);
+	check(
+		"define classDef para completed y failed",
+		mermaid.includes("classDef completed") && mermaid.includes("classDef failed"),
+	);
 
 	// Agentes sin fase (phaseId/phaseLabel ausentes): van a un grupo de fallback, no rompen.
 	const noPhase = buildRunMermaidSource(baseModel({ agents: [{ id: 9, name: "solo", state: "running" }] }));
@@ -74,7 +85,9 @@ async function main() {
 
 	// Labels con caracteres que rompen sintaxis Mermaid (comillas, corchetes) se sanean.
 	const unsafe = buildRunMermaidSource(
-		baseModel({ agents: [{ id: 5, name: 'weird"name[x]', state: "completed", ok: true, phaseId: 1, phaseLabel: 'Phase "1"' }] }),
+		baseModel({
+			agents: [{ id: 5, name: 'weird"name[x]', state: "completed", ok: true, phaseId: 1, phaseLabel: 'Phase "1"' }],
+		}),
 	);
 	check("labels de agente se sanean (sin comillas/corchetes crudos)", !/name\["weird"name\[x\]"\]/.test(unsafe));
 	check("labels de fase se sanean (sin comillas crudas)", !unsafe.includes('subgraph phase1["Phase "1""]'));

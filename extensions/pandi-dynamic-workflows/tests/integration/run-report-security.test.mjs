@@ -133,6 +133,13 @@ async function main() {
 		!!mermaidInitTag && /securityLevel\s*:\s*"sandbox"/.test(mermaidInitTag ?? ""),
 	);
 	check(
+		"mermaid init uses base theme with explicit light/dark themeVariables",
+		!!mermaidInitTag &&
+			/theme\s*:\s*"base"/.test(mermaidInitTag ?? "") &&
+			(mermaidInitTag ?? "").includes("themeVariables") &&
+			(mermaidInitTag ?? "").includes("prefers-color-scheme: light"),
+	);
+	check(
 		"mermaid init call is a fixed literal (no model-sourced string interpolated)",
 		!!mermaidInitTag &&
 			!(mermaidInitTag ?? "").includes(ATTR_PAYLOAD) &&
