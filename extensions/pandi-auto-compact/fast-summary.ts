@@ -64,12 +64,24 @@ export function compactText(value: string | undefined, maxChars: number): { text
 
 const asBlock = (title: string, body: string): string => `\n## ${title}\n${body.trim() || "(ninguno)"}\n`;
 
+const deriveFastSummaryBudgets = (
+	maxInputChars: number,
+	turnPrefixText: string | undefined,
+): { previousBudget: number; customBudget: number; turnBudget: number; conversationBudget: number } => {
+	const normalizedMaxInputChars = Math.max(4_000, maxInputChars);
+	const previousBudget = Math.min(12_000, Math.floor(normalizedMaxInputChars * 0.15));
+	const customBudget = Math.min(2_000, Math.floor(normalizedMaxInputChars * 0.05));
+	const turnBudget = turnPrefixText ? Math.min(20_000, Math.floor(normalizedMaxInputChars * 0.25)) : 0;
+	const conversationBudget = Math.max(4_000, normalizedMaxInputChars - previousBudget - customBudget - turnBudget);
+
+	return { previousBudget, customBudget, turnBudget, conversationBudget };
+};
+
 export function buildFastSummaryPrompt(input: FastSummaryPromptInput): FastSummaryPromptResult {
-	const maxInputChars = Math.max(4_000, input.maxInputChars);
-	const previousBudget = Math.min(12_000, Math.floor(maxInputChars * 0.15));
-	const customBudget = Math.min(2_000, Math.floor(maxInputChars * 0.05));
-	const turnBudget = input.turnPrefixText ? Math.min(20_000, Math.floor(maxInputChars * 0.25)) : 0;
-	const conversationBudget = Math.max(4_000, maxInputChars - previousBudget - customBudget - turnBudget);
+	const { previousBudget, customBudget, turnBudget, conversationBudget } = deriveFastSummaryBudgets(
+		input.maxInputChars,
+		input.turnPrefixText,
+	);
 
 	const previous = compactText(input.previousSummary, previousBudget);
 	const custom = compactText(input.customInstructions, customBudget);

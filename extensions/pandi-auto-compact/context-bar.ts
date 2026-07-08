@@ -20,6 +20,23 @@ export interface ContextBar {
 	level: ContextBarLevel;
 }
 
+const getClampedContextRatio = (percent: number, thresholdPercent: number) => {
+	const ratio = thresholdPercent > 0 ? percent / thresholdPercent : 0;
+	return { ratio, clamped: Math.max(0, Math.min(1, ratio)) };
+};
+
+const getContextBarLevel = (ratio: number, compacting?: boolean): ContextBarLevel => {
+	if (compacting) return "compacting";
+	return ratio >= 1 ? "over" : ratio >= NEAR_RATIO ? "near" : "idle";
+};
+
+const renderContextBarText = (percent: number, thresholdPercent: number, width: number, clampedRatio: number) => {
+	const filled = Math.round(clampedRatio * width);
+	const bar = BAR_FILLED.repeat(filled) + BAR_EMPTY.repeat(width - filled);
+	const label = `${Math.round(percent)}%/${thresholdPercent}%`;
+	return `compact ${bar} ${label}`;
+};
+
 // Render puro de la barra de progreso del footer. Se mantiene libre de theme/ctx para que sea
 // fácil de testear unitariamente; la extensión aplica color según `level`.
 // Devuelve null cuando no hay nada con sentido para mostrar (usage desconocido), p. ej.
@@ -32,15 +49,13 @@ export const renderContextBar = (opts: {
 }): ContextBar | null => {
 	const width = opts.width ?? BAR_WIDTH;
 	if (opts.compacting) {
-		return { text: `compact ${BAR_FILLED.repeat(width)} compacting\u2026`, level: "compacting" };
+		return { text: `compact ${BAR_FILLED.repeat(width)} compacting\u2026`, level: getContextBarLevel(0, true) };
 	}
 	const { percent, thresholdPercent } = opts;
 	if (percent === null || percent === undefined || !Number.isFinite(percent)) return null;
-	const ratio = thresholdPercent > 0 ? percent / thresholdPercent : 0;
-	const clamped = Math.max(0, Math.min(1, ratio));
-	const filled = Math.round(clamped * width);
-	const bar = BAR_FILLED.repeat(filled) + BAR_EMPTY.repeat(width - filled);
-	const label = `${Math.round(percent)}%/${thresholdPercent}%`;
-	const level: ContextBarLevel = ratio >= 1 ? "over" : ratio >= NEAR_RATIO ? "near" : "idle";
-	return { text: `compact ${bar} ${label}`, level };
+	const { ratio, clamped } = getClampedContextRatio(percent, thresholdPercent);
+	return {
+		text: renderContextBarText(percent, thresholdPercent, width, clamped),
+		level: getContextBarLevel(ratio),
+	};
 };

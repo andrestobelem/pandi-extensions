@@ -13,6 +13,27 @@ export interface ClearToolResultsOptions {
 	tailChars: number;
 }
 
+interface TextElisionOptions {
+	minEffective: number;
+	headChars: number;
+	tailChars: number;
+}
+
+const maybeElideToolResultTextBlock = (block: unknown, toolName: string, opts: TextElisionOptions): unknown => {
+	if (!block || typeof block !== "object") return block;
+	const b = block as Record<string, unknown>;
+	if (b.type !== "text" || typeof b.text !== "string") return block;
+	const text = b.text;
+	if (text.length <= opts.minEffective || text.includes(CLEARED_SENTINEL)) return block;
+	const head = text.slice(0, opts.headChars);
+	const tail = text.slice(text.length - opts.tailChars);
+	const removed = text.length - head.length - tail.length;
+	return {
+		...b,
+		text: `${head}\n…${CLEARED_SENTINEL} ${removed} caracteres de este resultado de ${toolName} para ahorrar contexto; la salida completa se conserva en la sesión y se puede releer]…\n${tail}`,
+	};
+};
+
 // Limpieza pura y no mutante de tool-result (research §3b). Devuelve un array NUEVO con el
 // TEXTO voluminoso de tool results consumidos y VIEJOS elidido a inicio + marcador + final, o null cuando
 // nada cambió. Conserva la identidad del mensaje para todo lo que no toca; mantiene
@@ -44,21 +65,12 @@ export const clearOldToolResults = (messages: readonly unknown[], opts: ClearToo
 		const content = msg.content;
 		if (!Array.isArray(content)) continue;
 		let blockChanged = false;
+		const toolName = typeof msg.toolName === "string" ? msg.toolName : "tool";
+		const textElisionOpts = { minEffective, headChars, tailChars };
 		const newContent = content.map((block: unknown) => {
-			if (!block || typeof block !== "object") return block;
-			const b = block as Record<string, unknown>;
-			if (b.type !== "text" || typeof b.text !== "string") return block;
-			const text = b.text;
-			if (text.length <= minEffective || text.includes(CLEARED_SENTINEL)) return block;
-			const head = text.slice(0, headChars);
-			const tail = text.slice(text.length - tailChars);
-			const removed = text.length - head.length - tail.length;
-			const toolName = typeof msg.toolName === "string" ? msg.toolName : "tool";
-			blockChanged = true;
-			return {
-				...b,
-				text: `${head}\n…${CLEARED_SENTINEL} ${removed} caracteres de este resultado de ${toolName} para ahorrar contexto; la salida completa se conserva en la sesión y se puede releer]…\n${tail}`,
-			};
+			const newBlock = maybeElideToolResultTextBlock(block, toolName, textElisionOpts);
+			if (newBlock !== block) blockChanged = true;
+			return newBlock;
 		});
 		if (blockChanged) {
 			out[i] = { ...msg, content: newContent };

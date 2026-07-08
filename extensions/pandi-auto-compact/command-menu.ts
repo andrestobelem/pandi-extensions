@@ -8,32 +8,76 @@ type CommandAction = {
 	completionDescription?: string;
 };
 
+type ToggleCommandAction = Omit<CommandAction, "value">;
+type ToggleCommandGroup = {
+	value: string;
+	completionDescription: string;
+	on: ToggleCommandAction;
+	off: ToggleCommandAction;
+};
+
+function toggleCommandActions(
+	value: string,
+	completionDescription: string,
+	on: ToggleCommandAction,
+	off: ToggleCommandAction,
+): readonly [CommandAction, CommandAction, CommandAction] {
+	return [
+		{ value, completionDescription },
+		{ value: `${value} on`, ...on },
+		{ value: `${value} off`, ...off },
+	];
+}
+
+const TOGGLE_COMMAND_GROUPS = {
+	bar: {
+		value: "bar",
+		completionDescription: "Alternar la barra de progreso del footer",
+		on: { menuDescription: "mostrar la barra de progreso del footer", completion: true },
+		off: { menuDescription: "ocultar la barra de progreso del footer", completion: true },
+	},
+	snapshot: {
+		value: "snapshot",
+		completionDescription: "Alternar las instantáneas recuperables de compactación",
+		on: { menuDescription: "mantener instantáneas recuperables antes de compactar", completion: true },
+		off: { menuDescription: "dejar de guardar instantáneas", completion: true },
+	},
+	summary: {
+		value: "summary",
+		completionDescription: "Alternar el resumen rápido/acotado de compactación",
+		on: { menuDescription: "usar resumen rápido y acotado durante la compactación", completion: true },
+		off: { menuDescription: "usar el resumen nativo de Pi", completion: true },
+	},
+	"clear-tools": {
+		value: "clear-tools",
+		completionDescription: "Alternar la elisión de salidas de tools viejas y grandes",
+		on: {
+			menuDescription: "elidir salidas de tools viejas y grandes (más barato que compactar)",
+			completionDescription: "Elidir salidas de tools viejas y grandes en cada llamada al LLM",
+		},
+		off: { menuDescription: "dejar de elidir salidas de tools viejas", completion: true },
+	},
+} as const satisfies Record<string, ToggleCommandGroup>;
+
+function toggleCommandGroup(name: keyof typeof TOGGLE_COMMAND_GROUPS) {
+	const group = TOGGLE_COMMAND_GROUPS[name];
+	return toggleCommandActions(group.value, group.completionDescription, group.on, group.off);
+}
+
 const COMMAND_ACTIONS: readonly CommandAction[] = [
 	{ value: "run", menuDescription: "compactar el contexto ahora", completion: true },
 	{ value: "status", menuDescription: "mostrar la configuración actual", completion: true },
 	{ value: "on", menuDescription: "activar la auto-compactación", completion: true },
 	{ value: "off", menuDescription: "desactivar la auto-compactación", completion: true },
-	{ value: "bar", completionDescription: "Alternar la barra de progreso del footer" },
-	{ value: "bar on", menuDescription: "mostrar la barra de progreso del footer", completion: true },
-	{ value: "bar off", menuDescription: "ocultar la barra de progreso del footer", completion: true },
-	{ value: "snapshot", completionDescription: "Alternar las instantáneas recuperables de compactación" },
-	{ value: "snapshot on", menuDescription: "mantener instantáneas recuperables antes de compactar", completion: true },
-	{ value: "snapshot off", menuDescription: "dejar de guardar instantáneas", completion: true },
+	...toggleCommandGroup("bar"),
+	...toggleCommandGroup("snapshot"),
 	{
 		value: "snapshots",
 		menuDescription: "listar las instantáneas recientes",
 		completionDescription: "Listar las instantáneas recientes de esta sesión",
 	},
-	{ value: "summary", completionDescription: "Alternar el resumen rápido/acotado de compactación" },
-	{ value: "summary on", menuDescription: "usar resumen rápido y acotado durante la compactación", completion: true },
-	{ value: "summary off", menuDescription: "usar el resumen nativo de Pi", completion: true },
-	{ value: "clear-tools", completionDescription: "Alternar la elisión de salidas de tools viejas y grandes" },
-	{
-		value: "clear-tools on",
-		menuDescription: "elidir salidas de tools viejas y grandes (más barato que compactar)",
-		completionDescription: "Elidir salidas de tools viejas y grandes en cada llamada al LLM",
-	},
-	{ value: "clear-tools off", menuDescription: "dejar de elidir salidas de tools viejas", completion: true },
+	...toggleCommandGroup("summary"),
+	...toggleCommandGroup("clear-tools"),
 	{ value: "threshold", menuDescription: "configurar el % de umbral de compactación" },
 ] as const;
 
