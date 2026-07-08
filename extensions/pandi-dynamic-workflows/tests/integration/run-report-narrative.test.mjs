@@ -1,7 +1,7 @@
 /**
- * run-report-narrative — pins the didactic "30-second opening" for workflow
- * run reports. The static report should orient the reader before any detail
- * section: what happened, where to look next, and why the raw data below matters.
+ * run-report-narrative — pinea la "apertura de 30 segundos" didáctica para reportes
+ * de runs de workflow. El reporte estático debe orientar a la persona lectora antes de cualquier
+ * sección de detalle: qué pasó, dónde mirar después y por qué importan los datos raw de abajo.
  */
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
