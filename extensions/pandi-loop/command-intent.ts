@@ -60,12 +60,17 @@ export function parseLoopStartArgs(args: string): LoopStartArgs {
 	return { text, intervalMs, ultracode };
 }
 
-/** Resuelve el primer token de `/loop` a una intención de comando sin efectos secundarios. */
-export function parseLoopCommandIntent(args: string): LoopCommandIntent {
-	const trimmed = args.trim();
+function parseFirstToken(trimmed: string): { firstToken: string; rest: string } {
 	const firstSpace = trimmed.indexOf(" ");
 	const firstToken = (firstSpace === -1 ? trimmed : trimmed.slice(0, firstSpace)).toLowerCase();
 	const rest = firstSpace === -1 ? "" : trimmed.slice(firstSpace + 1).trim();
+	return { firstToken, rest };
+}
+
+/** Resuelve el primer token de `/loop` a una intención de comando sin efectos secundarios. */
+export function parseLoopCommandIntent(args: string): LoopCommandIntent {
+	const trimmed = args.trim();
+	const { firstToken, rest } = parseFirstToken(trimmed);
 
 	if (isLoopSubcommandKind(firstToken)) {
 		return { kind: firstToken, rest };

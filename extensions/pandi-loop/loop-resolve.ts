@@ -18,6 +18,14 @@ export async function resolveLoop(
 		const loop = activeLoops.get(idOrUndef);
 		return loop && statuses.includes(loop.status) ? loop : undefined;
 	}
+	return resolveLoopCandidate(ctx, activeLoops, statuses);
+}
+
+const resolveLoopCandidate = async (
+	ctx: ExtensionContext,
+	activeLoops: ReadonlyMap<string, ActiveLoop>,
+	statuses: readonly LoopStatus[],
+): Promise<ActiveLoop | undefined> => {
 	const candidates = [...activeLoops.values()].filter((loop) => statuses.includes(loop.status));
 	if (candidates.length === 0) return undefined;
 	if (candidates.length === 1) return candidates[0];
@@ -31,4 +39,4 @@ export async function resolveLoop(
 		return activeLoops.get(id);
 	}
 	return undefined;
-}
+};

@@ -140,9 +140,7 @@ export function unquote(value: string): string {
 	return value;
 }
 
-// Devuelve el primer target de redirect/tee de shell que escribe FUERA del proyecto, para que
-// un comando bash no evada la misma guardia fuera-del-proyecto aplicada a write/edit.
-export function unsafeBashWriteTarget(ctx: ExtensionContext, command: string): string | undefined {
+function collectBashWriteTargets(command: string): string[] {
 	const targets: string[] = [];
 	for (const re of [REDIRECT_TARGET_RE, AMP_REDIRECT_TARGET_RE, GT_AMP_REDIRECT_TARGET_RE]) {
 		for (const m of command.matchAll(re)) if (m[1]) targets.push(unquote(m[1]));
@@ -155,6 +153,13 @@ export function unsafeBashWriteTarget(ctx: ExtensionContext, command: string): s
 			targets.push(unquote(tok));
 		}
 	}
+	return targets;
+}
+
+// Devuelve el primer target de redirect/tee de shell que escribe FUERA del proyecto, para que
+// un comando bash no evada la misma guardia fuera-del-proyecto aplicada a write/edit.
+export function unsafeBashWriteTarget(ctx: ExtensionContext, command: string): string | undefined {
+	const targets = collectBashWriteTargets(command);
 	const leftProject = commandChangesToUnsafeDir(ctx, command);
 	for (const target of targets) {
 		if (target.startsWith("/dev/")) continue; // /dev/null y similares no son escrituras reales
