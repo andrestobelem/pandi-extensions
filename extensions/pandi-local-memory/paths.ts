@@ -7,9 +7,13 @@ import { join } from "node:path";
 import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 import { INDEX_FILE, MEMORY_DIR } from "./memory.js";
 
+function configDirOf(cwd: string): string {
+	return join(cwd, CONFIG_DIR_NAME);
+}
+
 /** Carpeta `<configDir>/memory/` que guarda el índice inyectado y los archivos de topic bajo demanda. */
 export function memoryDirOf(cwd: string): string {
-	return join(cwd, CONFIG_DIR_NAME, MEMORY_DIR);
+	return join(configDirOf(cwd), MEMORY_DIR);
 }
 /** `<configDir>/memory/MEMORY.md` — el punto de entrada que se inyecta al inicio. */
 export function indexPathOf(cwd: string): string {
@@ -17,7 +21,7 @@ export function indexPathOf(cwd: string): string {
 }
 /** Ubicación previa a la carpeta; se sigue leyendo como fuente de fallback/migración. */
 export function legacyPathOf(cwd: string): string {
-	return join(cwd, CONFIG_DIR_NAME, "MEMORY.md");
+	return join(configDirOf(cwd), "MEMORY.md");
 }
 
 /** Lee un archivo como texto, o null si falta O no se puede leer (EISDIR/EACCES/TOCTOU). */

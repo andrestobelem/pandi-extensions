@@ -27,16 +27,18 @@ export const MANAGED_HEADING = "## Memoria del agente (gestionada automáticamen
 /** Límite superior para una sola nota (se recorta dentro de execute; nunca confíes en el modelo). */
 export const MAX_NOTE_LENGTH = 1000;
 
+function escapeRememberSentinels(note: string): string {
+	return note.replace(/<!--\s*pi:remember:(begin|end)\s*-->/gi, (match) =>
+		match.replace(/</g, "&lt;").replace(/>/g, "&gt;"),
+	);
+}
+
 /**
  * Normaliza una nota cruda en una sola línea limpia: colapsa espacios/saltos de línea,
  * recorta y limita la longitud. Devuelve "" cuando no queda nada para guardar.
  */
 export function normalizeNote(raw: string): string {
-	return raw
-		.replace(/<!--\s*pi:remember:(begin|end)\s*-->/gi, (match) => match.replace(/</g, "&lt;").replace(/>/g, "&gt;"))
-		.replace(/\s+/g, " ")
-		.trim()
-		.slice(0, MAX_NOTE_LENGTH);
+	return escapeRememberSentinels(raw).replace(/\s+/g, " ").trim().slice(0, MAX_NOTE_LENGTH);
 }
 
 /** Quita el prefijo de viñeta `- <date>: ` para comparar dos notas solo por texto. */
