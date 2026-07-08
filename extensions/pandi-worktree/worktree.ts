@@ -412,15 +412,14 @@ export function filterCopyableEntries(entries: string[], options: { configDirNam
 
 /** Etiqueta corta que describe el estado de checkout de una entrada de worktree. */
 function worktreeLabel(entry: WorktreeEntry): string {
-	return entry.bare
-		? "(bare)"
-		: entry.detached
-			? `(detached ${entry.head ? entry.head.slice(0, 8) : "?"})`
-			: entry.branchShort
-				? entry.branchShort
-				: entry.head
-					? entry.head.slice(0, 8)
-					: "(unknown)";
+	if (entry.bare) return "(bare)";
+	if (entry.detached) {
+		if (!entry.head) return "(detached ?)";
+		return `(detached ${entry.head.slice(0, 8)})`;
+	}
+	if (entry.branchShort) return entry.branchShort;
+	if (entry.head) return entry.head.slice(0, 8);
+	return "(unknown)";
 }
 
 /** Resumen humano de una línea de una entrada de worktree para listas/notificaciones. */

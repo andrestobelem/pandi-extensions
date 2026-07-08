@@ -38,9 +38,21 @@ export function gitError(result: GitResult): string {
 	return reason || `git salió con el código ${result.exitCode}`;
 }
 
+type GitOutputStream = "stdout" | "stderr";
+
+function combineGitOutput(
+	result: GitResult,
+	first: GitOutputStream,
+	second: GitOutputStream,
+	options: { trim?: boolean } = {},
+): string {
+	const text = `${result[first]}\n${result[second]}`;
+	return options.trim === false ? text : text.trim();
+}
+
 /** stdout+stderr combinados (git worktree prune informa por stderr). */
 export function combinedOutput(result: GitResult): string {
-	return `${result.stdout}\n${result.stderr}`.trim();
+	return combineGitOutput(result, "stdout", "stderr");
 }
 
 /**
@@ -49,7 +61,7 @@ export function combinedOutput(result: GitResult): string {
  * importar el idioma.
  */
 export function needsForce(result: GitResult): boolean {
-	return `${result.stderr}\n${result.stdout}`.includes("--force");
+	return combineGitOutput(result, "stderr", "stdout", { trim: false }).includes("--force");
 }
 
 /**

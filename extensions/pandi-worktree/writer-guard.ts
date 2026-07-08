@@ -155,8 +155,12 @@ function getCommandGuardState(): GuardState {
 	return commandGuardState;
 }
 
-function isGuardedWorktreeCommand(action: string, dryRun?: boolean): boolean {
+function isMutatingWorktreeAction(action: string, dryRun?: boolean): boolean {
 	return action === "remove" || (action === "prune" && !dryRun);
+}
+
+function isGuardedWorktreeCommand(action: string, dryRun?: boolean): boolean {
+	return isMutatingWorktreeAction(action, dryRun);
 }
 
 function mutationIntentForToolCall(event: ToolCallEvent): MutationIntent | undefined {
@@ -170,9 +174,7 @@ function mutationIntentForToolCall(event: ToolCallEvent): MutationIntent | undef
 	if (event.toolName === "git_worktree") {
 		const action = typeof event.input.action === "string" ? event.input.action : "";
 		const dryRun = event.input.dryRun === true;
-		return action === "remove" || (action === "prune" && !dryRun)
-			? { kind: "tool", toolName: "git_worktree" }
-			: undefined;
+		return isMutatingWorktreeAction(action, dryRun) ? { kind: "tool", toolName: "git_worktree" } : undefined;
 	}
 	if (event.toolName === "dynamic_workflow") {
 		const action = typeof event.input.action === "string" ? event.input.action : "";

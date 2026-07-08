@@ -133,25 +133,19 @@ interface AddOrOpenParseState {
 	copyUntracked?: boolean;
 }
 
-function applyCopyIgnoredFlag(token: string, state: AddOrOpenParseState): boolean {
-	if (token === "--copy-ignored") {
-		state.copyIgnored = true;
+function applyTriStateCopyFlag(
+	token: string,
+	state: AddOrOpenParseState,
+	enableFlag: string,
+	disableFlag: string,
+	stateKey: "copyIgnored" | "copyUntracked",
+): boolean {
+	if (token === enableFlag) {
+		state[stateKey] = true;
 		return true;
 	}
-	if (token === "--no-copy-ignored") {
-		state.copyIgnored = false;
-		return true;
-	}
-	return false;
-}
-
-function applyCopyUntrackedFlag(token: string, state: AddOrOpenParseState): boolean {
-	if (token === "--copy-untracked") {
-		state.copyUntracked = true;
-		return true;
-	}
-	if (token === "--no-copy-untracked") {
-		state.copyUntracked = false;
+	if (token === disableFlag) {
+		state[stateKey] = false;
 		return true;
 	}
 	return false;
@@ -171,8 +165,8 @@ function applyAddOrOpenToken(rest: string[], index: number, state: AddOrOpenPars
 		state.detach = true;
 		return index;
 	}
-	if (applyCopyIgnoredFlag(tok, state)) return index;
-	if (applyCopyUntrackedFlag(tok, state)) return index;
+	if (applyTriStateCopyFlag(tok, state, "--copy-ignored", "--no-copy-ignored", "copyIgnored")) return index;
+	if (applyTriStateCopyFlag(tok, state, "--copy-untracked", "--no-copy-untracked", "copyUntracked")) return index;
 	state.positionals.push(tok);
 	return index;
 }

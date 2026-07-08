@@ -69,11 +69,14 @@ export function resolveCopyPrefs(params: CopyPrefs): { copyIgnored: boolean; cop
 	};
 }
 
+const COPY_TOGGLE_ON_TOKENS = new Set(["on", "enable", "enabled", "true", "1"]);
+const COPY_TOGGLE_OFF_TOKENS = new Set(["off", "disable", "disabled", "false", "0"]);
+
 /** Parsea un argumento de toggle on|off|status (con aliases comunes). */
 export function parseCopyToggleValue(raw: string): "on" | "off" | "status" | "invalid" {
 	const value = raw.trim().toLowerCase();
 	if (!value || value === "status") return "status";
-	if (["on", "enable", "enabled", "true", "1"].includes(value)) return "on";
-	if (["off", "disable", "disabled", "false", "0"].includes(value)) return "off";
+	if (COPY_TOGGLE_ON_TOKENS.has(value)) return "on";
+	if (COPY_TOGGLE_OFF_TOKENS.has(value)) return "off";
 	return "invalid";
 }

@@ -99,6 +99,7 @@ const WORKTREE_ACTIONS = [
 ] as const;
 
 const SUBCOMMANDS = WORKTREE_ACTIONS.map(({ value }) => value);
+const WORKTREE_ARGUMENT_COMPLETIONS = SUBCOMMANDS.map((sub) => ({ value: sub, label: sub }));
 const TOOL_ACTIONS = WORKTREE_ACTIONS.filter(({ value }) => value !== "set" && value !== "help").map(
 	({ value }) => value,
 );
@@ -770,8 +771,8 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 			// Completá solo el primer token (el subcomando).
 			if (tokens.length > 1) return null;
 			const needle = (tokens[0] ?? "").toLowerCase();
-			const items = SUBCOMMANDS.filter((sub) => sub.startsWith(needle));
-			return items.length > 0 ? items.map((sub) => ({ value: sub, label: sub })) : null;
+			const items = WORKTREE_ARGUMENT_COMPLETIONS.filter((item) => item.value.startsWith(needle));
+			return items.length > 0 ? items : null;
 		},
 		handler: async (args, ctx) => {
 			await runCommand(ctx, args);
