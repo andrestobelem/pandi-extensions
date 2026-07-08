@@ -15,18 +15,17 @@
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 
-/** Notifica al usuario y degrada con gracia fuera de la TUI (igual que las extensiones hermanas). */
-function notify(ctx: ExtensionCommandContext, message: string, type: "info" | "warning" | "error" = "info"): void {
+/** Reporta fallas de `/clear` y degrada con gracia fuera de la TUI. */
+function reportClearFailure(ctx: ExtensionCommandContext, message: string): void {
 	if (ctx.mode === "print") {
-		if (type === "info") console.log(message);
-		else console.error(message);
+		console.error(message);
 		return;
 	}
 	if (ctx.hasUI) {
-		ctx.ui.notify(message, type);
+		ctx.ui.notify(message, "error");
 		return;
 	}
-	if (type !== "info") console.error(message);
+	console.error(message);
 }
 
 function errorMessage(error: unknown): string {
@@ -44,7 +43,7 @@ export default function clearExtension(pi: ExtensionAPI): void {
 			try {
 				await ctx.newSession();
 			} catch (error) {
-				notify(ctx, formatClearFailure(error), "error");
+				reportClearFailure(ctx, formatClearFailure(error));
 			}
 		},
 	});
