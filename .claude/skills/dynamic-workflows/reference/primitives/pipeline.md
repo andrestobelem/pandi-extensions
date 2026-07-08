@@ -1,6 +1,6 @@
 # pipeline
 
-**Runtime:** shared (pi + Claude Code)
+**Runtime:** compartido (pi + Claude Code)
 
 `pipeline` hace pasar cada item por la **misma secuencia de etapas
 dependientes**, una cadena propia por item, sin merge entre items. Usalo
@@ -10,10 +10,10 @@ después paso 3» (por ejemplo, classify → deep-review → summarize).
 ```js
 const summaries = await pipeline(
   files,
-  (f) => agent(`Classify risk of ${f}`, { model: "haiku", effort: "low", name: `classify:${f}` }),
-  (risk, f) => agent(`Given risk ${risk}, deep-review ${f}`, { model: "sonnet", effort: "high", name: `review:${f}` }),
+  (f) => agent(`Clasificá el riesgo de ${f}`, { model: "haiku", effort: "low", name: `classify:${f}` }),
+  (risk, f) => agent(`Dado el riesgo ${risk}, hacé deep-review de ${f}`, { model: "sonnet", effort: "high", name: `review:${f}` }),
 );
-log(`reviewed ${summaries.filter(Boolean).length}/${files.length}`);
+log(`revisados ${summaries.filter(Boolean).length}/${files.length}`);
 ```
 
 ## Firma
@@ -57,19 +57,19 @@ item fallido nunca hunde el lote.
 - `{ inFlight }` solo baja la concurrencia de esta llamada; nunca puede pasar
   el `limits.concurrency` del workflow.
 
-## Example
+## Ejemplo
 
 ```js
 export default async function main() {
   const files = ["src/a.ts", "src/b.ts", "src/c.ts"];
   const results = await pipeline(
     files,
-    (f) => agent(`Classify risk of ${f}`, { model: "haiku", effort: "low" }),
-    (risk, f, i) => agent(`Given risk ${risk}, deep-review ${f} (#${i})`, { model: "sonnet", effort: "high" }),
+    (f) => agent(`Clasificá el riesgo de ${f}`, { model: "haiku", effort: "low" }),
+    (risk, f, i) => agent(`Dado el riesgo ${risk}, hacé deep-review de ${f} (#${i})`, { model: "sonnet", effort: "high" }),
     { inFlight: 3 },
   );
   const ok = results.filter(Boolean);
-  log(`reviewed ${ok.length}/${files.length}`);
+  log(`revisados ${ok.length}/${files.length}`);
   return ok;
 }
 ```
