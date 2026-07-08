@@ -73,6 +73,7 @@ const CHECKLIST_TEXT_MAX = 120;
  * Devuelve [] cuando no se encuentra nada estructurado.
  */
 export function extractPlanChecklist(markdown: string): ChecklistItem[] {
+	const uncheckedItem = (text: string): ChecklistItem => ({ text: clip(text, CHECKLIST_TEXT_MAX), checked: false });
 	const taskItems: ChecklistItem[] = [];
 	const ordered: ChecklistItem[] = [];
 	const bullets: ChecklistItem[] = [];
@@ -86,16 +87,16 @@ export function extractPlanChecklist(markdown: string): ChecklistItem[] {
 		}
 		const ord = line.match(/^\d+[.)]\s+(.*\S)/);
 		if (ord) {
-			ordered.push({ text: clip(ord[1], CHECKLIST_TEXT_MAX), checked: false });
+			ordered.push(uncheckedItem(ord[1]));
 			continue;
 		}
 		const bul = line.match(/^[-*+]\s+(.*\S)/);
 		if (bul) {
-			bullets.push({ text: clip(bul[1], CHECKLIST_TEXT_MAX), checked: false });
+			bullets.push(uncheckedItem(bul[1]));
 			continue;
 		}
 		const head = line.match(/^#{2,6}\s+(.*\S)/);
-		if (head) headings.push({ text: clip(head[1], CHECKLIST_TEXT_MAX), checked: false });
+		if (head) headings.push(uncheckedItem(head[1]));
 	}
 	if (taskItems.length) return taskItems;
 	if (ordered.length) return ordered;

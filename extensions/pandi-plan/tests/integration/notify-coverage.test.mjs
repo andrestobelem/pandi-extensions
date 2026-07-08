@@ -24,6 +24,7 @@ const TARGETS = [
 	"extensions/pandi-loop/notify.ts",
 	"extensions/pandi-dynamic-workflows/notify.ts",
 ];
+const PROBLEM_TYPES = ["warning", "error"];
 const { check, counts } = createChecker();
 
 async function buildNotify(relPath) {
@@ -136,11 +137,11 @@ async function assertNotifyContract(relPath) {
 		const { notify } = await loadModule(url);
 		check(`${relPath}: notify is an exported function`, typeof notify === "function");
 		await assertPrintInfoGoesToStdout(relPath, notify);
-		for (const type of ["warning", "error"]) await assertPrintProblemGoesToStderr(relPath, notify, type);
+		for (const type of PROBLEM_TYPES) await assertPrintProblemGoesToStderr(relPath, notify, type);
 		await assertInteractiveDelegates(relPath, notify);
 		await assertInteractiveDefaultsToInfo(relPath, notify);
 		await assertHeadlessInfoIsSilent(relPath, notify);
-		for (const type of ["warning", "error"]) await assertHeadlessProblemGoesToStderr(relPath, notify, type);
+		for (const type of PROBLEM_TYPES) await assertHeadlessProblemGoesToStderr(relPath, notify, type);
 	} finally {
 		await fs.rm(outDir, { recursive: true, force: true }).catch(() => {});
 	}

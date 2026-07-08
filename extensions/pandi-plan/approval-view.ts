@@ -136,21 +136,16 @@ class PlanApprovalComponent implements Component {
 
 		const title = this.theme.fg("accent", this.theme.bold("Plan"));
 		const location = this.theme.fg("dim", this.planId);
-		const autoSubmitSeconds = this.autoSubmitDeadline === undefined ? undefined : this.remainingAutoSubmitSeconds();
-		const autoSubmitTitle =
-			autoSubmitSeconds === undefined
-				? ""
-				: ` ${this.theme.fg("warning", `(auto-submit en ${autoSubmitSeconds}s)`)}`;
-		const autoSubmitFooter = autoSubmitSeconds === undefined ? "" : `auto-submit en ${autoSubmitSeconds}s • `;
+		const { titleSuffix, footerPrefix } = this.buildAutoSubmitCopy();
 		const footer = this.theme.fg(
 			"dim",
-			`${autoSubmitFooter}↑/↓ j/k desplazar • PgUp/PgDn página • y/Enter aprobar • n/Esc rechazar • ${start + 1}-${end}/${bodyLines.length}`,
+			`${footerPrefix}↑/↓ j/k desplazar • PgUp/PgDn página • y/Enter aprobar • n/Esc rechazar • ${start + 1}-${end}/${bodyLines.length}`,
 		);
 
 		const border = this.theme.fg("border", "─".repeat(safeWidth));
 		return [
 			border,
-			boundedLine(`${title} ${location}${autoSubmitTitle}`, safeWidth),
+			boundedLine(`${title} ${location}${titleSuffix}`, safeWidth),
 			"",
 			...visibleBody.map((line) => boundedLine(line, safeWidth)),
 			boundedLine(footer, safeWidth),
@@ -165,6 +160,17 @@ class PlanApprovalComponent implements Component {
 	private remainingAutoSubmitSeconds(): number {
 		if (this.autoSubmitDeadline === undefined) return 0;
 		return Math.max(0, Math.ceil((this.autoSubmitDeadline - Date.now()) / 1000));
+	}
+	private buildAutoSubmitCopy(): { titleSuffix: string; footerPrefix: string } {
+		if (this.autoSubmitDeadline === undefined) {
+			return { titleSuffix: "", footerPrefix: "" };
+		}
+
+		const autoSubmitSeconds = this.remainingAutoSubmitSeconds();
+		return {
+			titleSuffix: ` ${this.theme.fg("warning", `(auto-submit en ${autoSubmitSeconds}s)`)}`,
+			footerPrefix: `auto-submit en ${autoSubmitSeconds}s • `,
+		};
 	}
 	private pageSize(): number {
 		return Math.max(1, this.bodyHeight() - 1);

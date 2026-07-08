@@ -17,6 +17,8 @@ import type { PlanFlags } from "./posture.js";
 /** Claves de los toggles de postura por defecto de sesión. */
 type SessionFlagKey = "ultracode" | "ultracodeSteps" | "autoSubmit";
 
+const sessionFlagKeys: SessionFlagKey[] = ["ultracode", "ultracodeSteps", "autoSubmit"];
+
 /** Un setting está ON cuando la env var es uno de los tokens truthy (1/true/on/yes). */
 export function envFlag(name: string): boolean {
 	const value = (process.env[name] ?? "").trim().toLowerCase();
@@ -33,9 +35,9 @@ export function envFlag(name: string): boolean {
 const sessionFlagDefaults: { ultracode?: boolean; ultracodeSteps?: boolean; autoSubmit?: boolean } = {};
 
 export function resetSessionFlagDefaults(): void {
-	sessionFlagDefaults.ultracode = undefined;
-	sessionFlagDefaults.ultracodeSteps = undefined;
-	sessionFlagDefaults.autoSubmit = undefined;
+	for (const key of sessionFlagKeys) {
+		sessionFlagDefaults[key] = undefined;
+	}
 }
 
 /** Lee un toggle de defecto de sesión (undefined = unset, env/param decide). */

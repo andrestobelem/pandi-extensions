@@ -12,6 +12,32 @@ export type PlanToggleKey = "ultracode" | "ultracodeSteps" | "autoSubmit";
 export type PlanToggleLabel = "ultracode" | "steps-ultracode" | "auto-submit";
 export type PlanToggleAction = "on" | "off" | "status";
 
+type PlanToggleMetadata = { key: PlanToggleKey; label: PlanToggleLabel };
+type ParsedFirstToken = {
+	firstSpace: number;
+	firstToken: string;
+	rest: string;
+};
+
+const PLAN_TOGGLE_METADATA = {
+	ultracode: { key: "ultracode", label: "ultracode" },
+	"steps-ultracode": { key: "ultracodeSteps", label: "steps-ultracode" },
+	"auto-submit": { key: "autoSubmit", label: "auto-submit" },
+} satisfies Record<string, PlanToggleMetadata>;
+
+function parseFirstToken(input: string): ParsedFirstToken {
+	const firstSpace = input.indexOf(" ");
+	return {
+		firstSpace,
+		firstToken: (firstSpace === -1 ? input : input.slice(0, firstSpace)).toLowerCase(),
+		rest: firstSpace === -1 ? "" : input.slice(firstSpace + 1),
+	};
+}
+
+function getPlanToggleMetadata(token: string): PlanToggleMetadata | undefined {
+	return PLAN_TOGGLE_METADATA[token as keyof typeof PLAN_TOGGLE_METADATA];
+}
+
 export type PlanCommandIntent =
 	| { kind: "status" }
 	| { kind: "dashboard" }
@@ -33,25 +59,16 @@ export type PlanCommandIntent =
  */
 export function parsePlanCommandIntent(args: string): PlanCommandIntent {
 	const trimmed = args.trim();
-	const firstSpace = trimmed.indexOf(" ");
-	const firstToken = (firstSpace === -1 ? trimmed : trimmed.slice(0, firstSpace)).toLowerCase();
+	const { firstSpace, firstToken, rest } = parseFirstToken(trimmed);
 
 	if (firstSpace === -1 && firstToken === "status") return { kind: "status" };
 	if (firstSpace === -1 && (firstToken === "dashboard" || firstToken === "tui")) return { kind: "dashboard" };
 
-	if (firstToken === "ultracode" || firstToken === "steps-ultracode" || firstToken === "auto-submit") {
-		const key =
-			firstToken === "ultracode" ? "ultracode" : firstToken === "steps-ultracode" ? "ultracodeSteps" : "autoSubmit";
-		const label =
-			firstToken === "ultracode"
-				? "ultracode"
-				: firstToken === "steps-ultracode"
-					? "steps-ultracode"
-					: "auto-submit";
-		const rest = firstSpace === -1 ? "" : trimmed.slice(firstSpace + 1);
+	const toggle = getPlanToggleMetadata(firstToken);
+	if (toggle) {
 		const action = parsePlanToggleValue(rest);
-		if (action === "invalid") return { kind: "invalid-toggle", label };
-		return { kind: "toggle", key, label, action };
+		if (action === "invalid") return { kind: "invalid-toggle", label: toggle.label };
+		return { kind: "toggle", key: toggle.key, label: toggle.label, action };
 	}
 
 	if (firstSpace === -1 && (firstToken === "exit" || firstToken === "cancel")) {
