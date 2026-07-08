@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /**
- * Pure-function tests for focus-metrics.ts (research §4 focus observability).
+ * Tests de funciones puras para focus-metrics.ts (research §4 focus observability).
  *
- * parseAgentFocusMetrics folds a Pi JSON-mode stdout stream into per-agent metrics
- * (token growth, tool-error rate, retries); aggregateRunFocusMetrics rolls those up.
- * Counting usage ONLY from message_end avoids double-counting the repeated assistant
- * message that turn_end/agent_end also carry. Everything is tolerant + fail-safe.
+ * parseAgentFocusMetrics pliega un stream stdout de Pi JSON-mode en métricas por agente
+ * (crecimiento de tokens, tasa de tool-error, retries); aggregateRunFocusMetrics las agrega.
+ * Contar usage SOLO desde message_end evita doble conteo del mensaje assistant repetido
+ * que turn_end/agent_end también llevan. Todo es tolerante + fail-safe.
  *
- * focus-metrics.ts has no imports, so it bundles standalone (no stubs needed).
+ * focus-metrics.ts no tiene imports, así que bundlea standalone (sin stubs necesarios).
  */
 
 import * as path from "node:path";
@@ -29,7 +29,7 @@ async function loadModule() {
 	return await import(url);
 }
 
-// --- JSON-mode line builders -------------------------------------------------
+// --- Builders de líneas JSON-mode --------------------------------------------
 const msgEnd = (input, output, total, cost, { cacheRead = 0, cacheWrite = 0 } = {}) =>
 	JSON.stringify({
 		type: "message_end",
@@ -67,15 +67,15 @@ async function main() {
 	const mod = await loadModule();
 	const { parseAgentFocusMetrics, aggregateRunFocusMetrics, formatFocusMetricsMarkdown } = mod;
 
-	// 1) Token growth + tool-error + retries from a realistic stream.
+	// 1) Crecimiento de tokens + tool-error + retries desde un stream realista.
 	const stdout = [
 		JSON.stringify({ type: "agent_start" }),
 		msgEnd(1000, 50, 1050, 0.01),
 		toolEnd(false),
 		toolEnd(true),
-		msgEnd(1500, 30, 1530, 0.012), // input grew → peak 1500
+		msgEnd(1500, 30, 1530, 0.012), // input creció → peak 1500
 		retryEnd(),
-		// turn_end + agent_end repeat the SAME last message — must NOT be double-counted.
+		// turn_end + agent_end repiten el MISMO último mensaje — NO debe contarse doble.
 		turnEnd(1500, 30, 1530, 0.012),
 		agentEnd(1500, 30, 1530, 0.012),
 	].join("\n");
@@ -101,7 +101,7 @@ async function main() {
 		m.id === 1 && m.name === "scout" && m.ok === true && m.elapsedMs === 1234,
 	);
 
-	// 2) Fail-safe on empty / garbage / partial input.
+	// 2) Fail-safe ante input vacío / basura / parcial.
 	const empty = parseAgentFocusMetrics("", META);
 	check(
 		"failsafe: empty stdout → zeroed metrics",
@@ -112,9 +112,9 @@ async function main() {
 	const mixed = parseAgentFocusMetrics(["{bad", msgEnd(200, 5, 205, 0.001), "also bad"].join("\n"), META);
 	check("failsafe: valid lines still counted amid invalid ones", mixed.turns === 1 && mixed.inputTokensPeak === 200);
 
-	// 2b) Prompt caching: providers report cached prompt tokens in cacheRead/cacheWrite,
-	// leaving usage.input tiny (~2 tok observed in production with Anthropic caching).
-	// The REAL per-call context pressure is input + cacheRead + cacheWrite.
+	// 2b) Prompt caching: providers reportan tokens de prompt cacheados en cacheRead/cacheWrite,
+	// dejando usage.input diminuto (~2 tok observado en producción con caching de Anthropic).
+	// La presión REAL de contexto por call es input + cacheRead + cacheWrite.
 	const cached = parseAgentFocusMetrics(
 		[
 			msgEnd(2, 54, 7470, 0.095, { cacheRead: 0, cacheWrite: 7414 }),
@@ -133,9 +133,9 @@ async function main() {
 		`read=${cached.cacheReadTotal} write=${cached.cacheWriteTotal}`,
 	);
 
-	// 3) Aggregate across agents: rollup + tool-error rate + ordered trajectory.
+	// 3) Agregá entre agentes: rollup + tasa de tool-error + trajectory ordenada.
 	const a2 = parseAgentFocusMetrics(msgEnd(500, 10, 510, 0.002), { id: 2, name: "synth", ok: false, elapsedMs: 50 });
-	const agg = aggregateRunFocusMetrics([a2, m]); // pass out of order to test sorting by id
+	const agg = aggregateRunFocusMetrics([a2, m]); // pasá fuera de orden para probar sorting por id
 	check("aggregate: measuredAgents", agg.measuredAgents === 2, `n=${agg.measuredAgents}`);
 	check("aggregate: ok/failed split", agg.okAgents === 1 && agg.failedAgents === 1);
 	check("aggregate: inputTokensPeak is max across agents", agg.inputTokensPeak === 1500);
@@ -153,7 +153,7 @@ async function main() {
 	check("aggregate: agentElapsedMsTotal sums durations", agg.agentElapsedMsTotal === 1284);
 	check("aggregate: agents ordered by id (trajectory)", agg.agents.map((x) => x.id).join(",") === "1,2");
 
-	// 4) Markdown report renders + notes excluded cached calls.
+	// 4) El reporte Markdown renderiza + nota calls cacheadas excluidas.
 	const md = formatFocusMetricsMarkdown(agg, { cachedCalls: 3 });
 	check(
 		"format: includes the header + a trajectory table",
@@ -163,7 +163,7 @@ async function main() {
 	check("format: notes excluded cached/resumed calls", /3 cached\/resumed call\(s\)/.test(md));
 	const mdNoCache = formatFocusMetricsMarkdown(agg, {});
 	check("format: no cached-note when none excluded", !/cached\/resumed call/.test(mdNoCache));
-	// A workflow-supplied agent name with a pipe/newline must not break the Markdown table.
+	// Un nombre de agente provisto por workflow con pipe/newline no debe romper la tabla Markdown.
 	const piped = parseAgentFocusMetrics("", { id: 9, name: "a|b\nc", ok: true, elapsedMs: 0 });
 	const mdEscaped = formatFocusMetricsMarkdown(aggregateRunFocusMetrics([piped]), {});
 	const row = mdEscaped.split("\n").find((l) => l.includes("a"));
