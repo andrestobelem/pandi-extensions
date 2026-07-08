@@ -130,6 +130,30 @@ function resolveRecommendedChoice(
 	return undefined;
 }
 
+function selectedChoiceResult(index: number, label: string, question: string, options: readonly string[]) {
+	return jsonResult(
+		{ index, label },
+		{
+			cancelled: false,
+			index,
+			label,
+			question,
+			options,
+		},
+	);
+}
+
+function cancelledChoiceResult(question: string, options: readonly string[]) {
+	return jsonResult(
+		{ cancelled: true },
+		{
+			cancelled: true,
+			question,
+			options,
+		},
+	);
+}
+
 function recommendedChoiceResult(
 	recommended: RecommendedChoice,
 	question: string,
@@ -245,26 +269,10 @@ function registerChoiceTool(pi: ExtensionAPI, settings: AskRecommendationSetting
 				if (recommended && timedOut) {
 					return recommendedChoiceResult(recommended, params.question, options, "recommended-timeout");
 				}
-				return jsonResult(
-					{ cancelled: true },
-					{
-						cancelled: true,
-						question: params.question,
-						options,
-					},
-				);
+				return cancelledChoiceResult(params.question, options);
 			}
 			const index = options.indexOf(choice) + 1;
-			return jsonResult(
-				{ index, label: choice },
-				{
-					cancelled: false,
-					index,
-					label: choice,
-					question: params.question,
-					options,
-				},
-			);
+			return selectedChoiceResult(index, choice, params.question, options);
 		},
 	});
 }
