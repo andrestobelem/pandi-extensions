@@ -117,7 +117,7 @@ const VENDORED_SCRIPT_REL = join("extensions", "pandi-doctor", "scripts", "docto
  * incluida en el npm tarball). Devuelve null cuando no existe ninguna — `/doctor` se
  * degrada a una sugerencia.
  */
-export function resolveDoctorScript(startCwd: string, extDir: string): string | null {
+function findVendoredScriptUpwards(startCwd: string): string | null {
 	let dir = startCwd;
 	// Subí hasta la raíz del filesystem.
 	for (;;) {
@@ -127,6 +127,12 @@ export function resolveDoctorScript(startCwd: string, extDir: string): string | 
 		if (parent === dir) break;
 		dir = parent;
 	}
+	return null;
+}
+
+export function resolveDoctorScript(startCwd: string, extDir: string): string | null {
+	const workingTreeScript = findVendoredScriptUpwards(startCwd);
+	if (workingTreeScript) return workingTreeScript;
 	const fallback = join(extDir, "scripts", "doctor.mjs");
 	if (existsSync(fallback)) return fallback;
 	return null;
