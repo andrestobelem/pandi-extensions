@@ -1,16 +1,16 @@
 /**
- * Test that the shared harness auto-cleans its `makeBuildDir` tempdirs at process exit.
+ * Test de que el harness compartido auto-limpia sus tempdirs `makeBuildDir` al process exit.
  *
- * `buildExtension`/`makeBuildDir` create a fresh `mkdtemp` dir per call (harness.mjs), but cleanup
- * used to be opt-in per suite — only ~3 of ~90 pandi-dynamic-workflows call sites deleted their outDir,
- * so the rest leaked esbuild output + copied assets into the OS temp dir on every run (test-review
- * finding P6 / D2#4). The harness now registers each build dir for removal on process exit.
+ * `buildExtension`/`makeBuildDir` crean un dir `mkdtemp` fresco por call (harness.mjs), pero cleanup
+ * antes era opt-in por suite — solo ~3 de ~90 call sites de pandi-dynamic-workflows borraban su outDir,
+ * así que el resto filtraba output de esbuild + assets copiados en el temp dir del SO en cada run
+ * (hallazgo test-review P6 / D2#4). El harness ahora registra cada build dir para removerlo al exit.
  *
- * This pins the behavior with a real child process:
- *   - the dir EXISTS while the process is alive (cleanup is at-exit, not eager), and
- *   - the dir is GONE after the process exits normally.
+ * Esto pinea el comportamiento con un child process real:
+ *   - el dir EXISTE mientras el proceso está vivo (cleanup es at-exit, no eager), y
+ *   - el dir DESAPARECE después de que el proceso sale normalmente.
  *
- * Run it:
+ * Corrida:
  *   node extensions/pandi-dynamic-workflows/tests/integration/harness-builddir-cleanup.test.mjs
  */
 
@@ -30,7 +30,7 @@ const { check, counts } = createChecker();
 function main() {
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), "builddir-cleanup-test-"));
 	const childFile = path.join(dir, "child.mjs");
-	// Child makes a build dir, asserts it exists while alive, prints it, then exits normally.
+	// El child crea un build dir, aserta que existe mientras vive, lo imprime y luego sale normalmente.
 	fs.writeFileSync(
 		childFile,
 		`import { existsSync } from "node:fs";
