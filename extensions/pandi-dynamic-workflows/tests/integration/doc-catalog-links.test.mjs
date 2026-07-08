@@ -1,11 +1,11 @@
 /**
- * Durable documentation guard for issue #19.
+ * Guard durable de documentación para issue #19.
  *
- * README catalog/count and local relative links should fail fast in `npm test`,
- * not during onboarding. The reusable script is intentionally read-only and
- * cheap enough to run as an integration suite.
+ * El catálogo/count del README y los links relativos locales deben fallar rápido en `npm test`,
+ * no durante onboarding. El script reutilizable es intencionalmente read-only y
+ * lo bastante barato para correr como suite de integración.
  *
- * Run it:
+ * Corrida:
  *   node extensions/pandi-dynamic-workflows/tests/integration/doc-catalog-links.test.mjs
  */
 
