@@ -271,6 +271,14 @@ details.fail-card { border-color:var(--error); }
 pre { background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:10px 12px; overflow-x:auto;
   font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; color:var(--ink); white-space:pre-wrap; word-break:break-word; }
 pre.json-output { white-space:pre; }
+.structured-output { color:var(--ink2); }
+.structured-output details.raw-json { margin-top:12px; }
+.timeline-list { list-style:none; margin:0; padding:4px 0 4px 20px; border-left:2px solid var(--line); }
+.timeline-item { position:relative; margin:0 0 14px; padding-left:16px; }
+.timeline-item::before { content:""; position:absolute; left:-26px; top:.45em; width:9px; height:9px; border-radius:999px; background:var(--paper); border:2px solid var(--accent); }
+.timeline-time { display:block; color:var(--muted); font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:12px; margin-bottom:2px; }
+.timeline-message { color:var(--ink); }
+.timeline-details { margin-top:6px; }
 .md-body { color:var(--ink2); }
 .md-body p, .md-body ul, .md-body ol, .md-body blockquote, .md-body table { margin:0 0 10px; }
 .md-body h1, .md-body h2, .md-body h3, .md-body h4, .md-body h5, .md-body h6 { color:var(--ink); margin:14px 0 8px; }
@@ -306,6 +314,8 @@ const MERMAID_STATE_STYLES: Record<string, string> = {
 	other: "fill:#c7ccd1,color:#1c1f22,stroke:#8b939b",
 };
 
+const MAX_DETAILED_MERMAID_AGENTS_PER_GROUP = 12;
+
 /**
  * Flowchart Mermaid del run concreto: agentes agrupados por fase en orden de aparición,
  * coloreados por estado. Complementa — no reemplaza — el grafo estático de workflow-graph.ts
@@ -313,49 +323,139 @@ const MERMAID_STATE_STYLES: Record<string, string> = {
  * de llegar al contenedor `.mermaid` y también queda disponible como fallback colapsable; el
  * render client-side está pineado por run-report-security.test.mjs (CDN exacta + SRI + sandbox).
  */
+interface RunMermaidGroup {
+	label: string;
+	agents: RunReportAgent[];
+}
+
+function timestampMs(value: string | undefined): number | undefined {
+	if (!value) return undefined;
+	const ms = Date.parse(value);
+	return Number.isFinite(ms) ? ms : undefined;
+}
+
+function inferPhaseForAgent(
+	agent: RunReportAgent,
+	phases: RunReportModel["phases"],
+): { key: string; label: string } | undefined {
+	if (agent.phaseId !== undefined || agent.phaseLabel) {
+		const key = agent.phaseId !== undefined ? `p${agent.phaseId}` : `label:${agent.phaseLabel}`;
+		return { key, label: agent.phaseLabel ?? `Phase ${agent.phaseId}` };
+	}
+	const ref = timestampMs(agent.startedAt) ?? timestampMs(agent.endedAt);
+	if (ref === undefined) return undefined;
+	let chosen: RunReportModel["phases"][number] | undefined;
+	let chosenMs = Number.NEGATIVE_INFINITY;
+	for (const phase of phases) {
+		const phaseMs = timestampMs(phase.time);
+		if (phaseMs === undefined || phaseMs > ref || phaseMs < chosenMs) continue;
+		chosen = phase;
+		chosenMs = phaseMs;
+	}
+	if (!chosen) return undefined;
+	const key = chosen.source === "event" ? `p${modelPhaseKey(chosen)}` : `label:${chosen.label}`;
+	return { key, label: chosen.label };
+}
+
+function modelPhaseKey(phase: RunReportModel["phases"][number]): string {
+	return `${phase.time}:${phase.label}`;
+}
+
+function buildRunMermaidGroups(model: RunReportModel): RunMermaidGroup[] {
+	const groups = new Map<string, RunMermaidGroup>();
+	for (const agent of model.agents) {
+		const phase = inferPhaseForAgent(agent, model.phases) ?? { key: "none", label: "Agents" };
+		const group = groups.get(phase.key);
+		if (group) group.agents.push(agent);
+		else groups.set(phase.key, { label: phase.label, agents: [agent] });
+	}
+	return [...groups.values()];
+}
+
+function agentStateCounts(agents: RunReportAgent[]): Record<"completed" | "failed" | "running" | "other", number> {
+	return agents.reduce(
+		(counts, agent) => {
+			counts[mermaidStateClass(agent)] += 1;
+			return counts;
+		},
+		{ completed: 0, failed: 0, running: 0, other: 0 },
+	);
+}
+
+function summaryStateClass(
+	counts: Record<"completed" | "failed" | "running" | "other", number>,
+): "completed" | "failed" | "running" | "other" {
+	if (counts.failed > 0) return "failed";
+	if (counts.running > 0) return "running";
+	if (counts.completed > 0 && counts.other === 0) return "completed";
+	return "other";
+}
+
+function mermaidGroupSummaryLabel(agents: RunReportAgent[]): string {
+	const counts = agentStateCounts(agents);
+	return [
+		`${agents.length} agents`,
+		counts.completed ? `${counts.completed} completed` : "",
+		counts.failed ? `${counts.failed} failed` : "",
+		counts.running ? `${counts.running} running` : "",
+		counts.other ? `${counts.other} other` : "",
+	]
+		.filter(Boolean)
+		.join(" · ");
+}
+
 export function buildRunMermaidSource(model: RunReportModel): string {
 	if (model.agents.length === 0) {
 		return 'flowchart TD\n  none["No agents in this run"]';
 	}
 
-	const groups = new Map<string, { label: string; agentIds: number[] }>();
-	for (const agent of model.agents) {
-		const key = agent.phaseId !== undefined ? `p${agent.phaseId}` : "none";
-		const label = agent.phaseLabel ?? (agent.phaseId !== undefined ? `Phase ${agent.phaseId}` : "Agents");
-		const group = groups.get(key);
-		if (group) group.agentIds.push(agent.id);
-		else groups.set(key, { label, agentIds: [agent.id] });
-	}
-	const agentById = new Map(model.agents.map((agent) => [agent.id, agent]));
-
-	const lines = ["flowchart TD"];
+	const groups = buildRunMermaidGroups(model);
+	const lines = ["flowchart TD", '  start(["start"])'];
 	const phaseIds: string[] = [];
+	const usedClasses = new Set<string>();
+	const classLines: string[] = [];
 	let index = 0;
-	for (const { label, agentIds } of groups.values()) {
+	for (const group of groups) {
 		index += 1;
 		const phaseId = `phase${index}`;
 		phaseIds.push(phaseId);
-		lines.push(`  subgraph ${phaseId}["${mermaidLabel(label)}"]`);
-		for (const agentId of agentIds) {
-			const agent = agentById.get(agentId);
-			if (!agent) continue;
-			// Forma "stadium" (bordes totalmente redondeados): combina con el estilo pill de
-			// los <span class="rpill"> de estado que usa el resto del reporte.
-			lines.push(`    A${agent.id}(["${mermaidLabel(agent.name)}"])`);
+		const entryId = `${phaseId}_in`;
+		const exitId = `${phaseId}_out`;
+		const parallel = group.agents.length > 1;
+		lines.push(`  subgraph ${phaseId}["${mermaidLabel(group.label)}"]`);
+		lines.push(`    ${entryId}(("${parallel ? "fork" : "start"}"))`);
+		lines.push(`    ${exitId}(("${parallel ? "join" : "done"}"))`);
+		if (group.agents.length > MAX_DETAILED_MERMAID_AGENTS_PER_GROUP) {
+			const counts = agentStateCounts(group.agents);
+			const cls = summaryStateClass(counts);
+			const summaryId = `${phaseId}_summary`;
+			lines.push(`    ${summaryId}(["${mermaidLabel(mermaidGroupSummaryLabel(group.agents))}"])`);
+			lines.push(`    ${entryId} --> ${summaryId}`);
+			lines.push(`    ${summaryId} --> ${exitId}`);
+			usedClasses.add(cls);
+			classLines.push(`  class ${summaryId} ${cls}`);
+		} else {
+			for (const agent of group.agents) {
+				const cls = mermaidStateClass(agent);
+				// Forma "stadium" (bordes totalmente redondeados): combina con el estilo pill de
+				// los <span class="rpill"> de estado que usa el resto del reporte.
+				lines.push(`    A${agent.id}(["${mermaidLabel(agent.name)}"])`);
+				lines.push(`    ${entryId} --> A${agent.id}`);
+				lines.push(`    A${agent.id} --> ${exitId}`);
+				usedClasses.add(cls);
+				classLines.push(`  class A${agent.id} ${cls}`);
+			}
 		}
 		lines.push("  end");
 	}
-	for (let i = 0; i < phaseIds.length - 1; i += 1) {
-		lines.push(`  ${phaseIds[i]} --> ${phaseIds[i + 1]}`);
+	if (phaseIds.length > 0) {
+		lines.push(`  start --> ${phaseIds[0]}_in`);
+		for (let i = 0; i < phaseIds.length - 1; i += 1) {
+			lines.push(`  ${phaseIds[i]}_out --> ${phaseIds[i + 1]}_in`);
+		}
+		lines.push(`  ${phaseIds[phaseIds.length - 1]}_out --> done(["done"])`);
 	}
 
-	const usedClasses = new Set<string>();
-	const classLines: string[] = [];
-	for (const agent of model.agents) {
-		const cls = mermaidStateClass(agent);
-		usedClasses.add(cls);
-		classLines.push(`  class A${agent.id} ${cls}`);
-	}
 	for (const cls of usedClasses) {
 		lines.push(`  classDef ${cls} ${MERMAID_STATE_STYLES[cls]}`);
 	}
@@ -382,18 +482,128 @@ function truncNote(t: RunReportText): string {
 	return t.truncated ? ` <span class="muted">…[truncated]</span>` : "";
 }
 
-function prettyJsonOutput(text: string): string | undefined {
+type RenderMode = "pre" | "markdown" | "structured";
+type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
+
+function parsedJsonOutput(text: string): { value: JsonValue; pretty: string } | undefined {
 	const trimmed = text.trim();
 	const first = trimmed[0];
 	if (first !== "{" && first !== "[") return undefined;
 	try {
-		return JSON.stringify(JSON.parse(trimmed), null, 2);
+		const value = JSON.parse(trimmed) as JsonValue;
+		return { value, pretty: JSON.stringify(value, null, 2) };
 	} catch {
 		return undefined;
 	}
 }
 
-function renderTextBody(text: string, render: "pre" | "markdown"): string {
+function prettyJsonOutput(text: string): string | undefined {
+	return parsedJsonOutput(text)?.pretty;
+}
+
+function isJsonRecord(value: JsonValue): value is { [key: string]: JsonValue } {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isJsonScalar(value: JsonValue): value is null | boolean | number | string {
+	return value === null || typeof value === "string" || typeof value === "number" || typeof value === "boolean";
+}
+
+function humanizeKey(key: string): string {
+	const words = key
+		.replace(/[_-]+/g, " ")
+		.replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+		.replace(/\s+/g, " ")
+		.trim()
+		.toLowerCase();
+	return words.replace(/^./, (ch) => ch.toUpperCase());
+}
+
+function markdownScalar(value: JsonValue): string {
+	if (value === null) return "`null`";
+	if (typeof value === "string") return value.trim() || "_(empty)_";
+	if (typeof value === "number" || typeof value === "boolean") return `\`${String(value)}\``;
+	return `\`${JSON.stringify(value)}\``;
+}
+
+function markdownTableCell(value: JsonValue): string {
+	return markdownScalar(value)
+		.replace(/\|/g, "\\|")
+		.replace(/\r?\n+/g, " / ");
+}
+
+function flatRecordKeys(rows: { [key: string]: JsonValue }[]): string[] {
+	const keys: string[] = [];
+	for (const row of rows) {
+		for (const key of Object.keys(row)) {
+			if (!keys.includes(key) && isJsonScalar(row[key])) keys.push(key);
+		}
+	}
+	return keys;
+}
+
+function recordsToMarkdownTable(rows: { [key: string]: JsonValue }[]): string {
+	const keys = flatRecordKeys(rows);
+	if (keys.length === 0) return rows.map((row) => `- ${markdownScalar(row)}`).join("\n");
+	const head = `| ${keys.map((key) => humanizeKey(key)).join(" | ")} |`;
+	const sep = `| ${keys.map(() => "---").join(" | ")} |`;
+	const body = rows.map((row) => `| ${keys.map((key) => markdownTableCell(row[key] ?? "")).join(" | ")} |`).join("\n");
+	return `${head}\n${sep}\n${body}`;
+}
+
+function objectToKeyValueTable(record: { [key: string]: JsonValue }): string {
+	const rows = Object.entries(record).filter(([, value]) => isJsonScalar(value));
+	if (rows.length === 0) return "";
+	return [
+		"| Field | Value |",
+		"| --- | --- |",
+		...rows.map(([key, value]) => `| ${humanizeKey(key)} | ${markdownTableCell(value)} |`),
+	].join("\n");
+}
+
+function structuredValueMarkdown(value: JsonValue, level = 3): string {
+	if (Array.isArray(value)) {
+		if (value.length === 0) return "_none_";
+		if (value.every((item) => typeof item === "string")) return value.map((item) => `- ${item}`).join("\n");
+		if (value.every(isJsonRecord)) return recordsToMarkdownTable(value as { [key: string]: JsonValue }[]);
+		return value.map((item) => `- ${markdownScalar(item)}`).join("\n");
+	}
+	if (isJsonRecord(value)) {
+		const scalarTable = objectToKeyValueTable(value);
+		const nested = Object.entries(value)
+			.filter(([, nestedValue]) => !isJsonScalar(nestedValue))
+			.map(
+				([key, nestedValue]) =>
+					`${"#".repeat(Math.min(level, 6))} ${humanizeKey(key)}\n\n${structuredValueMarkdown(nestedValue, level + 1)}`,
+			)
+			.join("\n\n");
+		return [scalarTable, nested].filter(Boolean).join("\n\n") || "_empty object_";
+	}
+	return markdownScalar(value);
+}
+
+function structuredJsonMarkdown(value: JsonValue): string {
+	if (!isJsonRecord(value)) return structuredValueMarkdown(value);
+	return Object.entries(value)
+		.map(([key, child]) => `### ${humanizeKey(key)}\n\n${structuredValueMarkdown(child, 4)}`)
+		.join("\n\n");
+}
+
+function renderStructuredJson(text: string): string | undefined {
+	const parsed = parsedJsonOutput(text);
+	if (!parsed) return undefined;
+	return (
+		`<div class="structured-output"><div class="md-body">${renderRunReportMarkdown(structuredJsonMarkdown(parsed.value))}</div></div>` +
+		`<details class="raw-json"><summary>Raw JSON</summary><div class="body"><pre class="json-output">${escapeHtml(parsed.pretty)}</pre></div></details>`
+	);
+}
+
+function renderTextBody(text: string, render: RenderMode): string {
+	if (render === "structured") {
+		const structured = renderStructuredJson(text);
+		if (structured !== undefined) return structured;
+		return `<div class="md-body">${renderRunReportMarkdown(text)}</div>`;
+	}
 	const json = prettyJsonOutput(text);
 	if (json !== undefined) return `<pre class="json-output">${escapeHtml(json)}</pre>`;
 	return render === "markdown"
@@ -401,12 +611,7 @@ function renderTextBody(text: string, render: "pre" | "markdown"): string {
 		: `<pre>${escapeHtml(text)}</pre>`;
 }
 
-function textBlock(
-	title: string,
-	t: RunReportText | undefined,
-	open = false,
-	render: "pre" | "markdown" = "pre",
-): string {
+function textBlock(title: string, t: RunReportText | undefined, open = false, render: RenderMode = "pre"): string {
 	if (!t) return "";
 	const body = renderTextBody(t.text, render);
 	return (
@@ -796,6 +1001,26 @@ function link(href: string | undefined, label: string): string {
 	return `<a href="${safe}">${escapeHtml(label)}</a>`;
 }
 
+function renderTimelineDetails(details: string | undefined): string {
+	if (!details) return "";
+	const pretty = prettyJsonOutput(details);
+	const body = pretty
+		? `<pre class="json-output">${escapeHtml(pretty)}</pre>`
+		: `<div class="kv muted">${escapeHtml(details)}</div>`;
+	return `<div class="timeline-details">${body}</div>`;
+}
+
+function renderTimeline(logs: RunReportModel["logs"]): string {
+	const items = logs
+		.map(
+			(log) =>
+				`<li class="timeline-item"><span class="timeline-time">${escapeHtml(log.time)}</span>` +
+				`<div class="timeline-message">${escapeHtml(log.message)}</div>${renderTimelineDetails(log.details)}</li>`,
+		)
+		.join("");
+	return `<ol class="timeline-list">${items}</ol>`;
+}
+
 function renderAgent(agent: RunReportAgent): string {
 	const failed = agentFailed(agent);
 	const pill = `<span class="rpill ${pillClass(agent.state, agent.ok)}">${escapeHtml(agent.state)}</span>`;
@@ -832,10 +1057,10 @@ function renderAgent(agent: RunReportAgent): string {
 	} else {
 		if (agent.prompt) {
 			body += `<div class="kv muted">Prompt (extracted from artifact; section boundaries are forgeable):</div>`;
-			body += textBlock("Prompt", agent.prompt);
+			body += textBlock("Prompt", agent.prompt, false, "markdown");
 		}
-		if (agent.output !== undefined) body += textBlock("Output", agent.output, false, "markdown");
-		if (agent.data) body += textBlock("Structured data", agent.data);
+		if (agent.output !== undefined) body += textBlock("Output", agent.output, false, "structured");
+		if (agent.data) body += textBlock("Structured data", agent.data, false, "structured");
 	}
 	if (agent.outputEmpty || agent.outputTruncated || agent.stdoutTruncated) {
 		const facts = [
@@ -947,17 +1172,8 @@ export function buildRunReportHtml(model: RunReportModel): string {
 			`<table><thead><tr><th>Time</th><th>Phase</th><th>Source</th></tr></thead><tbody>${phaseRows}</tbody></table>`
 		: "";
 
-	const logRows = model.logs
-		.map(
-			(l) =>
-				`<tr><td class="mono">${escapeHtml(l.time)}</td><td>${escapeHtml(l.message)}` +
-				(l.details ? `<div class="kv muted">${escapeHtml(l.details)}</div>` : "") +
-				`</td></tr>`,
-		)
-		.join("");
 	const logSection = model.logs.length
-		? `<details><summary>Timeline (${model.logs.length} log entries)</summary><div class="body">` +
-			`<table><thead><tr><th>Time</th><th>Message</th></tr></thead><tbody>${logRows}</tbody></table></div></details>`
+		? `<details><summary>Timeline (${model.logs.length} log entries)</summary><div class="body">${renderTimeline(model.logs)}</div></details>`
 		: "";
 
 	const integrity = model.integrity;
@@ -1061,7 +1277,7 @@ ${opening}
 ${callouts.join("\n")}
 ${renderWorkflowMonitor(model, summary)}
 ${textBlock("Input", model.input)}
-${model.output ? `<h2>Final output</h2>${textBlock("Output", model.output, true, model.outputFormat === "markdown" ? "markdown" : "pre")}` : ""}
+${model.output ? `<h2>Final output</h2>${textBlock("Output", model.output, true, model.outputFormat === "markdown" ? "markdown" : "structured")}` : ""}
 ${integritySection}
 ${metricsSection}
 ${basedOnSection}

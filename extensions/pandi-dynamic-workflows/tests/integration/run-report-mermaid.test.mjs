@@ -64,7 +64,7 @@ async function main() {
 	check("nodo de agente incluye su nombre", mermaid.includes("scout-1"));
 	check("nodo de agente incluye su nombre (judge)", mermaid.includes("judge"));
 	check("nodos de agente usan forma stadium/pill", mermaid.includes('A1(["scout-1"])'));
-	check("conecta las fases en orden de aparición", mermaid.includes("phase1 --> phase2"));
+	check("conecta las fases en orden de aparición", /phase1_out\s*-->\s*phase2_in/.test(mermaid), mermaid);
 	check(
 		"clasifica el agente failed con su clase de estado",
 		/class A3 .*failed/.test(mermaid) || mermaid.includes("class A3 failed"),
@@ -78,7 +78,57 @@ async function main() {
 		mermaid.includes("classDef completed") && mermaid.includes("classDef failed"),
 	);
 
-	// Agentes sin fase (phaseId/phaseLabel ausentes): van a un grupo de fallback, no rompen.
+	// Grupos grandes se resumen: evita diagramas Mermaid gigantes que el browser muestra como
+	// un lienzo horizontal casi vacío o puede fallar al renderizar.
+	const largeGroup = buildRunMermaidSource(
+		baseModel({
+			agents: Array.from({ length: 20 }, (_, i) => ({
+				id: i + 1,
+				name: `worker-${i + 1}`,
+				state: "completed",
+				ok: true,
+				phaseId: 1,
+				phaseLabel: "Workers",
+			})),
+		}),
+	);
+	check(
+		"grupo grande se resume en un nodo compacto",
+		largeGroup.includes('phase1_summary(["20 agents · 20 completed"])'),
+		largeGroup,
+	);
+	check("grupo grande no dibuja cada agente", !largeGroup.includes('A13(["worker-13"])'), largeGroup);
+	check("el nodo resumen conserva clase de estado", largeGroup.includes("class phase1_summary completed"), largeGroup);
+
+	// Agentes sin phaseId/phaseLabel explícitos pueden inferirse desde timestamps de phases estructuradas.
+	const inferred = buildRunMermaidSource(
+		baseModel({
+			phases: [
+				{ id: 1, label: "review", time: "2026-01-01T00:00:00.000Z", source: "event" },
+				{ id: 2, label: "synthesize", time: "2026-01-01T00:00:10.000Z", source: "event" },
+			],
+			agents: [
+				{ id: 1, name: "review-1", state: "completed", ok: true, startedAt: "2026-01-01T00:00:01.000Z" },
+				{ id: 2, name: "review-2", state: "completed", ok: true, startedAt: "2026-01-01T00:00:02.000Z" },
+				{ id: 3, name: "synthesize", state: "completed", ok: true, startedAt: "2026-01-01T00:00:11.000Z" },
+			],
+		}),
+	);
+	check("infiere grupo review por timestamp", inferred.includes('subgraph phase1["review"]'), inferred);
+	check("infiere grupo synthesize por timestamp", inferred.includes('subgraph phase2["synthesize"]'), inferred);
+	check("dibuja flecha entre fases inferidas", /phase1_out\s*-->\s*phase2_in/.test(inferred), inferred);
+	check(
+		"fase paralela usa fork/join",
+		inferred.includes('phase1_in(("fork"))') && inferred.includes('phase1_out(("join"))'),
+		inferred,
+	);
+	check(
+		"agentes paralelos apuntan al join",
+		/phase1_in\s*-->\s*A1[\s\S]*A1\s*-->\s*phase1_out/.test(inferred),
+		inferred,
+	);
+
+	// Agentes sin fase ni timestamps: van a un grupo de fallback, no rompen.
 	const noPhase = buildRunMermaidSource(baseModel({ agents: [{ id: 9, name: "solo", state: "running" }] }));
 	check("agente sin fase cae en un grupo de fallback", noPhase.includes("solo"));
 	check("agente sin fase no genera un subgraph vacío roto", noPhase.includes("subgraph"));
