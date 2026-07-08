@@ -1,17 +1,17 @@
 #!/usr/bin/env node
 /**
- * Durable behavioral test for extensions/pandi-dynamic-workflows journal.ts lookupJournalRecord.
+ * Test durable de comportamiento para lookupJournalRecord en extensions/pandi-dynamic-workflows journal.ts.
  *
- * `lookupJournalRecord(cache, key, occ)` is the resume-cache READ, extracted byte-for-byte
- * from runWorkflow's former nested `journalLookup`. It now lives beside the other journal
- * concerns (loadJournal / appendJournalRecord) — a cohesive home the pairing session called
- * out as a separate responsibility from occurrence assignment. This suite pins the read
- * contract, including the miss edges that keep resume idempotent.
+ * `lookupJournalRecord(cache, key, occ)` es la LECTURA de resume-cache, extraída byte-for-byte
+ * del antiguo `journalLookup` anidado de runWorkflow. Ahora vive junto a las demás responsabilidades
+ * de journal (loadJournal / appendJournalRecord) — un hogar cohesivo que la pairing session marcó
+ * como responsabilidad separada de la asignación de occurrences. Esta suite pinea el contrato de read,
+ * incluyendo los bordes miss que mantienen resume idempotente.
  *
- * Contract:
- * - hit: returns the slot recorded at (key, occ).
- * - miss (unknown key, or occ past the recorded slots) → undefined.
- * - undefined cache (a fresh, non-resumed run) → undefined.
+ * Contrato:
+ * - hit: devuelve el slot registrado en (key, occ).
+ * - miss (key desconocida, u occ más allá de los slots registrados) → undefined.
+ * - cache undefined (un run fresco, no resumido) → undefined.
  */
 
 import * as fs from "node:fs/promises";
@@ -47,9 +47,9 @@ async function main() {
 		name: "pi-dw-journal-lookup",
 		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "journal.ts"),
 		outName: "journal.mjs",
-		// journal.ts has a runtime import cycle with index.ts, so bundling it pulls the whole
-		// extension graph. Stub the heavy pi runtime deps (same set as engine-smoke) so the
-		// bundle loads without cross-spawn's dynamic require of child_process.
+		// journal.ts tiene un ciclo de imports runtime con index.ts, así que bundlearlo arrastra todo
+		// el grafo de la extensión. Stubbeá las deps pesadas del runtime pi (mismo set que engine-smoke)
+		// para que el bundle cargue sin el require dinámico de child_process que hace cross-spawn.
 		stubs: {
 			typebox: true,
 			typeboxValue: true,
