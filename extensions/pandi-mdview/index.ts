@@ -46,6 +46,23 @@ function displayMarkdownPath(cwd: string, filePath: string): string {
 	return path.relative(cwd, filePath) || filePath;
 }
 
+type MarkdownViewport = {
+	scroll: number;
+	start: number;
+	end: number;
+	visibleBody: string[];
+};
+
+function calculateMarkdownViewport(bodyLines: string[], scroll: number, bodyHeight: number): MarkdownViewport {
+	const maxScroll = Math.max(0, bodyLines.length - bodyHeight);
+	const clampedScroll = Math.min(Math.max(0, scroll), maxScroll);
+	const start = clampedScroll;
+	const end = Math.min(bodyLines.length, start + bodyHeight);
+	const visibleBody = bodyLines.slice(start, end);
+	while (visibleBody.length < bodyHeight) visibleBody.push("");
+	return { scroll: clampedScroll, start, end, visibleBody };
+}
+
 function toolResult(text: string, details: Record<string, unknown>) {
 	return { content: [{ type: "text" as const, text }], details };
 }
@@ -120,19 +137,14 @@ class MarkdownViewComponent implements Component {
 		const safeWidth = Math.max(20, width);
 		const bodyLines = this.markdown.render(safeWidth);
 		const bodyHeight = this.bodyHeight();
-		const maxScroll = Math.max(0, bodyLines.length - bodyHeight);
-		this.scroll = Math.min(Math.max(0, this.scroll), maxScroll);
-
-		const start = this.scroll;
-		const end = Math.min(bodyLines.length, start + bodyHeight);
-		const visibleBody = bodyLines.slice(start, end);
-		while (visibleBody.length < bodyHeight) visibleBody.push("");
+		const viewport = calculateMarkdownViewport(bodyLines, this.scroll, bodyHeight);
+		this.scroll = viewport.scroll;
 
 		const title = this.theme.fg("accent", this.theme.bold("Markdown"));
 		const location = this.theme.fg("dim", displayMarkdownPath(this.cwd, this.filePath));
 		const footer = this.theme.fg(
 			"dim",
-			`↑/↓ j/k desplazar • PgUp/PgDn página • q/Esc cerrar • ${start + 1}-${end}/${bodyLines.length}`,
+			`↑/↓ j/k desplazar • PgUp/PgDn página • q/Esc cerrar • ${viewport.start + 1}-${viewport.end}/${bodyLines.length}`,
 		);
 
 		const border = this.theme.fg("border", "─".repeat(safeWidth));
@@ -140,7 +152,7 @@ class MarkdownViewComponent implements Component {
 			border,
 			boundedLine(`${title} ${location}`, safeWidth),
 			"",
-			...visibleBody.map((line) => boundedLine(line, safeWidth)),
+			...viewport.visibleBody.map((line) => boundedLine(line, safeWidth)),
 			boundedLine(footer, safeWidth),
 			border,
 		];

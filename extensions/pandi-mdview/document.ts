@@ -44,6 +44,27 @@ function hasMarkdownExtension(filePath: string): boolean {
 	return lower.endsWith(".md") || lower.endsWith(".markdown");
 }
 
+type MarkdownFileValidation = { ok: true; bytes: number } | { ok: false; message: string; level: "warning" };
+
+async function validateMarkdownFile(filePath: string): Promise<MarkdownFileValidation> {
+	if (!hasMarkdownExtension(filePath)) {
+		return {
+			ok: false,
+			message: "El visor Markdown solo abre archivos .md o .markdown.",
+			level: "warning",
+		};
+	}
+	const stat = await fs.stat(filePath);
+	if (stat.size > MAX_MDVIEW_BYTES) {
+		return {
+			ok: false,
+			message: `El archivo Markdown es demasiado grande para verlo (${stat.size} bytes; límite ${MAX_MDVIEW_BYTES} bytes) — abrilo en un editor externo.`,
+			level: "warning",
+		};
+	}
+	return { ok: true, bytes: stat.size };
+}
+
 /**
  * Resuelve, valida el tamaño y lee un archivo Markdown. Lo comparten el comando `/mdview` y la
  * TOOL `view_markdown` invocable por el modelo para que ambos apliquen la MISMA validación y los mismos límites.
@@ -53,23 +74,10 @@ export async function loadMarkdownDocument(pathArg: string, cwd: string): Promis
 	const filePath = resolveMarkdownPath(pathArg, cwd);
 	if (!filePath) return missingMarkdownPath();
 	try {
-		if (!hasMarkdownExtension(filePath)) {
-			return {
-				ok: false,
-				message: "El visor Markdown solo abre archivos .md o .markdown.",
-				level: "warning",
-			};
-		}
-		const stat = await fs.stat(filePath);
-		if (stat.size > MAX_MDVIEW_BYTES) {
-			return {
-				ok: false,
-				message: `El archivo Markdown es demasiado grande para verlo (${stat.size} bytes; límite ${MAX_MDVIEW_BYTES} bytes) — abrilo en un editor externo.`,
-				level: "warning",
-			};
-		}
+		const validation = await validateMarkdownFile(filePath);
+		if (!validation.ok) return validation;
 		const content = await fs.readFile(filePath, "utf8");
-		return { ok: true, filePath, content, bytes: stat.size };
+		return { ok: true, filePath, content, bytes: validation.bytes };
 	} catch (error) {
 		return { ok: false, message: formatReadMarkdownFailure(error), level: "error" };
 	}
