@@ -209,17 +209,13 @@ export type WorkflowResultIntegrity = WorkflowIntegritySummary;
 
 export type WorkflowRunState = "running" | "completed" | "failed" | "cancelled" | "stale";
 
-export interface WorkflowRunResult {
+export interface WorkflowRunBase {
 	workflow: string;
 	scope: WorkflowScope;
 	file: string;
 	runId: string;
 	runDir: string;
-	ok: boolean;
-	state?: Exclude<WorkflowRunState, "running" | "stale">;
-	background?: boolean;
 	startedAt: string;
-	endedAt: string;
 	elapsedMs: number;
 	agentCount: number;
 	agentConcurrency?: number;
@@ -233,6 +229,13 @@ export interface WorkflowRunResult {
 	codeHash?: string;
 	cachedCalls?: number;
 	resumedFrom?: string;
+}
+
+export interface WorkflowRunResult extends WorkflowRunBase {
+	ok: boolean;
+	state?: Exclude<WorkflowRunState, "running" | "stale">;
+	background?: boolean;
+	endedAt: string;
 }
 
 export interface JournalRecord {
@@ -261,32 +264,13 @@ export interface PreparedWorkflowRun {
 	};
 }
 
-export interface WorkflowRunStatus {
-	workflow: string;
-	scope: WorkflowScope;
-	file: string;
-	runId: string;
-	runDir: string;
+export interface WorkflowRunStatus extends WorkflowRunBase {
 	state: WorkflowRunState;
 	background: boolean;
 	active: boolean;
-	startedAt: string;
 	updatedAt: string;
 	endedAt?: string;
-	elapsedMs: number;
-	agentCount: number;
-	agentConcurrency?: number;
-	maxAgents?: number;
-	parallelAgents?: number;
-	peakParallelAgents?: number;
-	logs: WorkflowLogEntry[];
 	lastLog?: WorkflowLogEntry;
-	output?: unknown;
-	error?: string;
-	integrity?: WorkflowResultIntegrity;
-	codeHash?: string;
-	cachedCalls?: number;
-	resumedFrom?: string;
 }
 
 export type WorkflowRunRecord = WorkflowRunResult | WorkflowRunStatus;
