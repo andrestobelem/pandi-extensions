@@ -77,6 +77,15 @@ interface DashboardStatusListViewFormatters extends DashboardListViewFormatters 
 	success: (s: string) => string;
 }
 
+interface DashboardRunViewFormatters {
+	line: (s: string) => string;
+	accent: (s: string) => string;
+	muted: (s: string) => string;
+	success: (s: string) => string;
+	error: (s: string) => string;
+	dim: (s: string) => string;
+}
+
 function renderPatternsView(
 	patternIndex: number,
 	{ line, accent, muted, warning }: DashboardListViewFormatters,
@@ -233,6 +242,64 @@ function renderSessionsView(
 			),
 		),
 	);
+	return lines;
+}
+
+function renderRunsView(
+	runs: WorkflowRunRecord[],
+	runIndex: number,
+	{ line, accent, muted, success, error, dim }: DashboardRunViewFormatters,
+): string[] {
+	const lines: string[] = [];
+	if (runs.length === 0) {
+		lines.push(line(muted("No se encontraron workflow runs.")));
+		lines.push(line(muted(START_WORKFLOW_HINT)));
+		return lines;
+	}
+	const start = windowStart(runIndex, runs.length, 6, 12);
+	const visible = runs.slice(start, start + 12);
+	lines.push(line(`${accent("Runs")} ${muted(`(${runs.length})`)}${muted(windowLabel(runs.length, start, 12))}`));
+	for (let i = 0; i < visible.length; i++) {
+		const index = start + i;
+		const run = visible[i];
+		const selected = index === runIndex;
+		const prefix = selected ? accent("› ") : "  ";
+		const state = getRunState(run);
+		const status =
+			state === "completed"
+				? success("✓")
+				: state === "running"
+					? accent("▶")
+					: state === "stale"
+						? muted("?")
+						: error(state === "cancelled" ? "■" : "✗");
+		const bg = run.background ? " bg" : "";
+		const resumable = isResumableState(state) ? muted(" resumable") : "";
+		const cached = getRunCachedCalls(run) > 0 ? muted(` cached:${getRunCachedCalls(run)}`) : "";
+		const parallelCompact = formatParallelAgentsCompact(run);
+		const parallel = parallelCompact === "-" ? "" : muted(` parallel:${parallelCompact}`);
+		lines.push(
+			line(
+				`${prefix}${status} ${run.workflow}${bg} ${muted(run.runId)} ${getRunStatusLabel(run)} ${formatElapsedMs(getRunElapsedMs(run, state))} agents:${run.agentCount}${parallel}${resumable}${cached}`,
+			),
+		);
+	}
+	const selected = runs[runIndex];
+	if (selected) {
+		lines.push(line(muted("")));
+		lines.push(line(accent("Selected run")));
+		lines.push(line(`status: ${getRunStatusLabel(selected)}`));
+		lines.push(line(`run: ${selected.runId}`));
+		lines.push(line(`parallel: ${formatParallelAgents(selected)}`));
+		lines.push(line(`dir: ${dim(selected.runDir)}`));
+		if (selected.error)
+			lines.push(line(`${accent("error")}: ${error(renderSafeInline(compactInline(selected.error, 200)))}`));
+		for (const logEntry of getRunLogs(selected).slice(-5))
+			lines.push(line(`${muted(logEntry.time.slice(11, 19))} ${renderSafeInline(logEntry.message)}`));
+		// Action verbs live on the gated header banner; only the unique resume COMMAND
+		// (not shown in the header) earns a footer line here.
+		if (isResumableState(getRunState(selected))) lines.push(line(dim(`/workflow resume ${selected.runId}`)));
+	}
 	return lines;
 }
 
@@ -845,7 +912,7 @@ export class WorkflowDashboard {
 		if (this.tab === "monitor") this.renderMonitor(lines, line, accent, muted, success, error, warning, dim);
 		else if (this.tab === "agents") this.renderAgents(lines, line, accent, muted, success, error, warning, dim);
 		else if (this.tab === "sessions") this.renderSessions(lines, line, accent, muted, success, warning);
-		else if (this.tab === "runs") this.renderRuns(lines, line, accent, muted, success, error);
+		else if (this.tab === "runs") this.renderRuns(lines, line, accent, muted, success, error, dim);
 		else if (this.tab === "workflows") this.renderWorkflows(lines, line, accent, muted, warning);
 		else if (this.tab === "patterns") this.renderPatterns(lines, line, accent, muted, warning);
 		else this.renderActivity(lines, line, accent, muted, success, error, warning);
@@ -1272,59 +1339,9 @@ export class WorkflowDashboard {
 		muted: (s: string) => string,
 		success: (s: string) => string,
 		error: (s: string) => string,
+		dim: (s: string) => string,
 	): void {
-		if (this.runs.length === 0) {
-			lines.push(line(muted("No se encontraron workflow runs.")));
-			lines.push(line(muted(START_WORKFLOW_HINT)));
-			return;
-		}
-		const start = windowStart(this.runIndex, this.runs.length, 6, 12);
-		const visible = this.runs.slice(start, start + 12);
-		lines.push(
-			line(`${accent("Runs")} ${muted(`(${this.runs.length})`)}${muted(windowLabel(this.runs.length, start, 12))}`),
-		);
-		for (let i = 0; i < visible.length; i++) {
-			const index = start + i;
-			const run = visible[i];
-			const selected = index === this.runIndex;
-			const prefix = selected ? accent("› ") : "  ";
-			const state = getRunState(run);
-			const status =
-				state === "completed"
-					? success("✓")
-					: state === "running"
-						? accent("▶")
-						: state === "stale"
-							? muted("?")
-							: error(state === "cancelled" ? "■" : "✗");
-			const bg = run.background ? " bg" : "";
-			const resumable = isResumableState(state) ? muted(" resumable") : "";
-			const cached = getRunCachedCalls(run) > 0 ? muted(` cached:${getRunCachedCalls(run)}`) : "";
-			const parallelCompact = formatParallelAgentsCompact(run);
-			const parallel = parallelCompact === "-" ? "" : muted(` parallel:${parallelCompact}`);
-			lines.push(
-				line(
-					`${prefix}${status} ${run.workflow}${bg} ${muted(run.runId)} ${getRunStatusLabel(run)} ${formatElapsedMs(getRunElapsedMs(run, state))} agents:${run.agentCount}${parallel}${resumable}${cached}`,
-				),
-			);
-		}
-		const selected = this.runs[this.runIndex];
-		if (selected) {
-			lines.push(line(muted("")));
-			lines.push(line(accent("Selected run")));
-			lines.push(line(`status: ${getRunStatusLabel(selected)}`));
-			lines.push(line(`run: ${selected.runId}`));
-			lines.push(line(`parallel: ${formatParallelAgents(selected)}`));
-			lines.push(line(`dir: ${this.theme.fg("dim", selected.runDir)}`));
-			if (selected.error)
-				lines.push(line(`${accent("error")}: ${error(renderSafeInline(compactInline(selected.error, 200)))}`));
-			for (const logEntry of getRunLogs(selected).slice(-5))
-				lines.push(line(`${muted(logEntry.time.slice(11, 19))} ${renderSafeInline(logEntry.message)}`));
-			// Action verbs live on the gated header banner; only the unique resume COMMAND
-			// (not shown in the header) earns a footer line here.
-			if (isResumableState(getRunState(selected)))
-				lines.push(line(this.theme.fg("dim", `/workflow resume ${selected.runId}`)));
-		}
+		lines.push(...renderRunsView(this.runs, this.runIndex, { line, accent, muted, success, error, dim }));
 	}
 
 	private renderActivity(

@@ -529,6 +529,11 @@ async function scenarioFailedRunErrorVisible(url) {
 			.filter((l) => l.toLowerCase().includes("error"))
 			.join(" | "),
 	);
+	check(
+		"runs tab renders selected run detail",
+		runsText.includes("Selected run") && runsText.includes("run: failrun-1") && runsText.includes("parallel:"),
+		runsText.split("\n").slice(-12).join("\n"),
+	);
 }
 
 async function scenarioEllipsisOnOverflow(url) {
