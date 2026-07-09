@@ -1,6 +1,6 @@
 {
 	"name": "@pandi-coding-agent/pandi-container",
-	"version": "0.2.6",
+	"version": "0.2.7",
 	"description": "Extensión de Pi para administrar sandboxes de Apple `container` (micro-VMs Linux): un comando /container y una herramienta container_sandbox invocable por el modelo (status/list/create/run/stop/remove).",
 	"license": "MIT",
 	"repository": {

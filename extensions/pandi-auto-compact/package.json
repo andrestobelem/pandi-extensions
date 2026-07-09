@@ -1,6 +1,6 @@
 {
 	"name": "@pandi-coding-agent/pandi-auto-compact",
-	"version": "0.2.5",
+	"version": "0.2.6",
 	"description": "Extensión de Pi que auto-compacta el contexto cuando el uso supera un umbral configurable.",
 	"license": "MIT",
 	"repository": {
