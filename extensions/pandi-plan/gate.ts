@@ -476,7 +476,11 @@ function isMutatingSegment(segment: string): boolean {
 	return isMutatingCommand(words) || hasMutatingExec(words);
 }
 
-/** ¿Es este comando bash una mutación per el allowlist best-effort? */
+/**
+ * ¿Este comando bash debe tratarse como mutante para el gate de `/plan`?
+ * Es una heurística allowlist best-effort, no un parser shell completo; el contrato exacto está caracterizado
+ * en `tests/integration/plan-gate-helpers.test.mjs`.
+ */
 export function isMutatingBash(command: string): boolean {
 	return hasWritingRedirection(command) || splitShellSegments(command).some(isMutatingSegment);
 }
