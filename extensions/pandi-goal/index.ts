@@ -100,6 +100,14 @@ import { formatEta } from "./time.js";
 import type { ActiveGoal, GoalAssessment, GoalState, GoalStatus } from "./types.js";
 import { runIndependentVerifier } from "./verifier.js";
 
+type GoalArgumentCompletion = { value: string; label: string; description: string };
+
+const STATIC_GOAL_ARGUMENT_COMPLETIONS: readonly GoalArgumentCompletion[] = [
+	{ value: "stop", label: "stop", description: "Detener un goal activo" },
+	{ value: "status", label: "status", description: "Mostrar el estado del goal" },
+	{ value: "--ultracode", label: "--ultracode", description: "Perseguir el goal vía dynamic workflows" },
+];
+
 // Fuente de verdad de "qué temporizadores viven AHORA". Map soporta varios, pero las
 // herramientas P0 resuelven el único goal activo (S4).
 const activeGoals = new Map<string, ActiveGoal>();
@@ -833,11 +841,7 @@ export default function goalExtension(pi: ExtensionAPI): void {
 		description:
 			"Perseguí un objetivo hasta que quede verificado como terminado: /goal [--ultracode] <objective> [-- <criteria>] | /goal stop [id] | /goal status [id]",
 		getArgumentCompletions: (argumentPrefix: string) => {
-			const items = [
-				{ value: "stop", label: "stop", description: "Detener un goal activo" },
-				{ value: "status", label: "status", description: "Mostrar el estado del goal" },
-				{ value: "--ultracode", label: "--ultracode", description: "Perseguir el goal vía dynamic workflows" },
-			];
+			const items: GoalArgumentCompletion[] = [...STATIC_GOAL_ARGUMENT_COMPLETIONS];
 			for (const goal of activeGoals.values()) {
 				if (
 					goal.gstatus === "pursuing" ||
