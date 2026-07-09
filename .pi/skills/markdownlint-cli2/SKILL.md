@@ -42,9 +42,9 @@ Usá el prefijo `:` para rutas literales, así los caracteres glob en nombres de
 
 La configuración del repo vive en `.markdownlint-cli2.jsonc` y es, a propósito, una base amigable con el legado:
 
-- lint sobre `**/*.md` por defecto;
-- respeta `.gitignore`;
-- ignora rutas generadas o efímeras como `.pi/**`, `.cache/**` y `node_modules/**`;
+- lint sobre `**/*.md` por defecto, incluidas las fuentes canónicas bajo `.pi/skills/`;
+- respeta `.gitignore`, que excluye los artifacts y el estado efímero de Pi;
+- ignora mirrors generados bajo `extensions/*/skills/**`, `.cache/**` y `node_modules/**`;
 - ignora `docs/conversaciones/**` porque las transcripciones de conversaciones repiten headings intencionalmente;
 - relaja reglas ruidosas de documentación histórica, pero mantiene habilitados los chequeos default de markdownlint en lo demás.
 

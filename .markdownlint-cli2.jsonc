@@ -1,15 +1,15 @@
 {
 	"$schema": "https://raw.githubusercontent.com/DavidAnson/markdownlint-cli2/main/schema/markdownlint-cli2-config-schema.json",
 
-	// Lint repository Markdown by default. Generated Pi artifacts and dependency
-	// directories are excluded so local agent runs do not affect lint results.
+	// Lint all repository Markdown by default. gitignore excludes ephemeral Pi artifacts
+	// while keeping the versioned canonical skills under .pi/skills/ in the gate.
 	"globs": ["**/*.md"],
 	"gitignore": true,
-	// extensions/*/skills/** are GENERATED vendored mirrors of the canonical .pi/skills/ (which is
-	// itself ignored below). Lint the source, not the generated copy — matching biome's
-	// "!extensions/*/skills" exclusion; linting the mirror would create an asymmetric standard where
-	// a --fix could only edit the copy and break the vendor parity test.
-	"ignores": ["**/node_modules/**", ".cache/**", ".pi/**", "extensions/*/skills/**", "docs/conversaciones/**"],
+	// extensions/*/skills/** are GENERATED vendored mirrors of canonical .pi/skills/ sources.
+	// Lint the source, not the generated copy — matching biome's "!extensions/*/skills"
+	// exclusion; linting the mirror would create an asymmetric standard where a --fix could
+	// only edit the copy and break the vendor parity test.
+	"ignores": ["**/node_modules/**", ".cache/**", "extensions/*/skills/**", "docs/conversaciones/**"],
 
 	// Baseline for the current docs. Keep useful structural checks enabled, but
 	// relax rules that conflict with existing research notes, handoffs, and skill
