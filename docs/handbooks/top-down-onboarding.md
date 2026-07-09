@@ -87,6 +87,25 @@ Preguntas guía:
 - ¿Cómo evita `/loop` iteraciones automáticas peligrosas?
 - ¿Por qué `/bg` no reemplaza a `dynamic_workflow`?
 
+Lectura rápida de estados:
+
+| Extensión | Campo de ciclo de vida | Valores | Fuente |
+| --- | --- | --- | --- |
+| `pandi-plan` | `status` + `active` | `planning`, `approved`, `rejected`, `exited`, `planned`; `active` indica si el gate read-only sigue armado | `extensions/pandi-plan/state.ts` |
+| `pandi-goal` | `gstatus` | `pursuing`, `verifying`, `verifying-independent`, `done`, `blocked`, `stopped`, `stale` | `extensions/pandi-goal/types.ts` |
+| `pandi-loop` | `status` | `running`, `paused`, `stopped`, `done`, `failed`, `stale` | `extensions/pandi-loop/state.ts` |
+
+`pandi-goal` usa `gstatus` porque `GoalAssessment.status` ya nombra la decisión puntual de una autoevaluación (`continue`, `done`, `blocked`). No lo unifiques a mano: primero distinguí “estado durable del ciclo” de “veredicto de una iteración”.
+
+Dos pares de nombres que conviene separar:
+
+| Término | Pertenece a | Qué significa |
+| --- | --- | --- |
+| **Run** | `pandi-dynamic-workflows` | Ejecución de un workflow con `runId`, `runDir`, `status.json`, artifacts, subagentes y journal/resume. |
+| **Job** | `pandi-bg` | Proceso background local para un comando largo, con `jobId`, logs, `JobStatus` y artifacts. No modela composition ni subagentes. |
+| **Workflow graph** | `workflow-graph.ts` | Introspección estática de un archivo workflow para previsualizar llamadas (`agent`, `agents`, `pipeline`, `workflow`, etc.). |
+| **Subtask graph** | scaffold `orchestrator-workers` | Grafo runtime de tareas `dependsOn` propuesto por un agente planner; no es el mismo tipo que `WorkflowGraphModel`. |
+
 ### Operaciones de desarrollo
 
 Este grupo toca el sistema o el entorno:

@@ -276,6 +276,66 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li>¿Cómo evita <code>/loop</code> iteraciones automáticas peligrosas?</li>
 <li>¿Por qué <code>/bg</code> no reemplaza a <code>dynamic_workflow</code>?</li>
 </ul>
+<p>Lectura rápida de estados:</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Extensión</th>
+<th>Campo de ciclo de vida</th>
+<th>Valores</th>
+<th>Fuente</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>pandi-plan</code></td>
+<td><code>status</code> + <code>active</code></td>
+<td><code>planning</code>, <code>approved</code>, <code>rejected</code>, <code>exited</code>, <code>planned</code>; <code>active</code> indica si el gate read-only sigue armado</td>
+<td><code>extensions/pandi-plan/state.ts</code></td>
+</tr>
+<tr>
+<td><code>pandi-goal</code></td>
+<td><code>gstatus</code></td>
+<td><code>pursuing</code>, <code>verifying</code>, <code>verifying-independent</code>, <code>done</code>, <code>blocked</code>, <code>stopped</code>, <code>stale</code></td>
+<td><code>extensions/pandi-goal/types.ts</code></td>
+</tr>
+<tr>
+<td><code>pandi-loop</code></td>
+<td><code>status</code></td>
+<td><code>running</code>, <code>paused</code>, <code>stopped</code>, <code>done</code>, <code>failed</code>, <code>stale</code></td>
+<td><code>extensions/pandi-loop/state.ts</code></td>
+</tr>
+</tbody></table></div>
+<p><code>pandi-goal</code> usa <code>gstatus</code> porque <code>GoalAssessment.status</code> ya nombra la decisión puntual de una autoevaluación (<code>continue</code>, <code>done</code>, <code>blocked</code>). No lo unifiques a mano: primero distinguí “estado durable del ciclo” de “veredicto de una iteración”.</p>
+<p>Dos pares de nombres que conviene separar:</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Término</th>
+<th>Pertenece a</th>
+<th>Qué significa</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Run</strong></td>
+<td><code>pandi-dynamic-workflows</code></td>
+<td>Ejecución de un workflow con <code>runId</code>, <code>runDir</code>, <code>status.json</code>, artifacts, subagentes y journal/resume.</td>
+</tr>
+<tr>
+<td><strong>Job</strong></td>
+<td><code>pandi-bg</code></td>
+<td>Proceso background local para un comando largo, con <code>jobId</code>, logs, <code>JobStatus</code> y artifacts. No modela composition ni subagentes.</td>
+</tr>
+<tr>
+<td><strong>Workflow graph</strong></td>
+<td><code>workflow-graph.ts</code></td>
+<td>Introspección estática de un archivo workflow para previsualizar llamadas (<code>agent</code>, <code>agents</code>, <code>pipeline</code>, <code>workflow</code>, etc.).</td>
+</tr>
+<tr>
+<td><strong>Subtask graph</strong></td>
+<td>scaffold <code>orchestrator-workers</code></td>
+<td>Grafo runtime de tareas <code>dependsOn</code> propuesto por un agente planner; no es el mismo tipo que <code>WorkflowGraphModel</code>.</td>
+</tr>
+</tbody></table></div>
 <h3>Operaciones de desarrollo</h3>
 <p>Este grupo toca el sistema o el entorno:</p>
 <ul>
