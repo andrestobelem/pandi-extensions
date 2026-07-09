@@ -414,8 +414,10 @@ export async function runWorkflow(
 	const trackedSubagents = new Set<Promise<unknown>>();
 	const logs: WorkflowLogEntry[] = [];
 	// Ejecuciones reanudadas comienzan agentCount más allá de los artefactos agents/NNNN ya en disco
-	// para que los subagentes recién re-ejecutados nunca sobrescriban los en caché.
+	// para que los subagentes recién re-ejecutados nunca sobrescriban los en caché. Ese ID histórico
+	// no es un presupuesto: maxAgents limita solo los lanzamientos frescos de esta ejecución.
 	let agentCount = preparedRun.resume?.baseAgentCount ?? 0;
+	let launchedAgents = 0;
 	let agentPhaseCount = 0;
 	let explicitPhaseCount = 0;
 	let parallelAgents = 0;
@@ -683,7 +685,7 @@ export async function runWorkflow(
 				return cachedHit;
 			}
 		}
-		if (agentCount >= runLimits.maxAgents) {
+		if (launchedAgents >= runLimits.maxAgents) {
 			// Leave a journal/event + log trace before throwing: under agents({settle:true})
 			// the rejection is swallowed into a null branch result, so without this record
 			// a maxAgents-exceeded drop would be invisible.
@@ -698,10 +700,12 @@ export async function runWorkflow(
 			await log(`agent skipped (maxAgents=${runLimits.maxAgents} reached): ${effectiveOptions.name ?? "agent"}`, {
 				maxAgents: runLimits.maxAgents,
 				agentCount,
+				launchedAgents,
 				...phaseEventFields(phase),
 			});
 			throw new Error(capMessage);
 		}
+		launchedAgents++;
 		const id = ++agentCount;
 		const name = effectiveOptions.name ?? `agent-${id}`;
 		const startedAt = Date.now();
