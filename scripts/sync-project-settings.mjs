@@ -45,17 +45,19 @@ function packageDeclaresPiResources(pkg) {
 	return hasEntries(pkg.pi?.extensions) || hasEntries(pkg.pi?.skills) || hasEntries(pkg.pi?.themes);
 }
 
-function settingsEntryForPackage(repoRoot, dir) {
-	const pkg = readJson(join(repoRoot, "extensions", dir, "package.json"));
+function settingsEntryForPackage(dir, pkg) {
 	const source = `../extensions/${dir}`;
 	return hasEntries(pkg.pi?.skills) ? { source, skills: [] } : source;
 }
 
 export function deriveProjectSettingsPackages(repoRoot = REPO, loadOrder) {
 	const { ordered } = orderedExtensionDirs(repoRoot, loadOrder);
-	return ordered
-		.filter((dir) => packageDeclaresPiResources(readJson(join(repoRoot, "extensions", dir, "package.json"))))
-		.map((dir) => settingsEntryForPackage(repoRoot, dir));
+	const extensionPackages = ordered.map((dir) => ({
+		dir,
+		pkg: readJson(join(repoRoot, "extensions", dir, "package.json")),
+	}));
+	const packagesWithPiResources = extensionPackages.filter(({ pkg }) => packageDeclaresPiResources(pkg));
+	return packagesWithPiResources.map(({ dir, pkg }) => settingsEntryForPackage(dir, pkg));
 }
 
 function packageDrift(current, wanted) {
