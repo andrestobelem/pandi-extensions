@@ -19,39 +19,105 @@ description: Publica y mantiene las distribuciones pi-cante / pandi (el fork del
 - **Versiones**: `<upstream base>-<distro>.<n>` (por ejemplo `0.80.3-cante.1`). Los prereleases de npm DEBEN publicarse explícitamente con `--tag latest`; `npm i -g` sigue el dist-tag, así que el orden semver no importa.
 - Las 21 extensiones `@pandi-coding-agent/*` son `dependencies` **pineadas** y bloqueadas por el `npm-shrinkwrap.json` publicado — NO `bundledDependencies` (npm asume que esas dependencias ya están en el tarball y omite instalarlas en silencio; el workspace hoisting además las deja fuera del tarball).
 
-## Los tres flujos
+## Antes de ejecutar
 
-Todos los scripts hacen simulación por defecto (`dry run`). Ejecutá todo desde la raíz del fork. Documento completo: `RELEASING.md` dentro del fork.
+Todos los scripts hacen simulación por defecto (`dry run`). Ejecutá todo desde
+la raíz del fork. **Antes de ejecutar cualquiera de estos flujos, leé
+`/Users/andrestobelem/ws/at/pi-cante/RELEASING.md`:** este skill es el mapa de
+decisión y ese documento es la receta operativa canónica, incluida la variante
+orquestada `release-distros-flow`.
+
+## Flujos
 
 ### 1. Publicar las distros
 
-```bash
-node scripts/release-distros.mjs                 # simulación
-node scripts/release-distros.mjs --publish       # real
-node scripts/release-distros.mjs --only pandi --publish
-```
+1. Corré la simulación para las distros objetivo:
 
-Por distro: `set-distro` → build → subset de tests de branding → publish. Saltea versiones ya publicadas en npm; siempre restaura el valor por defecto commiteado y verifica que el árbol quede limpio. Requiere un árbol limpio en `packages/coding-agent` y permisos para publicar en npm.
+   ```bash
+   node scripts/release-distros.mjs
+   node scripts/release-distros.mjs --only pandi
+   ```
+
+   **Cierre:** la simulación termina con exit 0, informa las versiones objetivo
+   y `packages/coding-agent` está limpio.
+2. Publicá solo tras completar el preflight:
+
+   ```bash
+   node scripts/release-distros.mjs --publish
+   node scripts/release-distros.mjs --only pandi --publish
+   ```
+
+   Por distro: `set-distro` → build → subset de tests de branding → publish.
+   Saltea versiones ya publicadas en npm y restaura el valor por defecto
+   commiteado.
+
+   **Cierre:** el publish termina con exit 0 y el árbol queda restaurado y
+   limpio.
+3. Probá el paquete publicado antes de anunciarlo o hacer push:
+
+   ```bash
+   node scripts/smoke-distros.mjs
+   node scripts/smoke-distros.mjs --only pandi
+   ```
+
+   El flujo canónico `release-distros-flow --publish` ejecuta este smoke de
+   instalación temporal automáticamente; confirmá su resultado en el log en
+   lugar de correrlo por segunda vez.
+
+   **Cierre:** el smoke instala cada distro objetivo y sus comandos `--version`
+   y `--help` terminan con exit 0.
 
 ### 2. Actualizar los pins de extensiones incluidas
 
-Después de publicar nuevas versiones `@pandi-coding-agent/*` desde pandi-extensions (ahí: `node scripts/publish-npm.mjs --publish`):
+Después de publicar nuevas versiones `@pandi-coding-agent/*` desde
+pandi-extensions (ahí: `node scripts/publish-npm.mjs --publish`):
 
-```bash
-node scripts/bump-extensions.mjs           # simulación: reporta pins desactualizados
-node scripts/bump-extensions.mjs --write   # actualiza pins, bump de -<distro>.N, npm install, regenera locks
-```
+1. Inspeccioná los pins que cambiarían:
 
-Después revisá el diff, commiteá con `PI_ALLOW_LOCKFILE_CHANGE=1 git commit ...` y corré el flujo 1.
+   ```bash
+   node scripts/bump-extensions.mjs
+   ```
+
+   **Cierre:** la simulación enumera los pins desactualizados esperados.
+2. Aplicá el cambio y regenerá los locks:
+
+   ```bash
+   node scripts/bump-extensions.mjs --write
+   ```
+
+   **Cierre:** termina con exit 0 y el diff contiene solo los pins, versiones y
+   artifacts de lock esperados.
+3. Revisá el diff, commiteá con `PI_ALLOW_LOCKFILE_CHANGE=1 git commit ...` y
+   corré el flujo 1.
+
+   **Cierre:** el commit contiene los artifacts esperados y la publicación más
+   su smoke terminan con exit 0.
 
 ### 3. Sincronizar con un nuevo release upstream
 
-```bash
-node scripts/sync-upstream.mjs           # simulación: base actual + tag upstream más nuevo
-node scripts/sync-upstream.mjs v0.81.0   # rebasea los distro commits sobre el tag + verifica
-```
+1. Inspeccioná la base y el tag disponibles:
 
-Los conflictos suelen caer en `packages/coding-agent/package.json` y en lockfiles: quedate con el lado upstream y luego dejá que `set-distro` regenere. Cuando todo quede verde: `git push --force-with-lease origin main` y después corré el flujo 1.
+   ```bash
+   node scripts/sync-upstream.mjs
+   ```
+
+   **Cierre:** la simulación informa la base actual y el tag upstream objetivo.
+2. Rebaseá los commits de distro sobre ese tag:
+
+   ```bash
+   node scripts/sync-upstream.mjs v0.81.0
+   ```
+
+   Los conflictos suelen caer en `packages/coding-agent/package.json` y en
+   lockfiles: quedate con el lado upstream y luego dejá que `set-distro`
+   regenere.
+
+   **Cierre:** el script termina con exit 0 tras regenerar, compilar y ejecutar
+   sus verificaciones.
+3. Corré el flujo 1 y recién entonces hacé
+   `git push --force-with-lease origin main`.
+
+   **Cierre:** la publicación y el smoke post-publicación terminan con exit 0.
 
 ### Día típico de release
 
@@ -66,6 +132,9 @@ pandi-extensions: publish-npm.mjs --publish
 2. Agregá ese nombre de npm a `internalPackageNames` en AMBOS archivos: `scripts/generate-coding-agent-shrinkwrap.mjs` y `scripts/generate-coding-agent-install-lock.mjs`.
 3. `node scripts/set-distro.mjs <key>` → build → smoke (`dist/cli.js --version`, la config muestra el `APP`/`configDir`/`agentDir` correctos) → restore. Después publicala con el flujo 1.
 
+   **Cierre:** el nombre está libre, los dos generadores de lock lo incluyen y
+   build, smoke, restore y publicación terminan con exit 0.
+
 ## Trampas conocidas
 
 Cada punto de esta lista costó depuración real:
@@ -75,4 +144,3 @@ Cada punto de esta lista costó depuración real:
 - El hook de pre-commit del fork bloquea cambios en lockfiles sin `PI_ALLOW_LOCKFILE_CHANGE=1`.
 - `install-lock/` es interno del repo (no viaja en el tarball publicado); solo se publica el shrinkwrap, así que `set-distro` regenera únicamente el shrinkwrap.
 - Las extensiones son conscientes del host desde `local-memory/auto-compact/goal/loop/worktree@0.2.0` y `dynamic-workflows/rename@0.3.0`: los paths van por `CONFIG_DIR_NAME`, y los spawns de subagentes por el `piConfig.name` del host (leído vía `getPackageDir()` — `APP_NAME` no está exportado por el SDK).
-- Verificá un release de punta a punta en un contenedor efímero: `npm i -g <pkg>` en `node:24-slim`, y después chequeá `--version`, `configDir` y que `~/.pi` siga intacto.

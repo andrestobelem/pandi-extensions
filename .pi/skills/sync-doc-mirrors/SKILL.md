@@ -52,22 +52,33 @@ o `tokens` (solo paleta) a un archivo propio.
    node <engine>/sync-doc-mirrors.mjs --config path/to/mirrors.json
    ```
 
-4. Committeá cada `.md` y su `.html` regenerado **en el mismo commit** que la
+4. Verificá el resultado antes de commitear o redeployar:
+
+   ```bash
+   node <engine>/sync-doc-mirrors.mjs --config path/to/mirrors.json --check
+   ```
+
+   **Cierre:** exit 0, sin mirrors desactualizados ni errores `bad-href`.
+5. Committeá cada `.md` y su `.html` regenerado **en el mismo commit** que la
    edición que causó el drift. Los pares de `mirrors.local.json` son
    gitignored: no hay nada para commitear ahí.
-5. Las líneas `↳ redeploy artifact <url>` aparecen solo bajo mirrors que
+6. Las líneas `↳ redeploy artifact <url>` aparecen solo bajo mirrors que
    realmente cambiaron y tienen una entrada `artifact`. Para cada una,
    redeployá el HTML regenerado a esa misma url, conservando el `favicon` del
    manifest, para que las tres capas (`md → html → artifact`) sigan alineadas.
 
 ## Par nuevo / repo nuevo
 
-- Agregá una entrada a `mirrors.json`: `source` (un `.md` relativo al repo)
-  alcanza; `out` por default apunta al `.html` hermano. Sumá `kicker` para la
-  etiqueta del header, `artifact {url, favicon}` si la página se publica como
-  Claude artifact, y `tokens` o `css` si el doc necesita una estética no-Pandi.
-- Gatealo: agregá la invocación con `--check` al script de tests del repo, a
-  CI o al hook de pre-commit para que el drift falle rápido.
+1. Agregá una entrada a `mirrors.json`: `source` (un `.md` relativo al repo)
+   alcanza; `out` por default apunta al `.html` hermano. Sumá `kicker` para la
+   etiqueta del header, `artifact {url, favicon}` si la página se publica como
+   Claude artifact, y `tokens` o `css` si el doc necesita una estética no-Pandi.
+
+   **Cierre:** `--check` termina con exit 0 para la entrada nueva.
+2. Gatealo: agregá la invocación con `--check` al script de tests del repo, a
+   CI o al hook de pre-commit para que el drift falle rápido.
+
+   **Cierre:** el gate queda instalado y una ejecución termina con exit 0.
 
 ## Notas
 

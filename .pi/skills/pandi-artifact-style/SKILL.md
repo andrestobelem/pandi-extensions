@@ -1,12 +1,11 @@
 ---
 name: pandi-artifact-style
 description: >-
-  Manual de estilo para artifacts producidos en o desde este repo: reportes y
-  dashboards HTML autocontenidos, artifacts de runs de workflows, informes y
-  documentación con estilo. Usar cuando generes un artifact HTML, reporte,
-  dashboard o documento con calidad de presentación para que siga el lenguaje
-  de layout Claude-design con la paleta Pandi (Panda Syntax) en variantes
-  clara y oscura.
+  Aplicá el contrato visual Pandi a artifacts HTML autocontenidos de
+  presentación: reportes, dashboards y artifacts de runs de workflows. Usar al
+  crear o revisar un artifact HTML con layout Claude-design y paleta Panda
+  Syntax en variantes clara y oscura. Para convertir Markdown a HTML, usá
+  md-to-html.
 ---
 
 # Pandi artifact style
@@ -124,49 +123,12 @@ Markup + CSS funcionales para todo esto: [`reference/template.html`](./reference
    `extensions/pandi-docs/scripts/markdown-to-html.mjs`; copiala en lugar de
    inventar un mapeo nuevo.
 
-## Convertir Markdown a HTML con estilo
+**Cierre:** antes de entregar, verificá las siete reglas aplicables en el
+artifact generado; si una no aplica, dejá explícito el motivo.
 
-Usá la extensión `pandi-docs` en vez de escribir el shell a mano: ella es dueña del
-conversor (`extensions/pandi-docs/scripts/markdown-to-html.mjs`):
+## Markdown → HTML
 
-- **En una sesión de Pi**: el comando `/docs` (humano) o el tool
-  `markdown_to_html` (modelo): `/docs in.md [more.md…] [-o out.html] [--kicker "Informe"]`.
-- **Desde el shell**:
-
-```bash
-npm run md:html -- docs/research/example.md            # escribe example.html al lado
-node extensions/pandi-docs/scripts/markdown-to-html.mjs in.md -o out.html --kicker "Informe"
-```
-
-- Acepta múltiples inputs `.md` (cada uno escribe un `.html` hermano); `-o`
-  solo con uno.
-- El primer `# h1` se vuelve el título/encabezado de la página; `--kicker` define
-  el kicker (default `Pandi artifact`). El primer párrafo después del h1 se
-  promociona al header como `lede` (20px, `--ink2`, alineado a la izquierda):
-  es la apertura de 30 segundos del doc; los párrafos liderados por imágenes
-  quedan en el body.
-- Los GitHub alerts (`> [!NOTE|TIP|IMPORTANT|WARNING|CAUTION]`) se vuelven
-  callouts pandi con una etiqueta de tono en mayúsculas (`Note`/`Tip`/…).
-- Las tables renderizan dentro de un contenedor `table-scroll`: las más anchas
-  que la página hacen scroll horizontal en vez de desbordarse.
-- Tipografía de prosa: `h2`/`h3`/`h4` son headings reales en tinta
-  (24/19/17px) y el texto del cuerpo va justificado; el estilo de etiqueta en
-  mayúsculas queda solo para dashboards (`h2.sec` en el template).
-- Los fences de código `mermaid` renderizan diagramas con la paleta pandi (theme
-  `base` de mermaid + `themeVariables` parseadas en runtime desde el archivo de
-  tokens; dark/light sigue `prefers-color-scheme`). El script del CDN se
-  inyecta solo cuando existe un diagrama; los documentos sin diagramas quedan
-  sin JS.
-- Los tokens se leen en runtime desde [`reference/pandi-tokens.css`](./reference/pandi-tokens.css)
-  de este skill (la extensión lleva una copia vendorizada, byte a byte
-  idéntica al skill); la salida es un único archivo autocontenido y sin JS.
-- Tests de pinning: `extensions/pandi-docs/tests/integration/markdown-to-html.test.mjs` (`npm test`).
-
-## Reglas para reportes Markdown (informes)
-
-- Seguí las convenciones de `docs/`: incluí fecha, contexto, archivos
-  afectados y próximos pasos; las notas de research van a `docs/research/` y
-  las guías durables, a `docs/handbooks/`.
-- Corré lint con el skill `markdownlint-cli2` antes de terminar.
-- Markdown no lleva styling custom: la estructura hace el trabajo — un `h1`,
-  secciones cortas, tables para comparaciones y fenced code para evidencia.
+Para transformar un documento Markdown en un artifact HTML, cargá
+`md-to-html`. Ese skill es dueño de los comandos, opciones, salida y
+verificación de la conversión; este skill gobierna el contrato visual que la
+salida debe respetar.
