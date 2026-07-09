@@ -152,6 +152,37 @@ async function waitFor(label, fn, timeoutMs = 8000) {
 	throw new Error(`${label} timed out; last=${JSON.stringify(last)}`);
 }
 
+function joinedMessages(entries) {
+	return entries.map((entry) => entry.message).join("\n---\n");
+}
+
+function handoffText(ctxState, piState) {
+	return {
+		notificationText: joinedMessages(ctxState.notifications),
+		wakeText: joinedMessages(piState.userMessages),
+	};
+}
+
+function reportWasOpened(piState, reportPath) {
+	return piState.execCalls.some((call) => call.args?.includes(reportPath));
+}
+
+async function waitForReportHtml(label, reportPath) {
+	return await waitFor(label, async () => {
+		const html = await fs.readFile(reportPath, "utf8").catch(() => undefined);
+		return html?.includes("</html>") ? html : undefined;
+	});
+}
+
+async function waitForReportHandoff(label, ctxState, piState, reportPath) {
+	await waitFor(label, () => {
+		const { notificationText, wakeText } = handoffText(ctxState, piState);
+		return (
+			notificationText.includes(reportPath) && wakeText.includes(reportPath) && reportWasOpened(piState, reportPath)
+		);
+	});
+}
+
 async function main() {
 	const oldCommand = process.env.PI_DYNAMIC_WORKFLOWS_PI_COMMAND;
 	try {
@@ -176,22 +207,10 @@ async function main() {
 		check("background start returns running status", status?.state === "running", JSON.stringify(status));
 		const reportPath = path.join(status.runDir, "report.html");
 
-		await waitFor("final report", async () => {
-			const html = await fs.readFile(reportPath, "utf8").catch(() => undefined);
-			return html?.includes("</html>") ? html : undefined;
-		});
-		await waitFor("final handoff", () => {
-			const notificationText = ctxState.notifications.map((n) => n.message).join("\n---\n");
-			const wakeText = piState.userMessages.map((m) => m.message).join("\n---\n");
-			return (
-				notificationText.includes(reportPath) &&
-				wakeText.includes(reportPath) &&
-				piState.execCalls.some((call) => call.args?.includes(reportPath))
-			);
-		});
+		await waitForReportHtml("final report", reportPath);
+		await waitForReportHandoff("final handoff", ctxState, piState, reportPath);
 		const html = await fs.readFile(reportPath, "utf8");
-		const notificationText = ctxState.notifications.map((n) => n.message).join("\n---\n");
-		const wakeText = piState.userMessages.map((m) => m.message).join("\n---\n");
+		const { notificationText, wakeText } = handoffText(ctxState, piState);
 
 		check("final report is non-empty", html.length > 1000, String(html.length));
 		check(
@@ -222,7 +241,7 @@ async function main() {
 		check("wake prompt points to report.html", wakeText.includes(reportPath), wakeText);
 		check(
 			"final report is opened best-effort",
-			piState.execCalls.some((call) => call.args?.includes(reportPath)),
+			reportWasOpened(piState, reportPath),
 			JSON.stringify(piState.execCalls),
 		);
 
@@ -241,22 +260,13 @@ async function main() {
 		);
 		const fallbackStatus = fallbackStart?.details?.status;
 		const fallbackReportPath = path.join(fallbackStatus.runDir, "report.html");
-		await waitFor("final report after open failure", async () => {
-			const html = await fs.readFile(fallbackReportPath, "utf8").catch(() => undefined);
-			return html?.includes("</html>") ? html : undefined;
-		});
-		await waitFor("final handoff after open failure", () => {
-			const fallbackNotificationText = fallbackCtx.notifications.map((n) => n.message).join("\n---\n");
-			const fallbackWakeText = fallbackPi.userMessages.map((m) => m.message).join("\n---\n");
-			return (
-				fallbackNotificationText.includes(fallbackReportPath) &&
-				fallbackWakeText.includes(fallbackReportPath) &&
-				fallbackPi.execCalls.some((call) => call.args?.includes(fallbackReportPath))
-			);
-		});
+		await waitForReportHtml("final report after open failure", fallbackReportPath);
+		await waitForReportHandoff("final handoff after open failure", fallbackCtx, fallbackPi, fallbackReportPath);
 		const fallbackResult = JSON.parse(await fs.readFile(path.join(fallbackStatus.runDir, "result.json"), "utf8"));
-		const fallbackNotificationText = fallbackCtx.notifications.map((n) => n.message).join("\n---\n");
-		const fallbackWakeText = fallbackPi.userMessages.map((m) => m.message).join("\n---\n");
+		const { notificationText: fallbackNotificationText, wakeText: fallbackWakeText } = handoffText(
+			fallbackCtx,
+			fallbackPi,
+		);
 		check(
 			"open failure keeps workflow completed",
 			fallbackResult.state === "completed",
@@ -274,7 +284,7 @@ async function main() {
 		);
 		check(
 			"open failure was attempted but swallowed",
-			fallbackPi.execCalls.some((call) => call.args?.includes(fallbackReportPath)),
+			reportWasOpened(fallbackPi, fallbackReportPath),
 			JSON.stringify(fallbackPi.execCalls),
 		);
 	} finally {
