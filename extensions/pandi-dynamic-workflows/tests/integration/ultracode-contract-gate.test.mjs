@@ -367,11 +367,11 @@ async function scenarioTemplateCatalog(url) {
 		check(`catalog demotes old key ${oldKey}`, !new RegExp(`^- ${oldKey} —`, "m").test(catalog), catalog);
 	}
 	check("catalog groups primary scaffolds", catalog.includes("## Scaffolds"), catalog);
-	check("catalog groups composition scaffolds", catalog.includes("## Compose scaffolds"), catalog);
-	check("catalog groups use-case scaffolds", catalog.includes("## Use-case scaffolds"), catalog);
+	check("catalog groups composition scaffolds", catalog.includes("## Scaffolds de composición"), catalog);
+	check("catalog groups use-case scaffolds", catalog.includes("## Scaffolds por caso de uso"), catalog);
 	check(
 		"catalog includes research-backed templates",
-		catalog.includes("## Research-backed templates") && catalog.includes("**ReAct** -> scout/observe"),
+		catalog.includes("## Plantillas apoyadas en research") && catalog.includes("**ReAct** -> scoutear/observar"),
 		catalog,
 	);
 
