@@ -128,6 +128,66 @@ async function main() {
 		inferred,
 	);
 
+	// Una misma fase puede contener una barrera: los reviewers se solapan, pero la
+	// síntesis empieza recién cuando todos terminaron. El diagrama debe mostrar dos
+	// oleadas conectadas, no falsear la síntesis como cuarta rama paralela.
+	const sequentialWaves = buildRunMermaidSource(
+		baseModel({
+			agents: [
+				{
+					id: 1,
+					name: "analyze-1",
+					state: "completed",
+					ok: true,
+					phaseId: 1,
+					phaseLabel: "Analyze",
+					startedAt: "2026-01-01T00:00:00.000Z",
+					endedAt: "2026-01-01T00:00:03.000Z",
+				},
+				{
+					id: 2,
+					name: "analyze-2",
+					state: "completed",
+					ok: true,
+					phaseId: 1,
+					phaseLabel: "Analyze",
+					startedAt: "2026-01-01T00:00:00.500Z",
+					endedAt: "2026-01-01T00:00:02.000Z",
+				},
+				{
+					id: 3,
+					name: "analyze-3",
+					state: "completed",
+					ok: true,
+					phaseId: 1,
+					phaseLabel: "Analyze",
+					startedAt: "2026-01-01T00:00:01.000Z",
+					endedAt: "2026-01-01T00:00:02.500Z",
+				},
+				{
+					id: 4,
+					name: "analyze-synthesis",
+					state: "completed",
+					ok: true,
+					phaseId: 1,
+					phaseLabel: "Analyze",
+					startedAt: "2026-01-01T00:00:03.100Z",
+					endedAt: "2026-01-01T00:00:04.000Z",
+				},
+			],
+		}),
+	);
+	check(
+		"separa oleadas secuenciales dentro de una fase",
+		sequentialWaves.includes('phase1_wave1_out(("join"))') && sequentialWaves.includes('phase1_wave2_in(("start"))'),
+		sequentialWaves,
+	);
+	check(
+		"conecta el join de reviewers con la síntesis posterior",
+		/phase1_wave1_out\s*-->\s*phase1_wave2_in[\s\S]*phase1_wave2_in\s*-->\s*A4/.test(sequentialWaves),
+		sequentialWaves,
+	);
+
 	// Agentes sin fase ni timestamps: van a un grupo de fallback, no rompen.
 	const noPhase = buildRunMermaidSource(baseModel({ agents: [{ id: 9, name: "solo", state: "running" }] }));
 	check("agente sin fase cae en un grupo de fallback", noPhase.includes("solo"));

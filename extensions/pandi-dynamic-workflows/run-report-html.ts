@@ -328,6 +328,10 @@ interface RunMermaidGroup {
 	agents: RunReportAgent[];
 }
 
+interface RunMermaidWave {
+	agents: RunReportAgent[];
+}
+
 function timestampMs(value: string | undefined): number | undefined {
 	if (!value) return undefined;
 	const ms = Date.parse(value);
@@ -372,6 +376,41 @@ function buildRunMermaidGroups(model: RunReportModel): RunMermaidGroup[] {
 	return [...groups.values()];
 }
 
+/**
+ * Un nombre de fase no expresa dependencias: `parallel()` y una síntesis posterior
+ * pueden compartirlo. Cuando los intervalos completos lo prueban, separamos las
+ * oleadas; sin timestamps completos conservamos el agrupamiento actual y no
+ * inventamos serialidad.
+ */
+function buildRunMermaidWaves(agents: RunReportAgent[]): RunMermaidWave[] {
+	if (agents.length <= 1) return [{ agents }];
+	const timed = agents.map((agent) => ({
+		agent,
+		started: timestampMs(agent.startedAt),
+		ended: timestampMs(agent.endedAt),
+	}));
+	if (timed.some(({ started, ended }) => started === undefined || ended === undefined || ended < started))
+		return [{ agents }];
+
+	timed.sort((a, b) => a.started! - b.started! || a.ended! - b.ended! || a.agent.id - b.agent.id);
+	const waves: RunMermaidWave[] = [];
+	let wave: RunReportAgent[] = [];
+	let waveEndsAt = Number.NEGATIVE_INFINITY;
+	for (const { agent, started, ended } of timed) {
+		// Un relevo exacto sigue siendo secuencial: el runtime cuenta ends antes que starts
+		// cuando estima el pico de paralelismo.
+		if (wave.length > 0 && started! >= waveEndsAt) {
+			waves.push({ agents: wave });
+			wave = [];
+			waveEndsAt = Number.NEGATIVE_INFINITY;
+		}
+		wave.push(agent);
+		waveEndsAt = Math.max(waveEndsAt, ended!);
+	}
+	waves.push({ agents: wave });
+	return waves;
+}
+
 function agentStateCounts(agents: RunReportAgent[]): Record<"completed" | "failed" | "running" | "other", number> {
 	return agents.reduce(
 		(counts, agent) => {
@@ -411,49 +450,60 @@ export function buildRunMermaidSource(model: RunReportModel): string {
 
 	const groups = buildRunMermaidGroups(model);
 	const lines = ["flowchart TD", '  start(["start"])'];
-	const phaseIds: string[] = [];
+	const phaseEntries: string[] = [];
+	const phaseExits: string[] = [];
 	const usedClasses = new Set<string>();
 	const classLines: string[] = [];
 	let index = 0;
 	for (const group of groups) {
 		index += 1;
 		const phaseId = `phase${index}`;
-		phaseIds.push(phaseId);
-		const entryId = `${phaseId}_in`;
-		const exitId = `${phaseId}_out`;
-		const parallel = group.agents.length > 1;
+		const waves = buildRunMermaidWaves(group.agents);
+		let previousExit: string | undefined;
 		lines.push(`  subgraph ${phaseId}["${mermaidLabel(group.label)}"]`);
-		lines.push(`    ${entryId}(("${parallel ? "fork" : "start"}"))`);
-		lines.push(`    ${exitId}(("${parallel ? "join" : "done"}"))`);
-		if (group.agents.length > MAX_DETAILED_MERMAID_AGENTS_PER_GROUP) {
-			const counts = agentStateCounts(group.agents);
-			const cls = summaryStateClass(counts);
-			const summaryId = `${phaseId}_summary`;
-			lines.push(`    ${summaryId}(["${mermaidLabel(mermaidGroupSummaryLabel(group.agents))}"])`);
-			lines.push(`    ${entryId} --> ${summaryId}`);
-			lines.push(`    ${summaryId} --> ${exitId}`);
-			usedClasses.add(cls);
-			classLines.push(`  class ${summaryId} ${cls}`);
-		} else {
-			for (const agent of group.agents) {
-				const cls = mermaidStateClass(agent);
-				// Forma "stadium" (bordes totalmente redondeados): combina con el estilo pill de
-				// los <span class="rpill"> de estado que usa el resto del reporte.
-				lines.push(`    A${agent.id}(["${mermaidLabel(agent.name)}"])`);
-				lines.push(`    ${entryId} --> A${agent.id}`);
-				lines.push(`    A${agent.id} --> ${exitId}`);
+		lines.push("    direction TD");
+		for (let waveIndex = 0; waveIndex < waves.length; waveIndex += 1) {
+			const wave = waves[waveIndex];
+			const suffix = waves.length > 1 ? `_wave${waveIndex + 1}` : "";
+			const entryId = `${phaseId}${suffix}_in`;
+			const exitId = `${phaseId}${suffix}_out`;
+			const parallel = wave.agents.length > 1;
+			if (previousExit) lines.push(`    ${previousExit} --> ${entryId}`);
+			lines.push(`    ${entryId}(("${parallel ? "fork" : "start"}"))`);
+			lines.push(`    ${exitId}(("${parallel ? "join" : "done"}"))`);
+			if (wave.agents.length > MAX_DETAILED_MERMAID_AGENTS_PER_GROUP) {
+				const counts = agentStateCounts(wave.agents);
+				const cls = summaryStateClass(counts);
+				const summaryId = `${phaseId}${suffix}_summary`;
+				lines.push(`    ${summaryId}(["${mermaidLabel(mermaidGroupSummaryLabel(wave.agents))}"])`);
+				lines.push(`    ${entryId} --> ${summaryId}`);
+				lines.push(`    ${summaryId} --> ${exitId}`);
 				usedClasses.add(cls);
-				classLines.push(`  class A${agent.id} ${cls}`);
+				classLines.push(`  class ${summaryId} ${cls}`);
+			} else {
+				for (const agent of wave.agents) {
+					const cls = mermaidStateClass(agent);
+					// Forma "stadium" (bordes totalmente redondeados): combina con el estilo pill de
+					// los <span class="rpill"> de estado que usa el resto del reporte.
+					lines.push(`    A${agent.id}(["${mermaidLabel(agent.name)}"])`);
+					lines.push(`    ${entryId} --> A${agent.id}`);
+					lines.push(`    A${agent.id} --> ${exitId}`);
+					usedClasses.add(cls);
+					classLines.push(`  class A${agent.id} ${cls}`);
+				}
 			}
+			if (waveIndex === 0) phaseEntries.push(entryId);
+			previousExit = exitId;
 		}
+		if (previousExit) phaseExits.push(previousExit);
 		lines.push("  end");
 	}
-	if (phaseIds.length > 0) {
-		lines.push(`  start --> ${phaseIds[0]}_in`);
-		for (let i = 0; i < phaseIds.length - 1; i += 1) {
-			lines.push(`  ${phaseIds[i]}_out --> ${phaseIds[i + 1]}_in`);
+	if (phaseEntries.length > 0) {
+		lines.push(`  start --> ${phaseEntries[0]}`);
+		for (let i = 0; i < phaseEntries.length - 1; i += 1) {
+			lines.push(`  ${phaseExits[i]} --> ${phaseEntries[i + 1]}`);
 		}
-		lines.push(`  ${phaseIds[phaseIds.length - 1]}_out --> done(["done"])`);
+		lines.push(`  ${phaseExits[phaseExits.length - 1]} --> done(["done"])`);
 	}
 
 	for (const cls of usedClasses) {
