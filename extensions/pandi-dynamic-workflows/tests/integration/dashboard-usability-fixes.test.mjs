@@ -316,6 +316,39 @@ async function scenarioAgentsSelectionStability(url) {
 	);
 }
 
+async function scenarioSessionsRender(url) {
+	const { component } = await openDashboardComponent(url);
+	const now = new Date().toISOString();
+	component.setPiSessions([
+		{
+			id: "session-1",
+			pid: 1234,
+			mode: "tui",
+			cwd: "/tmp/project",
+			startedAt: now,
+			updatedAt: now,
+			sessionId: "sid-1",
+			sessionName: "Main bamboo",
+			sessionFile: "/tmp/project/.pi/sessions/sid-1.jsonl",
+			trusted: true,
+			idle: true,
+			activeWorkflowRuns: 2,
+			file: "/tmp/project/.pi/live-sessions/session-1.json",
+			live: true,
+			current: true,
+			ageMs: 1500,
+		},
+	]);
+	component.handleInput("s"); // → tab Sessions
+	const text = component.render(100).join("\n");
+	check("sessions tab renders summary", text.includes("Pi sessions") && text.includes("live:1"), text.split("\n")[0]);
+	check(
+		"sessions tab renders selected session detail",
+		text.includes("Selected Pi session") && text.includes("session: Main bamboo • sid-1"),
+		text.split("\n").slice(-12).join("\n"),
+	);
+}
+
 async function scenarioListPaging(url) {
 	const { component, getDone } = await openDashboardComponent(url);
 	const runs = Array.from({ length: 25 }, (_, i) => ({
@@ -814,6 +847,7 @@ async function main() {
 	await scenarioBackspaceVsDelete(url);
 	await scenarioRunsSelectionStability(url);
 	await scenarioAgentsSelectionStability(url);
+	await scenarioSessionsRender(url);
 	await scenarioListPaging(url);
 	await scenarioFailedRunErrorVisible(url);
 	await scenarioReopenAfterAction(url);

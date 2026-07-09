@@ -73,6 +73,10 @@ interface DashboardListViewFormatters {
 	warning: (s: string) => string;
 }
 
+interface DashboardStatusListViewFormatters extends DashboardListViewFormatters {
+	success: (s: string) => string;
+}
+
 function renderPatternsView(
 	patternIndex: number,
 	{ line, accent, muted, warning }: DashboardListViewFormatters,
@@ -148,6 +152,87 @@ function renderWorkflowsView(
 		lines.push(line(`path: ${selected.path}`));
 		lines.push(line(muted("Enter/g opens graph • r runs with JSON + confirm • d/delete removes workflow file")));
 	}
+	return lines;
+}
+
+function renderSessionsView(
+	piSessions: PiSessionModel[],
+	sessionIndex: number,
+	{ line, accent, muted, success, warning }: DashboardStatusListViewFormatters,
+): string[] {
+	const lines: string[] = [];
+	if (piSessions.length === 0) {
+		lines.push(line(warning("No live Pi TUI/RPC sessions found.")));
+		lines.push(line(muted("Persistent Pi sessions appear here after this extension starts and writes a heartbeat.")));
+		return lines;
+	}
+	const live = piSessions.filter((session) => session.live).length;
+	const stale = piSessions.length - live;
+	lines.push(
+		line(
+			`${accent("Pi sessions")} ${muted(`(${piSessions.length})`)} ${live ? success(`live:${live}`) : muted("live:0")} ${stale ? warning(`stale:${stale}`) : muted("stale:0")} ${muted(`heartbeat:${formatElapsedMs(PI_SESSION_HEARTBEAT_MS)}`)}`,
+		),
+	);
+	const start = windowStart(sessionIndex, piSessions.length, 6, 12);
+	const visible = piSessions.slice(start, start + 12);
+	for (let i = 0; i < visible.length; i++) {
+		const index = start + i;
+		const session = visible[i];
+		const selected = index === sessionIndex;
+		const prefix = selected ? accent("› ") : "  ";
+		const state = session.live ? success("● live") : warning("○ stale");
+		const current = session.current ? accent(" this") : "";
+		const name = session.sessionName ? ` ${renderSafeInline(session.sessionName)}` : "";
+		const idle = session.idle === undefined ? "" : muted(` idle:${session.idle ? "yes" : "no"}`);
+		const workflows = session.activeWorkflowRuns
+			? accent(` workflows:${session.activeWorkflowRuns}`)
+			: muted(" workflows:0");
+		const age = Number.isFinite(session.ageMs) ? `${formatElapsedMs(session.ageMs)} ago` : "unknown";
+		lines.push(
+			line(
+				`${prefix}${state} ${session.mode} pid:${session.pid}${current}${name} ${muted(`updated:${age}`)}${idle}${workflows}`,
+			),
+		);
+	}
+	const selected = piSessions[sessionIndex];
+	if (!selected) return lines;
+	lines.push(line(muted("")));
+	lines.push(line(accent("Selected Pi session")));
+	lines.push(
+		line(
+			`status: ${selected.live ? success("live") : warning(`stale${selected.staleReason ? ` • ${selected.staleReason}` : ""}`)}${selected.current ? accent(" • this process") : ""}`,
+		),
+	);
+	lines.push(
+		line(
+			`mode: ${selected.mode} • pid: ${selected.pid} • idle: ${selected.idle === undefined ? "unknown" : selected.idle ? "yes" : "no"}`,
+		),
+	);
+	lines.push(
+		line(`session: ${selected.sessionName ? `${selected.sessionName} • ` : ""}${selected.sessionId ?? "unknown"}`),
+	);
+	lines.push(line(`started: ${selected.startedAt} • updated: ${selected.updatedAt}`));
+	lines.push(
+		line(
+			`workflows: ${selected.activeWorkflowRuns ?? 0} active • trusted: ${selected.trusted === undefined ? "unknown" : selected.trusted ? "yes" : "no"}`,
+		),
+	);
+	lines.push(line(`cwd: ${selected.cwd}`));
+	lines.push(line(`session file: ${selected.sessionFile ?? "(in-memory or unavailable)"}`));
+	lines.push(line(`registry: ${selected.file}`));
+	const action = selected.current
+		? "Already in this session."
+		: selected.sessionFile
+			? "Enter switches this Pi to the selected session file."
+			: "Enter unavailable: no session file recorded.";
+	lines.push(line(muted(action)));
+	lines.push(
+		line(
+			muted(
+				`Heartbeat records are removed on clean shutdown; stale rows usually mean the Pi process died without cleanup.`,
+			),
+		),
+	);
 	return lines;
 }
 
@@ -1157,80 +1242,7 @@ export class WorkflowDashboard {
 		success: (s: string) => string,
 		warning: (s: string) => string,
 	): void {
-		if (this.piSessions.length === 0) {
-			lines.push(line(warning("No live Pi TUI/RPC sessions found.")));
-			lines.push(
-				line(muted("Persistent Pi sessions appear here after this extension starts and writes a heartbeat.")),
-			);
-			return;
-		}
-		const live = this.piSessions.filter((session) => session.live).length;
-		const stale = this.piSessions.length - live;
-		lines.push(
-			line(
-				`${accent("Pi sessions")} ${muted(`(${this.piSessions.length})`)} ${live ? success(`live:${live}`) : muted("live:0")} ${stale ? warning(`stale:${stale}`) : muted("stale:0")} ${muted(`heartbeat:${formatElapsedMs(PI_SESSION_HEARTBEAT_MS)}`)}`,
-			),
-		);
-		const start = windowStart(this.sessionIndex, this.piSessions.length, 6, 12);
-		const visible = this.piSessions.slice(start, start + 12);
-		for (let i = 0; i < visible.length; i++) {
-			const index = start + i;
-			const session = visible[i];
-			const selected = index === this.sessionIndex;
-			const prefix = selected ? accent("› ") : "  ";
-			const state = session.live ? success("● live") : warning("○ stale");
-			const current = session.current ? accent(" this") : "";
-			const name = session.sessionName ? ` ${renderSafeInline(session.sessionName)}` : "";
-			const idle = session.idle === undefined ? "" : muted(` idle:${session.idle ? "yes" : "no"}`);
-			const workflows = session.activeWorkflowRuns
-				? accent(` workflows:${session.activeWorkflowRuns}`)
-				: muted(" workflows:0");
-			const age = Number.isFinite(session.ageMs) ? `${formatElapsedMs(session.ageMs)} ago` : "unknown";
-			lines.push(
-				line(
-					`${prefix}${state} ${session.mode} pid:${session.pid}${current}${name} ${muted(`updated:${age}`)}${idle}${workflows}`,
-				),
-			);
-		}
-		const selected = this.piSessions[this.sessionIndex];
-		if (!selected) return;
-		lines.push(line(muted("")));
-		lines.push(line(accent("Selected Pi session")));
-		lines.push(
-			line(
-				`status: ${selected.live ? success("live") : warning(`stale${selected.staleReason ? ` • ${selected.staleReason}` : ""}`)}${selected.current ? accent(" • this process") : ""}`,
-			),
-		);
-		lines.push(
-			line(
-				`mode: ${selected.mode} • pid: ${selected.pid} • idle: ${selected.idle === undefined ? "unknown" : selected.idle ? "yes" : "no"}`,
-			),
-		);
-		lines.push(
-			line(`session: ${selected.sessionName ? `${selected.sessionName} • ` : ""}${selected.sessionId ?? "unknown"}`),
-		);
-		lines.push(line(`started: ${selected.startedAt} • updated: ${selected.updatedAt}`));
-		lines.push(
-			line(
-				`workflows: ${selected.activeWorkflowRuns ?? 0} active • trusted: ${selected.trusted === undefined ? "unknown" : selected.trusted ? "yes" : "no"}`,
-			),
-		);
-		lines.push(line(`cwd: ${selected.cwd}`));
-		lines.push(line(`session file: ${selected.sessionFile ?? "(in-memory or unavailable)"}`));
-		lines.push(line(`registry: ${selected.file}`));
-		const action = selected.current
-			? "Already in this session."
-			: selected.sessionFile
-				? "Enter switches this Pi to the selected session file."
-				: "Enter unavailable: no session file recorded.";
-		lines.push(line(muted(action)));
-		lines.push(
-			line(
-				muted(
-					`Heartbeat records are removed on clean shutdown; stale rows usually mean the Pi process died without cleanup.`,
-				),
-			),
-		);
+		lines.push(...renderSessionsView(this.piSessions, this.sessionIndex, { line, accent, muted, success, warning }));
 	}
 
 	private renderWorkflows(
