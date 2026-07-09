@@ -180,10 +180,10 @@ export default async function main() {
 	}
 	log(`bug-hunt fan-out selected ${JSON.stringify({ files: files.length, concurrency })}`);
 
-	// Fan out one independent bug reviewer per file. settle semantics: a failed
-	// branch becomes null and never rejects. Empty output is tracked separately
-	// from process failure; display-truncated output remains usable but flagged.
-	// Concurrency-capped so a large file set doesn't exhaust provider rate limits.
+	// Fan-out de un bug reviewer independiente por archivo. Semántica settle: una rama fallida
+	// devuelve null y nunca rechaza. El output vacío se separa de la falla de proceso; el output
+	// truncado para display sigue siendo usable, pero queda marcado. Concurrency acotada para no
+	// agotar rate limits del provider con sets grandes.
 	const reviews = await parallel(
 		files.map(
 			(file, index) => () =>
@@ -202,12 +202,12 @@ Reglas de evidencia:
 - Si la evidencia es insuficiente, respondé INSUFFICIENT_EVIDENCE y explicá qué haría falta.
 
 Formato de salida:
-## Verdict
-## Findings
+## Veredicto
+## Hallazgos
 - Severity High/Medium/Low | Confidence High/Medium/Low | Evidence | Scenario | Fix
-## Non-findings / notes
+## No-hallazgos / notas
 
-Target file to inspect:
+Archivo objetivo a inspeccionar:
 ${fence("file", file)}`,
 					node("bug-hunt", { tier: "balanced", effort: "medium", label: `bug-hunt-${file}`, phase: "Review" }),
 				).then((output) => {

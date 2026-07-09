@@ -352,19 +352,19 @@ por sí mismo).
 - **Bound generators:** acotá longitud/formato de todo output generado, sobre todo si alimenta otro
   prompt o se escribe a un archivo.
 
-## Research-backed templates
+## Plantillas apoyadas en research
 
-Map common agent papers/frameworks to Pi workflow design:
+Mapeo de papers/frameworks comunes de agentes al diseño de workflows en Pi:
 
-- **ReAct** -> scout/observe with tools before fan-out; keep reasoning tied to evidence.
-- **Self-consistency** -> sample independent branches, then select by consistency/evidence rather than trusting one path.
-- **Reflexion / Self-Refine** -> generate -> critique -> refine loops, always bounded by rounds, quiet stops, `maxAgents`, and timeout.
-- **Tree of Thoughts** -> branch alternatives, evaluate/prune with a judge, then commit to one path.
-- **Multiagent debate** -> adversarial reviewers plus synthesis-as-judge; unsupported claims are dropped.
-- **AutoGen / CAMEL / MetaGPT** -> explicit roles, stable artifacts, and clear handoff contracts.
-- **SWE-agent / DSPy** -> interface and contracts matter: narrow tools, schemas/fixed formats, and reproducible checks.
+- **ReAct** -> scoutear/observar con tools antes del fan-out; mantener el razonamiento atado a la evidencia.
+- **Self-consistency** -> muestrear ramas independientes y luego elegir por consistencia/evidencia, en vez de confiar en un solo camino.
+- **Reflexion / Self-Refine** -> loops de generate -> critique -> refine, siempre acotados por rondas, quiet stops, `maxAgents` y timeout.
+- **Tree of Thoughts** -> ramificar alternativas, evaluar/podar con un juez y luego comprometerse con un camino.
+- **Multiagent debate** -> reviewers adversariales más síntesis-como-juez; los claims sin soporte se descartan.
+- **AutoGen / CAMEL / MetaGPT** -> roles explícitos, artifacts estables y contratos de handoff claros.
+- **SWE-agent / DSPy** -> importan la interfaz y los contratos: tools estrechos, schemas/formatos fijos y chequeos reproducibles.
 
-Use these as patterns, not ceremony: every branch needs a reason, a contract, and a stop condition.
+Usalos como patterns, no como ceremonia: cada rama necesita una razón, un contrato y una condición de parada.
 
 Varios de estos vienen como archivos **scaffold** concretos bajo
 `extensions/pandi-dynamic-workflows/scaffolds/` (mirror para runtime Claude en

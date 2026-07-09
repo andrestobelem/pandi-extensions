@@ -118,7 +118,7 @@ Mapeo de papers/frameworks comunes de agentes al diseño de workflows en Pi:
 - **ReAct** -> scoutear/observar con tools antes del fan-out; mantener el razonamiento atado a la evidencia.
 - **Self-consistency** -> muestrear ramas independientes y luego elegir por consistencia/evidencia, en vez de confiar en un solo camino.
 - **Reflexion / Self-Refine** -> loops de generate -> critique -> refine, siempre acotados por rondas, quiet stops, `maxAgents` y timeout.
-- **Tree of Thoughts** -> ramificar alternativas, evaluar/podar con un judge y luego comprometerse con un camino.
+- **Tree of Thoughts** -> ramificar alternativas, evaluar/podar con un juez y luego comprometerse con un camino.
 - **Multiagent debate** -> reviewers adversariales más síntesis-como-juez; los claims sin soporte se descartan.
 - **AutoGen / CAMEL / MetaGPT** -> roles explícitos, artifacts estables y contratos de handoff claros.
 - **SWE-agent / DSPy** -> importan la interfaz y los contratos: tools estrechos, schemas/formatos fijos y chequeos reproducibles.

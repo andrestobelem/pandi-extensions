@@ -5,11 +5,9 @@
  * ---------------------------
  * La fuente CANÓNICA runtime del catálogo de patterns de workflow es
  * `formatWorkflowPatternCatalog()` en extensions/pandi-dynamic-workflows/pattern-scaffolds.ts.
- * El mismo bloque "Research-backed templates" se espeja, para docs humanas, en dos
- * sabores:
- *   Inglés (byte-idéntico al bloque canónico, salvo nivel de heading):
- *   - .pi/skills/ultracode/SKILL.md                (## Research-backed templates)
- *   Español (las docs humanas están en español desde la traducción 2026-07):
+ * El mismo bloque "Plantillas apoyadas en research" se espeja en skills/docs humanas
+ * y debe mantenerse byte-idéntico salvo nivel de heading:
+ *   - .pi/skills/ultracode/SKILL.md                (## Plantillas apoyadas en research)
  *   - extensions/pandi-dynamic-workflows/README.md (### Plantillas apoyadas en research)
  *   - README.md (repo root)                        (### Plantillas apoyadas en research)
  *   - docs/dynamic-workflows.md                    (### Plantillas apoyadas en research)
@@ -18,13 +16,9 @@
  * de docs, así que cualquier edición futura del wording del catálogo desincronizaría silenciosamente
  * las docs (violación DRY para prompts).
  *
- * Este test exige una única fuente por sabor:
- *   - Los mirrors en inglés deben igualar el bloque producido por `formatWorkflowPatternCatalog()`
- *     (quitar nivel de heading, trim de whitespace final por línea, dropear blanks finales).
- *   - Los mirrors en español deben ser byte-idénticos ENTRE SÍ (un canon español; la copia del
- *     README raíz es la referencia) y deben listar los mismos nombres de patterns en **bold**,
- *     en el mismo orden, que el bloque canónico inglés (paridad estructural: una traducción
- *     no puede byte-compararse contra el prompt inglés).
+ * Este test exige una única fuente: todos los mirrors deben igualar el bloque producido por
+ * `formatWorkflowPatternCatalog()` (quitando nivel de heading, trimeando whitespace final por línea
+ * y dropeando blanks finales).
  * Si cambiás intencionalmente el wording, actualizá pattern-scaffolds.ts Y las docs espejadas
  * juntas y esto queda verde.
  *
@@ -40,10 +34,8 @@ import { buildExtension as sharedBuildExtension } from "../../../shared/test/har
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 
-const HEADING = "Research-backed templates";
-const CLOSING = "Use these as patterns, not ceremony";
-const HEADING_ES = "Plantillas apoyadas en research";
-const CLOSING_ES = "Usalos como patterns, no como ceremonia";
+const HEADING = "Plantillas apoyadas en research";
+const CLOSING = "Usalos como patterns, no como ceremonia";
 
 // pattern-scaffolds.ts NO tiene imports externos, así que bundlea standalone (sin stubs).
 async function buildTemplates() {
@@ -107,8 +99,13 @@ async function main() {
 	}
 	const canonical = canonicalize(canonicalBlock);
 
-	const englishDocs = [".pi/skills/ultracode/SKILL.md"];
-	for (const rel of englishDocs) {
+	const mirrors = [
+		".pi/skills/ultracode/SKILL.md",
+		"extensions/pandi-dynamic-workflows/README.md",
+		"README.md",
+		"docs/dynamic-workflows.md",
+	];
+	for (const rel of mirrors) {
 		const text = await fs.readFile(path.join(REPO_ROOT, rel), "utf8");
 		const block = sliceBlock(text);
 		check(`${rel}: "${HEADING}" block present`, block !== null);
@@ -119,34 +116,6 @@ async function main() {
 			got === canonical,
 			got === canonical ? "" : firstDiff(canonical, got),
 		);
-	}
-
-	// Mirrors en español: un canon español (README raíz es la referencia) + paridad
-	// estructural de los nombres de patterns en bold contra el bloque canónico inglés.
-	const spanishDocs = ["extensions/pandi-dynamic-workflows/README.md", "README.md", "docs/dynamic-workflows.md"];
-	const boldNames = (block) => block.match(/\*\*[^*]+\*\*/g) ?? [];
-	const canonicalNames = boldNames(canonical).join(" | ");
-	let spanishRef = null;
-	for (const rel of spanishDocs) {
-		const text = await fs.readFile(path.join(REPO_ROOT, rel), "utf8");
-		const block = sliceBlock(text, HEADING_ES, CLOSING_ES);
-		check(`${rel}: "${HEADING_ES}" block present`, block !== null);
-		if (!block) continue;
-		const got = canonicalize(block);
-		check(
-			`${rel}: bold pattern names match the canonical block (structural parity)`,
-			boldNames(got).join(" | ") === canonicalNames,
-			`canonical: ${canonicalNames}\n   doc:       ${boldNames(got).join(" | ")}`,
-		);
-		if (spanishRef === null) {
-			spanishRef = { rel, got };
-		} else {
-			check(
-				`${rel}: Spanish block is byte-identical to ${spanishRef.rel}`,
-				got === spanishRef.got,
-				got === spanishRef.got ? "" : firstDiff(spanishRef.got, got),
-			);
-		}
 	}
 
 	console.log(`\nTOTAL: ${failures === 0 ? "all passed" : `${failures} failed`}`);
