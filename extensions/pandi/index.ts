@@ -125,6 +125,10 @@ function repeatFrames(frames: string[], loops: number): string[] {
 	return repeated;
 }
 
+function dots(theme: Theme, n: number): string {
+	return n > 0 ? theme.fg("dim", ` ${".".repeat(n)}`) : "";
+}
+
 /** Estilo "claude": carita `(● ●)` con ojos que a veces brillan con el rombo ◆. */
 function framesClaude(theme: Theme): WorkingIndicatorOptions {
 	const eye = (c: string) => (c === "◆" ? theme.fg("accent", "◆") : c);
@@ -132,22 +136,21 @@ function framesClaude(theme: Theme): WorkingIndicatorOptions {
 	const bearEye = (c: string) => glintEye(c, theme.getFgAnsi("accent"));
 	const bear = (l: string, r: string) =>
 		`${theme.fg("dim", "ʕ ")}${bearEye(l)}${theme.fg("dim", "ᴥ")}${bearEye(r)}${theme.fg("dim", " ʔ")}`;
-	const dots = (n: number) => (n > 0 ? theme.fg("dim", ` ${".".repeat(n)}`) : "");
 	const classicFrames = [
-		face("●", "●") + dots(0),
-		face("●", "●") + dots(1),
-		face("◆", "●") + dots(2), // brilla el ojo izquierdo
-		face("●", "◆") + dots(3), // brilla el derecho
-		face("◆", "◆") + dots(2), // alma de Claude
-		face("-", "-") + dots(1), // parpadeo clásico
+		face("●", "●") + dots(theme, 0),
+		face("●", "●") + dots(theme, 1),
+		face("◆", "●") + dots(theme, 2), // brilla el ojo izquierdo
+		face("●", "◆") + dots(theme, 3), // brilla el derecho
+		face("◆", "◆") + dots(theme, 2), // alma de Claude
+		face("-", "-") + dots(theme, 1), // parpadeo clásico
 	];
 	const bearFrames = [
-		bear("•", "•") + dots(0),
-		bear("•", "•") + dots(1),
-		bear("•", "•") + dots(2),
-		bear("-", "-") + dots(3), // parpadeo del osito
-		bear("·", "·") + dots(2),
-		bear("^", "^") + dots(1), // respiración alegre
+		bear("•", "•") + dots(theme, 0),
+		bear("•", "•") + dots(theme, 1),
+		bear("•", "•") + dots(theme, 2),
+		bear("-", "-") + dots(theme, 3), // parpadeo del osito
+		bear("·", "·") + dots(theme, 2),
+		bear("^", "^") + dots(theme, 1), // respiración alegre
 	];
 	return {
 		frames: [
@@ -170,18 +173,17 @@ function framesKaomoji(
 	const fg = theme.getFgAnsi(spec.role);
 	const face = (a: string, b: string) =>
 		`${theme.fg("accent", spec.l)}${glintEye(a, fg)}${theme.fg("accent", "ᴥ")}${glintEye(b, fg)}${theme.fg("accent", spec.r)}`;
-	const dots = (n: number) => (n > 0 ? theme.fg("dim", ` ${".".repeat(n)}`) : "");
 	const { eyeL, eyeR } = spec;
 	return {
 		frames: [
-			face(eyeL, eyeR) + dots(0),
-			face(eyeL, eyeR) + dots(1),
-			face(eyeL, eyeR) + dots(2),
-			face(eyeL, eyeR) + dots(3),
-			face("-", "-") + dots(3), // parpadeo
-			face("·", "·") + dots(2),
-			face(eyeL, eyeR) + dots(1),
-			face("^", "^") + dots(0), // ojito feliz
+			face(eyeL, eyeR) + dots(theme, 0),
+			face(eyeL, eyeR) + dots(theme, 1),
+			face(eyeL, eyeR) + dots(theme, 2),
+			face(eyeL, eyeR) + dots(theme, 3),
+			face("-", "-") + dots(theme, 3), // parpadeo
+			face("·", "·") + dots(theme, 2),
+			face(eyeL, eyeR) + dots(theme, 1),
+			face("^", "^") + dots(theme, 0), // ojito feliz
 		],
 		intervalMs: 180,
 	};
