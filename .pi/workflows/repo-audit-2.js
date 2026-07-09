@@ -20,8 +20,8 @@ const TIER = {
 	opusHigh: { model: "anthropic/claude-opus-4-8", effort: "high" },
 	sonnetHigh: { model: "anthropic/claude-sonnet-4-6", effort: "high" },
 	sonnetMed: { model: "anthropic/claude-sonnet-4-6", effort: "medium" },
-	codexHigh: { model: "openai-codex/gpt-5.5", effort: "high" },
-	codexMed: { model: "openai-codex/gpt-5.4", effort: "medium" },
+	codexHigh: { model: "openai-codex/gpt-5.6-sol", effort: "high" },
+	codexMed: { model: "openai-codex/gpt-5.6-terra", effort: "medium" },
 };
 
 const PREFIX = [
@@ -69,7 +69,7 @@ export default async function main() {
 		coreEnvResume: "extensions/pandi-dynamic-workflows/agent-env-persona.ts + config.ts + run-lifecycle.ts + run-state.ts. Focus on keys/env isolation & redaction, web_search/context7 resolution, limit clamps, and atomic status/result writes.",
 	};
 	const items = [
-		// CORE (critical) — dual, cross-provider: anthropic opus + openai-codex gpt-5.5.
+		// CORE (critical) — dual, cross-provider: anthropic opus + openai-codex gpt-5.6-sol.
 		item("core-dispatch", "opusHigh", S.coreDispatch),
 		item("core-dispatch", "codexHigh", S.coreDispatch),
 		item("core-primitives", "opusHigh", S.corePrimitives),

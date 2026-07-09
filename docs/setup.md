@@ -92,7 +92,7 @@ Todas las extensiones arrancan con valores razonables; no hace falta configurar 
 | `PI_DYNAMIC_WORKFLOWS_PI_COMMAND` | core, goal | `pi` | Binario de Pi usado para spawnear subagentes. |
 | `PI_AUTO_COMPACT_PERCENT` | auto-compact | `35` (`50` en Codex) | Porcentaje de contexto que dispara la compactación. |
 | `PI_AUTO_COMPACT_FAST_SUMMARY` | auto-compact | `on` | Usa un resumen rápido/acotado en `session_before_compact`; cae al compactor nativo si falla. |
-| `PI_AUTO_COMPACT_SUMMARY_MODEL` | auto-compact | Sonnet 5 (`gpt-5.5` en Codex) | Override del modelo de resumen como `provider/model`. |
+| `PI_AUTO_COMPACT_SUMMARY_MODEL` | auto-compact | Sonnet 5 (`gpt-5.6-sol` en Codex) | Override del modelo de resumen como `provider/model`. |
 | `PI_TS_LSP` / `PI_TS_LSP_MODE` | typescript-lsp | `on` / `advisory` | Habilita feedback de `tsc` y su modo (`advisory`/`autofix`). |
 | `PI_PLAN_NONINTERACTIVE` | plan | (off) | Permite el modo plan en print/json (subagentes). |
 | `CODEX_PATH` | web-search | (PATH) | Ruta al binario `codex` cuando no está en el `PATH`. |

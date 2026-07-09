@@ -2,7 +2,7 @@ import type { AssistantMessage, TextContent } from "@earendil-works/pi-ai";
 import type { FileOperations } from "@earendil-works/pi-coding-agent";
 
 export const DEFAULT_FAST_SUMMARY_MODEL = "anthropic/claude-sonnet-5";
-export const CODEX_FAST_SUMMARY_MODEL = "openai-codex/gpt-5.5";
+export const CODEX_FAST_SUMMARY_MODEL = "openai-codex/gpt-5.6-sol";
 export const FAST_SUMMARY_MODEL_FALLBACKS = [
 	DEFAULT_FAST_SUMMARY_MODEL,
 	CODEX_FAST_SUMMARY_MODEL,

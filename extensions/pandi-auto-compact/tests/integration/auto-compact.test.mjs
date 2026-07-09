@@ -337,7 +337,7 @@ async function belowThresholdNeverCompacts(url) {
 
 async function codexDefaultThresholdIsFifty(url) {
 	const { handlers } = await loadExtension(url);
-	const env = makeEnv({ model: { provider: "openai-codex", id: "gpt-5.5" } });
+	const env = makeEnv({ model: { provider: "openai-codex", id: "gpt-5.6-sol" } });
 	env.state.percent = 40; // por encima del 35% de Claude, por debajo del 50% de Codex
 	await fireAgentEnd(handlers, env.ctx);
 	check(
@@ -1012,16 +1012,16 @@ async function fastSummaryProvidesCustomCompaction(url) {
 	check("fast-summary: still writes the recoverable raw snapshot first", snapFiles(env).length === 1);
 }
 
-async function fastSummaryPrefersCodex55ForCodexSessions(url) {
+async function fastSummaryPrefersCodex56SolForCodexSessions(url) {
 	resetFastSummaryGlobals();
 	const { handlers } = await loadExtension(url);
-	const fast = { provider: "openai-codex", id: "gpt-5.5", reasoning: true };
-	const current = { provider: "openai-codex", id: "gpt-5.4", reasoning: true };
+	const fast = { provider: "openai-codex", id: "gpt-5.6-sol", reasoning: true };
+	const current = { provider: "openai-codex", id: "gpt-5.6-terra", reasoning: true };
 	const { registry } = makeSummaryRegistry({ models: [fast, current] });
 	const env = makeEnv({ model: current, modelRegistry: registry });
 	await handlers.get("session_before_compact")?.(beforeCompactEvent(), env.ctx);
 	const call = (globalThis.__autoCompactSummaryCalls ?? [])[0];
-	check("fast-summary: Codex sessions prefer GPT 5.5", call?.model === fast, `model=${call?.model?.id}`);
+	check("fast-summary: Codex sessions prefer GPT 5.6 Sol", call?.model === fast, `model=${call?.model?.id}`);
 }
 
 async function fastSummaryFallsBackWhenAuthFails(url) {
@@ -1253,7 +1253,7 @@ async function main() {
 	await snapshotPureHelpers(url);
 	await fastSummaryPureHelpers(url);
 	await fastSummaryProvidesCustomCompaction(url);
-	await fastSummaryPrefersCodex55ForCodexSessions(url);
+	await fastSummaryPrefersCodex56SolForCodexSessions(url);
 	await fastSummaryFallsBackWhenAuthFails(url);
 	await fastSummaryCommandToggle(url);
 	await clearElidesOldLargeResults(url);

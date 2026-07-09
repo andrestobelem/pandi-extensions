@@ -18,8 +18,8 @@ const READ_ONLY = ["read", "grep", "find", "ls"];
 const TIER = {
 	opusHigh: { model: "anthropic/claude-opus-4-8", effort: "high" },
 	sonnetHigh: { model: "anthropic/claude-sonnet-4-6", effort: "high" },
-	codexHigh: { model: "openai-codex/gpt-5.5", effort: "high" },
-	codexMedPlus: { model: "openai-codex/gpt-5.4", effort: "high" },
+	codexHigh: { model: "openai-codex/gpt-5.6-sol", effort: "high" },
+	codexMedPlus: { model: "openai-codex/gpt-5.6-terra", effort: "high" },
 };
 
 const PREFIX = [

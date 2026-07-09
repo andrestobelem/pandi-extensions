@@ -38,7 +38,7 @@ La compactación corre sola después del turno de un agente cuando el uso supera
 
 ## Cómo funciona
 
-**Resumen rápido** (activado por defecto): antes de que Pi escriba una entrada de compactación, la extensión intenta resumir con un prompt operativo acotado y un modelo elegido para la sesión actual: `anthropic/claude-sonnet-5` normalmente, `openai-codex/gpt-5.5` en sesiones Codex. Se puede sobrescribir con `PI_AUTO_COMPACT_SUMMARY_MODEL=provider/model` o desactivar con `/auto-compact summary off`. Si falla la búsqueda del modelo, la autenticación o el resumen, Pi vuelve a su compactor nativo.
+**Resumen rápido** (activado por defecto): antes de que Pi escriba una entrada de compactación, la extensión intenta resumir con un prompt operativo acotado y un modelo elegido para la sesión actual: `anthropic/claude-sonnet-5` normalmente, `openai-codex/gpt-5.6-sol` en sesiones Codex. Se puede sobrescribir con `PI_AUTO_COMPACT_SUMMARY_MODEL=provider/model` o desactivar con `/auto-compact summary off`. Si falla la búsqueda del modelo, la autenticación o el resumen, Pi vuelve a su compactor nativo.
 
 **Instantáneas** (a prueba de fallos, en `.gitignore`): en cualquier camino de compactación (manual, por umbral, recuperación de overflow), las entradas crudas se escriben en `<cwd>/.pi/compaction-snapshots/<sessionId>/<timestamp>-<reason>.json` y después se parchean con el resumen — un error de escritura nunca bloquea la compactación. Se separan de `.pi/memory/` (hechos curados, no transcripciones crudas).
 
@@ -53,7 +53,7 @@ Valores iniciales, sobrescribibles mediante variables de entorno:
 | `PI_AUTO_COMPACT_PERCENT` | sensible al modelo (`35` normalmente, `50` para Codex) | Porcentaje de umbral de compactación. |
 | `PI_AUTO_COMPACT_BAR` | `on` | Visibilidad de la barra de progreso del footer. |
 | `PI_AUTO_COMPACT_FAST_SUMMARY` | `on` | Usa el resumen personalizado rápido y acotado de compactación. |
-| `PI_AUTO_COMPACT_SUMMARY_MODEL` | sensible al modelo (`anthropic/claude-sonnet-5`, Codex → `openai-codex/gpt-5.5`) | Sobrescribe el modelo de resumen como `provider/model`. |
+| `PI_AUTO_COMPACT_SUMMARY_MODEL` | sensible al modelo (`anthropic/claude-sonnet-5`, Codex → `openai-codex/gpt-5.6-sol`) | Sobrescribe el modelo de resumen como `provider/model`. |
 | `PI_AUTO_COMPACT_SUMMARY_MAX_TOKENS` | `4096` | Máximo de tokens de salida para la llamada de resumen. |
 | `PI_AUTO_COMPACT_SUMMARY_MAX_INPUT_CHARS` | `80000` | Máximo de caracteres de entrada serializada enviados al prompt de resumen. |
 | `PI_AUTO_COMPACT_SNAPSHOT` | `on` | Instantáneas recuperables antes de compactar. |

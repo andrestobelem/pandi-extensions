@@ -517,16 +517,16 @@ const node = (role, extra = {}) => {
 The values above are for the **Claude Code Workflow runtime**, where `model` is Claude-only (`haiku | sonnet | opus | fable`). The **pi runtime** resolves `provider/id[:thinking]`, so the same knobs can target **OpenAI Codex**:
 
 ```json
-{ "models": { "synthesis": "openai/gpt-5.3-codex", "judge": "openai/gpt-5.3-codex" },
+{ "models": { "synthesis": "openai-codex/gpt-5.6-sol", "judge": "openai-codex/gpt-5.6-sol" },
   "efforts": { "synthesis": "xhigh", "judge": "high" } }
 ```
 
 | Codex model (mid-2026) | Notes |
 |---|---|
-| `gpt-5.3-codex` | most capable agentic coding model; ~25% faster |
-| `gpt-5.2-codex` | SOTA on SWE-Bench Pro / Terminal-Bench 2.0 |
-| `gpt-5.1-codex-max` | trained across multiple context windows via compaction |
-| `gpt-5.5` / `gpt-5.4` | general frontier; strong agentic coding |
+| `gpt-5.6-sol` | frontier model for synthesis, judgment, and complex agentic coding |
+| `gpt-5.6-terra` | balanced tier for normal reasoning workers |
+| `gpt-5.6-luna` | economical tier for scouting, extraction, and high volume |
+| `gpt-5.3-codex-spark` | specialized option available in the Codex selector |
 
 **Reasoning effort** (Codex `low · medium · high · xhigh`) lines up 1:1 with our `effort`. *medium* is the daily driver; *xhigh* thinks longer.
 

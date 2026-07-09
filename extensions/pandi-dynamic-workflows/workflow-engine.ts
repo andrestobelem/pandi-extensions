@@ -186,7 +186,7 @@ function makeModelArg(ctx: ExtensionContext): string | undefined {
 // PI_DYNAMIC_WORKFLOWS_TIER_MODELS (JSON de la misma forma) ya que los catálogos cambian rápido.
 const TIER_ALIASES = new Set(["haiku", "sonnet", "opus"]);
 const BUILTIN_TIER_MODELS: Record<string, Record<string, string>> = {
-	"openai-codex": { haiku: "gpt-5.4-mini", sonnet: "gpt-5.4", opus: "gpt-5.5" },
+	"openai-codex": { haiku: "gpt-5.6-luna", sonnet: "gpt-5.6-terra", opus: "gpt-5.6-sol" },
 };
 function tierModelTable(): { table: Record<string, Record<string, string>>; error?: string } {
 	const raw = process.env.PI_DYNAMIC_WORKFLOWS_TIER_MODELS?.trim();

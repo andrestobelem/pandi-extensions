@@ -11,7 +11,7 @@
  *
  * Esto pinea la tabla de tiers por provider:
  *  1. En una sesión openai-codex, haiku/sonnet/opus mapean a los ids
- *     cheap/balanced/deep del provider (gpt-5.4-mini / gpt-5.4 / gpt-5.5), el mapping se
+ *     cheap/balanced/deep del provider (gpt-5.6-luna / gpt-5.6-terra / gpt-5.6-sol), el mapping se
  *     confirma contra ctx.modelRegistry, se registra en SubagentResult y
  *     se loguea.
  *  2. Los modelos provider/id qualified y modelos omitidos quedan intactos.
@@ -37,7 +37,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 const { check, counts } = createChecker();
 
-const CODEX_IDS = new Set(["gpt-5.4-mini", "gpt-5.4", "gpt-5.5"]);
+const CODEX_IDS = new Set(["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"]);
 
 async function buildEngine() {
 	return await sharedBuildExtension({
@@ -190,17 +190,17 @@ async function main() {
 		check("codex: run completes", result?.ok === true, executeError ?? result?.error);
 		check(
 			"codex: haiku maps to the provider's cheap tier",
-			models?.[0] === "openai-codex/gpt-5.4-mini",
+			models?.[0] === "openai-codex/gpt-5.6-luna",
 			JSON.stringify(models),
 		);
 		check(
 			"codex: sonnet maps to the provider's balanced tier",
-			models?.[1] === "openai-codex/gpt-5.4",
+			models?.[1] === "openai-codex/gpt-5.6-terra",
 			JSON.stringify(models),
 		);
 		check(
 			"codex: opus maps to the provider's deep tier",
-			models?.[2] === "openai-codex/gpt-5.5",
+			models?.[2] === "openai-codex/gpt-5.6-sol",
 			JSON.stringify(models),
 		);
 		check(
@@ -223,7 +223,7 @@ async function main() {
 		const cheapStart = events.find((e) => e.type === "agent" && e.name === "cheap" && e.state === "running");
 		check(
 			"codex: the agent START event records the mapped model",
-			cheapStart?.model === "openai-codex/gpt-5.4-mini",
+			cheapStart?.model === "openai-codex/gpt-5.6-luna",
 			JSON.stringify(cheapStart),
 		);
 	}
@@ -287,7 +287,7 @@ async function main() {
 			);
 			check(
 				"env override: unoverridden tiers keep the builtin mapping",
-				models?.[1] === "openai-codex/gpt-5.4",
+				models?.[1] === "openai-codex/gpt-5.6-terra",
 				JSON.stringify(models),
 			);
 		} finally {

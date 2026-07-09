@@ -256,19 +256,19 @@ llamada.
   así que se resuelve dentro de tu provider autenticado en pi (siempre gana un `provider` explícito,
   o un `provider/id` calificado). En providers cuyo catálogo no trae esos aliases, el runtime además
   **mapea el tier alias al equivalente de ese provider**: bajo `openai-codex`, `haiku` →
-  `gpt-5.4-mini`, `sonnet` → `gpt-5.4`, `opus` → `gpt-5.5`, pero solo cuando el model registry
+  `gpt-5.6-luna`, `sonnet` → `gpt-5.6-terra`, `opus` → `gpt-5.6-sol`, pero solo cuando el model registry
   confirma el target (nunca es una sustitución silenciosa; si el mapping no se confirma, queda el
   fail-fast pin visible). Extendé/sobrescribí la tabla por provider con `PI_DYNAMIC_WORKFLOWS_TIER_MODELS`
-  (JSON; por ejemplo `{"openai-codex":{"haiku":"gpt-6-mini"}}`). El mapping sucede después de
+  (JSON; por ejemplo `{"openai-codex":{"opus":"gpt-5.6-terra"}}`). El mapping sucede después de
   calcular la cache key desde el alias crudo, así que nunca invalida los resume journals. Aun así,
   **preferí un id calificado `anthropic/…`** (arriba) — o **omití `model`** para heredar el model de
   la sesión — por claridad cross-provider y porque los ids calificados son más estables para cache.
 
 **OpenAI / Codex** — provider `openai-codex` (desde el selector `/model` de Codex):
 
-- `openai-codex/gpt-5.5`
-- `openai-codex/gpt-5.4` · `openai-codex/gpt-5.4-mini`
-- `openai-codex/gpt-5.3-codex-spark`
+- `openai-codex/gpt-5.6-sol` (frontera)
+- `openai-codex/gpt-5.6-terra` (equilibrado) · `openai-codex/gpt-5.6-luna` (económico)
+- `openai-codex/gpt-5.3-codex-spark` (especializado)
 - …y más en el selector.
 
 Codex usa la misma escala de `thinking` que pi; el nivel fija el budget de thinking tokens:
@@ -286,8 +286,8 @@ Codex usa la misma escala de `thinking` que pi; el nivel fija el budget de think
 usá el sufijo `:effort`:
 
 ```js
-await agent(prompt, { model: "openai-codex/gpt-5.5", effort: "xhigh" });
-await agent(prompt, { model: "openai-codex/gpt-5.5:high" });   // suffix shorthand
+await agent(prompt, { model: "openai-codex/gpt-5.6-sol", effort: "xhigh" });
+await agent(prompt, { model: "openai-codex/gpt-5.6-sol:high" });   // suffix shorthand
 ```
 
 Los ids de Codex aplican solo bajo el runtime de pi; el runtime de Claude Code es solo Claude

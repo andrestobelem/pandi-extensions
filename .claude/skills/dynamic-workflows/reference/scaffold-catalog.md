@@ -518,16 +518,16 @@ const node = (role, extra = {}) => {
 Los valores de arriba son para el **Claude Code Workflow runtime**, donde `model` es solo de Claude (`haiku | sonnet | opus | fable`). El **runtime de pi** resuelve `provider/id[:thinking]`, así que los mismos knobs también pueden apuntar a **OpenAI Codex**:
 
 ```json
-{ "models": { "synthesis": "openai/gpt-5.3-codex", "judge": "openai/gpt-5.3-codex" },
+{ "models": { "synthesis": "openai-codex/gpt-5.6-sol", "judge": "openai-codex/gpt-5.6-sol" },
   "efforts": { "synthesis": "xhigh", "judge": "high" } }
 ```
 
 | Modelo Codex (mediados de 2026) | Notas |
 |---|---|
-| `gpt-5.3-codex` | modelo de coding agéntico más capaz; ~25% más rápido |
-| `gpt-5.2-codex` | estado del arte en SWE-Bench Pro / Terminal-Bench 2.0 |
-| `gpt-5.1-codex-max` | entrenado sobre múltiples ventanas de contexto vía compaction |
-| `gpt-5.5` / `gpt-5.4` | modelo general de frontera; coding agéntico sólido |
+| `gpt-5.6-sol` | modelo de frontera para síntesis, juicio y coding agéntico complejo |
+| `gpt-5.6-terra` | tier equilibrado para workers de razonamiento normal |
+| `gpt-5.6-luna` | tier económico para scouting, extracción y alto volumen |
+| `gpt-5.3-codex-spark` | opción especializada disponible en el selector de Codex |
 
 **Esfuerzo de razonamiento** (Codex `low · medium · high · xhigh`) se alinea 1:1 con nuestro `effort`. *medium* es el caballo de batalla diario; *xhigh* piensa más tiempo.
 
