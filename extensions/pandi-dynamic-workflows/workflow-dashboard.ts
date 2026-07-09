@@ -86,6 +86,10 @@ interface DashboardRunViewFormatters {
 	dim: (s: string) => string;
 }
 
+interface DashboardActivityViewFormatters extends DashboardStatusListViewFormatters {
+	error: (s: string) => string;
+}
+
 function renderPatternsView(
 	patternIndex: number,
 	{ line, accent, muted, warning }: DashboardListViewFormatters,
@@ -299,6 +303,70 @@ function renderRunsView(
 		// Action verbs live on the gated header banner; only the unique resume COMMAND
 		// (not shown in the header) earns a footer line here.
 		if (isResumableState(getRunState(selected))) lines.push(line(dim(`/workflow resume ${selected.runId}`)));
+	}
+	return lines;
+}
+
+function renderActivityView(
+	runs: WorkflowRunRecord[],
+	activity: WorkflowActivityEntry[],
+	activityIndex: number,
+	{ line, accent, muted, success, error, warning }: DashboardActivityViewFormatters,
+): string[] {
+	const lines: string[] = [];
+	const active = runs.filter((run) => canCancelRun(run));
+	lines.push(line(accent("Active runs")));
+	if (active.length === 0) {
+		lines.push(line(muted("No active background workflow runs.")));
+	} else {
+		for (const run of active.slice(0, 5)) {
+			const lastLog = getRunLogs(run).slice(-1)[0];
+			lines.push(
+				line(
+					`${accent("▶")} ${run.workflow} ${muted(run.runId)} ${formatElapsedMs(getRunElapsedMs(run))} agents:${run.agentCount} parallel:${formatParallelAgentsCompact(run)}${lastLog ? muted(` — ${renderSafeInline(lastLog.message)}`) : ""}`,
+				),
+			);
+		}
+	}
+
+	lines.push(line(muted("")));
+	lines.push(line(accent("Recent activity")));
+	if (activity.length === 0) {
+		lines.push(line(warning("No workflow activity yet.")));
+		lines.push(line(muted(START_WORKFLOW_HINT)));
+		return lines;
+	}
+	const start = windowStart(activityIndex, activity.length, 7, 14);
+	const visible = activity.slice(start, start + 14);
+	for (let i = 0; i < visible.length; i++) {
+		const index = start + i;
+		const entry = visible[i];
+		const selected = index === activityIndex;
+		const prefix = selected ? accent("› ") : "  ";
+		const status =
+			entry.state === "completed"
+				? success("✓")
+				: entry.state === "running"
+					? accent("▶")
+					: entry.state === "stale"
+						? muted("?")
+						: error(entry.state === "cancelled" ? "■" : "✗");
+		const details =
+			entry.details === undefined ? "" : muted(` — ${renderSafeInline(compactInline(entry.details, 120))}`);
+		lines.push(
+			line(
+				`${prefix}${muted(entry.time.slice(11, 19))} ${status} ${entry.workflow} ${muted(entry.runId.slice(-12))} ${renderSafeInline(entry.message)}${details}`,
+			),
+		);
+	}
+	const selected = activity[activityIndex];
+	if (selected) {
+		lines.push(line(muted("")));
+		lines.push(line(accent("Selected activity")));
+		lines.push(line(`workflow: ${selected.workflow}`));
+		lines.push(line(`run: ${selected.runId}`));
+		lines.push(line(`time: ${selected.time}`));
+		// Action hints live on the gated header banner (render line 1); no redundant footer here.
 	}
 	return lines;
 }
@@ -1353,59 +1421,15 @@ export class WorkflowDashboard {
 		error: (s: string) => string,
 		warning: (s: string) => string,
 	): void {
-		const active = this.runs.filter((run) => canCancelRun(run));
-		lines.push(line(accent("Active runs")));
-		if (active.length === 0) {
-			lines.push(line(muted("No active background workflow runs.")));
-		} else {
-			for (const run of active.slice(0, 5)) {
-				const lastLog = getRunLogs(run).slice(-1)[0];
-				lines.push(
-					line(
-						`${accent("▶")} ${run.workflow} ${muted(run.runId)} ${formatElapsedMs(getRunElapsedMs(run))} agents:${run.agentCount} parallel:${formatParallelAgentsCompact(run)}${lastLog ? muted(` — ${renderSafeInline(lastLog.message)}`) : ""}`,
-					),
-				);
-			}
-		}
-
-		lines.push(line(muted("")));
-		lines.push(line(accent("Recent activity")));
-		if (this.activity.length === 0) {
-			lines.push(line(warning("No workflow activity yet.")));
-			lines.push(line(muted(START_WORKFLOW_HINT)));
-			return;
-		}
-		const start = windowStart(this.activityIndex, this.activity.length, 7, 14);
-		const visible = this.activity.slice(start, start + 14);
-		for (let i = 0; i < visible.length; i++) {
-			const index = start + i;
-			const entry = visible[i];
-			const selected = index === this.activityIndex;
-			const prefix = selected ? accent("› ") : "  ";
-			const status =
-				entry.state === "completed"
-					? success("✓")
-					: entry.state === "running"
-						? accent("▶")
-						: entry.state === "stale"
-							? muted("?")
-							: error(entry.state === "cancelled" ? "■" : "✗");
-			const details =
-				entry.details === undefined ? "" : muted(` — ${renderSafeInline(compactInline(entry.details, 120))}`);
-			lines.push(
-				line(
-					`${prefix}${muted(entry.time.slice(11, 19))} ${status} ${entry.workflow} ${muted(entry.runId.slice(-12))} ${renderSafeInline(entry.message)}${details}`,
-				),
-			);
-		}
-		const selected = this.activity[this.activityIndex];
-		if (selected) {
-			lines.push(line(muted("")));
-			lines.push(line(accent("Selected activity")));
-			lines.push(line(`workflow: ${selected.workflow}`));
-			lines.push(line(`run: ${selected.runId}`));
-			lines.push(line(`time: ${selected.time}`));
-			// Action hints live on the gated header banner (render line 1); no redundant footer here.
-		}
+		lines.push(
+			...renderActivityView(this.runs, this.activity, this.activityIndex, {
+				line,
+				accent,
+				muted,
+				success,
+				error,
+				warning,
+			}),
+		);
 	}
 }

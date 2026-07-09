@@ -689,6 +689,35 @@ async function scenarioAgentsJumpToFailed(url) {
 	);
 }
 
+async function scenarioActivityRender(url) {
+	const { component } = await openDashboardComponent(url);
+	const time = new Date().toISOString();
+	component.setActivity([
+		{
+			runId: "ACTIVITY-RUN-1",
+			workflow: "wf-activity",
+			time,
+			message: "activity done",
+			state: "completed",
+			details: "DETAIL_SENTINEL",
+		},
+	]);
+	component.handleInput("a"); // → tab Activity
+	const text = component.render(100).join("\n");
+	check(
+		"activity tab renders recent activity",
+		text.includes("Recent activity") && text.includes("DETAIL_SENTINEL"),
+		text,
+	);
+	check(
+		"activity tab renders selected activity detail",
+		text.includes("Selected activity") &&
+			text.includes("workflow: wf-activity") &&
+			text.includes("run: ACTIVITY-RUN-1"),
+		text.split("\n").slice(-8).join("\n"),
+	);
+}
+
 async function scenarioRefreshFreshnessAndErrors(url) {
 	// El refresh de dashboard de 1.5s envuelve lecturas de disco; una falla debe seguir visible
 	// (no una unhandled rejection silenciosa) y un refresh sano debe anunciar recencia.
@@ -859,6 +888,7 @@ async function main() {
 	await scenarioHelpOverlay(url);
 	await scenarioRunningAgentLiveElapsed(url);
 	await scenarioRefreshFreshnessAndErrors(url);
+	await scenarioActivityRender(url);
 	await scenarioAgentsJumpToFailed(url);
 	await scenarioMonitorMultiRun(url);
 	await scenarioMonitorHelpGating(url);
