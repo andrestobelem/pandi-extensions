@@ -8,9 +8,16 @@ import {
 	classify,
 	isNpmMissingVersionError,
 	loadPublishWorkspaces,
+	parsePackShasum,
 	parsePublishOptions,
 	withSafeNpmConfig,
 } from "../../publish-npm.mjs";
+
+test("parsePackShasum: accepts npm pack array and npm 12 keyed-object output", () => {
+	assert.equal(parsePackShasum('[{"shasum":"array-sha"}]'), "array-sha");
+	assert.equal(parsePackShasum('{"@pandi-coding-agent/pandi":{"shasum":"keyed-object-sha"}}'), "keyed-object-sha");
+	assert.throws(() => parsePackShasum('{"@pandi-coding-agent/pandi":{}}'), /unparseable `npm pack --json` output/);
+});
 
 test("classify: version not on npm -> publish", () => {
 	assert.equal(classify(null, "abc123"), "publish");

@@ -94,10 +94,26 @@ function publishedShasum(name, version) {
 	}
 }
 
+export function parsePackShasum(output) {
+	let parsed;
+	try {
+		parsed = JSON.parse(output);
+	} catch {
+		throw new Error("unparseable `npm pack --json` output");
+	}
+
+	const entries = Array.isArray(parsed) ? parsed : parsed && typeof parsed === "object" ? Object.values(parsed) : [];
+	const shasum = entries.length === 1 ? entries[0]?.shasum : undefined;
+	if (typeof shasum !== "string" || shasum.length === 0) {
+		throw new Error("unparseable `npm pack --json` output");
+	}
+	return shasum;
+}
+
 function localShasum(dir) {
 	const out = npm(["pack", "--dry-run", "--json"], { cwd: dir, stdio: ["ignore", "pipe", "pipe"] });
 	try {
-		return JSON.parse(out)[0].shasum;
+		return parsePackShasum(out);
 	} catch {
 		throw new Error(`unparseable \`npm pack --json\` output in ${dir}`);
 	}
