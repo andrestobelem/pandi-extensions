@@ -232,11 +232,13 @@ async function scenarioBackspaceVsDelete(url) {
 	const back = await bootExtension(url, backProject, { customInputs: ["w", "backspace"] });
 	await back.commands.get("workflow").handler("dashboard", back.ctx);
 	const bCall = back.customCalls[0];
+	const bText = renderedText(bCall);
 	check("backspace does not trigger a destructive delete", bCall?.doneValue == null, JSON.stringify(bCall?.doneValue));
+	check("backspace leaves the dashboard open on Workflows", bText.includes("[Workflows]"), bText.split("\n")[0]);
 	check(
-		"backspace leaves the dashboard open on Workflows",
-		renderedText(bCall).includes("[Workflows]"),
-		renderedText(bCall).split("\n")[0],
+		"workflows tab renders selected workflow detail",
+		bText.includes("Selected workflow") && bText.includes("name: sample"),
+		bText.split("\n").slice(-8).join("\n"),
 	);
 
 	const delProject = await makeProject();

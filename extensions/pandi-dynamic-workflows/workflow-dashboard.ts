@@ -66,14 +66,17 @@ function windowStart(selectedIndex: number, length: number, before: number, wind
 	return Math.max(0, Math.min(selectedIndex - before, length - windowSize));
 }
 
-interface PatternViewFormatters {
+interface DashboardListViewFormatters {
 	line: (s: string) => string;
 	accent: (s: string) => string;
 	muted: (s: string) => string;
 	warning: (s: string) => string;
 }
 
-function renderPatternsView(patternIndex: number, { line, accent, muted, warning }: PatternViewFormatters): string[] {
+function renderPatternsView(
+	patternIndex: number,
+	{ line, accent, muted, warning }: DashboardListViewFormatters,
+): string[] {
 	const lines: string[] = [];
 	if (WORKFLOW_PATTERN_CATALOG.length === 0) {
 		lines.push(line(warning("No workflow patterns registered.")));
@@ -112,6 +115,39 @@ function renderPatternsView(patternIndex: number, { line, accent, muted, warning
 	lines.push(line(`primitives: ${selected.primitives.join(", ")}`));
 	lines.push(line(`draft name: ${selected.defaultName}`));
 	lines.push(line(muted("Enter/n creates a project workflow draft from this pattern; you can edit before save.")));
+	return lines;
+}
+
+function renderWorkflowsView(
+	workflows: WorkflowDefinition[],
+	workflowIndex: number,
+	{ line, accent, muted, warning }: DashboardListViewFormatters,
+): string[] {
+	const lines: string[] = [];
+	if (workflows.length === 0) {
+		lines.push(line(warning("No workflows found.")));
+		lines.push(line(muted("Create one with /workflow new <name> or dynamic_workflow action=write.")));
+		return lines;
+	}
+	const start = windowStart(workflowIndex, workflows.length, 6, 12);
+	const visible = workflows.slice(start, start + 12);
+	for (let i = 0; i < visible.length; i++) {
+		const index = start + i;
+		const workflow = visible[i];
+		const selected = index === workflowIndex;
+		const prefix = selected ? accent("› ") : "  ";
+		const scope = workflow.scope === "project" ? accent("project") : muted("global");
+		lines.push(line(`${prefix}${workflow.name} ${muted("(")}${scope}${muted(")")} ${muted(workflow.relativePath)}`));
+	}
+	const selected = workflows[workflowIndex];
+	if (selected) {
+		lines.push(line(muted("")));
+		lines.push(line(accent("Selected workflow")));
+		lines.push(line(`name: ${selected.name}`));
+		lines.push(line(`scope: ${selected.scope}`));
+		lines.push(line(`path: ${selected.path}`));
+		lines.push(line(muted("Enter/g opens graph • r runs with JSON + confirm • d/delete removes workflow file")));
+	}
 	return lines;
 }
 
@@ -1204,32 +1240,7 @@ export class WorkflowDashboard {
 		muted: (s: string) => string,
 		warning: (s: string) => string,
 	): void {
-		if (this.workflows.length === 0) {
-			lines.push(line(warning("No workflows found.")));
-			lines.push(line(muted("Create one with /workflow new <name> or dynamic_workflow action=write.")));
-			return;
-		}
-		const start = windowStart(this.workflowIndex, this.workflows.length, 6, 12);
-		const visible = this.workflows.slice(start, start + 12);
-		for (let i = 0; i < visible.length; i++) {
-			const index = start + i;
-			const workflow = visible[i];
-			const selected = index === this.workflowIndex;
-			const prefix = selected ? accent("› ") : "  ";
-			const scope = workflow.scope === "project" ? accent("project") : muted("global");
-			lines.push(
-				line(`${prefix}${workflow.name} ${muted("(")}${scope}${muted(")")} ${muted(workflow.relativePath)}`),
-			);
-		}
-		const selected = this.workflows[this.workflowIndex];
-		if (selected) {
-			lines.push(line(muted("")));
-			lines.push(line(accent("Selected workflow")));
-			lines.push(line(`name: ${selected.name}`));
-			lines.push(line(`scope: ${selected.scope}`));
-			lines.push(line(`path: ${selected.path}`));
-			lines.push(line(muted("Enter/g opens graph • r runs with JSON + confirm • d/delete removes workflow file")));
-		}
+		lines.push(...renderWorkflowsView(this.workflows, this.workflowIndex, { line, accent, muted, warning }));
 	}
 
 	private renderPatterns(
