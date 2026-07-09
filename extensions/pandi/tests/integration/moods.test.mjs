@@ -1,23 +1,8 @@
 #!/usr/bin/env node
 /**
- * Test de comportamiento durable para los datos puros y utilidades de extensions/pandi
- * (moods.ts).
- *
- * Fija el contrato de tono/formato del texto de estado rotativo de Pandi para que futuras
- * ediciones sigan siendo coherentes y nunca rompan las dos plantillas que renderiza el
- * indicador de trabajo:
- *   `Pandi ${mood}`              y   `Pandi despierto y ${mood}`
- *
- * Contrato:
- * - MOODS es una lista no vacía y sin duplicados de frases cortas.
- * - Cada mood está trimmeado, empieza en minúscula y termina con un único carácter de
- *   elipsis "…".
- * - Ambas plantillas de renderizado producen strings limpios y no vacíos para cada mood.
- * - La lista se mantiene en el campo semántico de "bosque de bambú" (una fuerte mayoría
- *   de moods referencia vocabulario de panda/bambú/bosque), así que se hace cumplir el
- *   "mismo campo semántico", no solo se afirma en un mensaje de commit.
- * - pick() siempre devuelve un miembro del array (incl. el caso de un solo elemento).
- * - PANDI_QUOTE es una cita de splash de dos líneas y no vacía.
+ * Caracteriza los datos y helpers puros de `moods.ts`.
+ * Protege el formato que usan el indicador y el saludo: frases consistentes, campo semántico
+ * de bosque de bambú y una cita que no se repite cuando el splash ya la muestra.
  */
 
 import * as fs from "node:fs/promises";
@@ -30,9 +15,7 @@ const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 
 const { check, counts } = createChecker();
 
-// Vocabulario que ancla el campo semántico de "bosque de bambú / panda". Un mood cuenta
-// como dentro del campo cuando contiene cualquiera de estos tokens (subcadena insensible a
-// acentos y mayúsculas/minúsculas).
+// Tokens que representan el campo semántico acordado, comparados sin tildes ni mayúsculas.
 const FIELD_VOCAB = [
 	"bambu",
 	"bambudal",
@@ -53,123 +36,6 @@ const FIELD_VOCAB = [
 	"brisa",
 ];
 
-function fold(value) {
-	return value
-		.normalize("NFKD")
-		.replace(/[\u0300-\u036f]/g, "")
-		.toLowerCase();
-}
-
-function checkBambooFieldMajority(label, list) {
-	const inField = list.filter((item) => FIELD_VOCAB.some((word) => fold(item).includes(word)));
-	check(
-		`a strong majority of ${label} are in the bamboo-forest field (>=60%): ${inField.length}/${list.length}`,
-		inField.length / list.length >= 0.6,
-		`${inField.length}/${list.length}`,
-	);
-}
-
-async function scenarioMoodsUnit(url) {
-	const { MOODS, GREETINGS, PANDI_QUOTE, pick, greetingText } = await loadModule(url);
-
-	check("MOODS is a non-empty array", Array.isArray(MOODS) && MOODS.length > 0, String(MOODS?.length));
-	check("MOODS has no duplicates", new Set(MOODS).size === MOODS.length);
-
-	for (const mood of MOODS) {
-		check(`mood is a non-empty string: ${JSON.stringify(mood)}`, typeof mood === "string" && mood.length > 1);
-		check(`mood is trimmed: ${JSON.stringify(mood)}`, mood === mood.trim());
-		check(`mood ends with the ellipsis char "…": ${JSON.stringify(mood)}`, mood.endsWith("…"));
-		check(`mood does not end with ascii "...": ${JSON.stringify(mood)}`, !mood.endsWith("..."));
-		check(
-			`mood starts lowercase: ${JSON.stringify(mood)}`,
-			mood[0] === mood[0].toLowerCase() && mood[0] !== mood[0].toUpperCase(),
-		);
-		// Se lee bien en AMBAS plantillas que usa el indicador. Las subcadenas `"${mood}"` son
-		// texto literal `${mood}` INTENCIONAL (documentan la plantilla del indicador), no un
-		// template literal olvidado; de ahí el biome-ignore puntual antes de cada plantilla.
-		check(
-			// biome-ignore lint/suspicious/noTemplateCurlyInString: literal `${mood}` mostrado en la etiqueta de la aserción a propósito
-			`mood renders in "Pandi ${"${mood}"}": ${JSON.stringify(mood)}`,
-			`Pandi ${mood}`.startsWith("Pandi ") && `Pandi ${mood}`.endsWith("…"),
-		);
-		check(
-			// biome-ignore lint/suspicious/noTemplateCurlyInString: literal `${mood}` mostrado en la etiqueta de la aserción a propósito
-			`mood renders in "Pandi despierto y ${"${mood}"}": ${JSON.stringify(mood)}`,
-			`Pandi despierto y ${mood}`.startsWith("Pandi despierto y ") && `Pandi despierto y ${mood}`.endsWith("…"),
-		);
-	}
-
-	checkBambooFieldMajority("moods", MOODS);
-
-	// pick() siempre devuelve un miembro del array.
-	let allMembers = true;
-	for (let i = 0; i < 300; i++) {
-		if (!MOODS.includes(pick(MOODS))) {
-			allMembers = false;
-			break;
-		}
-	}
-	check("pick(MOODS) always returns a member", allMembers);
-	check("pick on a single-element array returns that element", pick(["only"]) === "only");
-
-	check("PANDI_QUOTE has two lines", Array.isArray(PANDI_QUOTE) && PANDI_QUOTE.length === 2);
-	check(
-		"PANDI_QUOTE lines are non-empty strings",
-		PANDI_QUOTE.every((line) => typeof line === "string" && line.trim().length > 0),
-	);
-
-	// GREETINGS: líneas tierno/zen de "otra cosa" que se muestran después de "Pandi listo."
-	// cuando el splash está visible, para no repetir la frase principal del splash. Son
-	// oraciones completas, no los gerundios de MOOD.
-	check("GREETINGS is a non-empty array", Array.isArray(GREETINGS) && GREETINGS.length > 0, String(GREETINGS?.length));
-	check("GREETINGS has no duplicates", new Set(GREETINGS).size === GREETINGS.length);
-	for (const g of GREETINGS) {
-		check(`greeting is a non-empty string: ${JSON.stringify(g)}`, typeof g === "string" && g.length > 1);
-		check(`greeting is trimmed: ${JSON.stringify(g)}`, g === g.trim());
-		check(
-			`greeting starts uppercase (a sentence): ${JSON.stringify(g)}`,
-			g[0] === g[0].toUpperCase() && g[0] !== g[0].toLowerCase(),
-		);
-		check(`greeting ends with sentence punctuation: ${JSON.stringify(g)}`, /[.…]$/.test(g));
-		check(
-			`greeting never repeats the splash phrase: ${JSON.stringify(g)}`,
-			!g.includes(PANDI_QUOTE[0]) && !g.includes(PANDI_QUOTE[1]),
-		);
-	}
-	checkBambooFieldMajority("greetings", GREETINGS);
-
-	// El saludo de arranque NO debe repetir la frase principal del splash cuando el splash
-	// está visible (la cita de dos líneas PANDI_QUOTE le corresponde al splash): en su lugar
-	// dice "Pandi listo." + una línea flavor tierno/zen. Cuando el splash está oculto, el
-	// saludo lleva la cita para que el meme siga apareciendo en algún lado. La aleatoriedad
-	// vive en el sitio de llamada (pick), así que greetingText recibe el flavor elegido y se
-	// mantiene determinista/testeable.
-	check("greetingText is a function", typeof greetingText === "function");
-	const flavor = GREETINGS[0];
-	const withSplash = greetingText(true, flavor);
-	const withoutSplash = greetingText(false, flavor);
-	check("greetingText(splashVisible=true) says 'Pandi listo.'", withSplash.includes("Pandi listo."));
-	check(
-		`greetingText(splashVisible=true) includes the flavor line: ${JSON.stringify(withSplash)}`,
-		withSplash.includes(flavor),
-	);
-	check(
-		`greetingText(splashVisible=true) does NOT repeat the main phrase: ${JSON.stringify(withSplash)}`,
-		!withSplash.includes(PANDI_QUOTE[0]) && !withSplash.includes(PANDI_QUOTE[1]),
-	);
-	check(
-		"greetingText(splashVisible=false) DOES carry the main phrase",
-		withoutSplash.includes(PANDI_QUOTE[0]) && withoutSplash.includes(PANDI_QUOTE[1]),
-	);
-	check(
-		"greetingText returns a trimmed, non-empty string in both modes",
-		withSplash.trim() === withSplash &&
-			withSplash.length > 0 &&
-			withoutSplash.trim() === withoutSplash &&
-			withoutSplash.length > 0,
-	);
-}
-
 async function main() {
 	const built = await buildExtension({
 		name: "pi-pandi-moods",
@@ -188,6 +54,135 @@ async function main() {
 		for (const failure of counts.failures) console.log(`- ${failure}`);
 		process.exit(1);
 	}
+}
+
+async function scenarioMoodsUnit(url) {
+	const { MOODS, GREETINGS, PANDI_QUOTE, pick, greetingText } = await loadModule(url);
+
+	checkMoods(MOODS);
+	checkPicker(MOODS, pick);
+	checkQuote(PANDI_QUOTE);
+	checkGreetings(GREETINGS, PANDI_QUOTE);
+	checkGreetingText(greetingText, GREETINGS, PANDI_QUOTE);
+}
+
+function checkMoods(moods) {
+	check("MOODS is a non-empty array", Array.isArray(moods) && moods.length > 0, String(moods?.length));
+	check("MOODS has no duplicates", new Set(moods).size === moods.length);
+
+	for (const mood of moods) {
+		check(`mood is a non-empty string: ${JSON.stringify(mood)}`, typeof mood === "string" && mood.length > 1);
+		check(`mood is trimmed: ${JSON.stringify(mood)}`, mood === mood.trim());
+		check(`mood ends with the ellipsis char "…": ${JSON.stringify(mood)}`, mood.endsWith("…"));
+		check(`mood does not end with ascii "...": ${JSON.stringify(mood)}`, !mood.endsWith("..."));
+		check(
+			`mood starts lowercase: ${JSON.stringify(mood)}`,
+			mood[0] === mood[0].toLowerCase() && mood[0] !== mood[0].toUpperCase(),
+		);
+		checkMoodRendering(mood);
+	}
+
+	checkBambooFieldMajority("moods", moods);
+}
+
+function checkMoodRendering(mood) {
+	// `${mood}` se muestra como literal para documentar las dos plantillas del indicador.
+	check(
+		// biome-ignore lint/suspicious/noTemplateCurlyInString: literal `${mood}` mostrado en la etiqueta de la aserción a propósito
+		`mood renders in "Pandi ${"${mood}"}": ${JSON.stringify(mood)}`,
+		`Pandi ${mood}`.startsWith("Pandi ") && `Pandi ${mood}`.endsWith("…"),
+	);
+	check(
+		// biome-ignore lint/suspicious/noTemplateCurlyInString: literal `${mood}` mostrado en la etiqueta de la aserción a propósito
+		`mood renders in "Pandi despierto y ${"${mood}"}": ${JSON.stringify(mood)}`,
+		`Pandi despierto y ${mood}`.startsWith("Pandi despierto y ") && `Pandi despierto y ${mood}`.endsWith("…"),
+	);
+}
+
+function checkPicker(moods, pick) {
+	let allMembers = true;
+	for (let i = 0; i < 300; i++) {
+		if (!moods.includes(pick(moods))) {
+			allMembers = false;
+			break;
+		}
+	}
+	check("pick(MOODS) always returns a member", allMembers);
+	check("pick on a single-element array returns that element", pick(["only"]) === "only");
+}
+
+function checkQuote(quote) {
+	check("PANDI_QUOTE has two lines", Array.isArray(quote) && quote.length === 2);
+	check(
+		"PANDI_QUOTE lines are non-empty strings",
+		quote.every((line) => typeof line === "string" && line.trim().length > 0),
+	);
+}
+
+function checkGreetings(greetings, quote) {
+	check("GREETINGS is a non-empty array", Array.isArray(greetings) && greetings.length > 0, String(greetings?.length));
+	check("GREETINGS has no duplicates", new Set(greetings).size === greetings.length);
+	for (const greeting of greetings) {
+		check(
+			`greeting is a non-empty string: ${JSON.stringify(greeting)}`,
+			typeof greeting === "string" && greeting.length > 1,
+		);
+		check(`greeting is trimmed: ${JSON.stringify(greeting)}`, greeting === greeting.trim());
+		check(
+			`greeting starts uppercase (a sentence): ${JSON.stringify(greeting)}`,
+			greeting[0] === greeting[0].toUpperCase() && greeting[0] !== greeting[0].toLowerCase(),
+		);
+		check(`greeting ends with sentence punctuation: ${JSON.stringify(greeting)}`, /[.…]$/.test(greeting));
+		check(
+			`greeting never repeats the splash phrase: ${JSON.stringify(greeting)}`,
+			!greeting.includes(quote[0]) && !greeting.includes(quote[1]),
+		);
+	}
+	checkBambooFieldMajority("greetings", greetings);
+}
+
+function checkGreetingText(greetingText, greetings, quote) {
+	// Con splash visible, la cita vive en el encabezado; sin splash, el saludo la conserva.
+	check("greetingText is a function", typeof greetingText === "function");
+	const flavor = greetings[0];
+	const withSplash = greetingText(true, flavor);
+	const withoutSplash = greetingText(false, flavor);
+	check("greetingText(splashVisible=true) says 'Pandi listo.'", withSplash.includes("Pandi listo."));
+	check(
+		`greetingText(splashVisible=true) includes the flavor line: ${JSON.stringify(withSplash)}`,
+		withSplash.includes(flavor),
+	);
+	check(
+		`greetingText(splashVisible=true) does NOT repeat the main phrase: ${JSON.stringify(withSplash)}`,
+		!withSplash.includes(quote[0]) && !withSplash.includes(quote[1]),
+	);
+	check(
+		"greetingText(splashVisible=false) DOES carry the main phrase",
+		withoutSplash.includes(quote[0]) && withoutSplash.includes(quote[1]),
+	);
+	check(
+		"greetingText returns a trimmed, non-empty string in both modes",
+		withSplash.trim() === withSplash &&
+			withSplash.length > 0 &&
+			withoutSplash.trim() === withoutSplash &&
+			withoutSplash.length > 0,
+	);
+}
+
+function checkBambooFieldMajority(label, list) {
+	const inField = list.filter((item) => FIELD_VOCAB.some((word) => fold(item).includes(word)));
+	check(
+		`a strong majority of ${label} are in the bamboo-forest field (>=60%): ${inField.length}/${list.length}`,
+		inField.length / list.length >= 0.6,
+		`${inField.length}/${list.length}`,
+	);
+}
+
+function fold(value) {
+	return value
+		.normalize("NFKD")
+		.replace(/[\u0300-\u036f]/g, "")
+		.toLowerCase();
 }
 
 main().catch((error) => {

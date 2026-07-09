@@ -1,12 +1,8 @@
 #!/usr/bin/env node
 /**
- * Test conductual para el indicador animado de Pandi (extensions/pandi/index.ts).
- *
- * Contrato de esta suite:
- * - el estilo default/claude conserva la carita clásica con paréntesis;
- * - también incluye el osito `ʕ •ᴥ• ʔ` pedido para darle más vida;
- * - cada carita se sostiene al menos 3 vueltas completas de animación antes de pasar a la otra;
- * - la animación mantiene movimiento observable (frames distintos y puntitos de progreso).
+ * Caracteriza los frames observables del indicador animado de `index.ts`.
+ * Protege las dos familias del estilo `claude`, la duración de cada ciclo y el movimiento
+ * que distingue al indicador de un estado estático.
  */
 
 import * as fs from "node:fs/promises";
@@ -22,6 +18,7 @@ const { check, counts } = createChecker();
 const ANSI_RE = /\x1b\[[0-9;]*m/g;
 const TAG_RE = /<[^>]+>/g;
 
+// El stub hace visible el color como tags y conserva los escapes que usan los ojos.
 const fakeTheme = {
 	fg: (role, value) => `<${role}>${value}</${role}>`,
 	getFgAnsi: (role) => (role === "success" ? "\x1b[32m" : "\x1b[35m"),
@@ -34,46 +31,25 @@ const KAOMOJI_STYLE_FACES = {
 	gatuno: "(=◕ᴥ◕=)",
 };
 
-const visibleText = (value) => String(value).replace(ANSI_RE, "").replace(TAG_RE, "");
-
-function faceFamily(frame) {
-	const visible = visibleText(frame);
-	if (visible.includes("ʕ") && visible.includes("ʔ")) return "bear";
-	if (visible.includes("(") && visible.includes(")")) return "classic";
-	return "unknown";
-}
-
-function runs(values) {
-	const result = [];
-	for (const value of values) {
-		const last = result.at(-1);
-		if (last?.value === value) last.length += 1;
-		else result.push({ value, length: 1 });
+async function main() {
+	const built = await buildExtension({
+		name: "pi-pandi-indicator",
+		src: path.join(REPO_ROOT, "extensions", "pandi", "index.ts"),
+		outName: "pandi.mjs",
+		stubs: { sdk: "export {};\n" },
+	});
+	try {
+		await scenario(built.url);
+	} finally {
+		await fs.rm(built.outDir, { recursive: true, force: true });
 	}
-	return result;
-}
 
-function frameRunsByFamily(frames) {
-	const result = [];
-	for (const frame of frames) {
-		const family = faceFamily(frame);
-		const last = result.at(-1);
-		if (last?.family === family) last.frames.push(frame);
-		else result.push({ family, frames: [frame] });
+	console.log(`\n${counts.passed} passed, ${counts.failed} failed`);
+	if (counts.failed) {
+		console.log("Failures:");
+		for (const failure of counts.failures) console.log(`- ${failure}`);
+		process.exit(1);
 	}
-	return result;
-}
-
-function repeatsFirstCycleAtLeast(frames, minCycles) {
-	const visibleFrames = frames.map(visibleText);
-	const cycleLength = new Set(visibleFrames).size;
-	if (cycleLength === 0 || visibleFrames.length < cycleLength * minCycles) return false;
-	const cycle = visibleFrames.slice(0, cycleLength);
-	for (let cycleIndex = 1; cycleIndex < minCycles; cycleIndex++) {
-		const start = cycleIndex * cycleLength;
-		if (!cycle.every((frame, i) => visibleFrames[start + i] === frame)) return false;
-	}
-	return true;
 }
 
 async function scenario(url) {
@@ -96,6 +72,7 @@ async function scenario(url) {
 		visible,
 	);
 	check("bear kaomoji uses the requested visible shape", visible.includes("ʕ •ᴥ• ʔ"), visible);
+
 	const families = frames.map(faceFamily);
 	const familyRuns = runs(families);
 	check(
@@ -148,25 +125,48 @@ async function scenario(url) {
 	}
 }
 
-async function main() {
-	const built = await buildExtension({
-		name: "pi-pandi-indicator",
-		src: path.join(REPO_ROOT, "extensions", "pandi", "index.ts"),
-		outName: "pandi.mjs",
-		stubs: { sdk: "export {};\n" },
-	});
-	try {
-		await scenario(built.url);
-	} finally {
-		await fs.rm(built.outDir, { recursive: true, force: true });
-	}
+function visibleText(value) {
+	return String(value).replace(ANSI_RE, "").replace(TAG_RE, "");
+}
 
-	console.log(`\n${counts.passed} passed, ${counts.failed} failed`);
-	if (counts.failed) {
-		console.log("Failures:");
-		for (const failure of counts.failures) console.log(`- ${failure}`);
-		process.exit(1);
+function faceFamily(frame) {
+	const visible = visibleText(frame);
+	if (visible.includes("ʕ") && visible.includes("ʔ")) return "bear";
+	if (visible.includes("(") && visible.includes(")")) return "classic";
+	return "unknown";
+}
+
+function runs(values) {
+	const result = [];
+	for (const value of values) {
+		const last = result.at(-1);
+		if (last?.value === value) last.length += 1;
+		else result.push({ value, length: 1 });
 	}
+	return result;
+}
+
+function frameRunsByFamily(frames) {
+	const result = [];
+	for (const frame of frames) {
+		const family = faceFamily(frame);
+		const last = result.at(-1);
+		if (last?.family === family) last.frames.push(frame);
+		else result.push({ family, frames: [frame] });
+	}
+	return result;
+}
+
+function repeatsFirstCycleAtLeast(frames, minCycles) {
+	const visibleFrames = frames.map(visibleText);
+	const cycleLength = new Set(visibleFrames).size;
+	if (cycleLength === 0 || visibleFrames.length < cycleLength * minCycles) return false;
+	const cycle = visibleFrames.slice(0, cycleLength);
+	for (let cycleIndex = 1; cycleIndex < minCycles; cycleIndex++) {
+		const start = cycleIndex * cycleLength;
+		if (!cycle.every((frame, i) => visibleFrames[start + i] === frame)) return false;
+	}
+	return true;
 }
 
 main().catch((error) => {

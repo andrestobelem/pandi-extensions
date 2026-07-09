@@ -1,16 +1,8 @@
 #!/usr/bin/env node
 /**
- * Test de comportamiento: `/pandi` pelado (sin argumento) abre un selector interactivo
- * cuando la sesión tiene UI, para que el usuario elija status|on|off|art|face de una lista
- * en vez de memorizarlos: la regla consistente de "sin args → menú interactivo" que
- * comparten /ultracode-mode y /container.
- *
- * Contrato observable (vía el resolver puro exportado `resolvePandiInput`):
- *   - `/pandi` pelado + hasUI → llama ctx.ui.select una vez con status/on/off/art/face y
- *     resuelve al token del subcomando elegido ("status" mapea de vuelta al saludo = "").
- *   - un subcomando explícito (`/pandi on`) pasa intacto (sin selector).
- *   - headless (sin UI) nunca abre el selector; pelado sigue siendo el saludo ("").
- *   - cancelar el selector resuelve a "" (saludo), sin romperse.
+ * Caracteriza el resolver de `/pandi` sin argumentos.
+ * Con UI abre un selector; sin UI, un subcomando explícito o una cancelación conserva el
+ * comportamiento seguro de saludo y nunca intenta abrir un menú inexistente.
  */
 
 import * as fs from "node:fs/promises";
@@ -22,70 +14,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 
 const { check, counts } = createChecker();
-
-function makeCtx({ hasUI = true, selectResult } = {}) {
-	const selectCalls = [];
-	return {
-		ctx: {
-			hasUI,
-			ui: {
-				theme: { fg: (_c, v) => v, bg: (_c, v) => v, bold: (v) => v },
-				select: async (title, items) => {
-					selectCalls.push({ title, items });
-					return selectResult;
-				},
-			},
-		},
-		selectCalls,
-	};
-}
-
-async function scenario(url) {
-	const mod = await loadModule(url);
-
-	// /pandi pelado + UI → abre el selector y resuelve al subcomando elegido
-	{
-		const { ctx, selectCalls } = makeCtx({ selectResult: "off — mandar a Pandi a dormir" });
-		const out = await mod.resolvePandiInput("", ctx);
-		check("bare /pandi + UI opens the selector once", selectCalls.length === 1, `calls=${selectCalls.length}`);
-		const items = selectCalls[0]?.items ?? [];
-		check(
-			"selector offers exactly the exported Pandi action labels",
-			JSON.stringify(items) === JSON.stringify(mod.PANDI_SELECT_ITEMS),
-			JSON.stringify(items),
-		);
-		check("resolves to the chosen subcommand token", out === "off", String(out));
-	}
-
-	// elegir "status" mapea de vuelta al saludo (subcomando vacío)
-	{
-		const { ctx } = makeCtx({ selectResult: "status — estado + saludo de Pandi" });
-		const out = await mod.resolvePandiInput("", ctx);
-		check("picking status maps back to the greeting", out === "", JSON.stringify(out));
-	}
-
-	// subcomando explícito → pasa intacto
-	{
-		const { ctx, selectCalls } = makeCtx({ selectResult: "off" });
-		const out = await mod.resolvePandiInput("on", ctx);
-		check("explicit subcommand bypasses the selector", selectCalls.length === 0 && out === "on", String(out));
-	}
-
-	// /pandi pelado en headless → nunca abre el selector; sigue siendo el saludo
-	{
-		const { ctx, selectCalls } = makeCtx({ hasUI: false, selectResult: "off" });
-		const out = await mod.resolvePandiInput("", ctx);
-		check("headless bare never opens the selector", selectCalls.length === 0, `calls=${selectCalls.length}`);
-		check("headless bare stays the greeting", out === "", JSON.stringify(out));
-	}
-
-	// cancelar el selector → "" (saludo), sin romperse
-	{
-		const { ctx } = makeCtx({ selectResult: undefined });
-		const out = await mod.resolvePandiInput("", ctx);
-		check("cancelling the selector resolves to empty", out === "", JSON.stringify(out));
-	}
-}
 
 async function main() {
 	const built = await buildExtension({
@@ -106,6 +34,65 @@ async function main() {
 		for (const failure of counts.failures) console.log(`- ${failure}`);
 		process.exit(1);
 	}
+}
+
+async function scenario(url) {
+	const mod = await loadModule(url);
+
+	{
+		const { ctx, selectCalls } = makeCtx({ selectResult: "off — mandar a Pandi a dormir" });
+		const out = await mod.resolvePandiInput("", ctx);
+		check("bare /pandi + UI opens the selector once", selectCalls.length === 1, `calls=${selectCalls.length}`);
+		const items = selectCalls[0]?.items ?? [];
+		check(
+			"selector offers exactly the exported Pandi action labels",
+			JSON.stringify(items) === JSON.stringify(mod.PANDI_SELECT_ITEMS),
+			JSON.stringify(items),
+		);
+		check("resolves to the chosen subcommand token", out === "off", String(out));
+	}
+
+	{
+		const { ctx } = makeCtx({ selectResult: "status — estado + saludo de Pandi" });
+		const out = await mod.resolvePandiInput("", ctx);
+		check("picking status maps back to the greeting", out === "", JSON.stringify(out));
+	}
+
+	{
+		const { ctx, selectCalls } = makeCtx({ selectResult: "off" });
+		const out = await mod.resolvePandiInput("on", ctx);
+		check("explicit subcommand bypasses the selector", selectCalls.length === 0 && out === "on", String(out));
+	}
+
+	{
+		const { ctx, selectCalls } = makeCtx({ hasUI: false, selectResult: "off" });
+		const out = await mod.resolvePandiInput("", ctx);
+		check("headless bare never opens the selector", selectCalls.length === 0, `calls=${selectCalls.length}`);
+		check("headless bare stays the greeting", out === "", JSON.stringify(out));
+	}
+
+	{
+		const { ctx } = makeCtx({ selectResult: undefined });
+		const out = await mod.resolvePandiInput("", ctx);
+		check("cancelling the selector resolves to empty", out === "", JSON.stringify(out));
+	}
+}
+
+function makeCtx({ hasUI = true, selectResult } = {}) {
+	const selectCalls = [];
+	return {
+		ctx: {
+			hasUI,
+			ui: {
+				theme: { fg: (_c, v) => v, bg: (_c, v) => v, bold: (v) => v },
+				select: async (title, items) => {
+					selectCalls.push({ title, items });
+					return selectResult;
+				},
+			},
+		},
+		selectCalls,
+	};
 }
 
 main().catch((error) => {
