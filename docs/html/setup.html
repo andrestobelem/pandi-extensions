@@ -284,6 +284,9 @@ pi install ./                                                      <span class="
 <span class="hljs-keyword">done</span></code></pre>
 <h3>Skills vendorizados</h3>
 <p>El paquete <code>pandi-dynamic-workflows</code> <strong>vendoriza sus propios skills</strong> (<code>ultracode</code>, <code>deep-research</code>, <code>default</code>) en <code>extensions/pandi-dynamic-workflows/skills/</code>, para que viajen cuando instalás solo esa extensión. Son un espejo generado del origen canónico en <code>.pi/skills/</code> (regenerar con <code>npm run sync:skills:vendor</code>; el test de paridad y <code>npm run doctor</code> detectan drift). Dentro del repo no se duplican: la entrada de esa extensión en <code>.pi/settings.json</code> filtra <code>skills: []</code> porque el repo ya los carga por auto-discovery desde <code>.pi/skills/</code>.</p>
+<h3>Personas empaquetadas</h3>
+<p>El package <code>pandi-personas</code> empaqueta las personas advisor (<code>andrej-karpathy</code>, <code>dave-farley</code>, <code>kent-beck</code>, <code>uncle-bob</code>) bajo <code>extensions/pandi-personas/personas/</code>, para que viajen cuando instalás esa extensión standalone. La fuente canónica sigue siendo <code>.pi/personas/*.json</code>; el espejo se regenera con <code>npm run sync:personas:package</code> y se verifica con <code>npm run sync:personas:package:check</code>.</p>
+<p>Pi packages no tiene un recurso nativo <code>pi.personas</code>; <code>pandi-personas</code> carga una extensión liviana que registra su directorio de JSONs para que <code>pandi-dynamic-workflows</code> los resuelva con <code>agentType</code>. Precedencia: <code>.pi/personas/&lt;name&gt;.json</code> del proyecto trusted &gt; persona empaquetada &gt; built-in de <code>pandi-dynamic-workflows</code>.</p>
 <h2 id="capacidades-opcionales-en-detalle">Capacidades opcionales en detalle</h2>
 <ul>
 <li><strong>Búsqueda web (<code>web_search</code>) para subagentes</strong> — instalá <code>pi install npm:pi-codex-web-search</code> (paquete separado, repo <code>github.com/ayagmar/pi-codex-web-search</code>) y el CLI <code>codex</code> (<code>brew install codex</code> o <code>npm install -g @openai/codex</code>). Cuando el runtime encuentra la extensión (en <code>~/.pi/agent/npm/node_modules/</code> o <code>./node_modules/</code>), agrega <code>web_search</code> automáticamente a la lista de herramientas de cada subagente. Si <code>codex</code> no está en el <code>PATH</code>, apuntalo con <code>CODEX_PATH</code>. Exclusión por subagente: <code>excludeTools: [&quot;web_search&quot;]</code> o <code>includeExtensions: false</code>.</li>
@@ -447,6 +450,13 @@ pi install ./                                                      <span class="
 <td><code>.pi/personas/README.md</code> y HTML</td>
 <td><code>npm run sync:personas:check</code></td>
 <td><code>npm run sync:personas</code></td>
+</tr>
+<tr>
+<td>Personas empaquetadas</td>
+<td><code>.pi/personas/*.json</code></td>
+<td><code>extensions/pandi-personas/personas/*.json</code></td>
+<td><code>npm run sync:personas:package:check</code></td>
+<td><code>npm run sync:personas:package</code></td>
 </tr>
 </tbody></table></div>
 <p>Los fixes de la tabla son locales, idempotentes y commiteables. Estado global del usuario (por ejemplo <code>~/.claude</code> o instalaciones Pi globales) se reporta como diagnóstico/propose-only: <code>doctor</code> te dice qué correr, pero no lo muta por vos.</p>

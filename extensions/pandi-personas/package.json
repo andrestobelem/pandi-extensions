@@ -1,0 +1,33 @@
+{
+	"name": "@pandi-coding-agent/pandi-personas",
+	"version": "0.1.0",
+	"description": "Personas advisor empaquetadas para subagentes de pandi-dynamic-workflows.",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/andrestobelem/pandi-extensions.git",
+		"directory": "extensions/pandi-personas"
+	},
+	"type": "module",
+	"keywords": [
+		"pi-package",
+		"pi",
+		"pi-extension",
+		"personas",
+		"agentType",
+		"pandi"
+	],
+	"files": [
+		"index.ts",
+		"personas/*.json",
+		"README.md"
+	],
+	"pi": {
+		"extensions": [
+			"./index.ts"
+		]
+	},
+	"peerDependencies": {
+		"@earendil-works/pi-coding-agent": "^0.80.3"
+	}
+}

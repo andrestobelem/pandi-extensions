@@ -153,7 +153,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	<header>
 		<div class="kicker">pandi-extensions</div>
 		<h1>pandi-extensions</h1>
-		<p class="lede"><strong>Un libro de patrones agénticos que se ejecuta.</strong> Este repo destila los patrones multi-agente de la literatura (Tree of Thoughts, Reflexion, orchestrator-workers…) en <strong>25 scaffolds corribles de JavaScript</strong>. <strong>Una suite de 23 extensiones más un tema para <a href="https://www.npmjs.com/package/@earendil-works/pi-coding-agent">Pi</a></strong> — el CLI de coding agent <code>@earendil-works/pi-coding-agent</code> — convierte a Pi en el laboratorio donde correrlos: graficarlos antes, inspeccionar journal y artifacts después, y verificar con evidencia en vez de fe.</p>
+		<p class="lede"><strong>Un libro de patrones agénticos que se ejecuta.</strong> Este repo destila los patrones multi-agente de la literatura (Tree of Thoughts, Reflexion, orchestrator-workers…) en <strong>25 scaffolds corribles de JavaScript</strong>. <strong>Una suite de 24 extensiones más un tema para <a href="https://www.npmjs.com/package/@earendil-works/pi-coding-agent">Pi</a></strong> — el CLI de coding agent <code>@earendil-works/pi-coding-agent</code> — convierte a Pi en el laboratorio donde correrlos: graficarlos antes, inspeccionar journal y artifacts después, y verificar con evidencia en vez de fe.</p>
 	</header>
 	<main>
 <nav class="toc">
@@ -315,7 +315,7 @@ pi install ./                       <span class="hljs-comment"># local al proyec
 </ul>
 <p>Usalos como patterns, no como ceremonia: cada rama necesita una razón, un contrato y una condición de parada.</p>
 <h2 id="catálogo-de-extensiones">Catálogo de extensiones</h2>
-<p>Las 23 extensiones de comando/tool se cargan por defecto desde el campo <code>pi.extensions</code> de <code>package.json</code> cuando corrés <code>pi install ./</code>; <code>pandi-theme</code> se registra a través de <code>pi.themes</code>. Cada extensión también se puede instalar por separado con <code>pi install ./extensions/&lt;name&gt;</code>.</p>
+<p>Las 24 extensiones se cargan por defecto desde el campo <code>pi.extensions</code> de <code>package.json</code> cuando corrés <code>pi install ./</code>; <code>pandi-theme</code> se registra a través de <code>pi.themes</code>. Cada extensión también se puede instalar por separado con <code>pi install ./extensions/&lt;name&gt;</code>.</p>
 <div class="table-scroll"><table>
 <thead>
 <tr>
@@ -330,6 +330,12 @@ pi install ./                       <span class="hljs-comment"># local al proyec
 <td><code>/workflow</code>, <code>/workflows</code>, <code>/ultracode</code>, <code>/dynamic-workflow</code>, <code>/deep-research</code>, <code>/ultracode-mode</code>, <code>/ultracode-contract</code> · <code>dynamic_workflow</code></td>
 <td>Runtime de workflows JS para orquestación multiagente con ejecución en paralelo, artifacts y resume idempotente.</td>
 <td>opcional: mmdc, web_search, Context7</td>
+</tr>
+<tr>
+<td><strong>pandi-personas</strong></td>
+<td><code>agentType: &quot;andrej-karpathy&quot;</code>, <code>&quot;dave-farley&quot;</code>, <code>&quot;kent-beck&quot;</code>, <code>&quot;uncle-bob&quot;</code></td>
+<td>Empaqueta personas advisor read-only para subagentes de <code>pandi-dynamic-workflows</code>; los proyectos pueden sobreescribirlas en <code>.pi/personas/</code>.</td>
+<td><code>pandi-dynamic-workflows</code></td>
 </tr>
 <tr>
 <td><strong>pandi-loop</strong></td>

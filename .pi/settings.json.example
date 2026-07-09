@@ -6,6 +6,7 @@
 			"source": "../extensions/pandi-dynamic-workflows",
 			"skills": []
 		},
+		"../extensions/pandi-personas",
 		"../extensions/pandi-session",
 		"../extensions/pandi-loop",
 		"../extensions/pandi-goal",

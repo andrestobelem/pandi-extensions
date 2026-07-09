@@ -1,6 +1,6 @@
 # pandi-extensions
 
-**Un libro de patrones agénticos que se ejecuta.** Este repo destila los patrones multi-agente de la literatura (Tree of Thoughts, Reflexion, orchestrator-workers…) en **25 scaffolds corribles de JavaScript**. **Una suite de 23 extensiones más un tema para [Pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent)** — el CLI de coding agent `@earendil-works/pi-coding-agent` — convierte a Pi en el laboratorio donde correrlos: graficarlos antes, inspeccionar journal y artifacts después, y verificar con evidencia en vez de fe.
+**Un libro de patrones agénticos que se ejecuta.** Este repo destila los patrones multi-agente de la literatura (Tree of Thoughts, Reflexion, orchestrator-workers…) en **25 scaffolds corribles de JavaScript**. **Una suite de 24 extensiones más un tema para [Pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent)** — el CLI de coding agent `@earendil-works/pi-coding-agent` — convierte a Pi en el laboratorio donde correrlos: graficarlos antes, inspeccionar journal y artifacts después, y verificar con evidencia en vez de fe.
 
 El corazón es **Dynamic Workflows / Ultracode**: scripts de JavaScript confiables que Pi ejecuta para orquestar subagentes en paralelo, persistir artifacts fuera del contexto del chat y devolver una síntesis coordinada. Alrededor, cada extensión operacionaliza una disciplina de ingeniería — `/plan` ≈ pensar antes de codear, `/goal` ≈ ejecución con criterios verificables, `/loop` ≈ cambios quirúrgicos con safeguards — además de memoria local, auto-compactación de contexto, diagnósticos de TypeScript, git worktrees, sandboxes Linux y varios aliases/shortcuts de UX. Son piezas independientes: podés instalarlas una por una o todas juntas, según lo que necesite tu proyecto. 🐼
 
@@ -127,11 +127,12 @@ Usalos como patterns, no como ceremonia: cada rama necesita una razón, un contr
 
 ## Catálogo de extensiones
 
-Las 23 extensiones de comando/tool se cargan por defecto desde el campo `pi.extensions` de `package.json` cuando corrés `pi install ./`; `pandi-theme` se registra a través de `pi.themes`. Cada extensión también se puede instalar por separado con `pi install ./extensions/<name>`.
+Las 24 extensiones se cargan por defecto desde el campo `pi.extensions` de `package.json` cuando corrés `pi install ./`; `pandi-theme` se registra a través de `pi.themes`. Cada extensión también se puede instalar por separado con `pi install ./extensions/<name>`.
 
 | Extensión | Surface (human · model) | Qué hace | Requisitos extra |
 | --- | --- | --- | --- |
 | **pandi-dynamic-workflows** (core) | `/workflow`, `/workflows`, `/ultracode`, `/dynamic-workflow`, `/deep-research`, `/ultracode-mode`, `/ultracode-contract` · `dynamic_workflow` | Runtime de workflows JS para orquestación multiagente con ejecución en paralelo, artifacts y resume idempotente. | opcional: mmdc, web_search, Context7 |
+| **pandi-personas** | `agentType: "andrej-karpathy"`, `"dave-farley"`, `"kent-beck"`, `"uncle-bob"` | Empaqueta personas advisor read-only para subagentes de `pandi-dynamic-workflows`; los proyectos pueden sobreescribirlas en `.pi/personas/`. | `pandi-dynamic-workflows` |
 | **pandi-loop** | `/loop` · `loop_schedule`, `loop_stop` | Loop iterativo con cadencia dinámica o fija, conducido por el modelo o por la extensión. | TUI/RPC; `autopilot` requiere trust |
 | **pandi-goal** | `/goal` · `goal_progress` | Loop guiado por objetivo con chequeo obligatorio de finalización y verificador independiente opcional. | TUI/RPC |
 | **pandi-plan** | `/plan` · `enter_plan_mode`, `submit_plan` | Modo de plan read-only con mutaciones bloqueadas hasta que apruebes explícitamente el plan. | TUI/RPC (o `PI_PLAN_NONINTERACTIVE=1`) |

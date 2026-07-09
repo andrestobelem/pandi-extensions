@@ -19,6 +19,7 @@ export const REPO_LOCAL_SYNC_STEPS = [
 	{ write: "docs:links:check", check: "docs:links:check" },
 	{ write: "sync:docs:html", check: "sync:docs:html:check" },
 	{ write: "sync:personas", check: "sync:personas:check" },
+	{ write: "sync:personas:package", check: "sync:personas:package:check" },
 ];
 
 function repoLocalScripts(checkOnly) {

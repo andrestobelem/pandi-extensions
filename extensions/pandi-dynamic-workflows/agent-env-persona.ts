@@ -26,6 +26,28 @@ export const DEFAULT_AGENT_WEB_SEARCH_TOOL = "web_search";
 export const DEFAULT_WEB_SEARCH_EXTENSION_PACKAGE = "pi-codex-web-search";
 export const DEFAULT_CONTEXT7_SKILL_NAME = "context7-cli";
 const READ_ONLY_AGENT_TOOLS = ["read", "grep", "find", "ls"];
+const PACKAGED_PERSONA_DIRS_SYMBOL = Symbol.for("@pandi-coding-agent/pandi-personas/directories");
+
+type GlobalRegistry = Record<PropertyKey, unknown>;
+
+function personaDirectoryRegistry(): string[] {
+	const state = globalThis as GlobalRegistry;
+	const current = state[PACKAGED_PERSONA_DIRS_SYMBOL];
+	if (Array.isArray(current)) return current as string[];
+	const dirs: string[] = [];
+	state[PACKAGED_PERSONA_DIRS_SYMBOL] = dirs;
+	return dirs;
+}
+
+export function registerPersonaDirectory(dir: string): void {
+	const resolved = path.resolve(dir);
+	const dirs = personaDirectoryRegistry();
+	if (!dirs.includes(resolved)) dirs.push(resolved);
+}
+
+export function registeredPersonaDirectories(): string[] {
+	return [...personaDirectoryRegistry()];
+}
 
 export const BUILTIN_AGENT_PERSONAS: Record<string, AgentOptions> = {
 	explore: {
@@ -241,16 +263,13 @@ function normalizePersonaName(agentType: string): string {
 	return name;
 }
 
-async function loadProjectPersona(ctx: ExtensionContext, agentType: string): Promise<AgentOptions | undefined> {
-	if (!ctx.isProjectTrusted()) return undefined;
-	const name = normalizePersonaName(agentType);
-	const file = path.join(ctx.cwd, CONFIG_DIR_NAME, "personas", `${name}.json`);
+async function readPersonaFile(file: string, agentType: string, source: string): Promise<AgentOptions | undefined> {
 	try {
 		return sanitizePersonaOptions(JSON.parse(await fs.readFile(file, "utf8")));
 	} catch (err) {
 		if ((err as NodeJS.ErrnoException).code === "ENOENT") return undefined;
 		throw new Error(
-			`No se pudo cargar la persona ${agentType}: ${err instanceof Error ? err.message : String(err)}`,
+			`No se pudo cargar la persona ${agentType} desde ${source}: ${err instanceof Error ? err.message : String(err)}`,
 			{
 				cause: err,
 			},
@@ -258,11 +277,27 @@ async function loadProjectPersona(ctx: ExtensionContext, agentType: string): Pro
 	}
 }
 
+async function loadProjectPersona(ctx: ExtensionContext, agentType: string): Promise<AgentOptions | undefined> {
+	if (!ctx.isProjectTrusted()) return undefined;
+	const name = normalizePersonaName(agentType);
+	return await readPersonaFile(path.join(ctx.cwd, CONFIG_DIR_NAME, "personas", `${name}.json`), agentType, "proyecto");
+}
+
+async function loadPackagedPersona(agentType: string): Promise<AgentOptions | undefined> {
+	const name = normalizePersonaName(agentType);
+	for (const dir of registeredPersonaDirectories()) {
+		const persona = await readPersonaFile(path.join(dir, `${name}.json`), agentType, dir);
+		if (persona) return persona;
+	}
+	return undefined;
+}
+
 export async function applyPersonaOptions(ctx: ExtensionContext, options: AgentOptions): Promise<AgentOptions> {
 	if (!options.agentType) return { ...options };
 	const name = normalizePersonaName(options.agentType);
 	const projectPersona = await loadProjectPersona(ctx, name);
-	const persona = projectPersona ?? BUILTIN_AGENT_PERSONAS[name.toLowerCase()];
+	const packagedPersona = projectPersona ? undefined : await loadPackagedPersona(name);
+	const persona = projectPersona ?? packagedPersona ?? BUILTIN_AGENT_PERSONAS[name.toLowerCase()];
 	if (!persona) throw new Error(`agentType desconocido: ${options.agentType}`);
 	return mergePersonaOptions(persona, options);
 }

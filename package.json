@@ -27,6 +27,7 @@
 		"extensions/pandi-docs/skills",
 		"extensions/pandi-theme/themes/*.json",
 		"extensions/pandi-dynamic-workflows/scaffolds/*.js",
+		"extensions/pandi-personas/personas/*.json",
 		".pi/skills",
 		"README.md",
 		"LICENSE"
@@ -67,6 +68,8 @@
 		"sync:docs:html:check": "node scripts/sync-docs-html.mjs --check",
 		"sync:personas": "node scripts/sync-personas-readme.mjs",
 		"sync:personas:check": "node scripts/sync-personas-readme.mjs --check",
+		"sync:personas:package": "node scripts/sync-personas-package.mjs",
+		"sync:personas:package:check": "node scripts/sync-personas-package.mjs --check",
 		"lint:md:fix": "markdownlint-cli2 --fix",
 		"release:prepare": "node scripts/release-prepare.mjs",
 		"release:prepare:write": "node scripts/release-prepare.mjs --write",
@@ -77,11 +80,12 @@
 		"test:unit": "node --test \"scripts/test/unit/*.test.mjs\"",
 		"test:integration": "node scripts/test/run-all.mjs",
 		"test:fast": "npm run typecheck && npm run check && npm run lint:md && npm run sync:check:all && npm run test:unit",
-		"test": "npm run typecheck && npm run check && npm run lint:md && npm run sync:docs:html:check && npm run sync:personas:check && npm run test:unit && npm run test:integration"
+		"test": "npm run typecheck && npm run check && npm run lint:md && npm run sync:docs:html:check && npm run sync:personas:check && npm run sync:personas:package:check && npm run test:unit && npm run test:integration"
 	},
 	"pi": {
 		"extensions": [
 			"./extensions/pandi-dynamic-workflows/index.ts",
+			"./extensions/pandi-personas/index.ts",
 			"./extensions/pandi-session/index.ts",
 			"./extensions/pandi-loop/index.ts",
 			"./extensions/pandi-goal/index.ts",

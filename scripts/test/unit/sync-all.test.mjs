@@ -13,6 +13,7 @@ const writeScripts = [
 	"docs:links:check",
 	"sync:docs:html",
 	"sync:personas",
+	"sync:personas:package",
 ];
 const checkScripts = [
 	"format:claude:check",
@@ -25,6 +26,7 @@ const checkScripts = [
 	"docs:links:check",
 	"sync:docs:html:check",
 	"sync:personas:check",
+	"sync:personas:package:check",
 ];
 
 test("repo-local sync steps preserve write/check order", () => {

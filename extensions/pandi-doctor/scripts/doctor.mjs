@@ -353,6 +353,13 @@ checkRepoSync({
 	fixCommand: "npm run sync:personas",
 	okDetail: ".pi/personas/README al día de personas JSON",
 });
+checkRepoSync({
+	label: "personas empaquetadas",
+	script: path.join("scripts", "sync-personas-package.mjs"),
+	checkCommand: "npm run sync:personas:package:check",
+	fixCommand: "npm run sync:personas:package",
+	okDetail: "pandi-personas al día de .pi/personas",
+});
 
 // hook pre-commit: ¿core.hooksPath apunta al dir versionado scripts/git-hooks y el hook existe?
 // Es la verificación rápida local (typecheck + biome + markdownlint) que evita commits rotos en main.

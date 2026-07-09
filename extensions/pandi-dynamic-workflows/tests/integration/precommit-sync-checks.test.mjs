@@ -40,6 +40,7 @@ const repoLocalSyncSteps = [
 	"docs:links:check",
 	"sync:docs:html",
 	"sync:personas",
+	"sync:personas:package",
 ];
 const repoLocalCheckSteps = [
 	"format:claude:check",
@@ -52,6 +53,7 @@ const repoLocalCheckSteps = [
 	"docs:links:check",
 	"sync:docs:html:check",
 	"sync:personas:check",
+	"sync:personas:package:check",
 ];
 
 check("package.json defines sync:all as the sync runner", syncAllWrite === "node scripts/sync-all.mjs");

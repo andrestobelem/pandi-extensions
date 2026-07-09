@@ -28,6 +28,7 @@ const ROOT_PKG = join(REPO, "package.json");
 // Orden de carga curado (nombres de dir). Mantené el core primero y los aliases de UX al final.
 const LOAD_ORDER = [
 	"pandi-dynamic-workflows",
+	"pandi-personas",
 	"pandi-session",
 	"pandi-loop",
 	"pandi-goal",

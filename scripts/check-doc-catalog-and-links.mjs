@@ -58,7 +58,7 @@ function checkReadmeCatalog(repoRoot, failures) {
 
 	const catalogIntro =
 		readme.match(/All (\d+) extensions load by default from the `pi\.extensions` field/) ??
-		readme.match(/Las (\d+) extensiones de comando\/tool se cargan por defecto desde el campo `pi\.extensions`/);
+		readme.match(/Las (\d+) extensiones(?: de comando\/tool)? se cargan por defecto desde el campo `pi\.extensions`/);
 	if (!catalogIntro) {
 		failures.push("README catalog intro extension count is missing");
 	} else if (Number(catalogIntro[1]) !== count) {

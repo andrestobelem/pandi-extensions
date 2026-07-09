@@ -68,6 +68,12 @@ done
 
 El paquete `pandi-dynamic-workflows` **vendoriza sus propios skills** (`ultracode`, `deep-research`, `default`) en `extensions/pandi-dynamic-workflows/skills/`, para que viajen cuando instalás solo esa extensión. Son un espejo generado del origen canónico en `.pi/skills/` (regenerar con `npm run sync:skills:vendor`; el test de paridad y `npm run doctor` detectan drift). Dentro del repo no se duplican: la entrada de esa extensión en `.pi/settings.json` filtra `skills: []` porque el repo ya los carga por auto-discovery desde `.pi/skills/`.
 
+### Personas empaquetadas
+
+El package `pandi-personas` empaqueta las personas advisor (`andrej-karpathy`, `dave-farley`, `kent-beck`, `uncle-bob`) bajo `extensions/pandi-personas/personas/`, para que viajen cuando instalás esa extensión standalone. La fuente canónica sigue siendo `.pi/personas/*.json`; el espejo se regenera con `npm run sync:personas:package` y se verifica con `npm run sync:personas:package:check`.
+
+Pi packages no tiene un recurso nativo `pi.personas`; `pandi-personas` carga una extensión liviana que registra su directorio de JSONs para que `pandi-dynamic-workflows` los resuelva con `agentType`. Precedencia: `.pi/personas/<name>.json` del proyecto trusted > persona empaquetada > built-in de `pandi-dynamic-workflows`.
+
 ## Capacidades opcionales en detalle
 
 - **Búsqueda web (`web_search`) para subagentes** — instalá `pi install npm:pi-codex-web-search` (paquete separado, repo `github.com/ayagmar/pi-codex-web-search`) y el CLI `codex` (`brew install codex` o `npm install -g @openai/codex`). Cuando el runtime encuentra la extensión (en `~/.pi/agent/npm/node_modules/` o `./node_modules/`), agrega `web_search` automáticamente a la lista de herramientas de cada subagente. Si `codex` no está en el `PATH`, apuntalo con `CODEX_PATH`. Exclusión por subagente: `excludeTools: ["web_search"]` o `includeExtensions: false`.
@@ -119,6 +125,7 @@ Regla simple: editá la fuente canónica, no el mirror generado. `npm run doctor
 | Skills Claude de ultracode | `.pi/skills/ultracode/` | `.claude/skills/{ultracode,dynamic-workflows}/` | `npm run sync:claude:ultracode:check` | `npm run sync:claude:ultracode` |
 | Docs HTML | `README.md`, `docs/**/*.md` | `docs/html/**` | `npm run sync:docs:html:check` | `npm run sync:docs:html` |
 | Personas README | `.pi/personas/*.json` | `.pi/personas/README.md` y HTML | `npm run sync:personas:check` | `npm run sync:personas` |
+| Personas empaquetadas | `.pi/personas/*.json` | `extensions/pandi-personas/personas/*.json` | `npm run sync:personas:package:check` | `npm run sync:personas:package` |
 
 Los fixes de la tabla son locales, idempotentes y commiteables. Estado global del usuario (por ejemplo `~/.claude` o instalaciones Pi globales) se reporta como diagnóstico/propose-only: `doctor` te dice qué correr, pero no lo muta por vos.
 
