@@ -72,9 +72,13 @@ function npm(cmdArgs, opts = {}) {
 	}).trim();
 }
 
-export function isNpmMissingVersionError(err) {
+function npmErrorText(err) {
 	const e = err ?? {};
-	const msg = `${e.stdout?.toString?.() ?? ""}${e.stderr?.toString?.() ?? ""}${e.message ?? ""}`;
+	return `${e.stdout?.toString?.() ?? ""}${e.stderr?.toString?.() ?? ""}${e.message ?? ""}`;
+}
+
+export function isNpmMissingVersionError(err) {
+	const msg = npmErrorText(err);
 	return msg.includes("E404") || msg.includes("No match found for version");
 }
 
@@ -84,8 +88,7 @@ function publishedShasum(name, version) {
 		const out = npm(["view", `${name}@${version}`, "dist.shasum"], { stdio: ["ignore", "pipe", "pipe"] });
 		return out === "" ? null : out; // en algunas versiones de npm: versión faltante = exit 0, stdout vacío
 	} catch (err) {
-		const e = err ?? {};
-		const msg = `${e.stdout?.toString?.() ?? ""}${e.stderr?.toString?.() ?? ""}${e.message ?? ""}`;
+		const msg = npmErrorText(err);
 		if (isNpmMissingVersionError(err)) return null; // versión no publicada
 		throw new Error(`npm view failed for ${name}@${version} (not a 404 — refusing to guess):\n${msg}`);
 	}

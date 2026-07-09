@@ -31,25 +31,26 @@ export function bumpPatch(version) {
 	return `${match[1]}.${match[2]}.${Number(match[3]) + 1}`;
 }
 
+function parsePublishPlanLine(line) {
+	let match = /^BUMP\?\s+(.+)@(\d+\.\d+\.\d+)\s+\(/.exec(line);
+	if (match) return { kind: "bumps", entry: { name: match[1], version: match[2] } };
+
+	match = /^PUBLISH\s+(.+)@(\d+\.\d+\.\d+)\s+\(/.exec(line);
+	if (match) return { kind: "publishes", entry: { name: match[1], version: match[2] } };
+
+	match = /^UNCHANGED\s+(.+)@(\d+\.\d+\.\d+)/.exec(line);
+	if (match) return { kind: "unchanged", entry: { name: match[1], version: match[2] } };
+
+	return null;
+}
+
 export function parsePublishPlan(output) {
-	const bumps = [];
-	const publishes = [];
-	const unchanged = [];
+	const plan = { bumps: [], publishes: [], unchanged: [] };
 	for (const line of String(output).split("\n")) {
-		let match = /^BUMP\?\s+(.+)@(\d+\.\d+\.\d+)\s+\(/.exec(line);
-		if (match) {
-			bumps.push({ name: match[1], version: match[2] });
-			continue;
-		}
-		match = /^PUBLISH\s+(.+)@(\d+\.\d+\.\d+)\s+\(/.exec(line);
-		if (match) {
-			publishes.push({ name: match[1], version: match[2] });
-			continue;
-		}
-		match = /^UNCHANGED\s+(.+)@(\d+\.\d+\.\d+)/.exec(line);
-		if (match) unchanged.push({ name: match[1], version: match[2] });
+		const parsed = parsePublishPlanLine(line);
+		if (parsed) plan[parsed.kind].push(parsed.entry);
 	}
-	return { bumps, publishes, unchanged };
+	return plan;
 }
 
 export function loadWorkspacePackages(root) {
