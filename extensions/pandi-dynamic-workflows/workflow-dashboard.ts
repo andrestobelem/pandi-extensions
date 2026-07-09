@@ -66,6 +66,55 @@ function windowStart(selectedIndex: number, length: number, before: number, wind
 	return Math.max(0, Math.min(selectedIndex - before, length - windowSize));
 }
 
+interface PatternViewFormatters {
+	line: (s: string) => string;
+	accent: (s: string) => string;
+	muted: (s: string) => string;
+	warning: (s: string) => string;
+}
+
+function renderPatternsView(patternIndex: number, { line, accent, muted, warning }: PatternViewFormatters): string[] {
+	const lines: string[] = [];
+	if (WORKFLOW_PATTERN_CATALOG.length === 0) {
+		lines.push(line(warning("No workflow patterns registered.")));
+		return lines;
+	}
+	lines.push(
+		line(
+			`${accent("Pattern catalog")} ${muted(`(${WORKFLOW_PATTERN_CATALOG.length})`)} ${muted("• choose a scaffold, then edit before saving")}`,
+		),
+	);
+	const start = windowStart(patternIndex, WORKFLOW_PATTERN_CATALOG.length, 6, 12);
+	const visible = WORKFLOW_PATTERN_CATALOG.slice(start, start + 12);
+	for (let i = 0; i < visible.length; i++) {
+		const index = start + i;
+		const pattern = visible[i];
+		const selected = index === patternIndex;
+		const prefix = selected ? accent("› ") : "  ";
+		lines.push(
+			line(`${prefix}${pattern.key} ${muted("—")} ${pattern.title} ${muted(`(${pattern.primitives.join(" + ")})`)}`),
+		);
+	}
+	const selected = WORKFLOW_PATTERN_CATALOG[patternIndex];
+	if (!selected) return lines;
+	const useCases = getPatternUseCases(selected);
+	lines.push(line(muted("")));
+	lines.push(line(accent("Selected pattern")));
+	lines.push(line(`key: ${selected.key}`));
+	lines.push(line(`title: ${selected.title}`));
+	lines.push(line(`summary: ${selected.blurb}`));
+	lines.push(line(`use when: ${selected.useWhen}`));
+	if (useCases.length) {
+		lines.push(line(accent("Example use cases")));
+		for (const useCase of useCases.slice(0, 4)) lines.push(line(`- ${useCase}`));
+	}
+	lines.push(line(`input: ${selected.inputHint}`));
+	lines.push(line(`primitives: ${selected.primitives.join(", ")}`));
+	lines.push(line(`draft name: ${selected.defaultName}`));
+	lines.push(line(muted("Enter/n creates a project workflow draft from this pattern; you can edit before save.")));
+	return lines;
+}
+
 function reselectIndexByKey<T>(previous: T[], previousIndex: number, next: T[], keyOf: (item: T) => string): number {
 	const clamped = Math.min(previousIndex, Math.max(0, next.length - 1));
 	const prev = previous[previousIndex];
@@ -1190,45 +1239,7 @@ export class WorkflowDashboard {
 		muted: (s: string) => string,
 		warning: (s: string) => string,
 	): void {
-		if (WORKFLOW_PATTERN_CATALOG.length === 0) {
-			lines.push(line(warning("No workflow patterns registered.")));
-			return;
-		}
-		lines.push(
-			line(
-				`${accent("Pattern catalog")} ${muted(`(${WORKFLOW_PATTERN_CATALOG.length})`)} ${muted("• choose a scaffold, then edit before saving")}`,
-			),
-		);
-		const start = windowStart(this.patternIndex, WORKFLOW_PATTERN_CATALOG.length, 6, 12);
-		const visible = WORKFLOW_PATTERN_CATALOG.slice(start, start + 12);
-		for (let i = 0; i < visible.length; i++) {
-			const index = start + i;
-			const pattern = visible[i];
-			const selected = index === this.patternIndex;
-			const prefix = selected ? accent("› ") : "  ";
-			lines.push(
-				line(
-					`${prefix}${pattern.key} ${muted("—")} ${pattern.title} ${muted(`(${pattern.primitives.join(" + ")})`)}`,
-				),
-			);
-		}
-		const selected = WORKFLOW_PATTERN_CATALOG[this.patternIndex];
-		if (!selected) return;
-		const useCases = getPatternUseCases(selected);
-		lines.push(line(muted("")));
-		lines.push(line(accent("Selected pattern")));
-		lines.push(line(`key: ${selected.key}`));
-		lines.push(line(`title: ${selected.title}`));
-		lines.push(line(`summary: ${selected.blurb}`));
-		lines.push(line(`use when: ${selected.useWhen}`));
-		if (useCases.length) {
-			lines.push(line(accent("Example use cases")));
-			for (const useCase of useCases.slice(0, 4)) lines.push(line(`- ${useCase}`));
-		}
-		lines.push(line(`input: ${selected.inputHint}`));
-		lines.push(line(`primitives: ${selected.primitives.join(", ")}`));
-		lines.push(line(`draft name: ${selected.defaultName}`));
-		lines.push(line(muted("Enter/n creates a project workflow draft from this pattern; you can edit before save.")));
+		lines.push(...renderPatternsView(this.patternIndex, { line, accent, muted, warning }));
 	}
 
 	private renderRuns(

@@ -194,16 +194,23 @@ async function scenarioPatternsAndMonitorN(url) {
 	});
 	await patterns.commands.get("workflow").handler("dashboard", patterns.ctx);
 	const pCall = patterns.customCalls[0];
+	const pText = renderedText(pCall);
+	check(
+		"patterns tab renders catalog title",
+		pText.includes("Pattern catalog"),
+		pText.split("\n").slice(0, 8).join("\n"),
+	);
+	check(
+		"patterns tab renders selected pattern detail",
+		pText.includes("Selected pattern") && pText.includes("key:"),
+		pText.split("\n").slice(-12).join("\n"),
+	);
 	check(
 		"patterns `n` triggers use-pattern",
 		pCall?.doneValue?.type === "newPattern",
 		JSON.stringify(pCall?.doneValue),
 	);
-	check(
-		"patterns `n` does not jump to Agents",
-		!renderedText(pCall).includes("[Agents]"),
-		renderedText(pCall).split("\n")[0],
-	);
+	check("patterns `n` does not jump to Agents", !pText.includes("[Agents]"), pText.split("\n")[0]);
 
 	// Tab Monitor: `n` todavía debe saltar a Agents (sin regresión).
 	const monitor = await bootExtension(url, project, { customInputs: ["n"] });
