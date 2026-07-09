@@ -13,7 +13,7 @@ export async function extractStaticModel({ scriptPath, raw, argsObj }) {
   .replace(/export\s+const\s+meta\s*=/, "globalThis.__meta =")
   .replace(/export\s+default\s+/, "globalThis.__default = ");
 const stubs = `
-  globalThis.__nodes = []; globalThis.__composes = []; globalThis.__phases = []; globalThis.__pipeErr = null;
+  globalThis.__nodes = []; globalThis.__composes = []; globalThis.__phases = []; globalThis.__pipeErr = null; globalThis.__parallelDepth = 0;
   // Object-target proxy so \`typeof result === 'object'\` checks pass; lenient on every access.
   const lenient = () => new Proxy({}, {
     get(_t, p){
@@ -39,7 +39,8 @@ const stubs = `
   const log = () => {};
   const agent = async (prompt, opts = {}) => {
     globalThis.__nodes.push({ prompt: String(prompt ?? ''), label: opts.label || opts.name, phase: opts.phase,
-      schema: opts.schema, model: opts.model, effort: opts.effort, tools: opts.tools, skills: opts.skills, extensions: opts.extensions });
+      schema: opts.schema, model: opts.model, effort: opts.effort, tools: opts.tools, skills: opts.skills, extensions: opts.extensions,
+      instances: 1, parallel: globalThis.__parallelDepth > 0 });
     return lenient();
   };
   // ctx-style workflows fan out with agents(items, …); record one representative node, return lenient rows.
@@ -51,10 +52,15 @@ const stubs = `
     const rep = arr.length && arr[0] && typeof arr[0] === 'object' ? arr[0] : {};
     if (arr.length) globalThis.__nodes.push({ prompt: '‹per-item agents() fan-out›', label: opts.label || opts.name || rep.label || rep.name,
       phase: opts.phase ?? rep.phase, schema: opts.schema ?? rep.schema, model: opts.model ?? rep.model,
-      effort: opts.effort ?? rep.effort, tools: opts.tools ?? rep.tools, skills: opts.skills ?? rep.skills, extensions: opts.extensions ?? rep.extensions });
+      effort: opts.effort ?? rep.effort, tools: opts.tools ?? rep.tools, skills: opts.skills ?? rep.skills, extensions: opts.extensions ?? rep.extensions,
+      instances: arr.length, parallel: arr.length > 1 });
     return arr.map(() => lenient());
   };
-  const parallel = async (thunks) => Promise.all((thunks || []).map(async (t) => { try { return await t(); } catch { return null; } }));
+  const parallel = async (thunks) => {
+    globalThis.__parallelDepth++;
+    try { return await Promise.all((thunks || []).map(async (t) => { try { return await t(); } catch { return null; } })); }
+    finally { globalThis.__parallelDepth--; }
+  };
   const pipeline = async (items, ...stages) => {
     const arr = Array.isArray(items) ? items : [items];
     const probe = arr.length ? arr[0] : '<item>';
@@ -137,11 +143,17 @@ const composes = [...new Set(globalThis.__composes || [])];
 const byKey = new Map();
 for (const n of rawNodes) {
   const key = (n.phase || "") + "|" + norm(n.label);
-  if (!byKey.has(key)) byKey.set(key, { ...n, role: norm(n.label), count: 1 });
-  else byKey.get(key).count++;
+  const instances = Number.isFinite(n.instances) ? n.instances : 1;
+  if (!byKey.has(key)) byKey.set(key, { ...n, role: norm(n.label), count: 1, instances, parallel: !!n.parallel });
+  else {
+    const grouped = byKey.get(key);
+    grouped.count++;
+    grouped.instances += instances;
+    grouped.parallel ||= !!n.parallel;
+  }
 }
 const baseNodes = [...byKey.values()].map((n) => ({
-  id: n.role + (n.count > 1 ? ` ×${n.count}` : ""),
+  id: n.role + (n.instances > 1 ? ` ×${n.instances}` : ""),
   role: n.role,
   phase: n.phase || "—",
   schema: n.schema ? (n.schema.title || "object schema") : "— (free text)",
@@ -152,6 +164,8 @@ const baseNodes = [...byKey.values()].map((n) => ({
   skills: Array.isArray(n.skills) ? n.skills : (typeof n.skills === "string" && n.skills ? [n.skills] : []),
   extensions: Array.isArray(n.extensions) ? n.extensions.join(", ") : (typeof n.extensions === "string" ? n.extensions : (n.extensions === false ? "none (opted out)" : "inherited")),
   prompt: n.prompt,
+  instances: n.instances,
+  parallel: n.parallel && n.instances > 1,
 }));
 
 // Resuelve cada skill declarado a su home en disco y a sus archivos de referencia (reference/ o references/),

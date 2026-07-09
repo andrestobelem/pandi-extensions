@@ -201,15 +201,34 @@ export function assembleArtifact({ merged, basePhases, composes, meta, provenanc
   // fase extra de nodo (por ejemplo "—" para agentes a los que el workflow nunca etiquetó con fase) para que no se pierdan nodos.
   const nodePhases = Object.keys(nodesByPhase);
   const orderedPhases = [...phases, ...nodePhases.filter((p) => !phases.includes(p))];
+  const nodeInstances = (node) => Math.max(1, node.run?.planned ?? node.run?.count ?? node.instances ?? 1);
+  const fanoutSlots = (count) => count <= 6 ? Array.from({ length: count }, (_value, index) => index + 1) : [1, 2, "…", count];
   let mm = "flowchart TB\n  IN([entrada args]):::io\n";
   orderedPhases.forEach((ph) => {
     const ns = nodesByPhase[ph] || [];
     mm += `  subgraph ${mmId(ph)}["${mmLabel(ph)}"]\n   direction LR\n`;
     ns.forEach((n, i) => {
+      const id = `${mmId(ph)}_${i}`;
       const me = nodeME(n);
       const glyph = n.run ? (n.run.fail ? ` · ✗${n.run.fail}/${n.run.count}` : n.run.running ? ` · ⏳${n.run.running}` : ` · ✓${n.run.count}`) : "";
       const cls = n.run ? (n.run.fail ? "agf" : n.run.running ? "agr" : "agok") : "ag";
-      mm += `   ${mmId(ph)}_${i}["${mmLabel(n.role)}${n.schemaObj ? " · schema" : ""}${me ? " · " + mmLabel(me) : ""}${glyph}"]:::${cls}\n`;
+      const instances = nodeInstances(n);
+      if (n.parallel && instances > 1) {
+        const forkId = `${id}_fork`;
+        const joinId = `${id}_join`;
+        const laneGlyph = n.run ? (n.run.fail ? " · ✗" : n.run.running ? " · ⏳" : " · ✓") : "";
+        mm += `   ${forkId}(("fork ×${instances}")):::comp\n`;
+        for (const [laneIndex, slot] of fanoutSlots(instances).entries()) {
+          const laneId = `${id}_lane${laneIndex + 1}`;
+          const laneLabel = `${mmLabel(n.role)} ${slot}${n.schemaObj ? " · schema" : ""}${me ? " · " + mmLabel(me) : ""}${laneGlyph}`;
+          mm += `   ${laneId}["${laneLabel}"]:::${cls}\n`;
+          mm += `   ${forkId} --> ${laneId}\n`;
+          mm += `   ${laneId} --> ${joinId}\n`;
+        }
+        mm += `   ${joinId}(("join")):::comp\n`;
+        return;
+      }
+      mm += `   ${id}["${mmLabel(n.role)}${n.schemaObj ? " · schema" : ""}${me ? " · " + mmLabel(me) : ""}${glyph}"]:::${cls}\n`;
     });
     if (!ns.length) mm += `   ${mmId(ph)}_x["sin agentes · solo bash o no alcanzado"]:::empty\n`;
     mm += "  end\n";
