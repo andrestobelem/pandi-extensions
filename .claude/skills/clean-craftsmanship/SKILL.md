@@ -60,6 +60,8 @@ Para revisiones de oficio, diagnósticos de diseño o decisiones de profesionali
 6. **Mantené la comunicación honesta.** Dá rangos, no promesas; escalá pedidos imposibles con un "no" más alternativas en vez de heroísmo silencioso.
 7. **Condicioná el refactor por IA a tests en verde.** La práctica de IA de Martin, según fuentes (entrevista con Duffield, 2024): entregale código a la IA para refactorizar solo después de que todos los tests pasen, y aceptá el resultado solo con juicio humano. Si delegar o no es decisión de `ai-assisted-engineering`.
 
+**Cierre:** terminá cuando cada hallazgo aplicable tenga evidencia de código o dependencia, los límites tocados tengan dirección y renta explícitas, y la limpieza o el compromiso queden acotados y comunicados honestamente. No exijas ejes que no aplican al cambio.
+
 ## Checklist de revisión
 
 - **Nombres:** ¿revelan intención, o el lector necesita un comentario o mirar la implementación?

@@ -47,6 +47,8 @@ En un plan, review o implementación que se apoye en IA/agentes, incluí esto sa
 6. **Verificá con evidencia ejecutable.** Tratá el output de IA/agentes como una hipótesis. Confirmalo con tests, evals, reproducción, diff review o checks externos antes de aceptarlo.
 7. **Mantené supervisión humana visible.** Mostrá estado, agentes, evidencia y fallas parciales para que una persona pueda especificar, evaluar y depurar, no solo mirar pasar llamadas.
 
+**Cierre:** antes de avanzar o entregar, dejá explícitos el nivel de riesgo, el límite de delegación humana, la rebanada mínima, la evidencia ejecutable y la condición de escalamiento. Omití solo los ejes irrelevantes y nombrá el motivo.
+
 ## Checklist para trabajo asistido por IA/agentes
 
 - **Riesgo:** ¿esto es prototipo o producción? ¿El rigor coincide?

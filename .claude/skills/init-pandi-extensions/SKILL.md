@@ -71,6 +71,8 @@ npm test
 pi install ./                     # alternativa project-local: pi install -l ./
 ```
 
+**Cierre de instalación:** `node --version` satisface `.nvmrc`, `pi --version` responde, `npm run doctor` no reporta faltantes MANDATORY, `npm test` termina con exit 0 y `pi install ./` termina con exit 0.
+
 Si `doctor` reporta mirror drift entre repo y global, corré exactamente el fix que imprime y después
 volvé a correr `npm run doctor`.
 
@@ -108,6 +110,8 @@ Dentro de Pi:
 
 También son buenas señales: `/doctor` in-session (o `npm run doctor` antes de instalar) en verde para
 los requisitos obligatorios y `npm test` pasando.
+
+**Cierre de smoke:** después de `/trust` + `/reload` en el proyecto destino, `/doctor` no reporta faltantes obligatorios y al menos `/effort status` y `/workflows` están disponibles.
 
 ## Trabajar DENTRO de este repo (sin instalación)
 

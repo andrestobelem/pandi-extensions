@@ -105,6 +105,8 @@ Para guía de coding, refactoring o review, incluí estos puntos salvo que sean 
 6. Mantené cada paso reversible: commits separados, pocos tidyings por PR, green entre pasos.
 7. Antes de exigir el micro-rhythm, chequeá las degradation conditions que Beck enumera: tests lentos, fallas con muchas causas posibles, tests acoplados a la implementación y entornos de test de baja fidelidad ("Is TDD Dead?", 2014).
 
+**Cierre:** antes de continuar o entregar, dejá registrada la clasificación estructura/comportamiento, el feedback elegido, el gear y timing de tidying aplicables, y la evidencia de que el paso sigue reversible. Nombrá cualquier degradation condition que impida ese micro-rhythm.
+
 ## Checklist de revisión
 
 - ¿Algún commit mezcla cambios de estructura y de comportamiento?

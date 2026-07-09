@@ -61,6 +61,8 @@ Al ayudar con un diseño, review, plan, implementación o dynamic workflow:
 6. **Evaluá estabilidad y throughput.** Explicá el impacto esperado en calidad, confiabilidad, recuperación, frecuencia de deploy y eficiencia de delivery.
 7. **Reportá evidencia, no confianza.** Cerrá con comandos, resultados de tests/CI, señales observadas o incertidumbre explícita.
 
+**Cierre:** antes de continuar o entregar, vinculá la hipótesis, el recorte reversible, el feedback elegido y el impacto esperado con la evidencia observada; declaralos como motivo para seguir, frenar o revertir.
+
 ## Checklist de review
 
 Usá estas preguntas en code review, design review y plan review:
