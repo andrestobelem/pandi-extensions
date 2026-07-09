@@ -160,6 +160,38 @@ async function stateContract(url) {
 	check("snapshot: omits runtime autopilot", !("autopilot" in snap));
 	check("snapshot: omits pausedRemainingMs", !("pausedRemainingMs" in snap));
 
+	const { fromSnapshot } = mod;
+	const recovered = fromSnapshot(snap, "paused");
+	check("fromSnapshot: applies status override", recovered.status === "paused");
+	check("fromSnapshot: creates a fresh AbortController", recovered.controller instanceof AbortController);
+	check("fromSnapshot: resets timer", recovered.timer === null);
+	check("fromSnapshot: resets autopilot", recovered.autopilot === false);
+	check("fromSnapshot: resets rearmedThisTurn", recovered.rearmedThisTurn === false);
+	check("fromSnapshot: keeps durable loopId", recovered.loopId === "loop-b");
+	check("fromSnapshot: keeps durable intervalMs", recovered.intervalMs === 300000);
+
+	const legacy = fromSnapshot(
+		{
+			loopId: "legacy",
+			task: "old",
+			iteration: 3,
+			startedAt: now,
+			nextFireAt: null,
+			status: "stale",
+			updatedAt: undefined,
+			// Snapshots viejos pueden omitir mode/caps o traer valores inválidos.
+			maxIterations: 0,
+			maxWallClockMs: -1,
+			contextPercentCap: 150,
+		},
+		"running",
+	);
+	check("fromSnapshot: defaults missing mode to dynamic", legacy.mode === "dynamic");
+	check("fromSnapshot: defaults invalid maxIterations", legacy.maxIterations === DEFAULT_MAX_ITERATIONS);
+	check("fromSnapshot: defaults invalid maxWallClockMs", legacy.maxWallClockMs === DEFAULT_MAX_WALL_CLOCK_MS);
+	check("fromSnapshot: clamps contextPercentCap to 100", legacy.contextPercentCap === 100);
+	check("fromSnapshot: fills missing updatedAt", typeof legacy.updatedAt === "string" && legacy.updatedAt.length > 0);
+
 	check("positiveOr: keeps finite positive numbers", positiveOr(7, 25) === 7);
 	check("positiveOr: rejects zero", positiveOr(0, 25) === 25);
 	check("positiveOr: rejects NaN", positiveOr(Number.NaN, 25) === 25);

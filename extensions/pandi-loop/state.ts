@@ -111,6 +111,26 @@ export function snapshot(loop: ActiveLoop): LoopState {
 }
 
 /**
+ * Reconstruye un ActiveLoop desde un snapshot durable (rehydrate).
+ * Aplica defaults de modo/caps para snapshots legacy y resetea campos runtime.
+ */
+export function fromSnapshot(state: LoopState, status: LoopStatus): ActiveLoop {
+	return {
+		...state,
+		mode: state.mode ?? "dynamic",
+		maxIterations: positiveOr(Math.trunc(state.maxIterations), DEFAULT_MAX_ITERATIONS),
+		maxWallClockMs: positiveOr(state.maxWallClockMs, DEFAULT_MAX_WALL_CLOCK_MS),
+		contextPercentCap: Math.min(positiveOr(state.contextPercentCap, DEFAULT_CONTEXT_PERCENT_CAP), 100),
+		updatedAt: state.updatedAt ?? new Date().toISOString(),
+		status,
+		timer: null,
+		controller: new AbortController(),
+		rearmedThisTurn: false,
+		autopilot: false,
+	};
+}
+
+/**
  * Decide si un snapshot durable pertenece a la sesión actual.
  *
  * Los sidecars viven bajo el cwd del proyecto, compartido por todas las ventanas. Por eso

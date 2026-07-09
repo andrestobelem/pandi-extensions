@@ -37,7 +37,7 @@ import { Type } from "typebox";
 import { capExceeded } from "./caps.js";
 import { parseLoopCommandIntent, parseLoopStartArgs } from "./command-intent.js";
 import { destructiveReason } from "./gate.js";
-import { formatInterval } from "./interval.js";
+import { formatLoopInterval } from "./interval.js";
 import { resolveLoop } from "./loop-resolve.js";
 import { notify } from "./notify.js";
 import { makeLoopIterationPrompt } from "./prompt.js";
@@ -45,12 +45,9 @@ import { collectLatestByKey } from "./session-state.js";
 import {
 	type ActiveLoop,
 	createActiveLoop,
-	DEFAULT_CONTEXT_PERCENT_CAP,
-	DEFAULT_MAX_ITERATIONS,
-	DEFAULT_MAX_WALL_CLOCK_MS,
+	fromSnapshot,
 	type LoopState,
 	type LoopStatus,
-	positiveOr,
 	shouldRehydrateLoopForSession,
 	snapshot,
 } from "./state.js";
@@ -90,6 +87,7 @@ const wakeQueue: PendingWake[] = [];
 // Mientras haya un turno autopilot en vuelo, ningún otro wake puede abrir turno.
 let autopilotTurnInFlight = false;
 
+/** ¿Hay un loop running cuyo turno actual lo disparó un wake (no el usuario)? */
 function hasRunningAutopilotLoop(): boolean {
 	for (const loop of activeLoops.values()) {
 		if (loop.autopilot && loop.status === "running") return true;
@@ -97,18 +95,9 @@ function hasRunningAutopilotLoop(): boolean {
 	return false;
 }
 
-/** ¿El loop dueño del turno autopilot en vuelo sigue presente y running? */
-function inFlightOwnerAlive(): boolean {
-	return hasRunningAutopilotLoop();
-}
-
 // ---------------------------------------------------------------------------
 // Línea de estado
 // ---------------------------------------------------------------------------
-
-function formatLoopInterval(intervalMs: number | undefined): string {
-	return formatInterval(Math.round((intervalMs ?? 0) / 1000));
-}
 
 function setLoopStatus(ctx: ExtensionContext, loop: LoopState): void {
 	if (!ctx.hasUI) return;
@@ -174,15 +163,20 @@ function persist(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): voi
 
 // --- Sidecar atómico ------------------------------------------------------------
 
+/** Root que guarda los sidecars del proyecto actual (trusted vs agentDir). */
+function loopStateRoot(ctx: ExtensionContext): string {
+	if (ctx.isProjectTrusted()) return path.join(ctx.cwd, CONFIG_DIR_NAME, LOOP_DIR);
+	const projectHash = crypto.createHash("sha1").update(ctx.cwd).digest("hex").slice(0, 12);
+	return path.join(getAgentDir(), LOOP_DIR, projectHash);
+}
+
 /**
  * Dir de estado dual-root, reflejando dynamic-workflows getRunRoot:
  * - proyecto trusted → <cwd>/.pi/loops/<id>
  * - si no            → <agentDir>/loops/<projectHash>/<id>
  */
 function loopStateDir(ctx: ExtensionContext, loopId: string): string {
-	if (ctx.isProjectTrusted()) return path.join(ctx.cwd, CONFIG_DIR_NAME, LOOP_DIR, loopId);
-	const projectHash = crypto.createHash("sha1").update(ctx.cwd).digest("hex").slice(0, 12);
-	return path.join(getAgentDir(), LOOP_DIR, projectHash, loopId);
+	return path.join(loopStateRoot(ctx), loopId);
 }
 
 /** Escritura atómica: temp file y rename, para que un crash a mitad de escritura no trunque state.json. */
@@ -253,7 +247,7 @@ function drainWakeQueue(pi: ExtensionAPI, ctx: ExtensionContext): void {
 	// destructivas debe aplicar solo a turnos disparados por el loop.
 	if (!ctx.isIdle()) return;
 	// Serializar loops: un segundo wake espera hasta que termine el turno en vuelo.
-	if (autopilotTurnInFlight && inFlightOwnerAlive()) return;
+	if (autopilotTurnInFlight && hasRunningAutopilotLoop()) return;
 
 	while (wakeQueue.length > 0) {
 		const next = wakeQueue.shift()!;
@@ -297,7 +291,6 @@ function deliverWake(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop):
 	}
 }
 
-/** Detiene un loop porque alcanzó su tope de iteraciones. Status "done" (fin limpio y esperado). */
 /** Detiene un loop porque se tocó un tope. Status "done" (fin limpio y esperado). */
 function stopForCap(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop, reason: string): void {
 	stopLoop(pi, ctx, loop.loopId, reason, "done");
@@ -307,6 +300,17 @@ function stopForCap(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop, r
 /** Caso particular de stopForCap: se alcanzó maxIterations (mismo motivo en stopLoop y notify). */
 function stopForMaxIterations(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): void {
 	stopForCap(pi, ctx, loop, `alcanzó el límite de maxIterations (${loop.maxIterations})`);
+}
+
+/** Motivo canónico del deadline duro anti-zombie (compartido por fireWake y watchdogSweep). */
+function watchdogHardDeadlineReason(): string {
+	return `watchdog: superó el deadline de respaldo duro (${Math.round(WATCHDOG_HARD_DEADLINE_MS / 3600000)}h)`;
+}
+
+/** Force-stop por watchdog: mismo mensaje y status en fireWake y watchdogSweep. */
+function stopByWatchdog(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): void {
+	stopLoop(pi, ctx, loop.loopId, watchdogHardDeadlineReason(), "done");
+	notify(ctx, `Loop ${loop.loopId} forzado a detenerse por el watchdog (respaldo anti-zombie).`, "warning");
 }
 
 /** Valida límites y encola una iteración; la FIFO decide cuándo entregarla. */
@@ -328,9 +332,7 @@ function fireWake(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): vo
 	// (El gate de caps de abajo cubre maxWallClockMs; esto también captura loops cuyo
 	// maxWallClockMs quedó absurdamente alto.)
 	if (Date.now() - loop.startedAt >= WATCHDOG_HARD_DEADLINE_MS) {
-		const reason = `watchdog: superó el deadline de respaldo duro (${Math.round(WATCHDOG_HARD_DEADLINE_MS / 3600000)}h)`;
-		stopLoop(pi, ctx, loop.loopId, reason, "done");
-		notify(ctx, `Loop ${loop.loopId} forzado a detenerse por el watchdog (respaldo anti-zombie).`, "warning");
+		stopByWatchdog(pi, ctx, loop);
 		return;
 	}
 
@@ -644,40 +646,14 @@ async function rehydrate(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void>
 		// Revalidar trust en cada re-entry: un objetivo autónomo no debe sobrevivir si el
 		// proyecto perdió confianza desde la confirmación original.
 		if (state.autonomous && !ctx.isProjectTrusted()) {
-			const retired: ActiveLoop = {
-				...state,
-				mode: state.mode ?? "dynamic",
-				maxIterations: positiveOr(Math.trunc(state.maxIterations), DEFAULT_MAX_ITERATIONS),
-				maxWallClockMs: positiveOr(state.maxWallClockMs, DEFAULT_MAX_WALL_CLOCK_MS),
-				contextPercentCap: Math.min(positiveOr(state.contextPercentCap, DEFAULT_CONTEXT_PERCENT_CAP), 100),
-				updatedAt: state.updatedAt ?? new Date().toISOString(),
-				status: "stopped",
-				timer: null,
-				controller: new AbortController(),
-				rearmedThisTurn: false,
-				autopilot: false,
-			};
+			const retired = fromSnapshot(state, "stopped");
 			activeLoops.set(retired.loopId, retired);
 			stopLoop(pi, ctx, retired.loopId, "loop autónomo retirado: el proyecto ya no es de confianza", "stopped");
 			continue;
 		}
 
 		const recoverPaused = state.status === "paused";
-		const loop: ActiveLoop = {
-			...state,
-			// Defaults para snapshots antiguos sin campos de modo/caps.
-			mode: state.mode ?? "dynamic",
-			maxIterations: positiveOr(Math.trunc(state.maxIterations), DEFAULT_MAX_ITERATIONS),
-			maxWallClockMs: positiveOr(state.maxWallClockMs, DEFAULT_MAX_WALL_CLOCK_MS),
-			contextPercentCap: Math.min(positiveOr(state.contextPercentCap, DEFAULT_CONTEXT_PERCENT_CAP), 100),
-			updatedAt: state.updatedAt ?? new Date().toISOString(),
-			// stale vuelve a running; paused conserva su estado idle.
-			status: recoverPaused ? "paused" : "running",
-			timer: null,
-			controller: new AbortController(),
-			rearmedThisTurn: false,
-			autopilot: false,
-		};
+		const loop = fromSnapshot(state, recoverPaused ? "paused" : "running");
 		activeLoops.set(loop.loopId, loop);
 
 		// Los loops paused se recuperan idle (sin timer) hasta /loop resume.
@@ -702,13 +678,6 @@ async function rehydrate(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void>
 // ---------------------------------------------------------------------------
 // GC de sidecars terminales
 // ---------------------------------------------------------------------------
-
-/** Root que guarda los sidecars del proyecto actual. */
-function loopStateRoot(ctx: ExtensionContext): string {
-	if (ctx.isProjectTrusted()) return path.join(ctx.cwd, CONFIG_DIR_NAME, LOOP_DIR);
-	const projectHash = crypto.createHash("sha1").update(ctx.cwd).digest("hex").slice(0, 12);
-	return path.join(getAgentDir(), LOOP_DIR, projectHash);
-}
 
 const TERMINAL_STATUSES: ReadonlySet<LoopStatus> = new Set<LoopStatus>(["done", "stopped", "failed"]);
 
@@ -768,9 +737,7 @@ function watchdogSweep(pi: ExtensionAPI, ctx: ExtensionContext, now: number = Da
 		// Solo running puede ser zombie; paused está idle a propósito.
 		if (loop.status !== "running") continue;
 		if (now - loop.startedAt < WATCHDOG_HARD_DEADLINE_MS) continue;
-		const reason = `watchdog: superó el deadline de respaldo duro (${Math.round(WATCHDOG_HARD_DEADLINE_MS / 3600000)}h)`;
-		stopLoop(pi, ctx, loop.loopId, reason, "done");
-		notify(ctx, `Loop ${loop.loopId} forzado a detenerse por el watchdog (respaldo anti-zombie).`, "warning");
+		stopByWatchdog(pi, ctx, loop);
 		killed += 1;
 	}
 	return killed;
@@ -866,17 +833,12 @@ async function handleLoopCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
 // Gate de acciones irreversibles
 // ---------------------------------------------------------------------------
 
-/** Verdadero si el turno actual fue disparado por un wake de loop. */
-function anyAutopilotActive(): boolean {
-	return hasRunningAutopilotLoop();
-}
-
 /** Gatea solo acciones destructivas durante turnos autopilot; turnos humanos no se tocan. */
 async function handleToolCall(
 	ctx: ExtensionContext,
 	event: ToolCallEvent,
 ): Promise<{ block?: boolean; reason?: string } | undefined> {
-	if (!anyAutopilotActive()) return undefined;
+	if (!hasRunningAutopilotLoop()) return undefined;
 	const reason = destructiveReason(ctx, event);
 	if (!reason) return undefined;
 

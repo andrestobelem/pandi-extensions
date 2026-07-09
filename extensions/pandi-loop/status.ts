@@ -1,6 +1,6 @@
 /** Formateador puro de la línea usada por /loop status y la status bar. */
 
-import { formatInterval } from "./interval.js";
+import { formatLoopInterval } from "./interval.js";
 import { formatEta } from "./time.js";
 
 /** Subconjunto de LoopState que formatStatus necesita. */
@@ -19,8 +19,7 @@ export interface LoopStatusInput {
 
 export function formatStatus(loop: LoopStatusInput): string {
 	const eta = loop.status === "running" ? `, próximo ${formatEta(loop.nextFireAt)}` : "";
-	const mode =
-		loop.mode === "fixed" && loop.intervalMs ? ` cada ${formatInterval(Math.round(loop.intervalMs / 1000))}` : "";
+	const mode = loop.mode === "fixed" && loop.intervalMs ? ` cada ${formatLoopInterval(loop.intervalMs)}` : "";
 	const auto = loop.autonomous ? " auto" : "";
 	const reason = loop.lastReason ? `, razón: ${loop.lastReason}` : "";
 	return `${loop.loopId} [${loop.status}${auto}]${mode} it ${loop.iteration}/${loop.maxIterations}${eta}${reason} — ${loop.task}`;
