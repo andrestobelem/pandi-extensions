@@ -49,17 +49,21 @@ pi install -l ./extensions/pandi-dynamic-workflows       # local al proyecto
 pi --no-extensions -e ./extensions/pandi-dynamic-workflows   # prueba puntual, sin cargar nada más
 ```
 
-### Workflow interno: Contract Gate
+### Scaffolds ejecutables incluidos
 
-El paquete trae el workflow interno, de solo lectura, `contract-gate`. Pi carga la extensión y la
-extensión lo resuelve como fallback global desde cualquier proyecto donde esté instalada, después de
-los workflows del proyecto y del agent-dir de la persona. No copia ni modifica
+El paquete trae el catálogo de **scaffolds** como assets ejecutables de solo lectura. Pi carga la
+extensión y Dynamic Workflows los resuelve como fallback global desde cualquier proyecto donde esté
+instalada, después de los workflows del proyecto y del agent-dir de la persona. No copia ni modifica
 `~/.pi/agent/workflows/` al cargar la extensión.
 
-El nombre también existe en el catálogo de **scaffolds**, pero es otra superficie: usá
-`action: "run"` o `action: "start"` para ejecutar el workflow interno, y
-`action: "scaffold"` para leer el patrón y crear un workflow propio. El workflow interno es de solo
-lectura y no se puede borrar mediante `/workflow delete`.
+`action: "scaffold"` lee el código canónico de un patrón; `action: "read"`, `"check"`, `"run"` o
+`"start"` con ese mismo nombre usan exactamente esa fuente. Para modificar un patrón, creá un
+workflow propio con `/workflow new <name> --pattern=<key>` o `action: "write"`: los workflows
+incluidos no se pueden borrar mediante `/workflow delete`.
+
+Por ejemplo, `contract-gate` es el scaffold que el router usa como compuerta de contrato. Podés
+leerlo con `action: "scaffold"` o correrlo read-only con `action: "run"`; no existe una variante
+interna distinta.
 
 ## Cómo elegir un primitive
 

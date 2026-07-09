@@ -46,7 +46,9 @@ export interface WorkflowDefinition {
 	scope: WorkflowScope;
 	path: string;
 	relativePath: string;
-	/** Asset bundled con la extensión: se puede leer/correr, pero no editar ni borrar. */
+	/** El ejecutable usa directamente un scaffold canónico de la extensión. */
+	origin?: "scaffold";
+	/** Se puede leer/correr, pero no editar ni borrar. */
 	readOnly?: boolean;
 }
 
@@ -58,8 +60,6 @@ export interface WorkflowLocation {
 	root: string;
 	trusted: boolean;
 	kind: "workflow" | "draft";
-	/** Las ubicaciones bundled participan en resolución, nunca como destino de escritura. */
-	readOnly?: boolean;
 }
 
 export interface RunLimits {

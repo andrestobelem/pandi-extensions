@@ -4,14 +4,14 @@
  * Por qué existe este archivo
  * --------------------------
  * pattern-scaffolds.ts carga desde disco los scaffolds ejecutables de patterns en runtime
- * vía `readdirSync(SCAFFOLDS_DIR)` (extensions/pandi-dynamic-workflows/scaffolds/*.js), y
- * workflow-resolve.ts carga los workflows built-in como fallback global desde workflows/*.js.
- * Ambos son assets de runtime: `files[]` debe incluirlos tanto en el tarball raíz como en el
- * paquete publicable de la extensión, o una instalación npm falla lejos del checkout.
+ * vía `readdirSync(SCAFFOLDS_DIR)` (extensions/pandi-dynamic-workflows/scaffolds/*.js).
+ * `contract-gate` usa ese mismo asset como fallback read-only: no debe existir una copia bajo
+ * workflows/. `files[]` debe incluir los scaffolds tanto en el tarball raíz como en el paquete
+ * publicable de la extensión, o una instalación npm falla lejos del checkout.
  *
  * El glob original `files: ["extensions/*\/*.ts", ...]` matcheaba solo un nivel de directorio
  * Y solo `.ts`, así que shipeaba CERO scaffolds (viven dos niveles más abajo, en scaffolds/,
- * y son `.js`). Este test fija ambos assets con `npm pack --dry-run`.
+ * y son `.js`). Este test fija el asset canónico con `npm pack --dry-run`.
  * npm 11 serializa `--json` como un objeto `{ packageName: entry }`; npm anteriores devuelven
  * `[entry]`. El parser acepta las dos formas para que el guard no dependa del npm de la sesión.
  *
@@ -20,7 +20,7 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { readdirSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -28,7 +28,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 const EXTENSION_ROOT = path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows");
 const SCAFFOLDS_DIR = path.join(EXTENSION_ROOT, "scaffolds");
-const BUNDLED_WORKFLOWS_DIR = path.join(EXTENSION_ROOT, "workflows");
+const DUPLICATE_WORKFLOWS_DIR = path.join(EXTENSION_ROOT, "workflows");
 
 let failures = 0;
 function check(name, ok, detail) {
@@ -67,23 +67,27 @@ function main() {
 			: "",
 	);
 
-	const workflows = readdirSync(BUNDLED_WORKFLOWS_DIR).filter((file) => file.endsWith(".js"));
-	check("there is a bundled workflow on disk to ship", workflows.includes("contract-gate.js"), workflows.join(", "));
-	const missingRootWorkflows = workflows.filter(
-		(file) => !rootPacked.has(`extensions/pandi-dynamic-workflows/workflows/${file}`),
+	check(
+		"contract-gate is shipped through the canonical scaffold directory",
+		scaffolds.includes("contract-gate.js"),
+		scaffolds.join(", "),
 	);
 	check(
-		`all ${workflows.length} workflows/*.js are in the root npm tarball`,
-		missingRootWorkflows.length === 0,
-		missingRootWorkflows.join(", "),
+		"no duplicate executable workflows directory remains on disk",
+		!existsSync(DUPLICATE_WORKFLOWS_DIR),
+		DUPLICATE_WORKFLOWS_DIR,
+	);
+	check(
+		"root npm tarball contains no duplicate contract-gate workflow",
+		!rootPacked.has("extensions/pandi-dynamic-workflows/workflows/contract-gate.js"),
+		"unexpected workflows/contract-gate.js",
 	);
 
 	const extensionPacked = packedFilePaths(EXTENSION_ROOT);
-	const missingExtensionWorkflows = workflows.filter((file) => !extensionPacked.has(`workflows/${file}`));
 	check(
-		`all ${workflows.length} workflows/*.js are in the extension npm tarball`,
-		missingExtensionWorkflows.length === 0,
-		missingExtensionWorkflows.join(", "),
+		"extension npm tarball contains no duplicate contract-gate workflow",
+		!extensionPacked.has("workflows/contract-gate.js"),
+		"unexpected workflows/contract-gate.js",
 	);
 
 	console.log(`\nTOTAL: ${failures === 0 ? "all passed" : `${failures} failed`}`);

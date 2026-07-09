@@ -24,7 +24,12 @@ export function formatWorkflowList(files: WorkflowDefinition[]): string {
 	if (files.length === 0) {
 		return "No workflows found. Create one with `/workflow new <name>` or dynamic_workflow action=write.";
 	}
-	return files.map((file) => `- ${file.name} (${file.scope}) — ${file.relativePath}`).join("\n");
+	return files
+		.map((file) => {
+			const source = file.origin === "scaffold" ? " · scaffold canónico, solo lectura" : "";
+			return `- ${file.name} (${file.scope}) — ${file.relativePath}${source}`;
+		})
+		.join("\n");
 }
 
 /** El slice de un run record que el draft usage index necesita (mantenido minimal para purity). */

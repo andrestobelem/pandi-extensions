@@ -36,10 +36,10 @@ export async function resolveUltracodeModeValue(args: string, ctx: ExtensionCont
 function formatUltracodeContractGatePrompt(taskLabel = "Ultracode tasks"): string {
 	return `Contract Gate
 
-- For substantive ${taskLabel} that survive the trivial gate, run a small read-only task-contract review workflow: the bundled \`contract-gate\` executable. \`dynamic_workflow action=scaffold name=contract-gate\` retrieves the separate design pattern; do not run that scaffold directly.
+- For substantive ${taskLabel} that survive the trivial gate, run a small read-only task-contract review workflow: the canonical \`contract-gate\` scaffold workflow. \`dynamic_workflow action=scaffold name=contract-gate\` reads its source; \`read/check/run/start name=contract-gate\` use that same source without copying it.
 - If ambiguity blocks even the task contract, ask only blocking questions; otherwise let the workflow infer safe assumptions and non-goals.
 - Keep it cheap and inspectable: 3-4 independent contract reviewers plus synthesis, explicit concurrency/maxAgents, artifacts under the run directory, and no file edits.
-- Required synthesis fields: improvedTask, successCriteria, assumptions, nonGoals, routingHints, verificationPlan, blockers.
+- Required result fields: status, verdict, contract (including improvedTask, successCriteria, assumptions, nonGoals, constraints and verificationPlan), rewrittenPrompt, routing; include questions only when blocked.
 - Use the improved task for the routing/scouting decision and mention whether the Contract Gate ran, was skipped as trivial, or was blocked.`;
 }
 

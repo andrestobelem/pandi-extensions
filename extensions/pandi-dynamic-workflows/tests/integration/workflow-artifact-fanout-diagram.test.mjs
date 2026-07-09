@@ -3,7 +3,7 @@
  * Regresión visual: los artifacts deben dibujar fan-out como lanes, no comprimir
  * revisores paralelos a una sola caja con un contador. La captura del Contract
  * Gate mostró `revisión · schema · ✓4` como un paso secuencial; este test exige
- * fork → 4 revisiones → join también después de mezclar datos del run real.
+ * fork → 4 análisis → join también después de mezclar datos del run real.
  */
 
 import * as fs from "node:fs/promises";
@@ -14,7 +14,7 @@ import { createChecker } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
-const CONTRACT_GATE = path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "workflows", "contract-gate.js");
+const CONTRACT_GATE = path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "scaffolds", "contract-gate.js");
 const ARTIFACT_LIB = path.join(REPO_ROOT, ".claude", "scripts", "lib", "artifact.mjs");
 const { buildArtifact } = await import(pathToFileURL(ARTIFACT_LIB).href);
 const { check, counts } = createChecker();
@@ -38,12 +38,12 @@ try {
 				JSON.stringify({
 					type: "agent",
 					id: index + 1,
-					name: `revision-${index + 1}`,
+					name: `analyze-${index + 1}`,
 					state: "completed",
 					ok: true,
 				}),
 			),
-			JSON.stringify({ type: "agent", id: 5, name: "sintesis", state: "completed", ok: true }),
+			JSON.stringify({ type: "agent", id: 5, name: "analyze-synthesis", state: "completed", ok: true }),
 		].join("\n"),
 	);
 
@@ -54,16 +54,16 @@ try {
 	});
 	const diagram = artifact.data.__mm;
 
-	check("diagram keeps a fork for parallel revisions", /fork/i.test(diagram), diagram);
+	check("diagram keeps a fork for parallel analysis", /fork/i.test(diagram), diagram);
 	check(
-		"diagram renders four reviewer lanes",
-		["revision 1", "revision 2", "revision 3", "revision 4"].every((label) => diagram.includes(label)),
+		"diagram renders four analyzer lanes from the canonical scaffold",
+		["analyze 1", "analyze 2", "analyze 3", "analyze 4"].every((label) => diagram.includes(label)),
 		diagram,
 	);
-	check("diagram joins reviewer lanes before synthesis", /join/i.test(diagram), diagram);
+	check("diagram joins analyzer lanes before synthesis", /join/i.test(diagram), diagram);
 	check(
-		"diagram does not reduce the parallel reviewers to one sequential node",
-		!diagram.includes("revision · schema · ✓4"),
+		"diagram does not reduce the parallel analyzers to one sequential node",
+		!diagram.includes("analyze · schema · ✓4"),
 		diagram,
 	);
 } finally {

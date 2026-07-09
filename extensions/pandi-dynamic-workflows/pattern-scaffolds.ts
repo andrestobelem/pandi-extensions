@@ -51,13 +51,22 @@ export function getDefaultScaffold(): string {
 	return scaffoldSources()["fan-out-and-synthesize"];
 }
 
-export async function loadWorkflowPatternCode(pattern: WorkflowPattern): Promise<string> {
+function scaffoldSourceFor(pattern: WorkflowPattern): string {
 	// Las claves del catálogo SON los filenames de scaffold (1:1, sin aliases), así que la clave mapea a scaffolds/<key>.js.
 	const scaffold = scaffoldSources()[pattern.key];
 	if (scaffold === undefined) {
 		throw new Error(`Workflow scaffold missing for pattern ${pattern.key} (expected scaffolds/${pattern.key}.js)`);
 	}
 	return scaffold;
+}
+
+/** Ruta predecible del asset canónico para una clave ya validada por el catálogo. */
+export function getWorkflowPatternPath(pattern: WorkflowPattern): string {
+	return path.join(SCAFFOLDS_DIR, `${pattern.key}.js`);
+}
+
+export async function loadWorkflowPatternCode(pattern: WorkflowPattern): Promise<string> {
+	return scaffoldSourceFor(pattern);
 }
 
 // Un patrón de catálogo mapea 1:1 a scaffolds/<key>.js. Este guard mantiene el map por clave de catálogo libre de

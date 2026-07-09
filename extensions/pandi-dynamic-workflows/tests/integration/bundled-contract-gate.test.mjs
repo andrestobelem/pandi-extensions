@@ -2,12 +2,11 @@
 /**
  * Contrato de distribución del Contract Gate.
  *
- * Pi packages no tienen un recurso nativo `workflows`: la extensión debe resolver su
- * ejecutable bundled como fallback global, sin copiarlo al agent-dir. El scaffold
- * homónimo sigue siendo una operación distinta (`action: "scaffold"`).
+ * Pi packages no tienen un recurso nativo `workflows`: Dynamic Workflows usa el
+ * scaffold canónico como fallback read-only, sin copiarlo al agent-dir ni mantener
+ * una variante ejecutable duplicada.
  */
 
-import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -18,19 +17,15 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 const EXTENSION_ROOT = path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows");
 const SCAFFOLDS_DIR = path.join(EXTENSION_ROOT, "scaffolds");
-const BUNDLED_WORKFLOWS_DIR = path.join(EXTENSION_ROOT, "workflows");
+const CANONICAL_CONTRACT_GATE = path.join(SCAFFOLDS_DIR, "contract-gate.js");
 const { check, counts } = createChecker();
 
 async function buildExtension() {
-	const copyDirs = { scaffolds: SCAFFOLDS_DIR };
-	// El test corre rojo antes de crear el asset; cuando exista, lo copia junto al bundle,
-	// igual que el layout producido por npm install.
-	if (existsSync(BUNDLED_WORKFLOWS_DIR)) copyDirs.workflows = BUNDLED_WORKFLOWS_DIR;
 	return await sharedBuildExtension({
-		name: "pandi-dwf-bundled-contract-gate",
+		name: "pandi-dwf-scaffold-contract-gate",
 		src: path.join(EXTENSION_ROOT, "index.ts"),
 		outName: "dynamic-workflows.mjs",
-		copyDirs,
+		copyDirs: { scaffolds: SCAFFOLDS_DIR },
 		stubs: {
 			typebox: true,
 			typeboxValue: true,
@@ -86,7 +81,7 @@ function makeCtx(cwd, hasUI = false) {
 }
 
 async function execute(tool, ctx, params) {
-	return await tool.execute("bundled-contract-gate", params, new AbortController().signal, undefined, ctx);
+	return await tool.execute("scaffold-contract-gate", params, new AbortController().signal, undefined, ctx);
 }
 
 const { url } = await buildExtension();
@@ -98,21 +93,37 @@ try {
 	const tool = tools.get("dynamic_workflow");
 	const ctx = makeCtx(project);
 
+	const source = await fs.readFile(CANONICAL_CONTRACT_GATE, "utf8");
 	const listed = await execute(tool, ctx, { action: "list" });
-	const bundled = listed.details.workflows.find((workflow) => workflow.name === "contract-gate");
+	const builtin = listed.details.workflows.find((workflow) => workflow.name === "contract-gate");
 	check(
-		"list exposes bundled contract-gate as a global workflow",
-		bundled?.scope === "global",
-		JSON.stringify(bundled),
+		"list exposes canonical contract-gate scaffold as a global workflow",
+		builtin?.scope === "global" && builtin?.path.endsWith("scaffolds/contract-gate.js"),
+		JSON.stringify(builtin),
 	);
-	check("list identifies the bundled workflow as read-only", bundled?.readOnly === true, JSON.stringify(bundled));
+	check(
+		"list identifies the canonical scaffold workflow as read-only",
+		builtin?.readOnly === true,
+		JSON.stringify(builtin),
+	);
+	const factory = listed.details.workflows.find((workflow) => workflow.name === "workflow-factory");
+	check(
+		"list exposes composed scaffolds needed by contract-gate preflight",
+		factory?.origin === "scaffold" && factory?.readOnly === true,
+		JSON.stringify(factory),
+	);
 
 	const executable = await execute(tool, ctx, { action: "read", name: "contract-gate", scope: "global" });
 	check(
-		"read resolves bundled contract-gate outside the source project",
+		"read resolves the canonical scaffold outside the source project",
 		executable.details.workflow?.readOnly === true &&
-			executable.content?.[0]?.text?.includes('name: "contract-gate"'),
+			executable.details.workflow?.path.endsWith("scaffolds/contract-gate.js"),
 		JSON.stringify(executable.details.workflow),
+	);
+	check(
+		"read returns the exact source served by action=scaffold",
+		executable.details.code === source,
+		executable.details.code,
 	);
 
 	const checked = await execute(tool, ctx, {
@@ -122,17 +133,45 @@ try {
 		input: { request: "x" },
 	});
 	check(
-		"check accepts bundled contract-gate as an executable workflow",
-		checked.details.preflight?.workflow?.readOnly === true &&
+		"check accepts the canonical scaffold as an executable workflow",
+		checked.details.preflight?.workflow?.path.endsWith("scaffolds/contract-gate.js") &&
 			checked.details.preflight?.checks?.includes("transformed workflow parses before run creation"),
 		JSON.stringify(checked.details.preflight),
 	);
 
 	const scaffold = await execute(tool, ctx, { action: "scaffold", name: "contract-gate" });
 	check(
-		"scaffold contract-gate remains the separate design pattern",
-		scaffold.details.pattern?.key === "contract-gate" && scaffold.content?.[0]?.text?.includes("export const meta"),
+		"action=scaffold returns the same canonical source",
+		scaffold.details.pattern?.key === "contract-gate" && scaffold.content?.[0]?.text === source,
 		JSON.stringify(scaffold.details.pattern),
+	);
+
+	let projectScopeError = "";
+	try {
+		await execute(tool, ctx, { action: "read", name: "contract-gate", scope: "project" });
+	} catch (error) {
+		projectScopeError = error instanceof Error ? error.message : String(error);
+	}
+	check(
+		"project scope does not jump to the builtin scaffold",
+		/Workflow not found/.test(projectScopeError),
+		projectScopeError,
+	);
+
+	const projectWorkflowPath = path.join(project, ".pi", "workflows", "contract-gate.js");
+	await fs.mkdir(path.dirname(projectWorkflowPath), { recursive: true });
+	await fs.writeFile(
+		projectWorkflowPath,
+		"export default async function workflow() { return { source: 'project' }; }\n",
+		"utf8",
+	);
+	const projectOverride = await execute(tool, ctx, { action: "read", name: "contract-gate" });
+	check(
+		"project workflow takes precedence over the canonical scaffold",
+		projectOverride.details.workflow?.scope === "project" &&
+			projectOverride.details.workflow?.path.endsWith("/.pi/workflows/contract-gate.js") &&
+			projectOverride.details.workflow?.readOnly !== true,
+		JSON.stringify(projectOverride.details.workflow),
 	);
 
 	let deleteError = "";
@@ -141,7 +180,11 @@ try {
 	} catch (error) {
 		deleteError = error instanceof Error ? error.message : String(error);
 	}
-	check("delete refuses to mutate the bundled workflow", /read-only bundled workflow/i.test(deleteError), deleteError);
+	check(
+		"delete refuses to mutate the canonical scaffold workflow",
+		/read-only.*workflow/i.test(deleteError),
+		deleteError,
+	);
 } finally {
 	await fs.rm(project, { recursive: true, force: true });
 }

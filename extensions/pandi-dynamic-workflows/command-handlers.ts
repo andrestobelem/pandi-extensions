@@ -207,7 +207,7 @@ export async function handleTool(
 
 	if (request.kind === "workflow-definition" && action === "delete") {
 		const workflow = await resolveWorkflow(ctx, request.workflowName, request.scope);
-		if (workflow.readOnly) throw new Error(`Cannot delete read-only bundled workflow: ${workflow.name}`);
+		if (workflow.readOnly) throw new Error(`Cannot delete read-only workflow: ${workflow.name}`);
 		if (!ctx.hasUI) throw new Error("Deleting workflows requires interactive confirmation.");
 		const ok = await ctx.ui.confirm("Delete workflow?", `${workflow.name}\n${workflow.path}`);
 		if (!ok) throw new Error("Workflow deletion cancelled.");

@@ -383,10 +383,10 @@ que los 25 archivos son:
   [`reference/claude-workflows/<pattern>.js`](reference/claude-workflows/) (25 archivos; los dos
   runtimes difieren, así que NO son byte-identical respecto de los scaffolds de pi).
 
-En **Pi**, `contract-gate` también nombra un workflow interno ejecutable de la extensión. Es una
-superficie distinta del scaffold homónimo: corré `dynamic_workflow action=run|start name=contract-gate`
-para la compuerta reusable; usá `action=scaffold name=contract-gate` solo para leer el patrón y
-crear una variante propia. El workflow interno es read-only y no se copia al agent-dir.
+En **Pi**, cada scaffold del catálogo también es un workflow ejecutable read-only de la extensión.
+`dynamic_workflow action=scaffold name=<pattern>` lee su fuente canónica; `action=read|check|run|start`
+con el mismo nombre usa exactamente esa fuente, sin copiarla al agent-dir. Para modificarla, creá una
+variante propia. Así `contract-gate` es la compuerta reusable y el scaffold es su única fuente.
 
 Los 25 scaffolds están cubiertos abajo (ver también [Referencia de plataforma](#referencia-de-plataforma)).
 
@@ -420,7 +420,7 @@ Los 25 scaffolds están cubiertos abajo (ver también [Referencia de plataforma]
 
 ## PHASE 0 — contract-gate (siempre, para corridas sustantivas)
 
-1. En Pi, corré el workflow interno `contract-gate` sobre el pedido bruto (no el scaffold homónimo).
+1. En Pi, corré el scaffold canónico `contract-gate` sobre el pedido bruto; la extensión lo usa como workflow read-only.
 2. Si necesita aclaración → devolvé las preguntas bloqueantes al humano y STOP.
 3. Si se puede avanzar → usá el prompt reescrito como handoff durable hacia router /
    workflow-factory / el workflow elegido.

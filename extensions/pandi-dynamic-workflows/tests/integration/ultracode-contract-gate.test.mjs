@@ -119,7 +119,10 @@ async function fireFirst(handlers, event, payload) {
 function assertContractGate(label, prompt) {
 	check(`${label} includes contract gate heading`, prompt.includes("Contract Gate"));
 	check(`${label} requires a workflow`, /task-contract review workflow/i.test(prompt));
-	check(`${label} names the bundled executable`, prompt.includes("bundled `contract-gate` executable"));
+	check(
+		`${label} names the canonical scaffold workflow`,
+		prompt.includes("canonical `contract-gate` scaffold workflow"),
+	);
 	check(`${label} preserves trivial gate`, /survive the trivial gate/i.test(prompt));
 	check(`${label} names improved task output`, prompt.includes("improvedTask"));
 	check(`${label} feeds improved task forward`, /Use the improved task/i.test(prompt));

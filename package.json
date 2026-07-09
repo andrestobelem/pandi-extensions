@@ -27,7 +27,6 @@
 		"extensions/pandi-docs/skills",
 		"extensions/pandi-theme/themes/*.json",
 		"extensions/pandi-dynamic-workflows/scaffolds/*.js",
-		"extensions/pandi-dynamic-workflows/workflows/*.js",
 		"extensions/pandi-personas/personas/*.json",
 		".pi/skills",
 		"README.md",
