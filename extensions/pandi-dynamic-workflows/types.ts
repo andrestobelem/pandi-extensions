@@ -111,34 +111,12 @@ export interface AgentOptions {
 	schemaOnInvalid?: "throw" | "null";
 }
 
-export interface SubagentResult {
+export interface AgentExecutionMetadata {
 	id: number;
 	name: string;
-	ok: boolean;
-	code: number;
-	killed: boolean;
-	/** True cuando el presupuesto timeoutMs del agente lo mató (no un abort/pérdida de race). */
-	timedOut?: boolean;
-	elapsedMs: number;
-	/** Espera en la cola del semáforo antes del primer spawn; elapsedMs la incluye. */
-	queuedMs?: number;
-	prompt: string;
-	output: string;
-	/** Caracteres del output completo antes del truncado de display/journal. */
-	outputChars?: number;
-	/** True cuando el output completo es vacío o whitespace-only. */
-	outputEmpty?: boolean;
-	/** True cuando `output` es una versión truncada del output completo. */
-	outputTruncated?: boolean;
-	/** True when journaled stdout is bounded; the adjacent .stdout.log remains authoritative. */
-	stdoutTruncated?: boolean;
-	stdoutChars?: number;
-	stdout: string;
-	stderr: string;
-	artifactPath: string;
-	/** Modelo resuelto que realmente se pasó al subagente (provider/id calificado cuando se conoce). */
+	/** Modelo resuelto con el que corrió el subagente (provider/id calificado cuando se conoce). */
 	model?: string;
-	/** Nivel thinking/effort resuelto que realmente se pasó al subagente. */
+	/** Nivel thinking/effort resuelto con el que corrió el subagente. */
 	thinking?: string;
 	tools?: string[];
 	excludeTools?: string[];
@@ -153,9 +131,34 @@ export interface SubagentResult {
 	phaseIndex?: number;
 	phaseTotal?: number;
 	phaseLabel?: string;
-	data?: unknown;
+	/** Caracteres del output completo antes del truncado de display/journal. */
+	outputChars?: number;
+	/** True cuando el output completo es vacío o whitespace-only. */
+	outputEmpty?: boolean;
+	/** True cuando `output` es una versión truncada del output completo. */
+	outputTruncated?: boolean;
+	/** True when journaled stdout is bounded; the adjacent .stdout.log remains authoritative. */
+	stdoutTruncated?: boolean;
+	stdoutChars?: number;
 	schemaOk?: boolean;
 	metrics?: AgentFocusMetricsSummary;
+}
+
+export interface SubagentResult extends AgentExecutionMetadata {
+	ok: boolean;
+	code: number;
+	killed: boolean;
+	/** True cuando el presupuesto timeoutMs del agente lo mató (no un abort/pérdida de race). */
+	timedOut?: boolean;
+	elapsedMs: number;
+	/** Espera en la cola del semáforo antes del primer spawn; elapsedMs la incluye. */
+	queuedMs?: number;
+	prompt: string;
+	output: string;
+	stdout: string;
+	stderr: string;
+	artifactPath: string;
+	data?: unknown;
 }
 
 export interface BashResult {
@@ -288,9 +291,7 @@ export interface ActiveWorkflowRun {
 
 export type AgentMonitorState = "running" | "completed" | "failed" | "cached" | "unknown";
 
-export interface AgentMonitorModel {
-	id: number;
-	name: string;
+export interface AgentMonitorModel extends AgentExecutionMetadata {
 	state: AgentMonitorState;
 	startedAt?: string;
 	endedAt?: string;
@@ -299,33 +300,9 @@ export interface AgentMonitorModel {
 	code?: number;
 	killed?: boolean;
 	artifactPath?: string;
-	/** Modelo resuelto con el que corrió el subagente (provider/id calificado cuando se conoce). */
-	model?: string;
-	/** Nivel thinking/effort resuelto con el que corrió el subagente. */
-	thinking?: string;
-	tools?: string[];
-	excludeTools?: string[];
-	skills?: string[];
-	includeSkills?: boolean;
-	extensions?: string[];
-	includeExtensions?: boolean;
-	keys?: string[];
-	missingKeys?: string[];
-	isolatedEnv?: boolean;
-	phaseId?: number;
-	phaseIndex?: number;
-	phaseTotal?: number;
-	phaseLabel?: string;
 	promptPreview?: string;
 	promptCopy?: string;
 	promptTruncated?: boolean;
 	output?: string;
-	outputChars?: number;
-	outputEmpty?: boolean;
-	outputTruncated?: boolean;
-	stdoutTruncated?: boolean;
-	stdoutChars?: number;
-	schemaOk?: boolean;
-	metrics?: AgentFocusMetricsSummary;
 	promptAvailable: boolean;
 }
