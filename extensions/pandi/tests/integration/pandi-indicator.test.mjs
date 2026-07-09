@@ -27,6 +27,13 @@ const fakeTheme = {
 	getFgAnsi: (role) => (role === "success" ? "\x1b[32m" : "\x1b[35m"),
 };
 
+const KAOMOJI_STYLE_FACES = {
+	kaomoji: "ʕ •ᴥ• ʔ",
+	ojitos: "ʕ ◕ᴥ◕ ʔ",
+	decidido: "ʕ •̀ᴥ•́ ʔ",
+	gatuno: "(=◕ᴥ◕=)",
+};
+
 const visibleText = (value) => String(value).replace(ANSI_RE, "").replace(TAG_RE, "");
 
 function faceFamily(frame) {
@@ -128,6 +135,17 @@ async function scenario(url) {
 		"indicator keeps progress-dot movement",
 		frames.some((frame) => visibleText(frame).includes("...")),
 	);
+
+	for (const [style, expectedFace] of Object.entries(KAOMOJI_STYLE_FACES)) {
+		const styleFrames = mod.pandaFrames(fakeTheme, style).frames ?? [];
+		const visibleFrames = styleFrames.map(visibleText);
+		check(`${style} indicator keeps its characteristic face`, visibleFrames[0] === expectedFace, visibleFrames[0]);
+		check(
+			`${style} indicator keeps animated progress movement`,
+			new Set(visibleFrames).size >= 6 && visibleFrames.some((frame) => frame.includes("...")),
+			JSON.stringify(visibleFrames),
+		);
+	}
 }
 
 async function main() {
