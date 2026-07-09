@@ -1,4 +1,4 @@
-// contract-gate-lean — Compuerta de Contrato de Fase 0, variante liviana y de solo lectura.
+// contract-gate — Compuerta de Contrato de Fase 0, variante liviana y de solo lectura.
 // N revisores independientes bosquejan el contrato desde lentes distintas; después una síntesis los
 // reconcilia en UN contrato inspeccionable (improvedTask, successCriteria, assumptions, nonGoals,
 // constraints, routingHints, verificationPlan, blockers). Es agnóstico a la tarea y de solo lectura:
@@ -7,11 +7,17 @@
 // Input : { request (pedido crudo; alias task|text), context?, reviewers?=4 (1..5), model?, effort?,
 //           models?{role}, efforts?{role} }.  Return: objeto de contrato reconciliado.
 export const meta = {
-	name: "contract-gate-lean",
+	name: "contract-gate",
 	description:
 		"Compuerta de contrato de Fase 0 (liviana, solo lectura): N revisores independientes + síntesis convierten cualquier pedido crudo en un contrato inspeccionable (improvedTask, successCriteria, assumptions, nonGoals, constraints, routingHints, verificationPlan, blockers).",
 	phases: [{ title: "revisión" }, { title: "síntesis" }],
-	basedOn: [{ name: "contract-gate", role: "scaffold", desc: "Patrón de compuerta de contrato de Fase 0 (variante liviana, solo lectura)" }],
+	basedOn: [
+		{
+			name: "contract-gate",
+			role: "scaffold",
+			desc: "Patrón de compuerta de contrato de Fase 0 (variante liviana, solo lectura)",
+		},
+	],
 };
 
 export default async function main() {
@@ -71,8 +77,15 @@ export default async function main() {
 			"blockers",
 		],
 		properties: {
-			improvedTask: { type: "string", description: "Reformulación normalizada, en una frase, de la intención real del usuario." },
-			successCriteria: { type: "array", items: { type: "string" }, description: "3-6 bullets de aceptación concisos y verificables que definen cuándo está listo." },
+			improvedTask: {
+				type: "string",
+				description: "Reformulación normalizada, en una frase, de la intención real del usuario.",
+			},
+			successCriteria: {
+				type: "array",
+				items: { type: "string" },
+				description: "3-6 bullets de aceptación concisos y verificables que definen cuándo está listo.",
+			},
 			assumptions: {
 				type: "array",
 				description: "Supuestos seguros para huecos no bloqueantes; cada uno inspeccionable y sobrescribible.",
@@ -88,7 +101,12 @@ export default async function main() {
 				},
 			},
 			nonGoals: { type: "array", items: { type: "string" }, description: "Cosas deliberadamente fuera de alcance." },
-			constraints: { type: "array", items: { type: "string" }, description: "Límites duros: tools/providers, solo lectura vs mutación, alcance de paths, dependencias, reglas de verificación." },
+			constraints: {
+				type: "array",
+				items: { type: "string" },
+				description:
+					"Límites duros: tools/providers, solo lectura vs mutación, alcance de paths, dependencias, reglas de verificación.",
+			},
 			routingHints: {
 				type: "object",
 				additionalProperties: false,
@@ -101,7 +119,11 @@ export default async function main() {
 					rationale: { type: "string" },
 				},
 			},
-			verificationPlan: { type: "string", description: "Cómo se verificará la completitud (comandos/tests/diff/citas/juez LLM) contra successCriteria." },
+			verificationPlan: {
+				type: "string",
+				description:
+					"Cómo se verificará la completitud (comandos/tests/diff/citas/juez LLM) contra successCriteria.",
+			},
 			blockers: {
 				type: "array",
 				description: "Solo huecos de ALTO impacto sin default seguro; vacío si no hay.",
@@ -138,15 +160,18 @@ export default async function main() {
 	log(`contract-gate revisando ${JSON.stringify({ reviewers, hasContext: !!context })}`);
 	const drafts = (
 		await parallel(
-			Array.from({ length: reviewers }, (_u, i) => () =>
-				agent(
-					`${basePrompt}\n(Revisor independiente ${i + 1}/${reviewers} — enfatizá la lente: ${LENSES[i % LENSES.length]}. Decidí por tu cuenta; otros revisores pueden fallar o equivocarse.)`,
-					node("review", { label: `revision-${i + 1}`, schema: CONTRACT, phase: "revisión", cache: false }),
-				),
+			Array.from(
+				{ length: reviewers },
+				(_u, i) => () =>
+					agent(
+						`${basePrompt}\n(Revisor independiente ${i + 1}/${reviewers} — enfatizá la lente: ${LENSES[i % LENSES.length]}. Decidí por tu cuenta; otros revisores pueden fallar o equivocarse.)`,
+						node("review", { label: `revision-${i + 1}`, schema: CONTRACT, phase: "revisión", cache: false }),
+					),
 			),
 		)
 	).filter(Boolean);
-	if (drafts.length === 0) throw new Error("Fallaron todos los revisores del contrato; no se puede producir un contrato.");
+	if (drafts.length === 0)
+		throw new Error("Fallaron todos los revisores del contrato; no se puede producir un contrato.");
 	log(`revisión: ${drafts.length}/${reviewers} borradores producidos`);
 
 	phase("síntesis");
@@ -161,7 +186,7 @@ export default async function main() {
 	if (!contract || typeof contract !== "object") throw new Error("La síntesis no devolvió un objeto de contrato.");
 
 	const md =
-		`# Compuerta de contrato — contract-gate-lean\n\n` +
+		`# Compuerta de contrato — contract-gate\n\n` +
 		`**Tarea:** ${contract.improvedTask}\n\n` +
 		`## Criterios de éxito\n${(contract.successCriteria || []).map((s) => `- [ ] ${s}`).join("\n")}\n\n` +
 		`## Supuestos\n${(contract.assumptions || []).map((a) => `- (${a.confidence}) ${a.assumption} — *invalidado por:* ${a.invalidatedBy}`).join("\n")}\n\n` +

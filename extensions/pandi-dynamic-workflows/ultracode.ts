@@ -36,7 +36,7 @@ export async function resolveUltracodeModeValue(args: string, ctx: ExtensionCont
 function formatUltracodeContractGatePrompt(taskLabel = "Ultracode tasks"): string {
 	return `Contract Gate
 
-- For substantive ${taskLabel} that survive the trivial gate, run a small read-only task-contract review workflow before normal scout/orchestration.
+- For substantive ${taskLabel} that survive the trivial gate, run a small read-only task-contract review workflow: the bundled \`contract-gate\` executable. \`dynamic_workflow action=scaffold name=contract-gate\` retrieves the separate design pattern; do not run that scaffold directly.
 - If ambiguity blocks even the task contract, ask only blocking questions; otherwise let the workflow infer safe assumptions and non-goals.
 - Keep it cheap and inspectable: 3-4 independent contract reviewers plus synthesis, explicit concurrency/maxAgents, artifacts under the run directory, and no file edits.
 - Required synthesis fields: improvedTask, successCriteria, assumptions, nonGoals, routingHints, verificationPlan, blockers.

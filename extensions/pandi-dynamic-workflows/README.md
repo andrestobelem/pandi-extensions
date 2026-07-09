@@ -49,6 +49,18 @@ pi install -l ./extensions/pandi-dynamic-workflows       # local al proyecto
 pi --no-extensions -e ./extensions/pandi-dynamic-workflows   # prueba puntual, sin cargar nada más
 ```
 
+### Contract Gate incluido
+
+El paquete incluye el workflow ejecutable read-only `contract-gate`. `dynamic_workflow` lo resuelve
+como fallback global desde cualquier proyecto donde la extensión esté instalada, después de los
+workflows del proyecto y del agent-dir de la persona. No copia ni modifica
+`~/.pi/agent/workflows/` al cargar la extensión.
+
+El nombre también existe en el catálogo de **scaffolds**, pero es otra superficie: usá
+`action: "run"` o `action: "start"` para ejecutar el Contract Gate incluido, y
+`action: "scaffold"` para leer el patrón y crear un workflow propio. Un workflow bundled es
+read-only y no se puede borrar mediante `/workflow delete`.
+
 ## Cómo elegir un primitive
 
 | Situación | Primitive |

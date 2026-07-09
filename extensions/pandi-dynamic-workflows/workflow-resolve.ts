@@ -12,6 +12,7 @@ import * as crypto from "node:crypto";
 import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 import { CONFIG_DIR_NAME, type ExtensionContext, getAgentDir } from "@earendil-works/pi-coding-agent";
 import { resolveInsideRoot } from "./path-safety.js";
 import type {
@@ -28,6 +29,9 @@ export const WORKFLOW_RUN_DIR = path.join(WORKFLOW_DIR, "runs");
 export const WORKFLOW_GRAPH_DIR = path.join(WORKFLOW_DIR, "graphs");
 
 const RESERVED_WORKFLOW_SUBDIRS = new Set(["drafts", "runs", "graphs", "sessions"]);
+// Pi packages no declaran workflows como recurso nativo. Este directorio sibling viaja con la
+// extensión y participa como fallback global, sin copiar ni mutar el agent-dir del usuario.
+const BUNDLED_WORKFLOW_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "workflows");
 
 export function slugify(value: string): string {
 	const slug = value
@@ -79,6 +83,13 @@ function getLocations(ctx: ExtensionContext): WorkflowLocation[] {
 			root: path.join(getAgentDir(), WORKFLOW_DIR),
 			trusted: true,
 			kind: "workflow",
+		},
+		{
+			scope: "global",
+			root: BUNDLED_WORKFLOW_DIR,
+			trusted: true,
+			kind: "workflow",
+			readOnly: true,
 		},
 	];
 }
@@ -153,6 +164,7 @@ export async function listWorkflows(ctx: ExtensionContext): Promise<WorkflowDefi
 				scope: location.scope,
 				path: file,
 				relativePath,
+				...(location.readOnly ? { readOnly: true } : {}),
 			});
 		}
 	}
@@ -172,7 +184,7 @@ export async function resolveWorkflow(
 		const targetScope: WorkflowScope = scope === "global" ? "global" : "project";
 		if (targetScope === "project") requireTrustedProject(ctx);
 		const targetKind: WorkflowLocation["kind"] = forWrite;
-		const location = locations.find((loc) => loc.scope === targetScope && loc.kind === targetKind)!;
+		const location = locations.find((loc) => loc.scope === targetScope && loc.kind === targetKind && !loc.readOnly)!;
 		await ensureDir(location.root);
 		const file = resolveInsideRoot(
 			location.root,
@@ -199,6 +211,7 @@ export async function resolveWorkflow(
 				scope: location.scope,
 				path: safeFile,
 				relativePath,
+				...(location.readOnly ? { readOnly: true } : {}),
 			};
 		}
 	}

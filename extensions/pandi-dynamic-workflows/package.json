@@ -20,6 +20,7 @@
 	"files": [
 		"*.ts",
 		"scaffolds",
+		"workflows",
 		"primitives",
 		"skills",
 		"README.md"
