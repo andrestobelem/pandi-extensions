@@ -10,8 +10,8 @@
 import { existsSync } from "node:fs";
 import * as path from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { notify } from "../lib/notify.js";
 import { activeRunCount } from "../lifecycle/index.js";
-import { notify } from "../notify.js";
 import type { PiSessionModel } from "../pi-session.js";
 import { sessionManagerMetadata } from "../pi-session.js";
 import { runWorkflow } from "../runtime/index.js";

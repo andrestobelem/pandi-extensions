@@ -26,11 +26,11 @@ import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createChecker } from "../../../shared/test/harness.mjs";
-import { withIsolatedRepoCopy, withMutatedFile } from "../../../shared/test/negative-control.mjs";
+import { createChecker } from "../../../../shared/test/harness.mjs";
+import { withIsolatedRepoCopy, withMutatedFile } from "../../../../shared/test/negative-control.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
+const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 const GEN = path.join(REPO_ROOT, "scripts", "generate-claude-ultracode-skills.mjs");
 const PI_SKILL = path.join(REPO_ROOT, ".pi", "skills", "ultracode");
 const CLAUDE_SKILLS = path.join(REPO_ROOT, ".claude", "skills");

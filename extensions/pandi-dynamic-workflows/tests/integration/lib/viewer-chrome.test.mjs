@@ -15,17 +15,17 @@
 
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildExtension, createChecker, loadModule } from "../../../shared/test/harness.mjs";
+import { buildExtension, createChecker, loadModule } from "../../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
+const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 
 const { check, counts } = createChecker();
 
 async function main() {
 	const { url } = await buildExtension({
 		name: "pi-dwf-viewer-chrome",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "markdown-view.ts"),
+		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "lib", "markdown-view.ts"),
 		outName: "markdown-view.mjs",
 		npx: "--no-install",
 	});

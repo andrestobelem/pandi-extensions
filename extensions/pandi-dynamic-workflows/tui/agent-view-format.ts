@@ -4,9 +4,9 @@
  */
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { MAX_TOOL_TEXT, truncate } from "../format.js";
+import { MAX_TOOL_TEXT, truncate } from "../lib/format.js";
+import { formatElapsedMs } from "../lib/presentation.js";
 import { formatAgentPhase } from "../observe/index.js";
-import { formatElapsedMs } from "../presentation.js";
 import { parsePiJsonModeOutput, parsePiJsonModeOutputLenient } from "../runtime/index.js";
 import type { AgentMonitorModel, WorkflowRunRecord } from "../types.js";
 

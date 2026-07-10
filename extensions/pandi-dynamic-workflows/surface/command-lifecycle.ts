@@ -1,6 +1,7 @@
 import * as fs from "node:fs/promises";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { buildLimits, limitParamsFromInput, parseCliJsonOrText } from "../config.js";
+import { buildLimits, limitParamsFromInput, parseCliJsonOrText } from "../lib/config.js";
+import { notify } from "../lib/notify.js";
 import {
 	cancelWorkflowRun,
 	cleanupWorkflowDrafts,
@@ -13,7 +14,6 @@ import {
 	shouldLaunchWorkflowInBackground,
 	startWorkflowBackground,
 } from "../lifecycle/index.js";
-import { notify } from "../notify.js";
 import { prunePiSessionFiles } from "../pi-session.js";
 import { getRunStatusLabel } from "../runtime/index.js";
 import { canCancelRun, formatRunSummary, resolveRun, runWorkflowWithUi, showText } from "../tui/index.js";

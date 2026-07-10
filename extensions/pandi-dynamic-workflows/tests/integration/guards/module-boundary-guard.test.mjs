@@ -11,7 +11,7 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const EXTENSION_DIR = path.resolve(__dirname, "..", "..");
+const EXTENSION_DIR = path.resolve(__dirname, "..", "..", "..");
 
 const ALLOWED_INDEX_IMPORTS = new Map();
 

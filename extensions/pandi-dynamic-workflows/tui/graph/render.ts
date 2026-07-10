@@ -4,7 +4,7 @@
  */
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth } from "@earendil-works/pi-tui";
-import { notify } from "../../notify.js";
+import { notify } from "../../lib/notify.js";
 import type { WorkflowDefinition } from "../../types.js";
 import { padRightVisible } from "../render-utils.js";
 import { WorkflowGraphComponent } from "./component.js";

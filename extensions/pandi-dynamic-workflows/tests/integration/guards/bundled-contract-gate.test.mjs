@@ -11,10 +11,10 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createChecker, sdkStub, buildExtension as sharedBuildExtension } from "../../../shared/test/harness.mjs";
+import { createChecker, sdkStub, buildExtension as sharedBuildExtension } from "../../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
+const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 const EXTENSION_ROOT = path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows");
 const SCAFFOLDS_DIR = path.join(EXTENSION_ROOT, "scaffolds");
 const CANONICAL_CONTRACT_GATE = path.join(SCAFFOLDS_DIR, "contract-gate.js");

@@ -15,8 +15,8 @@
 import * as crypto from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { appendJsonLine } from "../file-append.js";
-import { truncate } from "../format.js";
+import { appendJsonLine } from "../lib/file-append.js";
+import { truncate } from "../lib/format.js";
 import { transformWorkflowCode } from "../surface/index.js";
 import type { AskResult, BashResult, JournalCache, JournalRecord, SubagentResult } from "../types.js";
 import { JOURNAL_FILE, MAX_AGENT_OUTPUT_IN_RESULT, MAX_JOURNALED_STREAM } from "./constants.js";

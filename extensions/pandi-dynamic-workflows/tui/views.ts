@@ -4,8 +4,8 @@
  * the dashboard class wires theme formatters and pushes returned lines.
  */
 
+import { compactInline, formatElapsedMs } from "../lib/presentation.js";
 import type { PiSessionModel } from "../pi-session.js";
-import { compactInline, formatElapsedMs } from "../presentation.js";
 import {
 	formatParallelAgents,
 	formatParallelAgentsCompact,

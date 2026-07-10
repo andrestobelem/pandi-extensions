@@ -2,11 +2,11 @@ import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { CONFIG_DIR_NAME, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { parseCliJsonOrText } from "../config.js";
-import { notify } from "../notify.js";
+import { parseCliJsonOrText } from "../lib/config.js";
+import { notify } from "../lib/notify.js";
+import { formatDraftUsageIndex, formatWorkflowList } from "../lib/presentation.js";
 import { writeRunReport } from "../observe/index.js";
 import { collectPiSessions, formatPiSessionList } from "../pi-session.js";
-import { formatDraftUsageIndex, formatWorkflowList } from "../presentation.js";
 import { getRunState } from "../runtime/index.js";
 import { showWorkflowGraph } from "../tui/graph/index.js";
 import {

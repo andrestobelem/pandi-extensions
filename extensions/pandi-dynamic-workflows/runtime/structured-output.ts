@@ -12,7 +12,7 @@
  * Extraído byte-idéntico desde index.ts.
  */
 import { Value } from "typebox/value";
-import { safeJson } from "../format.js";
+import { safeJson } from "../lib/format.js";
 import type { AgentOptions } from "../types.js";
 
 export function makeStructuredOutputSystemPrompt(schema: unknown): string {

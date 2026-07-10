@@ -12,11 +12,11 @@ import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { planSyncScripts } from "../../../../scripts/sync-all.mjs";
-import { createChecker } from "../../../shared/test/harness.mjs";
+import { planSyncScripts } from "../../../../../scripts/sync-all.mjs";
+import { createChecker } from "../../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
+const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 const PACKAGE_JSON = path.join(REPO_ROOT, "package.json");
 const HOOK = path.join(REPO_ROOT, "scripts", "git-hooks", "pre-commit");
 

@@ -1,5 +1,5 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { notify } from "../notify.js";
+import { notify } from "../lib/notify.js";
 import { ensureDynamicWorkflowToolActive, makeUltracodePrompt, sendWorkflowPrompt } from "../ultracode/index.js";
 
 type WorkflowRoutingPromptMode = "ultracode" | "deep-research";

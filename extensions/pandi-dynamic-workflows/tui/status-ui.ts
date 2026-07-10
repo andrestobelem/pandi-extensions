@@ -12,9 +12,14 @@
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth } from "@earendil-works/pi-tui";
+import { notify } from "../lib/notify.js";
+import {
+	shortWorkflowName,
+	workflowDashboardHint,
+	workflowProgress,
+	workflowProgressLabel,
+} from "../lib/presentation.js";
 import { activeRunCount, hasActiveRun } from "../lifecycle/index.js";
-import { notify } from "../notify.js";
-import { shortWorkflowName, workflowDashboardHint, workflowProgress, workflowProgressLabel } from "../presentation.js";
 import { formatParallelAgentsCompact, getRunState } from "../runtime/index.js";
 import type { WorkflowLogEntry, WorkflowRunRecord, WorkflowRunResult, WorkflowRunStatus } from "../types.js";
 import { renderSafeInline } from "./render-utils.js";
@@ -22,7 +27,7 @@ import { renderSafeInline } from "./render-utils.js";
 const WORKFLOW_STATUS_KEY = "dynamic-workflows";
 const WORKFLOW_WIDGET_KEY = "dynamic-workflows";
 
-export { formatRunSummary } from "../run-summary.js";
+export { formatRunSummary } from "../lib/run-summary.js";
 
 export async function showText(ctx: ExtensionContext, title: string, content: string): Promise<void> {
 	if (ctx.mode === "print") {

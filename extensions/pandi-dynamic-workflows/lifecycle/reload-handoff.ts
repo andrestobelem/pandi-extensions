@@ -8,7 +8,7 @@
  * (lifecycle importa shouldSuppress de acá; acá necesita resume/notify/settle en runtime).
  */
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { notify } from "../notify.js";
+import { notify } from "../lib/notify.js";
 import { refreshActiveWorkflowStatus } from "../tui/index.js";
 import type { ActiveWorkflowRun, RunLimits, WorkflowRunResult } from "../types.js";
 import { clearActiveRuns, listActiveRuns } from "./registry.js";

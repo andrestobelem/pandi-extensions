@@ -17,8 +17,8 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
+import { formatElapsedMs } from "./lib/presentation.js";
 import { activeRunCount } from "./lifecycle/index.js";
-import { formatElapsedMs } from "./presentation.js";
 import { PI_SESSION_HEARTBEAT_MS, writeJsonFile } from "./runtime/index.js";
 import { ensureDir, projectHash } from "./surface/index.js";
 

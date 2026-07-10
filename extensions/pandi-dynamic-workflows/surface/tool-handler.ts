@@ -1,8 +1,9 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { AgentToolUpdateCallback, ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { buildLimits, limitParamsFromInput, normalizeWorkflowInput } from "../config.js";
-import { text } from "../format.js";
+import { buildLimits, limitParamsFromInput, normalizeWorkflowInput } from "../lib/config.js";
+import { text } from "../lib/format.js";
+import { formatWorkflowList } from "../lib/presentation.js";
 import {
 	cancelWorkflowRun,
 	formatBackgroundStart,
@@ -10,7 +11,6 @@ import {
 	startWorkflowBackground,
 } from "../lifecycle/index.js";
 import { writeRunReport } from "../observe/index.js";
-import { formatWorkflowList } from "../presentation.js";
 import { currentWorkflowDepth, maxWorkflowDepth } from "../runtime/index.js";
 import { makeWorkflowGraphForContext } from "../tui/graph/index.js";
 import {

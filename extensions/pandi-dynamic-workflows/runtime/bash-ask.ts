@@ -1,6 +1,6 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { throwIfAborted } from "../concurrency-primitives.js";
-import type { OccurrenceCounter } from "../occurrence-counter.js";
+import { throwIfAborted } from "../lib/concurrency.js";
+import type { OccurrenceCounter } from "../lib/occurrence-counter.js";
 import type { AskResult, BashResult, JournalCache, RunLimits } from "../types.js";
 import {
 	appendJournalRecord,

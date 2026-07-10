@@ -7,7 +7,7 @@
  */
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { AsyncMutex } from "./concurrency-primitives.js";
+import { AsyncMutex } from "./concurrency.js";
 import { safeJson } from "./format.js";
 
 interface AppendMutexEntry {

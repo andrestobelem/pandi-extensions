@@ -21,10 +21,10 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildExtension, createChecker, loadModule } from "../../../shared/test/harness.mjs";
+import { buildExtension, createChecker, loadModule } from "../../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
+const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 
 const { check, counts } = createChecker();
 
@@ -67,7 +67,7 @@ async function main() {
 		name: "pi-dw-format-safejson-shared-refs",
 		// format.ts es puro y dependency-free (solo MAX_TOOL_TEXT, definido in-file),
 		// así que no hacen falta stubs/aliases para bundlearlo standalone.
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "format.ts"),
+		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "lib", "format.ts"),
 		outName: "format.mjs",
 	});
 	try {

@@ -23,13 +23,13 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
+const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 
 const MANIFEST = [
 	{
 		helper: "notify.ts",
 		files: [
-			"extensions/pandi-dynamic-workflows/notify.ts",
+			"extensions/pandi-dynamic-workflows/lib/notify.ts",
 			"extensions/pandi-goal/notify.ts",
 			"extensions/pandi-loop/notify.ts",
 			"extensions/pandi-plan/notify.ts",

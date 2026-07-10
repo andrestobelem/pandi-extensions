@@ -4,8 +4,8 @@
  * the dashboard class wires theme formatters and pushes returned lines.
  */
 
+import { compactInline, formatElapsedMs } from "../lib/presentation.js";
 import { formatAgentPhase, getAgentElapsedMs } from "../observe/index.js";
-import { compactInline, formatElapsedMs } from "../presentation.js";
 import {
 	formatParallelAgents,
 	getRunAgentConcurrency,

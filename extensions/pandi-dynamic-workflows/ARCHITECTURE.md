@@ -6,6 +6,7 @@ En 30 segundos: `pandi-dynamic-workflows` se organiza en **pocos módulos profun
 
 | Módulo | Carpeta | Fachada (lo que el resto ve) | Esconde |
 | --- | --- | --- | --- |
+| **lib** | `lib/` | format, concurrency, path safety, notify, presentation, … | helpers transversales puros (sin activación) |
 | **runtime** | `runtime/` | `runWorkflow`, `WorkflowRuntimeApi` | engine, make-api, subagent, agents/race, journal, host, worker |
 | **lifecycle** | `lifecycle/` | start / resume / cancel / delete / cleanup / notify / registry | start, resume, cleanup, notify, reload-handoff |
 | **surface** | `surface/` | resolve, preflight, transform, tool + slash commands | resolve, scaffolds, tool-handler, command-browse/lifecycle |
@@ -13,17 +14,23 @@ En 30 segundos: `pandi-dynamic-workflows` se organiza en **pocos módulos profun
 | **tui** | `tui/` | `openWorkflowDashboard`, `showLiveAgentView`, `showWorkflowGraph` | dashboard, agent-view, **graph interactivo** (`tui/graph/`) |
 | **ultracode** | `ultracode/` | register* + extractUltracodeTask | router, mode, toggles, input events, runtime state |
 
-Raíz del paquete: `index.ts` (activación), `types.ts` (contratos), `ARCHITECTURE.md`, y helpers transversales hasta migrarlos a `lib/` (`format`, `concurrency-primitives`, `path-safety`, …).
+Raíz del paquete: `index.ts` (activación), `types.ts` (contratos), `ARCHITECTURE.md`, y fachadas de activación (`workflow-public-api.ts`, `workflow-extension-activation.ts`, …). Helpers transversales viven en `lib/`.
 
 ```mermaid
 flowchart TB
   ACT[index / activation]
+  ACT --> LIB[lib]
   ACT --> UC[ultracode]
   ACT --> SURF[surface]
   ACT --> LIFE[lifecycle]
   ACT --> RUN[runtime]
   ACT --> OBS[observe]
   ACT --> TUI[tui]
+  SURF --> LIB
+  LIFE --> LIB
+  RUN --> LIB
+  OBS --> LIB
+  TUI --> LIB
   SURF --> RUN
   SURF --> LIFE
   RUN --> LIFE
@@ -56,8 +63,8 @@ flowchart TB
 ## Migración
 
 1. Doc + discovery recursivo de suites + `files` del package — hecho.
-2. Un deep module por commit atómico (código + tests + imports): `ultracode/` → `lifecycle/` → `observe/` (hecho) → `tui/` (hecho) → `surface/` (hecho) → `runtime/` (hecho) → `lib/`.
-3. Achicar `workflow-public-api.ts` a reexports de fachadas.
-4. Mover transversales a `lib/` al final.
+2. Un deep module por commit atómico (código + tests + imports): `ultracode/` → `lifecycle/` → `observe/` (hecho) → `tui/` (hecho) → `surface/` (hecho) → `runtime/` (hecho) → `lib/` (hecho).
+3. Achicar `workflow-public-api.ts` a reexports de fachadas — hecho (solo fachadas + types + lib file-append vía `./lib/index.js`).
+4. Mover transversales a `lib/` — hecho; raíz limpia (activación + contratos).
 
 Condición de stop por paso: `npm run typecheck` + suites del módulo en verde; sin cambio de comportamiento.

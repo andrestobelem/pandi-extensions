@@ -1,4 +1,4 @@
-import { mapLimit } from "../concurrency-primitives.js";
+import { mapLimit } from "../lib/concurrency.js";
 import type { AgentOptions, AgentPhaseInfo, SubagentResult } from "../types.js";
 import { callSignal } from "./worker-bridge.js";
 

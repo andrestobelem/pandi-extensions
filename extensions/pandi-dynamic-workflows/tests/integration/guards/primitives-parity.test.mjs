@@ -20,8 +20,8 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { createChecker, REPO_ROOT } from "../../../shared/test/harness.mjs";
-import { EXT_DIR, injectedGlobals, loadWorkerSource } from "./worker-source-test-support.mjs";
+import { createChecker, REPO_ROOT } from "../../../../shared/test/harness.mjs";
+import { EXT_DIR, injectedGlobals, loadWorkerSource } from "../worker-source-test-support.mjs";
 
 const PRIM_DIR = path.join(EXT_DIR, "primitives");
 // Mirror autocontenido del skill: una copia byte-idéntica para que el skill ultracode funcione standalone

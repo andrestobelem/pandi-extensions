@@ -13,14 +13,14 @@
  *   node extensions/pandi-dynamic-workflows/tests/integration/json-extract-multi-segment.test.mjs
  */
 import * as path from "node:path";
-import { buildExtension, createChecker, loadModule, REPO_ROOT } from "../../../shared/test/harness.mjs";
+import { buildExtension, createChecker, loadModule, REPO_ROOT } from "../../../../shared/test/harness.mjs";
 
 const { check, counts } = createChecker();
 
 async function loadRuntime() {
 	const { url } = await buildExtension({
 		name: "pi-dw-json-extract",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "json-extract.ts"),
+		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "lib", "json-extract.ts"),
 		outName: "json-extract.mjs",
 	});
 	return await loadModule(url);

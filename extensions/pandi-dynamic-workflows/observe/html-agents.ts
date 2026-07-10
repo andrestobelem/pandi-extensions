@@ -1,4 +1,4 @@
-import { formatElapsedMs } from "../presentation.js";
+import { formatElapsedMs } from "../lib/presentation.js";
 import type { RunReportAgent, RunReportModel } from "./html.js";
 import { artifactViewerHref, escapeHtml, safeRelativeHref } from "./safe-html.js";
 

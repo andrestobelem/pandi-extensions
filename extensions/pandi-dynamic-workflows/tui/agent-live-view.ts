@@ -14,7 +14,7 @@
  * render() (seguro al cargar por borrado). Extraído byte-idéntico antes de agregar tabs.
  */
 import { Key, Markdown, matchesKey, truncateToWidth } from "@earendil-works/pi-tui";
-import { createMarkdownTheme, formatViewerHints, scrollDelta } from "../markdown-view.js";
+import { createMarkdownTheme, formatViewerHints, scrollDelta } from "../lib/markdown-view.js";
 import { liveAgentHeaderStatus } from "./agent-view.js";
 
 export interface AgentViewTab {

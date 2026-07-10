@@ -27,7 +27,7 @@ const { check, counts } = createChecker();
 async function buildPresentation() {
 	const { url } = await sharedBuildExtension({
 		name: "pi-dw-draft-index-pure",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "presentation.ts"),
+		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "lib", "presentation.ts"),
 		outName: "presentation.mjs",
 		npx: "--no-install",
 	});

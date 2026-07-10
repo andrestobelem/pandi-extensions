@@ -15,7 +15,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { CustomEditor } from "@earendil-works/pi-coding-agent";
 import type { EditorComponent } from "@earendil-works/pi-tui";
 import { Key, matchesKey, visibleWidth } from "@earendil-works/pi-tui";
-import { type ColorMode, colorizeKeyword, containsKeywordToken, detectColorMode } from "../rainbow.js";
+import { type ColorMode, colorizeKeyword, containsKeywordToken, detectColorMode } from "../lib/rainbow.js";
 import type { DashboardCommandSubmitter, DashboardOpener } from "./orchestration.js";
 import { openWorkflowDashboard } from "./orchestration.js";
 import { stripAnsiCodes } from "./render-utils.js";

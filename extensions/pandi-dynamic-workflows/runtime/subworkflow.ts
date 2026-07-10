@@ -1,8 +1,8 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { throwIfAborted } from "../concurrency-primitives.js";
-import type { OccurrenceCounter } from "../occurrence-counter.js";
+import { throwIfAborted } from "../lib/concurrency.js";
+import type { OccurrenceCounter } from "../lib/occurrence-counter.js";
 import { resolveWorkflow } from "../surface/index.js";
 import type { RunLimits, WorkflowDefinition } from "../types.js";
 import type { WorkflowRuntimeApi } from "./api.js";

@@ -13,8 +13,8 @@
  * stringify, getRunState, WorkflowRunRecord), así no son pure leaves.
  */
 
+import type { WorkflowDefinition, WorkflowLogEntry } from "../types.js";
 import { stringify } from "./format.js";
-import type { WorkflowDefinition, WorkflowLogEntry } from "./types.js";
 
 export function compactInline(value: unknown, maxChars = 160): string {
 	return stringify(value, maxChars).replace(/\s+/g, " ").trim();

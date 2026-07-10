@@ -5,11 +5,11 @@
 
 import * as fs from "node:fs/promises";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { type AsyncMutex, type createSemaphore, throwIfAborted } from "../concurrency-primitives.js";
-import { truncate } from "../format.js";
-import { extractJsonCandidate } from "../json-extract.js";
+import { type AsyncMutex, type createSemaphore, throwIfAborted } from "../lib/concurrency.js";
+import { truncate } from "../lib/format.js";
+import { extractJsonCandidate } from "../lib/json-extract.js";
+import type { OccurrenceCounter } from "../lib/occurrence-counter.js";
 import { type AgentFocusMetrics, parseAgentFocusMetrics, phaseEventFields } from "../observe/index.js";
-import type { OccurrenceCounter } from "../occurrence-counter.js";
 import { slugify } from "../surface/index.js";
 import type { JournalCache, RunLimits, SubagentResult } from "../types.js";
 import {

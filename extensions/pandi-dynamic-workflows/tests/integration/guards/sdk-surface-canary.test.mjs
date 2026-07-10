@@ -19,7 +19,7 @@
  *   node extensions/pandi-dynamic-workflows/tests/integration/sdk-surface-canary.test.mjs
  */
 
-import { createChecker } from "../../../shared/test/harness.mjs";
+import { createChecker } from "../../../../shared/test/harness.mjs";
 
 const { check, counts } = createChecker();
 

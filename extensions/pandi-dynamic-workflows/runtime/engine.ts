@@ -1,11 +1,11 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { AsyncMutex, abortReasonMessage, combineSignal, createSemaphore } from "../concurrency-primitives.js";
-import { safeJson } from "../format.js";
+import { AsyncMutex, abortReasonMessage, combineSignal, createSemaphore } from "../lib/concurrency.js";
+import { safeJson } from "../lib/format.js";
+import { OccurrenceCounter } from "../lib/occurrence-counter.js";
+import { formatRunSummary } from "../lib/run-summary.js";
 import { type AgentFocusMetrics, aggregateRunFocusMetrics, formatFocusMetricsMarkdown } from "../observe/index.js";
-import { OccurrenceCounter } from "../occurrence-counter.js";
-import { formatRunSummary } from "../run-summary.js";
 import { ensureDir, preflightWorkflowLaunch } from "../surface/index.js";
 import type {
 	PreparedWorkflowRun,

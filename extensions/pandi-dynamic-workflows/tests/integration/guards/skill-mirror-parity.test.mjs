@@ -22,11 +22,11 @@ import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createChecker } from "../../../shared/test/harness.mjs";
-import { withIsolatedRepoCopy, withMutatedFile } from "../../../shared/test/negative-control.mjs";
+import { createChecker } from "../../../../shared/test/harness.mjs";
+import { withIsolatedRepoCopy, withMutatedFile } from "../../../../shared/test/negative-control.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
+const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 const SYNC = path.join(REPO_ROOT, "scripts", "sync-skill-mirrors.mjs");
 
 const { check, counts } = createChecker();

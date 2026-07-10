@@ -1,11 +1,11 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
-import { AsyncMutex, throwIfAborted } from "../concurrency-primitives.js";
-import { appendJsonLine } from "../file-append.js";
-import { safeJson } from "../format.js";
+import { AsyncMutex, throwIfAborted } from "../lib/concurrency.js";
+import { appendJsonLine } from "../lib/file-append.js";
+import { safeJson } from "../lib/format.js";
+import { resolveArtifactPath } from "../lib/path-safety.js";
 import { hasActiveRun } from "../lifecycle/index.js";
-import { resolveArtifactPath } from "../path-safety.js";
 import { ensureDir } from "../surface/index.js";
 import type {
 	PreparedWorkflowRun,

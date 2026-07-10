@@ -25,11 +25,11 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createChecker } from "../../../shared/test/harness.mjs";
-import { withIsolatedRepoCopy, withMutatedFile } from "../../../shared/test/negative-control.mjs";
+import { createChecker } from "../../../../shared/test/harness.mjs";
+import { withIsolatedRepoCopy, withMutatedFile } from "../../../../shared/test/negative-control.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
+const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 const SRC_DIR = path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "scaffolds");
 const OUT_DIR = path.join(REPO_ROOT, ".claude", "workflows");
 // Segundo destino generado (#26): el skill ultracode lleva su propia copia del catálogo

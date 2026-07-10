@@ -1,9 +1,9 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { sleep } from "../concurrency-primitives.js";
-import { MAX_TOOL_TEXT, stringify } from "../format.js";
-import { resolveCwdPath } from "../path-safety.js";
+import { sleep } from "../lib/concurrency.js";
+import { MAX_TOOL_TEXT, stringify } from "../lib/format.js";
+import { resolveCwdPath } from "../lib/path-safety.js";
 import { ensureDir } from "../surface/index.js";
 import type { RunLimits, SubagentResult } from "../types.js";
 import { makeRunAgents } from "./agents.js";

@@ -2,8 +2,8 @@
  * Fase de finalización de runSubagent: artifact final, evento, journal y schema throw.
  */
 
-import { throwIfAborted } from "../concurrency-primitives.js";
-import { safeJson, truncate } from "../format.js";
+import { throwIfAborted } from "../lib/concurrency.js";
+import { safeJson, truncate } from "../lib/format.js";
 import type { AgentFocusMetrics } from "../observe/index.js";
 import type { SubagentResult } from "../types.js";
 import { MAX_AGENT_OUTPUT_IN_RESULT, MAX_JOURNALED_STREAM } from "./constants.js";

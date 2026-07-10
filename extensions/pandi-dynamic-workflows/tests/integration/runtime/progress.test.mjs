@@ -50,7 +50,7 @@ const phase = (id, index, total, label) => ({
 async function main() {
 	const { url } = await buildExtension({
 		name: "pi-dwf-workflow-progress",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "presentation.ts"),
+		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "lib", "presentation.ts"),
 		outName: "presentation.mjs",
 		stubs: { tui: true },
 	});

@@ -7,8 +7,9 @@ import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { buildLimits, limitParamsFromInput, parseCliJsonOrText } from "../config.js";
-import { stringify } from "../format.js";
+import { buildLimits, limitParamsFromInput, parseCliJsonOrText } from "../lib/config.js";
+import { stringify } from "../lib/format.js";
+import { notify } from "../lib/notify.js";
 import {
 	cancelWorkflowRun,
 	cleanupWorkflowRuns,
@@ -19,7 +20,6 @@ import {
 	shouldLaunchWorkflowInBackground,
 	startWorkflowBackground,
 } from "../lifecycle/index.js";
-import { notify } from "../notify.js";
 import { collectPiSessions, prunePiSessionFiles } from "../pi-session.js";
 import { getRunStatusLabel } from "../runtime/index.js";
 import type { WorkflowPattern } from "../surface/index.js";

@@ -17,10 +17,10 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildExtension, createChecker, loadModule } from "../../../shared/test/harness.mjs";
+import { buildExtension, createChecker, loadModule } from "../../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
+const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 
 const { check, counts } = createChecker();
 
@@ -53,7 +53,7 @@ async function scenarioCounterUnit(url) {
 async function main() {
 	const built = await buildExtension({
 		name: "pi-dw-occurrence-counter",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "occurrence-counter.ts"),
+		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "lib", "occurrence-counter.ts"),
 		outName: "occurrence-counter.mjs",
 	});
 	try {

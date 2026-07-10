@@ -5,8 +5,8 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { buildLimits, limitParamsFromInput } from "../config.js";
-import { notify } from "../notify.js";
+import { buildLimits, limitParamsFromInput } from "../lib/config.js";
+import { notify } from "../lib/notify.js";
 import {
 	computeCodeHash,
 	getRunPeakParallelAgents,

@@ -1,4 +1,4 @@
-export { appendFileMutexCount, appendJsonLine } from "./file-append.js";
+export { appendFileMutexCount, appendJsonLine } from "./lib/index.js";
 export {
 	activeRunCount,
 	activeRunIds,
