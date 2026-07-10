@@ -5,29 +5,28 @@
  *
  * Pure UI over already-derived models; the collectors and openWorkflowDashboard stay in
  * index.ts. Tab list views live in workflow-dashboard-views.ts; monitor/agents tabs in
- * workflow-dashboard-monitor.ts; keyboard/input in workflow-dashboard-input.ts.
+ * workflow-dashboard-monitor.ts; chrome (header/help) in workflow-dashboard-chrome.ts;
+ * keyboard/input in workflow-dashboard-input.ts.
  * Fully-deferred cycle:
- * the class reads canCancelRun/canRerunRun/compactInline only inside methods; runtime
+ * the class reads compactInline only inside methods; runtime
  * constants come from runtime-constants.ts, and index.ts imports the class back
  * (instantiated only inside the openWorkflowDashboard body) plus WorkflowDashboardTab/
  * DashboardSelection as erased types. Model types cross as import type. Run derivations
  * come from the run-state / event-parser / presentation / render-utils / templates
  * siblings. Extracted byte-identically.
  */
-import { truncateToWidth } from "@earendil-works/pi-tui";
-import {
-	canRerunRun,
-	type WorkflowActivityEntry,
-	type WorkflowAgentEntry,
-	type WorkflowDashboardResult,
-	type WorkflowMonitorModel,
+import type {
+	WorkflowActivityEntry,
+	WorkflowAgentEntry,
+	WorkflowDashboardResult,
+	WorkflowMonitorModel,
 } from "./dashboard-collectors.js";
 import { WORKFLOW_PATTERN_CATALOG } from "./pattern-scaffolds.js";
 import type { PiSessionModel } from "./pi-session.js";
 import { compactInline, formatElapsedMs } from "./presentation.js";
 import { renderSafeInline } from "./render-utils.js";
-import { canCancelRun } from "./run-status-ui.js";
 import type { AgentMonitorModel, WorkflowDefinition, WorkflowRunRecord } from "./types.js";
+import { renderDashboardChrome } from "./workflow-dashboard-chrome.js";
 import { type DashboardInputHost, handleDashboardInput } from "./workflow-dashboard-input.js";
 import { renderAgents as renderAgentsView, renderMonitor as renderMonitorView } from "./workflow-dashboard-monitor.js";
 import {
@@ -321,117 +320,22 @@ export class WorkflowDashboard implements DashboardInputHost {
 		handleDashboardInput(this, data);
 	}
 
-	private renderHelp(
-		w: number,
-		line: (s: string) => string,
-		accent: (s: string) => string,
-		muted: (s: string) => string,
-	): string[] {
-		return [
-			line(accent("Pi Dynamic Workflows — ayuda de teclado")),
-			line(muted("Presioná cualquier tecla para cerrar")),
-			line(muted("─".repeat(Math.min(w, 120)))),
-			line(accent("Tabs")),
-			line("  Tab / ← / → cambia de tab · Shift+Tab anterior"),
-			line("  m Monitor · A Agents · a Activity · s Sessions · w Workflows · p Patterns · R Runs"),
-			line(accent("Navegación")),
-			line("  ↑ ↓ / j k mueve · PgUp / PgDn página · Home / End / G primero / último"),
-			line("  [ ] run activo — Monitor: rota el foco · Runs/Activity: salta al running sig./ant."),
-			line(accent("Acciones")),
-			line("  Enter / o detalle del agente — sub-tabs: Card · Prompt · Graph · Output · Definition · Run (←→/1-6)"),
-			line("  v vista de run · g graph"),
-			line("  f siguiente agente failed (tab Agents)"),
-			line("  c / x cancela el activo · r rerun (confirmación) · d / Del borra (confirmación)"),
-			line("  C cleanup (Runs: runs terminales · Sessions: archivos de sesión stale) — confirmación"),
-			line("  Patterns: Enter / n / u usa el pattern · Workflows: Enter / g graph, r run, d delete"),
-			line("  Sessions: Enter cambia de sesión · C cleanup de archivos de sesión stale"),
-			line(accent("Otros")),
-			line("  ? alterna esta ayuda · q / Esc cierra el dashboard"),
-		];
-	}
-
 	render(width: number): string[] {
-		if (width <= 0) return [];
-		const w = width;
-		// Jerarquía de colores (todos los tokens de tema semántico → adaptar a dark/light/auto; sin
-		// colores en ningún lado): accent = primary/títulos/selección; success|warning|error = estado;
-		// muted = etiquetas secundarias; dim = terciario (ids, paths, hints, chip labels);
-		// border = reglas/separadores horizontales.
-		const accent = (s: string) => this.theme.fg("accent", s);
-		const muted = (s: string) => this.theme.fg("muted", s);
-		const success = (s: string) => this.theme.fg("success", s);
-		const error = (s: string) => this.theme.fg("error", s);
-		const warning = (s: string) => this.theme.fg("warning", s);
-		const dim = (s: string) => this.theme.fg("dim", s);
-		const border = (s: string) => this.theme.fg("border", s);
-		const line = (s: string) => truncateToWidth(s, w, "…");
-		if (this.showHelp) return this.renderHelp(w, line, accent, muted);
-		const monitorTab = this.tab === "monitor" ? accent("[Monitor]") : muted(" Monitor ");
-		const agentsTab = this.tab === "agents" ? accent("[Agents]") : muted(" Agents ");
-		const sessionsTab = this.tab === "sessions" ? accent("[Sessions]") : muted(" Sessions ");
-		const runsTab = this.tab === "runs" ? accent("[Runs]") : muted(" Runs ");
-		const workflowTab = this.tab === "workflows" ? accent("[Workflows]") : muted(" Workflows ");
-		const patternsTab = this.tab === "patterns" ? accent("[Patterns]") : muted(" Patterns ");
-		const activityTab = this.tab === "activity" ? accent("[Activity]") : muted(" Activity ");
-		const activeCount = this.runs.filter((run) => canCancelRun(run)).length;
-		// Gate the action-bearing help on the SELECTED run so the banner never
-		// advertises cancel/rerun/delete keys that the detail row won't honor.
-		const selectedForActions = this.selectedRun();
-		const selectedMonitorModel = this.tab === "monitor" ? this.selectedMonitor() : undefined;
-		const canCancelSelected = selectedMonitorModel
-			? !!selectedMonitorModel.canCancel
-			: selectedForActions
-				? canCancelRun(selectedForActions)
-				: false;
-		const canRerunSelected = selectedMonitorModel
-			? !!selectedMonitorModel.canRerun
-			: selectedForActions
-				? canRerunRun(selectedForActions)
-				: false;
-		const runActions = (mid: string): string => {
-			const parts = ["←→/Tab tabs", mid];
-			if (canCancelSelected) parts.push("c/x cancel active");
-			if (canRerunSelected) parts.push("r rerun");
-			if (!canCancelSelected) parts.push("d/delete run");
-			parts.push("C cleanup");
-			parts.push("q/esc close");
-			return parts.join(" • ");
-		};
-		const help =
-			this.tab === "patterns"
-				? "←→/Tab tabs • ↑↓ navigate catalog • Enter/n use pattern • q/esc close"
-				: this.tab === "workflows"
-					? "←→/Tab tabs • ↑↓ navigate • Enter/g graph • r run • d/delete workflow • q/esc close"
-					: this.tab === "sessions"
-						? "←→/Tab tabs • ↑↓ select Pi session • Enter switch • C cleanup • q/esc close"
-						: this.tab === "monitor"
-							? runActions("↑↓ agents • [ ] switch run • Enter/o detail (tabs) • v run • g graph")
-							: this.tab === "agents"
-								? runActions("↑↓ select agent • f next failed • Enter/o detail (tabs) • v run • g graph")
-								: runActions("↑↓ navigate • [ ] next running • Enter/v view • g graph");
-		const lines: string[] = [
-			line(
-				accent("Pi Dynamic Workflows") +
-					muted("  •  ") +
-					monitorTab +
-					" " +
-					agentsTab +
-					" " +
-					sessionsTab +
-					" " +
-					runsTab +
-					" " +
-					workflowTab +
-					" " +
-					patternsTab +
-					" " +
-					activityTab +
-					(activeCount ? accent(`  ▶ ${activeCount} active`) : ""),
-			),
-			line(muted("? ayuda • ") + this.refreshStatus(muted, error) + muted(` • ${help}`)),
-			line(border("─".repeat(Math.min(w, 120)))),
-		];
-
+		const chrome = renderDashboardChrome(
+			{
+				tab: this.tab,
+				showHelp: this.showHelp,
+				theme: this.theme,
+				runs: this.runs,
+				selectedRun: () => this.selectedRun(),
+				selectedMonitor: () => this.selectedMonitor(),
+				refreshStatus: (muted, error) => this.refreshStatus(muted, error),
+			},
+			width,
+		);
+		if ("helpOnly" in chrome) return chrome.helpOnly;
+		const { lines, theme } = chrome;
+		const { line, accent, muted, success, error, warning, dim } = theme;
 		if (this.tab === "monitor") this.renderMonitor(lines, line, accent, muted, success, error, warning, dim);
 		else if (this.tab === "agents") this.renderAgents(lines, line, accent, muted, success, error, warning, dim);
 		else if (this.tab === "sessions") this.renderSessions(lines, line, accent, muted, success, warning);
