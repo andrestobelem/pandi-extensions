@@ -28,12 +28,11 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { ExtensionAPI, ExtensionContext, ToolCallEvent } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import { capExceeded } from "./caps.js";
+import { capExceeded, preWakeLimit, watchdogHardDeadlineReason } from "./caps.js";
 import { parseLoopCommandIntent, parseLoopStartArgs } from "./command-intent.js";
 import {
 	GC_MAX_AGE_MS,
 	LOOP_STATE_TYPE,
-	LOOP_STATUS_KEY,
 	MAX_CONCURRENT_LOOPS,
 	MAX_DELAY_SECONDS,
 	MIN_DELAY_SECONDS,
@@ -63,8 +62,7 @@ import {
 	type LoopStatus,
 	shouldRehydrateLoopForSession,
 } from "./state.js";
-import { formatStatus } from "./status.js";
-import { formatEta } from "./time.js";
+import { clearLoopStatus, formatStatus, refreshLoopStatus, setLoopStatus } from "./status.js";
 import { toolError, toolResult } from "./tool-results.js";
 
 // Fuente de verdad de los loops vivos en este proceso.
@@ -89,45 +87,6 @@ function hasRunningAutopilotLoop(): boolean {
 		if (loop.autopilot && loop.status === "running") return true;
 	}
 	return false;
-}
-
-// ---------------------------------------------------------------------------
-// Línea de estado
-// ---------------------------------------------------------------------------
-
-function setLoopStatus(ctx: ExtensionContext, loop: LoopState): void {
-	if (!ctx.hasUI) return;
-	const theme = ctx.ui.theme;
-	const paused = loop.status === "paused" ? " paused" : "";
-	const fixed = loop.mode === "fixed" && loop.intervalMs ? ` @${formatLoopInterval(loop.intervalMs)}` : "";
-	const eta = loop.status === "running" && loop.nextFireAt ? ` next ${formatEta(loop.nextFireAt)}` : "";
-	const reason = loop.lastReason ? ` · ${loop.lastReason}` : "";
-	ctx.ui.setStatus(
-		LOOP_STATUS_KEY,
-		`${theme.fg("accent", "↻ loop")} ${theme.fg("dim", `it ${loop.iteration}/${loop.maxIterations}${fixed}${paused}${eta}${reason}`)}`,
-	);
-}
-
-function clearLoopStatus(ctx: ExtensionContext): void {
-	if (ctx.hasUI) ctx.ui.setStatus(LOOP_STATUS_KEY, undefined);
-}
-
-/** Muestra un loop activo en la barra; running tiene prioridad sobre paused. */
-function refreshLoopStatus(ctx: ExtensionContext): void {
-	if (!ctx.hasUI) return;
-	for (const loop of activeLoops.values()) {
-		if (loop.status === "running") {
-			setLoopStatus(ctx, loop);
-			return;
-		}
-	}
-	for (const loop of activeLoops.values()) {
-		if (loop.status === "paused") {
-			setLoopStatus(ctx, loop);
-			return;
-		}
-	}
-	clearLoopStatus(ctx);
 }
 
 // ---------------------------------------------------------------------------
@@ -168,13 +127,13 @@ function drainWakeQueue(pi: ExtensionAPI, ctx: ExtensionContext): void {
 		// Descartar entradas stale: el loop fue stopped/paused/removido antes de su turno.
 		if (loop?.status !== "running") continue;
 		// Guards rechequeados al entregar (el estado puede haber cambiado en cola).
-		if (loop.iteration >= loop.maxIterations) {
+		const limit = preWakeLimit(ctx, loop);
+		if (limit?.kind === "maxIterations") {
 			stopForMaxIterations(pi, ctx, loop);
 			continue;
 		}
-		const cap = capExceeded(ctx, loop);
-		if (cap) {
-			stopForCap(pi, ctx, loop, cap);
+		if (limit?.kind === "cap") {
+			stopForCap(pi, ctx, loop, limit.reason);
 			continue;
 		}
 		deliverWake(pi, ctx, loop);
@@ -215,11 +174,6 @@ function stopForMaxIterations(pi: ExtensionAPI, ctx: ExtensionContext, loop: Act
 	stopForCap(pi, ctx, loop, `alcanzó el límite de maxIterations (${loop.maxIterations})`);
 }
 
-/** Motivo canónico del deadline duro anti-zombie (compartido por fireWake y watchdogSweep). */
-function watchdogHardDeadlineReason(): string {
-	return `watchdog: superó el deadline de respaldo duro (${Math.round(WATCHDOG_HARD_DEADLINE_MS / 3600000)}h)`;
-}
-
 /** Force-stop por watchdog: mismo mensaje y status en fireWake y watchdogSweep. */
 function stopByWatchdog(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): void {
 	stopLoop(pi, ctx, loop.loopId, watchdogHardDeadlineReason(), "done");
@@ -243,21 +197,18 @@ function fireWake(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): vo
 
 	// Respaldo: si ESTE loop es zombi (pasó el deadline duro), detener en vez de disparar.
 	// (El gate de caps de abajo cubre maxWallClockMs; esto también captura loops cuyo
-	// maxWallClockMs quedó absurdamente alto.)
-	if (Date.now() - loop.startedAt >= WATCHDOG_HARD_DEADLINE_MS) {
+	// maxWallClockMs quedó absurdamente alto.) Orden: watchdog → maxIterations → caps.
+	const limit = preWakeLimit(ctx, loop, { includeWatchdog: true });
+	if (limit?.kind === "watchdog") {
 		stopByWatchdog(pi, ctx, loop);
 		return;
 	}
-
-	if (loop.iteration >= loop.maxIterations) {
+	if (limit?.kind === "maxIterations") {
 		stopForMaxIterations(pi, ctx, loop);
 		return;
 	}
-
-	// Gate de caps antes de hacer trabajo: nunca disparar una iteración pasado un deadline/budget.
-	const cap = capExceeded(ctx, loop);
-	if (cap) {
-		stopForCap(pi, ctx, loop, cap);
+	if (limit?.kind === "cap") {
+		stopForCap(pi, ctx, loop, limit.reason);
 		return;
 	}
 
@@ -457,7 +408,7 @@ function stopLoop(
 	// para decisiones de audit/rehydrate, pero quitar el loop en memoria de inmediato
 	// para que /loop status, completions, GC y refresh de línea de estado vean solo loops vivos.
 	activeLoops.delete(loopId);
-	refreshLoopStatus(ctx);
+	refreshLoopStatus(ctx, activeLoops.values());
 	return true;
 }
 
@@ -479,7 +430,7 @@ function pauseLoop(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): b
 	// Paused no debe reinyectar desde la cola.
 	dropQueuedWakes(loop.loopId);
 	persist(pi, ctx, loop);
-	refreshLoopStatus(ctx);
+	refreshLoopStatus(ctx, activeLoops.values());
 	return true;
 }
 
@@ -570,7 +521,7 @@ async function rehydrate(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void>
 		// Un único tick de catch-up (clampeado a >= 0); nunca un burst de wakes perdidos.
 		loop.timer = setTimeout(() => fireWake(pi, ctx, loop), remaining);
 	}
-	refreshLoopStatus(ctx);
+	refreshLoopStatus(ctx, activeLoops.values());
 	// Barrido final: no rearmar loops que ya son zombies tras el downtime.
 	watchdogSweep(pi, ctx);
 }
