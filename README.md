@@ -1,6 +1,6 @@
 # pandi-extensions
 
-**Un libro de patrones agénticos que se ejecuta.** Este repo destila los patrones multi-agente de la literatura (Tree of Thoughts, Reflexion, orchestrator-workers…) en **25 scaffolds corribles de JavaScript**. **Una suite de 25 extensiones más un tema para [Pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent)** — el CLI de coding agent `@earendil-works/pi-coding-agent` — convierte a Pi en el laboratorio donde correrlos: graficarlos antes, inspeccionar journal y artifacts después, y verificar con evidencia en vez de fe.
+**Un libro de patrones agénticos que se ejecuta.** Este repo destila los patrones multi-agente de la literatura (Tree of Thoughts, Reflexion, orchestrator-workers…) en **25 scaffolds corribles de JavaScript**. **Una suite de 28 extensiones más un tema para [Pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent)** — el CLI de coding agent `@earendil-works/pi-coding-agent` — convierte a Pi en el laboratorio donde correrlos: graficarlos antes, inspeccionar journal y artifacts después, y verificar con evidencia en vez de fe.
 
 El corazón es **Dynamic Workflows / Ultracode**: scripts de JavaScript confiables que Pi ejecuta para orquestar subagentes en paralelo, persistir artifacts fuera del contexto del chat y devolver una síntesis coordinada. Alrededor, cada extensión operacionaliza una disciplina de ingeniería — `/plan` ≈ pensar antes de codear, `/goal` ≈ ejecución con criterios verificables, `/loop` ≈ cambios quirúrgicos con safeguards — además de memoria local, auto-compactación de contexto, diagnósticos de TypeScript, git worktrees, sandboxes Linux y varios aliases/shortcuts de UX. Son piezas independientes: podés instalarlas una por una o todas juntas, según lo que necesite tu proyecto. 🐼
 
@@ -131,7 +131,7 @@ Usalos como patterns, no como ceremonia: cada rama necesita una razón, un contr
 
 ## Catálogo de extensiones
 
-Las 25 extensiones se cargan por defecto desde el campo `pi.extensions` de `package.json` cuando corrés `pi install ./`; `pandi-theme` se registra a través de `pi.themes`. Cada extensión también se puede instalar por separado con `pi install ./extensions/<name>`.
+Las 28 extensiones del repo se listan abajo: 25 se cargan por defecto desde el campo `pi.extensions` de `package.json` cuando corrés `pi install ./`, y las 3 `pandi-ultracode-*` son hosts portables de Ultracode (CLI y plugin del host, sin Pi); `pandi-theme` se registra a través de `pi.themes`. Cada extensión también se puede instalar por separado con `pi install ./extensions/<name>`.
 
 | Extensión | Surface (human · model) | Qué hace | Requisitos extra |
 | --- | --- | --- | --- |
@@ -160,6 +160,9 @@ Las 25 extensiones se cargan por defecto desde el campo `pi.extensions` de `pack
 | **pandi-clear** | `/clear` | Alias estilo Claude de `/new` para empezar una sesión nueva. | — |
 | **pandi-ask** | · `ask_choice`, `ask_confirm` | Tools interactivos de selector/confirmación TUI para puntos de decisión guiados por el modelo. | TUI/RPC |
 | **pandi-doctor** | `/doctor` | Ejecuta el chequeo read-only de entorno del repo (`scripts/doctor.mjs`) y muestra el reporte. | — |
+| **pandi-ultracode-cursor** | `/ultracode` (plugin local de Cursor) | Ejecuta workflows portables de Ultracode desde Cursor con `cursor-agent --print`; artifacts y journal en `.cursor/ultracode/runs/`. | Cursor CLI autenticado |
+| **pandi-ultracode-claude** | `/ultracode-run` (plugin local de Claude Code) | Ejecuta workflows portables de Ultracode con Claude Code CLI como proceso externo reanudable; artifacts y journal en `.claude/ultracode/runs/`. `/ultracode` nativo se preserva. | Claude Code CLI autenticado |
+| **pandi-ultracode-codex** | `pandi-ultracode-codex run …` (CLI) | Host de terminal para workflows portables de Ultracode con `codex exec`; artifacts y journal en `.codex/ultracode/runs/`. | Codex CLI autenticado |
 
 > `extensions/shared/` no es una extensión: es código de test harness; nunca se publica ni se carga. `extensions/pandi-theme/` tampoco envía código: es un package solo de temas (`pi.themes`) con las variantes `panda-syntax-dark`/`panda-syntax-light`, el compañero visual de **pandi**; se carga con `pi install ./` y se habilita vía `/settings` o `"theme"`.
 

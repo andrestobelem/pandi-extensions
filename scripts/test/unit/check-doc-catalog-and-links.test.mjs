@@ -25,6 +25,8 @@ function makeDocsRoot({
 		path.join(root, "package.json"),
 		`${JSON.stringify({ pi: { extensions: ["./extensions/pandi-foo/index.ts"] } })}\n`,
 	);
+	// La fuente de verdad del catálogo es el dir extensions/pandi-foo (package.json ya no se lee).
+	writeFile(path.join(root, "extensions", "pandi-foo", ".keep"), "");
 	writeFile(path.join(root, "AGENTS.md"), agents);
 	writeFile(
 		path.join(root, "README.md"),
@@ -80,7 +82,7 @@ test("checkDocCatalogAndLinks reports catalog drift, stale text, and broken loca
 	});
 	try {
 		const failures = checkDocCatalogAndLinks(root);
-		assert.ok(failures.includes("README headline says 2 extensions, package.json pi.extensions has 1"));
+		assert.ok(failures.includes("README headline says 2 extensions, extensions dir has 1"));
 		assert.ok(failures.includes("README catalog missing row for pandi-foo"));
 		assert.ok(
 			failures.includes(

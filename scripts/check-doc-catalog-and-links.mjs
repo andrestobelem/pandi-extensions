@@ -18,10 +18,6 @@ function readText(file) {
 	return fs.readFileSync(file, "utf8");
 }
 
-function readJson(file) {
-	return JSON.parse(readText(file));
-}
-
 function walk(repoRoot, dir, { include, skipDir }) {
 	const out = [];
 	for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -36,14 +32,24 @@ function walk(repoRoot, dir, { include, skipDir }) {
 	return out;
 }
 
-function extensionNamesFromManifest(repoRoot) {
-	const pkg = readJson(path.join(repoRoot, "package.json"));
-	return (pkg.pi?.extensions ?? []).map((entry) => entry.match(/^\.\/extensions\/([^/]+)\//)?.[1]).filter(Boolean);
+function extensionDirNames(repoRoot) {
+	// Fuente de verdad: los dirs extensions/pandi y extensions/pandi-* (excluyendo el
+	// harness de tests `shared` y el package solo-temas `pandi-theme`). Cubre tanto las
+	// extensiones Pi cargadas vía pi.extensions como los hosts portables de Ultracode
+	// (pandi-ultracode-*), que viven en el repo como packages pero no se cargan con Pi.
+	const extDir = path.join(repoRoot, "extensions");
+	return fs
+		.readdirSync(extDir, { withFileTypes: true })
+		.filter((e) => e.isDirectory())
+		.map((e) => e.name)
+		.filter((name) => name === "pandi" || name.startsWith("pandi-"))
+		.filter((name) => name !== "pandi-theme")
+		.sort();
 }
 
 function checkReadmeCatalog(repoRoot, failures) {
 	const readme = readText(path.join(repoRoot, "README.md"));
-	const extensions = extensionNamesFromManifest(repoRoot);
+	const extensions = extensionDirNames(repoRoot);
 	const uniqueExtensions = [...new Set(extensions)].sort();
 	const count = uniqueExtensions.length;
 
@@ -53,16 +59,16 @@ function checkReadmeCatalog(repoRoot, failures) {
 	if (!headline) {
 		failures.push("README headline extension count is missing");
 	} else if (Number(headline[1]) !== count) {
-		failures.push(`README headline says ${headline[1]} extensions, package.json pi.extensions has ${count}`);
+		failures.push(`README headline says ${headline[1]} extensions, extensions dir has ${count}`);
 	}
 
 	const catalogIntro =
 		readme.match(/All (\d+) extensions load by default from the `pi\.extensions` field/) ??
-		readme.match(/Las (\d+) extensiones(?: de comando\/tool)? se cargan por defecto desde el campo `pi\.extensions`/);
+		readme.match(/Las (\d+) extensiones del repo se listan/);
 	if (!catalogIntro) {
 		failures.push("README catalog intro extension count is missing");
 	} else if (Number(catalogIntro[1]) !== count) {
-		failures.push(`README catalog intro says ${catalogIntro[1]} extensions, package.json pi.extensions has ${count}`);
+		failures.push(`README catalog intro says ${catalogIntro[1]} extensions, extensions dir has ${count}`);
 	}
 
 	for (const name of uniqueExtensions) {
