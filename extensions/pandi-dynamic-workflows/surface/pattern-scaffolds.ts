@@ -19,16 +19,17 @@ import { WORKFLOW_PATTERN_CATALOG } from "./catalog.js";
 // En bundle de tests (archivo en la raíz del package): ./scaffolds.
 // En fuente (surface/*.ts vía jiti): ../scaffolds. Lazy para no fallar en import time.
 const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
-let scaffoldsDirCache: string | null = null;
-function scaffoldsDir(): string {
-	if (scaffoldsDirCache) return scaffoldsDirCache;
+let scaffoldsDirCache: string | null | undefined;
+function resolveScaffoldsDir(): string | null {
+	if (scaffoldsDirCache !== undefined) return scaffoldsDirCache;
 	for (const dir of [path.join(MODULE_DIR, "scaffolds"), path.join(MODULE_DIR, "..", "scaffolds")]) {
 		if (existsSync(dir)) {
 			scaffoldsDirCache = dir;
 			return dir;
 		}
 	}
-	throw new Error(`Workflow scaffolds directory not found next to ${MODULE_DIR}`);
+	scaffoldsDirCache = null;
+	return null;
 }
 
 let scaffoldSourcesCache: Record<string, string> | null = null;
@@ -36,9 +37,14 @@ let scaffoldSourcesCache: Record<string, string> | null = null;
 // bien: corre como máximo una vez sobre ~25 archivos chicos, y solo cuando se pide el primer scaffold.
 function scaffoldSources(): Record<string, string> {
 	if (scaffoldSourcesCache) return scaffoldSourcesCache;
+	const dir = resolveScaffoldsDir();
+	if (!dir) {
+		scaffoldSourcesCache = {};
+		return scaffoldSourcesCache;
+	}
 	const map: Record<string, string> = {};
-	for (const file of readdirSync(scaffoldsDir())) {
-		if (file.endsWith(".js")) map[file.slice(0, -3)] = readFileSync(path.join(scaffoldsDir(), file), "utf8");
+	for (const file of readdirSync(dir)) {
+		if (file.endsWith(".js")) map[file.slice(0, -3)] = readFileSync(path.join(dir, file), "utf8");
 	}
 	scaffoldSourcesCache = map;
 	return map;
@@ -75,7 +81,9 @@ function scaffoldSourceFor(pattern: WorkflowPattern): string {
 
 /** Ruta predecible del asset canónico para una clave ya validada por el catálogo. */
 export function getWorkflowPatternPath(pattern: WorkflowPattern): string {
-	return path.join(scaffoldsDir(), `${pattern.key}.js`);
+	// Sin dir instalado (bundles de test), devolvé una ruta estable para exists-check — no throws.
+	const base = resolveScaffoldsDir() ?? path.join(MODULE_DIR, "scaffolds");
+	return path.join(base, `${pattern.key}.js`);
 }
 
 export async function loadWorkflowPatternCode(pattern: WorkflowPattern): Promise<string> {
@@ -86,6 +94,7 @@ export async function loadWorkflowPatternCode(pattern: WorkflowPattern): Promise
 // entradas muertas; el chequeo completo de huérfanos (un scaffolds/*.js sin clave de catálogo) vive en el
 // test de integración de composición, que lee todo el directorio.
 export function listOrphanedScaffoldKeys(): string[] {
+	if (!resolveScaffoldsDir()) return [];
 	const sources = scaffoldSources();
 	const patternScaffolds: Record<string, string> = Object.fromEntries(
 		WORKFLOW_PATTERN_CATALOG.map((pattern) => [pattern.key, sources[pattern.key]]),
