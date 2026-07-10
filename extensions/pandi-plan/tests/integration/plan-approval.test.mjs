@@ -955,7 +955,7 @@ async function planDashboardReport(url) {
 		console.log = origLog;
 	}
 	const out = logged.join("\n");
-	check("dashboard: prints the dashboard title", /Tablero de Modo Plan/.test(out));
+	check("dashboard: prints the dashboard title", /Dashboard de Modo Plan/.test(out));
 	check("dashboard: lists the active plan task", /design the dashboard/.test(out));
 	check("dashboard: shows the ultracode-steps posture", /ultracode-steps/.test(out));
 	check("dashboard: renders the History table header", /\| Plan \| Estado \| Postura \|/.test(out));

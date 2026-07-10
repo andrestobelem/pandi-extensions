@@ -13,7 +13,7 @@ Pi investiga en solo lectura, llama a `submit_plan` con el plan completo y lo mu
 - Un comando `/plan` que arma un gate de solo lectura para una tarea hasta que apruebes el plan enviado.
 - Una tool de modelo `enter_plan_mode`, para que Pi pueda entrar solo en modo plan antes de un cambio no trivial o riesgoso; la aprobación igual queda en tus manos.
 - Una tool de modelo `submit_plan` con un overlay de aprobación renderizado en Markdown y con scroll; cerrar equivale a rechazar, nunca a aprobar implícitamente salvo que habilites `auto-submit`.
-- Un tablero de seguimiento y una línea de estado por sesión.
+- Un dashboard de seguimiento y una línea de estado por sesión.
 - Flags de postura combinables tipo `ultracode` para indicarle al planificador o implementador que use dynamic workflows.
 
 ## Instalación
@@ -38,7 +38,7 @@ pi --no-extensions -e ./extensions/pandi-plan   # prueba puntual, sin cargar nad
 | --- | --- |
 | `/plan [--ultracode\|--uc] [--ultracode-steps\|--uc-steps] [--auto-submit] <task>` | Entra en modo plan de solo lectura para una tarea. |
 | `/plan status` | Inspecciona el plan activo: estado, flags de postura y conteos. |
-| `/plan dashboard` | Abre el tablero de seguimiento: totales de la sesión, plan activo e historial de todos los planes de la sesión (con scroll en TUI; Markdown impreso en otros modos). |
+| `/plan dashboard` | Abre el dashboard de seguimiento: totales de la sesión, plan activo e historial de todos los planes de la sesión (con scroll en TUI; Markdown impreso en otros modos). |
 | `/plan ultracode on\|off\|status` | Valor por defecto de sesión para la postura `ultracode`; un `/plan <task>` sin flags la hereda. |
 | `/plan steps-ultracode on\|off\|status` | Valor por defecto de sesión para la postura `ultracode-steps`. |
 | `/plan auto-submit on\|off\|status` | Valor por defecto de sesión para autoaprobar tras 60 segundos sin elección. |

@@ -555,7 +555,7 @@ export default function planExtension(pi: ExtensionAPI): void {
 		getArgumentCompletions: (argumentPrefix: string) => {
 			const items = [
 				{ value: "status", label: "status", description: "Mostrar el estado del modo plan" },
-				{ value: "dashboard", label: "dashboard", description: "Abrir el tablero de seguimiento del modo plan" },
+				{ value: "dashboard", label: "dashboard", description: "Abrir el dashboard de seguimiento del modo plan" },
 				{ value: "--ultracode", label: "--ultracode", description: "Planificar usando dynamic workflows" },
 				{
 					value: "--ultracode-steps",

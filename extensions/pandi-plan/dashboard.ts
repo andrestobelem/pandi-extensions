@@ -110,7 +110,7 @@ export function extractPlanChecklist(markdown: string): ChecklistItem[] {
  * sumado), y una tabla "Historial" de cada plan en la sesión (más antiguo primero).
  */
 export function buildPlanDashboardMarkdown(plans: PlanSnapshot[]): string {
-	const lines: string[] = ["# Tablero de Modo Plan", ""];
+	const lines: string[] = ["# Dashboard de Modo Plan", ""];
 	if (plans.length === 0) {
 		lines.push(
 			"Todavía no hay planes registrados en esta sesión. Empezá uno con `/plan <task>` o la tool `enter_plan_mode`.",
@@ -216,7 +216,7 @@ export async function renderPlanDashboardOverlay(ctx: ExtensionContext, markdown
 					const footer = `↑/↓ j/k desplazar · PgUp/PgDn página · q/Esc cerrar · ${start + 1}-${end}/${allLines.length}`;
 					return [
 						border,
-						pad("Tablero de Modo Plan", safeWidth),
+						pad("Dashboard de Modo Plan", safeWidth),
 						"",
 						...visible.map((line) => pad(line, safeWidth)),
 						pad(footer, safeWidth),
@@ -226,6 +226,6 @@ export async function renderPlanDashboardOverlay(ctx: ExtensionContext, markdown
 			};
 		});
 	} catch (error) {
-		notify(ctx, `No se pudo abrir el tablero de plan: ${errorMessage(error)}`, "warning");
+		notify(ctx, `No se pudo abrir el dashboard de plan: ${errorMessage(error)}`, "warning");
 	}
 }

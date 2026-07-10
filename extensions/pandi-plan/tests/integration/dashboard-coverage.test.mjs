@@ -67,7 +67,7 @@ function snap(overrides = {}) {
 // ===========================================================================
 function emptyPlans(mod) {
 	const out = mod.buildPlanDashboardMarkdown([]);
-	check("empty: contiene el título del tablero", /# Tablero de Modo Plan/.test(out));
+	check("empty: contiene el título del dashboard", /# Dashboard de Modo Plan/.test(out));
 	check(
 		"empty: contiene el mensaje 'no hay planes registrados'",
 		out.includes("Todavía no hay planes registrados en esta sesión"),
@@ -376,8 +376,8 @@ async function overlayDegradesOnFailure(mod) {
 	check("overlay-fail: renderPlanDashboardOverlay resuelve (no rechaza)", !threw);
 	check("overlay-fail: notify se invoca exactamente una vez", state.notes.length === 1);
 	check(
-		"overlay-fail: el mensaje notify incluye 'No se pudo abrir el tablero de plan: boom'",
-		state.notes[0]?.msg?.includes("No se pudo abrir el tablero de plan: boom"),
+		"overlay-fail: el mensaje notify incluye 'No se pudo abrir el dashboard de plan: boom'",
+		state.notes[0]?.msg?.includes("No se pudo abrir el dashboard de plan: boom"),
 	);
 	check("overlay-fail: el nivel de notify es 'warning'", state.notes[0]?.type === "warning");
 }
