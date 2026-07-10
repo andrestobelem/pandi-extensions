@@ -1,15 +1,15 @@
 /**
  * Workflow run lifecycle — cancel/delete/cleanup y abort en apagado de sesión.
- * Extraído de run-lifecycle.ts para mantener el módulo principal enfocado en
+ * Parte del deep module lifecycle para mantener el módulo principal enfocado en
  * lanzamiento/reanudación en segundo plano y notificación de resultados.
  */
 import * as fs from "node:fs/promises";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { activeRunIds, clearActiveRuns, getActiveRun, hasActiveRun, listActiveRuns } from "./run-registry.js";
-import { getRunStatusLabel, selectRunsForCleanup } from "./run-state.js";
-import { getRunDirs, readRunRecord, readRunStatus, writeRunStatus } from "./run-store.js";
-import { listRuns, resolveRun, selectRunByKey } from "./run-view.js";
-import type { ActiveWorkflowRun, WorkflowRunRecord, WorkflowRunResult, WorkflowRunState } from "./types.js";
+import { getRunStatusLabel, selectRunsForCleanup } from "../run-state.js";
+import { getRunDirs, readRunRecord, readRunStatus, writeRunStatus } from "../run-store.js";
+import { listRuns, resolveRun, selectRunByKey } from "../run-view.js";
+import type { ActiveWorkflowRun, WorkflowRunRecord, WorkflowRunResult, WorkflowRunState } from "../types.js";
+import { activeRunIds, clearActiveRuns, getActiveRun, hasActiveRun, listActiveRuns } from "./registry.js";
 
 function resolveActiveRun(id: string | undefined): ActiveWorkflowRun | undefined {
 	const runs = listActiveRuns().sort((a, b) => b.started - a.started);

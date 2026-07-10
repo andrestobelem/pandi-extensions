@@ -19,10 +19,10 @@
  * (prunePiSessionFiles) hace el readdir + fs.unlink y no se ejercita acá.
  *
  * Corrélo:
- *   node extensions/pandi-dynamic-workflows/tests/integration/cleanup-session-prune.test.mjs
+ *   node extensions/pandi-dynamic-workflows/tests/integration/lifecycle/session-prune.test.mjs
  */
 import * as path from "node:path";
-import { buildExtension, createChecker, REPO_ROOT, sdkStub } from "../../../shared/test/harness.mjs";
+import { buildExtension, createChecker, REPO_ROOT, sdkStub } from "../../../../shared/test/harness.mjs";
 
 const { check, counts } = createChecker();
 

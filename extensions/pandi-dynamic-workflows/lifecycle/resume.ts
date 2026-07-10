@@ -1,52 +1,26 @@
 /**
- * Workflow run lifecycle — orquestador fino: reexporta start/cleanup/notify/reload-handoff
- * y concentra la reanudación en este módulo.
+ * Reanudación de workflow runs — resumeWorkflow y cuerpo post-validación.
  * Sits between the runWorkflow engine and the command/tool handlers in index.ts.
- *
- * Fully-deferred bidirectional cycle: index.ts imports the lifecycle entry points back
- * (invoked only from handler bodies) and this module reads the active-run registry from
- * handler bodies). Re-exports cleanup helpers for compatibilidad con importadores existentes.
- * Run records come from the run-store / run-state / run-view siblings; workflow contracts
- * cross from types.ts as import type.
  */
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { buildLimits, limitParamsFromInput } from "./config.js";
-import { runWorkflowWithUi } from "./dashboard-orchestration.js";
-import { computeCodeHash, loadJournal, maxAgentArtifactNumber, maxJournalAgentId } from "./journal.js";
-import { notify } from "./notify.js";
-import {
-	formatBackgroundStart,
-	shouldLaunchWorkflowInBackground,
-	startWorkflowBackground,
-} from "./run-lifecycle-start.js";
-import { hasActiveRun } from "./run-registry.js";
-import { getRunPeakParallelAgents, getRunState } from "./run-state.js";
-import { resolveRun } from "./run-view.js";
+import { buildLimits, limitParamsFromInput } from "../config.js";
+import { runWorkflowWithUi } from "../dashboard-orchestration.js";
+import { computeCodeHash, loadJournal, maxAgentArtifactNumber, maxJournalAgentId } from "../journal.js";
+import { notify } from "../notify.js";
+import { getRunPeakParallelAgents, getRunState } from "../run-state.js";
+import { resolveRun } from "../run-view.js";
 import type {
 	DynamicWorkflowToolParams,
 	PreparedWorkflowRun,
 	WorkflowLogEntry,
 	WorkflowRunRecord,
 	WorkflowRunStatus,
-} from "./types.js";
-import { ensureDir, resolveWorkflow } from "./workflow-resolve.js";
-
-export {
-	abortActiveWorkflowRuns,
-	cancelWorkflowRun,
-	cleanupWorkflowRuns,
-	DEFAULT_CLEANUP_KEEP,
-	deleteWorkflowRun,
-	settleWithinTimeout,
-} from "./run-lifecycle-cleanup.js";
-export { notifyWorkflowResult } from "./run-lifecycle-notify.js";
-export {
-	interruptActiveWorkflowRunsForReload,
-	resumeReloadInterruptedWorkflowRuns,
-} from "./run-reload-handoff.js";
-export { formatBackgroundStart, shouldLaunchWorkflowInBackground, startWorkflowBackground };
+} from "../types.js";
+import { ensureDir, resolveWorkflow } from "../workflow-resolve.js";
+import { hasActiveRun } from "./registry.js";
+import { shouldLaunchWorkflowInBackground, startWorkflowBackground } from "./start.js";
 
 // Reserva síncrona para reanudaciones en vuelo: resumeWorkflow espera varios
 // lecturas entre su guardia del registro de runs activos y el momento que startWorkflowBackground /

@@ -1,13 +1,13 @@
 /**
  * Workflow run lifecycle — notificación de resultados y handoff del reporte final.
- * Extraído de run-lifecycle.ts para mantener el módulo principal enfocado en
+ * Parte del deep module lifecycle para mantener el módulo principal enfocado en
  * lanzamiento/reanudación en segundo plano.
  */
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { notify } from "./notify.js";
-import { writeRunReport } from "./run-report-writer.js";
-import { getRunState, getRunStatusLabel } from "./run-state.js";
-import type { WorkflowRunResult } from "./types.js";
+import { notify } from "../notify.js";
+import { writeRunReport } from "../run-report-writer.js";
+import { getRunState, getRunStatusLabel } from "../run-state.js";
+import type { WorkflowRunResult } from "../types.js";
 
 interface FinalReportHandoff {
 	reportPath?: string;

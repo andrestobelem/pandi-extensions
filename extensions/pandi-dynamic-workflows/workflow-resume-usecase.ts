@@ -9,7 +9,7 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { formatBackgroundStart, resumeWorkflow, shouldLaunchWorkflowInBackground } from "./run-lifecycle.js";
+import { formatBackgroundStart, resumeWorkflow, shouldLaunchWorkflowInBackground } from "./lifecycle/index.js";
 import { formatRunSummary } from "./run-status-ui.js";
 import type { DynamicWorkflowToolParams, WorkflowLogEntry, WorkflowRunResult, WorkflowRunStatus } from "./types.js";
 

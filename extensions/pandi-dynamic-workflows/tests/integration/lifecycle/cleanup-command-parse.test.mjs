@@ -13,10 +13,10 @@
  * parser exportado en memoria.
  *
  * Corrélo:
- *   node extensions/pandi-dynamic-workflows/tests/integration/cleanup-command-parse.test.mjs
+ *   node extensions/pandi-dynamic-workflows/tests/integration/lifecycle/cleanup-command-parse.test.mjs
  */
 import * as path from "node:path";
-import { buildExtension, createChecker, REPO_ROOT, sdkStub } from "../../../shared/test/harness.mjs";
+import { buildExtension, createChecker, REPO_ROOT, sdkStub } from "../../../../shared/test/harness.mjs";
 
 const { check, counts } = createChecker();
 

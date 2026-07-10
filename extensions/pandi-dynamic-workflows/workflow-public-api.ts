@@ -14,8 +14,6 @@ export {
 	stringValue,
 } from "./event-parser.js";
 export { appendFileMutexCount, appendJsonLine } from "./file-append.js";
-export { runProcess, runStreamingAgentProcess } from "./process-spawn.js";
-export { settleWithinTimeout } from "./run-lifecycle.js";
 export {
 	activeRunCount,
 	activeRunIds,
@@ -24,8 +22,10 @@ export {
 	hasActiveRun,
 	listActiveRuns,
 	registerActiveRun,
+	settleWithinTimeout,
 	unregisterActiveRun,
-} from "./run-registry.js";
+} from "./lifecycle/index.js";
+export { runProcess, runStreamingAgentProcess } from "./process-spawn.js";
 export { estimatePeakParallelAgents } from "./run-state.js";
 export { selectRunByKey } from "./run-view.js";
 export {

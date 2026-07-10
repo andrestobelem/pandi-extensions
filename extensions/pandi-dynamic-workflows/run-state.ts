@@ -117,7 +117,7 @@ export function isTerminalRunState(state: WorkflowRunState): boolean {
 // de borrar: solo runs TERMINAL (nunca running), nunca un run rastreado como activo en memoria
 // (activeIds), opcionalmente filtrado por un conjunto de estados, y reteniendo siempre los `keep`
 // runs más recientes (por startedAt desc) para que una limpieza masiva no borre el historial más fresco.
-// El wrapper de IO (run-lifecycle.ts, cleanupWorkflowRuns) hace el fs.rm real.
+// El wrapper de IO (lifecycle/cleanup, cleanupWorkflowRuns) hace el fs.rm real.
 export function selectRunsForCleanup(
 	runs: WorkflowRunRecord[],
 	opts: { keep?: number; states?: WorkflowRunState[]; activeIds: Set<string> },

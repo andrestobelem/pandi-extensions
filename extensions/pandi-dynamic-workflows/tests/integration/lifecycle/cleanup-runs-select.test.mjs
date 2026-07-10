@@ -5,7 +5,7 @@
  * `/workflow cleanup runs` debe ser seguro por construcción: borra solo directorios de run
  * TERMINALES y nunca un run que sigue corriendo o trackeado como activo en memoria, y siempre
  * retiene los `keep` runs más recientes para que un cleanup masivo no borre la historia más fresca.
- * El wrapper IO (run-lifecycle.ts, cleanupWorkflowRuns) hace el `fs.rm` real;
+ * El wrapper IO (lifecycle/cleanup.ts, cleanupWorkflowRuns) hace el `fs.rm` real;
  * esto pinea la decisión pura para que un refactor futuro del wrapper no empiece silenciosamente
  * a seleccionar un run running/active ni a soltar la ventana de retención.
  *
@@ -16,7 +16,7 @@
  *   node extensions/pandi-dynamic-workflows/tests/integration/cleanup-runs-select.test.mjs
  */
 import * as path from "node:path";
-import { buildExtension, createChecker, REPO_ROOT } from "../../../shared/test/harness.mjs";
+import { buildExtension, createChecker, REPO_ROOT } from "../../../../shared/test/harness.mjs";
 
 const { check, counts } = createChecker();
 

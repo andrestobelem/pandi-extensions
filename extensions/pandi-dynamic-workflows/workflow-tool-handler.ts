@@ -5,6 +5,12 @@ import { buildLimits, limitParamsFromInput, normalizeWorkflowInput } from "./con
 import { runWorkflowWithUi } from "./dashboard-orchestration.js";
 import { text } from "./format.js";
 import {
+	cancelWorkflowRun,
+	formatBackgroundStart,
+	shouldLaunchWorkflowInBackground,
+	startWorkflowBackground,
+} from "./lifecycle/index.js";
+import {
 	formatWorkflowPatternCatalog,
 	getDefaultScaffold,
 	loadWorkflowPatternCode,
@@ -12,12 +18,6 @@ import {
 	WORKFLOW_PATTERN_CATALOG,
 } from "./pattern-scaffolds.js";
 import { formatWorkflowList } from "./presentation.js";
-import {
-	cancelWorkflowRun,
-	formatBackgroundStart,
-	shouldLaunchWorkflowInBackground,
-	startWorkflowBackground,
-} from "./run-lifecycle.js";
 import { writeRunReport } from "./run-report-writer.js";
 import { formatRunSummary } from "./run-status-ui.js";
 import { formatRunList, formatRunView, listRuns, resolveRun } from "./run-view.js";

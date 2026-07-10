@@ -55,8 +55,8 @@ flowchart TB
 
 ## Migración
 
-1. Doc + discovery recursivo de suites + `files` del package (este cambio).
-2. Un deep module por commit atómico (código + tests + imports), empezando por `ultracode/`.
+1. Doc + discovery recursivo de suites + `files` del package — hecho.
+2. Un deep module por commit atómico (código + tests + imports): `ultracode/` → `lifecycle/` → `observe/` → `tui/` → `surface/` → `runtime/` → `lib/`.
 3. Achicar `workflow-public-api.ts` a reexports de fachadas.
 4. Mover transversales a `lib/` al final.
 

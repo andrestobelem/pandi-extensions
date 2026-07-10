@@ -5,7 +5,7 @@
  * and update active runs without importing the workflow engine back through a
  * circular runtime edge.
  */
-import type { ActiveWorkflowRun } from "./types.js";
+import type { ActiveWorkflowRun } from "../types.js";
 
 const activeRuns = new Map<string, ActiveWorkflowRun>();
 

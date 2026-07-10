@@ -1,16 +1,13 @@
 /**
  * Arranque en segundo plano de workflows — estado inicial, preferencia de background
- * y registro del run activo. Extraído de run-lifecycle.ts sin cambio de comportamiento.
+ * y registro del run activo. Parte del deep module lifecycle sin cambio de comportamiento.
  */
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { notifyWorkflowResult } from "./run-lifecycle-notify.js";
-import { registerActiveRun, unregisterActiveRun } from "./run-registry.js";
-import { shouldSuppressReloadHandoffResult } from "./run-reload-handoff.js";
-import { formatParallelAgents } from "./run-state.js";
-import { formatRunSummary, refreshActiveWorkflowStatus } from "./run-status-ui.js";
-import { writeJsonFile, writeRunStatus } from "./run-store.js";
+import { formatParallelAgents } from "../run-state.js";
+import { formatRunSummary, refreshActiveWorkflowStatus } from "../run-status-ui.js";
+import { writeJsonFile, writeRunStatus } from "../run-store.js";
 import type {
 	ActiveWorkflowRun,
 	PreparedWorkflowRun,
@@ -18,10 +15,13 @@ import type {
 	WorkflowDefinition,
 	WorkflowRunResult,
 	WorkflowRunStatus,
-} from "./types.js";
-import { runWorkflow } from "./workflow-engine.js";
-import { preflightWorkflowLaunch } from "./workflow-preflight.js";
-import { prepareWorkflowRun } from "./workflow-run-prepare.js";
+} from "../types.js";
+import { runWorkflow } from "../workflow-engine.js";
+import { preflightWorkflowLaunch } from "../workflow-preflight.js";
+import { prepareWorkflowRun } from "../workflow-run-prepare.js";
+import { notifyWorkflowResult } from "./notify.js";
+import { registerActiveRun, unregisterActiveRun } from "./registry.js";
+import { shouldSuppressReloadHandoffResult } from "./reload-handoff.js";
 
 function initialRunStatus(
 	workflow: WorkflowDefinition,

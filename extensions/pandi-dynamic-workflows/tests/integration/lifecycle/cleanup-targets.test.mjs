@@ -6,7 +6,7 @@
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { buildExtension, createChecker, REPO_ROOT, sdkStub } from "../../../shared/test/harness.mjs";
+import { buildExtension, createChecker, REPO_ROOT, sdkStub } from "../../../../shared/test/harness.mjs";
 
 const { check, counts } = createChecker();
 const oldDate = new Date("2026-06-01T00:00:00Z");

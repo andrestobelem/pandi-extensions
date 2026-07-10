@@ -8,7 +8,7 @@
  * recientes se conservan con razón.
  */
 import * as path from "node:path";
-import { buildExtension, createChecker, REPO_ROOT, sdkStub } from "../../../shared/test/harness.mjs";
+import { buildExtension, createChecker, REPO_ROOT, sdkStub } from "../../../../shared/test/harness.mjs";
 
 const { check, counts } = createChecker();
 const NOW = Date.parse("2026-07-01T00:00:00Z");
@@ -17,8 +17,8 @@ const hour = 60 * 60 * 1000;
 async function loadModule() {
 	const { url } = await buildExtension({
 		name: "pi-dwf-cleanup-inventory",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "cleanup-inventory.ts"),
-		outName: "cleanup-inventory.mjs",
+		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "lifecycle", "inventory.ts"),
+		outName: "inventory.mjs",
 		stubs: {
 			typebox: true,
 			typeboxValue: true,

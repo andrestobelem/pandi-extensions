@@ -1,17 +1,17 @@
 /**
  * Reload handoff — interrumpe runs activos en /reload y los reanuda en la instancia fresca.
  *
- * Extraído de run-lifecycle.ts sin cambio de comportamiento. El store vive en globalThis
+ * Parte del deep module lifecycle sin cambio de comportamiento. El store vive en globalThis
  * para sobrevivir al swap de módulos de la extensión.
  *
- * Import dinámico de run-lifecycle en los entry points para evitar ciclo de carga
+ * Import dinámico de resume/notify/cleanup en los entry points para evitar ciclo de carga
  * (lifecycle importa shouldSuppress de acá; acá necesita resume/notify/settle en runtime).
  */
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { notify } from "./notify.js";
-import { clearActiveRuns, listActiveRuns } from "./run-registry.js";
-import { refreshActiveWorkflowStatus } from "./run-status-ui.js";
-import type { ActiveWorkflowRun, RunLimits, WorkflowRunResult } from "./types.js";
+import { notify } from "../notify.js";
+import { refreshActiveWorkflowStatus } from "../run-status-ui.js";
+import type { ActiveWorkflowRun, RunLimits, WorkflowRunResult } from "../types.js";
+import { clearActiveRuns, listActiveRuns } from "./registry.js";
 
 const RELOAD_INTERRUPT_REASON =
 	"Workflow interrupted by /reload; the new extension instance will resume this run from the journal.";
@@ -79,7 +79,7 @@ async function resolveWithinTimeout<T>(
 }
 
 export async function interruptActiveWorkflowRunsForReload(): Promise<{ interrupted: string[] }> {
-	const { settleWithinTimeout } = await import("./run-lifecycle.js");
+	const { settleWithinTimeout } = await import("./cleanup.js");
 	const runs = listActiveRuns();
 	if (runs.length === 0) return { interrupted: [] };
 	const store = reloadHandoffStore();
@@ -103,7 +103,8 @@ export async function resumeReloadInterruptedWorkflowRuns(
 	pi: ExtensionAPI,
 	ctx: ExtensionContext,
 ): Promise<{ resumed: string[]; settled: string[]; skipped: string[]; failed: string[] }> {
-	const { notifyWorkflowResult, resumeWorkflow } = await import("./run-lifecycle.js");
+	const { notifyWorkflowResult } = await import("./notify.js");
+	const { resumeWorkflow } = await import("./resume.js");
 	const store = reloadHandoffStore();
 	const entries = [...store.values()].filter((entry) => entry.cwd === ctx.cwd && !entry.resuming);
 	for (const entry of entries) entry.resuming = true;

@@ -1,11 +1,11 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { installWorkflowDashboardDownEditor } from "./dashboard-down-editor.js";
-import { startPiSessionHeartbeat, stopPiSessionHeartbeat } from "./pi-session.js";
 import {
 	abortActiveWorkflowRuns,
 	interruptActiveWorkflowRunsForReload,
 	resumeReloadInterruptedWorkflowRuns,
-} from "./run-lifecycle.js";
+} from "./lifecycle/index.js";
+import { startPiSessionHeartbeat, stopPiSessionHeartbeat } from "./pi-session.js";
 import { clearWorkflowWidget, refreshActiveWorkflowStatus, setWorkflowIdleStatus } from "./run-status-ui.js";
 import {
 	clearUltracodeContractGateStatus,

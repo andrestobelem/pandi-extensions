@@ -3,17 +3,17 @@
  * quoting de argumentos de comando y la ruta de run foreground runWorkflowWithUi.
  * La capa UI sobre el engine runWorkflow y el componente WorkflowDashboard vive en dashboard-open.ts.
  *
- * Ciclos totalmente diferidos: run-lifecycle.ts importa runWorkflowWithUi; dashboard-open.ts importa
+ * Ciclos totalmente diferidos: lifecycle/ importa runWorkflowWithUi; dashboard-open.ts importa
  * switchToPiSession y runWorkflowWithUi; dashboard-down-editor.ts importa openWorkflowDashboard
  * (reexportado desde acá) y los tipos Dashboard{CommandSubmitter,Opener}.
  */
 import { existsSync } from "node:fs";
 import * as path from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { activeRunCount } from "./lifecycle/index.js";
 import { notify } from "./notify.js";
 import type { PiSessionModel } from "./pi-session.js";
 import { sessionManagerMetadata } from "./pi-session.js";
-import { activeRunCount } from "./run-registry.js";
 import {
 	clearWorkflowWidget,
 	setWorkflowErrorStatus,

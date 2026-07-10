@@ -6,17 +6,17 @@
  * stale pre-reload no debe emitir el wake-up esperado de falla por interrupción de reload.
  *
  * Ejecutalo:
- *   node extensions/pandi-dynamic-workflows/tests/integration/reload-handoff.test.mjs
+ *   node extensions/pandi-dynamic-workflows/tests/integration/lifecycle/reload-handoff.test.mjs
  */
 
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createChecker, sdkStub, buildExtension as sharedBuildExtension } from "../../../shared/test/harness.mjs";
+import { createChecker, sdkStub, buildExtension as sharedBuildExtension } from "../../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
+const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 const { check, counts } = createChecker();
 
 const BARRIER_STARTED = "barrier-started";
@@ -58,8 +58,8 @@ async function buildExtension() {
 async function buildLifecycleModule() {
 	return await sharedBuildExtension({
 		name: "pi-dw-reload-lifecycle",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "run-lifecycle.ts"),
-		outName: "run-lifecycle.mjs",
+		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "lifecycle", "index.ts"),
+		outName: "lifecycle.mjs",
 		stubs: {
 			typebox: true,
 			typeboxValue: true,

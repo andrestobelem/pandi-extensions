@@ -7,7 +7,7 @@
  * entre roots). Movido textualmente desde index.ts (preserva comportamiento), incluida
  * la derivación live de staleness de readRunStatus contra el registro de runs activos.
  *
- * Las deps runtime desde index.ts (getRunRoots) y run-registry.ts, más safeJson desde
+ * Las deps runtime desde index.ts (getRunRoots) y lifecycle/registry, más safeJson desde
  * ./format.js, se usan SOLO dentro de cuerpos de función, así que el ciclo ESM run-store.ts <-> index.ts
  * queda totalmente diferido (sin uso cruzado top-level); los tipos vienen vía `import type`
  * (borrados). Sibling de profundidad uno para que se shipee bajo el glob `files`.
@@ -20,7 +20,7 @@ import * as path from "node:path";
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { safeJson } from "./format.js";
-import { hasActiveRun } from "./run-registry.js";
+import { hasActiveRun } from "./lifecycle/index.js";
 import type { WorkflowRunRecord, WorkflowRunResult, WorkflowRunStatus } from "./types.js";
 import { getRunRoots } from "./workflow-resolve.js";
 

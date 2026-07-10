@@ -18,20 +18,20 @@ import {
 import type { WorkflowDashboardOpenOptions } from "./dashboard-orchestration.js";
 import { runWorkflowWithUi, switchToPiSession } from "./dashboard-orchestration.js";
 import { stringify } from "./format.js";
-import { notify } from "./notify.js";
-import type { WorkflowPattern } from "./pattern-scaffolds.js";
-import { loadWorkflowPatternCode } from "./pattern-scaffolds.js";
-import { collectPiSessions, prunePiSessionFiles } from "./pi-session.js";
 import {
 	cancelWorkflowRun,
 	cleanupWorkflowRuns,
 	DEFAULT_CLEANUP_KEEP,
 	deleteWorkflowRun,
 	formatBackgroundStart,
+	listActiveRuns,
 	shouldLaunchWorkflowInBackground,
 	startWorkflowBackground,
-} from "./run-lifecycle.js";
-import { listActiveRuns } from "./run-registry.js";
+} from "./lifecycle/index.js";
+import { notify } from "./notify.js";
+import type { WorkflowPattern } from "./pattern-scaffolds.js";
+import { loadWorkflowPatternCode } from "./pattern-scaffolds.js";
+import { collectPiSessions, prunePiSessionFiles } from "./pi-session.js";
 import { getRunStatusLabel } from "./run-state.js";
 import { canCancelRun, formatRunSummary } from "./run-status-ui.js";
 import { listRuns, showRunView } from "./run-view.js";

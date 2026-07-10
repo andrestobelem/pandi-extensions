@@ -1,23 +1,21 @@
 import * as fs from "node:fs/promises";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import {
-	cleanupWorkflowDrafts,
-	cleanupWorkflowTmp,
-	formatCleanupInventory,
-	inventoryWorkflowRuns,
-} from "./cleanup-inventory.js";
 import { buildLimits, limitParamsFromInput, parseCliJsonOrText } from "./config.js";
 import { runWorkflowWithUi } from "./dashboard-orchestration.js";
-import { notify } from "./notify.js";
-import { prunePiSessionFiles } from "./pi-session.js";
 import {
 	cancelWorkflowRun,
+	cleanupWorkflowDrafts,
 	cleanupWorkflowRuns,
+	cleanupWorkflowTmp,
 	deleteWorkflowRun,
 	formatBackgroundStart,
+	formatCleanupInventory,
+	inventoryWorkflowRuns,
 	shouldLaunchWorkflowInBackground,
 	startWorkflowBackground,
-} from "./run-lifecycle.js";
+} from "./lifecycle/index.js";
+import { notify } from "./notify.js";
+import { prunePiSessionFiles } from "./pi-session.js";
 import { getRunStatusLabel } from "./run-state.js";
 import { canCancelRun, formatRunSummary, showText } from "./run-status-ui.js";
 import { resolveRun } from "./run-view.js";

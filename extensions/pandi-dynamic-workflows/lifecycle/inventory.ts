@@ -2,11 +2,11 @@ import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { CONFIG_DIR_NAME, type ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { activeRunIds } from "./run-registry.js";
-import { getRunState } from "./run-state.js";
-import { listRuns } from "./run-view.js";
-import type { WorkflowRunRecord, WorkflowRunState } from "./types.js";
-import { WORKFLOW_DRAFT_DIR } from "./workflow-resolve.js";
+import { getRunState } from "../run-state.js";
+import { listRuns } from "../run-view.js";
+import type { WorkflowRunRecord, WorkflowRunState } from "../types.js";
+import { WORKFLOW_DRAFT_DIR } from "../workflow-resolve.js";
+import { activeRunIds } from "./registry.js";
 
 export type CleanupTarget = "sessions" | "runs" | "drafts" | "tmp";
 export type CleanupAction = "delete" | "keep";

@@ -4,7 +4,7 @@
  * por el engine y los command handlers (showWorkflowGraph queda en index.ts con los tipos de graph
  * que renderiza).
  *
- * Ciclo diferido: refreshActiveWorkflowStatus usa run-registry.ts dentro de su cuerpo y el engine
+ * Ciclo diferido: refreshActiveWorkflowStatus usa lifecycle/registry dentro de su cuerpo y el engine
  * llama de vuelta a los helpers setWorkflow*Status; los siblings importan desde acá
  * los helpers de resumen/status de run. Es dueño de sus dos consts de status-key del host. Los tipos Record
  * cruzan como import type. Extraído byte-idéntico.
@@ -13,10 +13,10 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth } from "@earendil-works/pi-tui";
 import { MAX_TOOL_TEXT, stringify } from "./format.js";
+import { activeRunCount, hasActiveRun } from "./lifecycle/index.js";
 import { notify } from "./notify.js";
 import { shortWorkflowName, workflowDashboardHint, workflowProgress, workflowProgressLabel } from "./presentation.js";
 import { renderSafeInline } from "./render-utils.js";
-import { activeRunCount, hasActiveRun } from "./run-registry.js";
 import { formatParallelAgents, formatParallelAgentsCompact, getRunState, getRunStatusLabel } from "./run-state.js";
 import type { WorkflowLogEntry, WorkflowRunRecord, WorkflowRunResult, WorkflowRunStatus } from "./types.js";
 

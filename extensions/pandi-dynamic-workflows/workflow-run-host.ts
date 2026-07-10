@@ -4,8 +4,8 @@ import * as path from "node:path";
 import { AsyncMutex, throwIfAborted } from "./concurrency-primitives.js";
 import { appendJsonLine } from "./file-append.js";
 import { safeJson } from "./format.js";
+import { hasActiveRun } from "./lifecycle/index.js";
 import { resolveArtifactPath } from "./path-safety.js";
-import { hasActiveRun } from "./run-registry.js";
 import { writeRunStatus } from "./run-store.js";
 import type {
 	PreparedWorkflowRun,
