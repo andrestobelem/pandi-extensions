@@ -1,20 +1,18 @@
 /**
  * Orquestación del dashboard — cambio de sesión Pi, draft-from-pattern helpers compartidos,
- * quoting de argumentos de comando. runWorkflowWithUi vive en lifecycle/run-with-ui; se reexporta acá
- * para back-compat de dashboard-open y la fachada tui.
+ * quoting de argumentos de comando. runWorkflowWithUi vive en lifecycle/run-with-ui; dashboard-open
+ * lo importa desde lifecycle.
  *
- * dashboard-open.ts importa switchToPiSession y runWorkflowWithUi; dashboard-down-editor.ts importa
+ * dashboard-open.ts importa switchToPiSession; dashboard-down-editor.ts importa
  * openWorkflowDashboard (reexportado desde acá) y los tipos Dashboard{CommandSubmitter,Opener}.
  */
 import { existsSync } from "node:fs";
 import * as path from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { notify } from "../lib/notify.js";
-import { activeRunCount, runWorkflowWithUi } from "../lifecycle/index.js";
+import { activeRunCount } from "../lifecycle/index.js";
 import type { PiSessionModel } from "../pi-session.js";
 import { sessionManagerMetadata } from "../pi-session.js";
-
-export { runWorkflowWithUi };
 
 export type DashboardCommandSubmitter = (command: string) => void;
 export type DashboardOpener = (submitCommand?: DashboardCommandSubmitter) => Promise<void>;

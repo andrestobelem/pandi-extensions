@@ -10,7 +10,8 @@
  */
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { notify } from "../lib/notify.js";
-import { clearWorkflowWidget, openWorkflowDashboard } from "../tui/index.js";
+import { clearWorkflowWidget } from "../lifecycle/index.js";
+import { openWorkflowDashboard } from "../tui/index.js";
 import { handleBrowseWorkflowCommand } from "./command-browse.js";
 import { handleLifecycleWorkflowCommand } from "./command-lifecycle.js";
 

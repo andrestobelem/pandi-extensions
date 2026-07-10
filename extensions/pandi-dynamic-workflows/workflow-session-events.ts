@@ -1,16 +1,14 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import {
 	abortActiveWorkflowRuns,
+	clearWorkflowWidget,
 	interruptActiveWorkflowRunsForReload,
+	refreshActiveWorkflowStatus,
 	resumeReloadInterruptedWorkflowRuns,
+	setWorkflowIdleStatus,
 } from "./lifecycle/index.js";
 import { startPiSessionHeartbeat, stopPiSessionHeartbeat } from "./pi-session.js";
-import {
-	clearWorkflowWidget,
-	installWorkflowDashboardDownEditor,
-	refreshActiveWorkflowStatus,
-	setWorkflowIdleStatus,
-} from "./tui/index.js";
+import { installWorkflowDashboardDownEditor } from "./tui/index.js";
 import {
 	clearUltracodeContractGateStatus,
 	clearUltracodeStatus,

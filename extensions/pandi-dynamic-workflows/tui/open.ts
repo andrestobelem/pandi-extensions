@@ -20,6 +20,7 @@ import {
 	deleteWorkflowRun,
 	formatBackgroundStart,
 	listActiveRuns,
+	runWorkflowWithUi,
 	shouldLaunchWorkflowInBackground,
 	startWorkflowBackground,
 } from "../lifecycle/index.js";
@@ -37,7 +38,7 @@ import type { DashboardSelection, WorkflowDashboardTab } from "./dashboard.js";
 import { WorkflowDashboard } from "./dashboard.js";
 import { showWorkflowGraph } from "./graph/index.js";
 import type { WorkflowDashboardOpenOptions } from "./orchestration.js";
-import { runWorkflowWithUi, switchToPiSession } from "./orchestration.js";
+import { switchToPiSession } from "./orchestration.js";
 import { showRunView } from "./run-view.js";
 import { canCancelRun, formatRunSummary } from "./status-ui.js";
 
@@ -117,6 +118,7 @@ export async function openWorkflowDashboard(
 		);
 		return;
 	}
+	const sessionPicker = initialTab === "sessions";
 	let currentTab = initialTab;
 	let restore: DashboardSelection | undefined;
 	// Loop de reapertura: las acciones no terminales (view/graph/agent/cancel/delete/rerun/run)
@@ -150,6 +152,7 @@ export async function openWorkflowDashboard(
 					done,
 					currentTab,
 					restore,
+					sessionPicker,
 				);
 				const refresh = async () => {
 					if (refreshing || !dashboard) return;

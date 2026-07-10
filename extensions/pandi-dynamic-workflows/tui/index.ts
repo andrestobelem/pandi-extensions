@@ -53,7 +53,6 @@ export type {
 export {
 	openWorkflowDashboard,
 	parseWorkflowCommandArgument,
-	runWorkflowWithUi,
 	switchToPiSession,
 } from "./orchestration.js";
 export {
@@ -63,16 +62,4 @@ export {
 	pickAndOpenRunArtifact,
 	showRunView,
 } from "./run-view.js";
-export {
-	canCancelRun,
-	clearWorkflowWidget,
-	formatRunSummary,
-	isActiveRunRecord,
-	refreshActiveWorkflowStatus,
-	setWorkflowErrorStatus,
-	setWorkflowFinishedStatus,
-	setWorkflowIdleStatus,
-	setWorkflowRunningStatus,
-	setWorkflowWidget,
-	showText,
-} from "./status-ui.js";
+export { canCancelRun, formatRunSummary, isActiveRunRecord, showText } from "./status-ui.js";
