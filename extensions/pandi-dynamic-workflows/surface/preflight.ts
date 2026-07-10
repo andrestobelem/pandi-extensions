@@ -1,10 +1,10 @@
 import * as fs from "node:fs/promises";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { computeCodeHash } from "./journal.js";
-import type { WorkflowGraphModel } from "./tui/graph/index.js";
-import { buildWorkflowGraphModelWithSubworkflows } from "./tui/graph/index.js";
-import type { WorkflowDefinition } from "./types.js";
-import { transformWorkflowCode } from "./workflow-transform.js";
+import { computeCodeHash } from "../journal.js";
+import type { WorkflowGraphModel } from "../tui/graph/index.js";
+import { buildWorkflowGraphModelWithSubworkflows } from "../tui/graph/index.js";
+import type { WorkflowDefinition } from "../types.js";
+import { transformWorkflowCode } from "./transform.js";
 
 export interface WorkflowPreflightResult {
 	workflow: WorkflowDefinition;

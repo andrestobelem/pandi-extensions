@@ -5,8 +5,8 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { resolveWorkflow } from "../../surface/index.js";
 import type { WorkflowDefinition } from "../../types.js";
-import { resolveWorkflow } from "../../workflow-resolve.js";
 import {
 	extractDirectStringLiteralArgument,
 	extractFirstStringLiteral,

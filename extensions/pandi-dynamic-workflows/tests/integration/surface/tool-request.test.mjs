@@ -7,14 +7,14 @@
  * run, pattern scaffold, or collection action.
  */
 import * as path from "node:path";
-import { buildExtension, createChecker, REPO_ROOT } from "../../../shared/test/harness.mjs";
+import { buildExtension, createChecker, REPO_ROOT } from "../../../../shared/test/harness.mjs";
 
 const { check, counts } = createChecker();
 
 async function loadModule() {
 	const { url } = await buildExtension({
 		name: "pandi-dwf-workflow-tool-request",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "workflow-tool-request.ts"),
+		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "surface", "tool-request.ts"),
 		outName: "workflow-tool-request.mjs",
 		stubs: { typebox: true, typeboxValue: true, ai: true, tui: true, sdk: (dir) => dir && "" },
 	});

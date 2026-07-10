@@ -33,6 +33,17 @@ export {
 	PI_SESSION_HEARTBEAT_MS,
 	PROCESS_KILL_GRACE_MS,
 } from "./runtime-constants.js";
+export {
+	formatWorkflowPreflightSummary,
+	preflightWorkflowLaunch,
+	resolveWorkflowMenu,
+	transformWorkflowCode,
+	WORKFLOW_DIR,
+	WORKFLOW_DRAFT_DIR,
+	WORKFLOW_GRAPH_DIR,
+	WORKFLOW_RUN_DIR,
+	type WorkflowPreflightResult,
+} from "./surface/index.js";
 export { countRunArtifacts, liveAgentHeaderStatus, selectRunByKey } from "./tui/index.js";
 export type {
 	ActiveWorkflowRun,
@@ -64,17 +75,4 @@ export type {
 export { extractUltracodeTask } from "./ultracode/index.js";
 export { currentWorkflowDepth, maxWorkflowDepth } from "./workflow-depth.js";
 export { runWorkflow } from "./workflow-engine.js";
-export { resolveWorkflowMenu } from "./workflow-menu.js";
-export {
-	formatWorkflowPreflightSummary,
-	preflightWorkflowLaunch,
-	type WorkflowPreflightResult,
-} from "./workflow-preflight.js";
-export {
-	WORKFLOW_DIR,
-	WORKFLOW_DRAFT_DIR,
-	WORKFLOW_GRAPH_DIR,
-	WORKFLOW_RUN_DIR,
-} from "./workflow-resolve.js";
 export { prepareWorkflowRun } from "./workflow-run-prepare.js";
-export { transformWorkflowCode } from "./workflow-transform.js";

@@ -18,8 +18,8 @@ import * as path from "node:path";
 import { appendJsonLine } from "./file-append.js";
 import { truncate } from "./format.js";
 import { JOURNAL_FILE, MAX_AGENT_OUTPUT_IN_RESULT, MAX_JOURNALED_STREAM } from "./runtime-constants.js";
+import { transformWorkflowCode } from "./surface/index.js";
 import type { AskResult, BashResult, JournalCache, JournalRecord, SubagentResult } from "./types.js";
-import { transformWorkflowCode } from "./workflow-transform.js";
 
 // --- Runs resumibles: diario de cache content-address ---
 

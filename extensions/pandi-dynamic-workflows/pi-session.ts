@@ -21,7 +21,7 @@ import { activeRunCount } from "./lifecycle/index.js";
 import { formatElapsedMs } from "./presentation.js";
 import { writeJsonFile } from "./run-store.js";
 import { PI_SESSION_HEARTBEAT_MS } from "./runtime-constants.js";
-import { ensureDir, projectHash } from "./workflow-resolve.js";
+import { ensureDir, projectHash } from "./surface/index.js";
 
 const PI_LIVE_SESSION_DIR = "live-sessions";
 const PI_SESSION_STALE_MS = 20_000;

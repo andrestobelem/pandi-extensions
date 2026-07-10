@@ -43,7 +43,7 @@ function lineSpan(text, marker, lineCount = 1) {
 
 const SURFACES = {
 	"workflow tool prompt": {
-		path: path.join(EXT_DIR, "workflow-tool-contract.ts"),
+		path: path.join(EXT_DIR, "surface", "tool-contract.ts"),
 		hasPersona: (text, name) => lineSpan(text, "agentType:'explore'").includes(`'${name}'`),
 	},
 	"primitives/agent.md": {

@@ -30,7 +30,7 @@
  */
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { createChecker, REPO_ROOT } from "../../../shared/test/harness.mjs";
+import { createChecker, REPO_ROOT } from "../../../../shared/test/harness.mjs";
 
 const { check, counts } = createChecker();
 

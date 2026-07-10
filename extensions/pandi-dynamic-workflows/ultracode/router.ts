@@ -9,7 +9,7 @@
  */
 
 import { CONFIG_DIR_NAME, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { formatWorkflowCompositionPromptSummary, formatWorkflowPatternKeyList } from "../pattern-scaffolds.js";
+import { formatWorkflowCompositionPromptSummary, formatWorkflowPatternKeyList } from "../surface/index.js";
 
 const ULTRACODE_STATUS_KEY = "dynamic-workflows-ultracode";
 const ULTRACODE_CONTRACT_STATUS_KEY = "dynamic-workflows-ultracode-contract";

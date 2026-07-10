@@ -9,10 +9,10 @@
  * Extracted byte-identically.
  */
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { notify } from "./notify.js";
-import { clearWorkflowWidget, openWorkflowDashboard } from "./tui/index.js";
-import { handleBrowseWorkflowCommand } from "./workflow-command-browse.js";
-import { handleLifecycleWorkflowCommand } from "./workflow-command-lifecycle.js";
+import { notify } from "../notify.js";
+import { clearWorkflowWidget, openWorkflowDashboard } from "../tui/index.js";
+import { handleBrowseWorkflowCommand } from "./command-browse.js";
+import { handleLifecycleWorkflowCommand } from "./command-lifecycle.js";
 
 export {
 	type CleanupArgs,
@@ -21,8 +21,8 @@ export {
 	parseCleanupArgs,
 	parseRunReportArgs,
 	type RunReportCommandArgs,
-} from "./workflow-command-parsers.js";
-export { handleTool } from "./workflow-tool-handler.js";
+} from "./command-parsers.js";
+export { handleTool } from "./tool-handler.js";
 
 export async function handleWorkflowCommand(pi: ExtensionAPI, args: string, ctx: ExtensionContext): Promise<void> {
 	const trimmed = args.trim();

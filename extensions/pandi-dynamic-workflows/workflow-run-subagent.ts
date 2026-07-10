@@ -27,10 +27,10 @@ import {
 	makeStructuredOutputSystemPrompt,
 	validateStructuredData,
 } from "./structured-output.js";
+import { slugify } from "./surface/index.js";
 import type { JournalCache, RunLimits, SubagentResult } from "./types.js";
 import { buildAgentProcess, hostBinName, sanitizeAgentOpts } from "./workflow-agent-process.js";
 import { currentWorkflowDepth, WORKFLOW_DEPTH_ENV } from "./workflow-depth.js";
-import { slugify } from "./workflow-resolve.js";
 import { finalizeSubagentResult } from "./workflow-run-subagent-finalize.js";
 import {
 	type InternalAgentOptions,

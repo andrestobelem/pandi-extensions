@@ -7,6 +7,7 @@ import { safeJson } from "./format.js";
 import { hasActiveRun } from "./lifecycle/index.js";
 import { resolveArtifactPath } from "./path-safety.js";
 import { writeRunStatus } from "./run-store.js";
+import { ensureDir } from "./surface/index.js";
 import type {
 	PreparedWorkflowRun,
 	RunLimits,
@@ -17,7 +18,6 @@ import type {
 	WorkflowRunState,
 	WorkflowRunStatus,
 } from "./types.js";
-import { ensureDir } from "./workflow-resolve.js";
 
 export type WorkflowRunHostDeps = {
 	runDir: string;

@@ -10,13 +10,26 @@
  * así que el lookup sibling vale tanto en dev como en layouts instalados.
  */
 
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { WorkflowPattern } from "./catalog.js";
 import { WORKFLOW_PATTERN_CATALOG } from "./catalog.js";
 
-const SCAFFOLDS_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "scaffolds");
+// En bundle de tests (archivo en la raíz del package): ./scaffolds.
+// En fuente (surface/*.ts vía jiti): ../scaffolds. Lazy para no fallar en import time.
+const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
+let scaffoldsDirCache: string | null = null;
+function scaffoldsDir(): string {
+	if (scaffoldsDirCache) return scaffoldsDirCache;
+	for (const dir of [path.join(MODULE_DIR, "scaffolds"), path.join(MODULE_DIR, "..", "scaffolds")]) {
+		if (existsSync(dir)) {
+			scaffoldsDirCache = dir;
+			return dir;
+		}
+	}
+	throw new Error(`Workflow scaffolds directory not found next to ${MODULE_DIR}`);
+}
 
 let scaffoldSourcesCache: Record<string, string> | null = null;
 // Leé cada scaffolds/<key>.js en un map nombre->fuente, una vez y lazy (cacheado). El IO sync está
@@ -24,8 +37,8 @@ let scaffoldSourcesCache: Record<string, string> | null = null;
 function scaffoldSources(): Record<string, string> {
 	if (scaffoldSourcesCache) return scaffoldSourcesCache;
 	const map: Record<string, string> = {};
-	for (const file of readdirSync(SCAFFOLDS_DIR)) {
-		if (file.endsWith(".js")) map[file.slice(0, -3)] = readFileSync(path.join(SCAFFOLDS_DIR, file), "utf8");
+	for (const file of readdirSync(scaffoldsDir())) {
+		if (file.endsWith(".js")) map[file.slice(0, -3)] = readFileSync(path.join(scaffoldsDir(), file), "utf8");
 	}
 	scaffoldSourcesCache = map;
 	return map;
@@ -62,7 +75,7 @@ function scaffoldSourceFor(pattern: WorkflowPattern): string {
 
 /** Ruta predecible del asset canónico para una clave ya validada por el catálogo. */
 export function getWorkflowPatternPath(pattern: WorkflowPattern): string {
-	return path.join(SCAFFOLDS_DIR, `${pattern.key}.js`);
+	return path.join(scaffoldsDir(), `${pattern.key}.js`);
 }
 
 export async function loadWorkflowPatternCode(pattern: WorkflowPattern): Promise<string> {

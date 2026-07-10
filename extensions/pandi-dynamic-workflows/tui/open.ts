@@ -20,12 +20,17 @@ import {
 	startWorkflowBackground,
 } from "../lifecycle/index.js";
 import { notify } from "../notify.js";
-import type { WorkflowPattern } from "../pattern-scaffolds.js";
-import { loadWorkflowPatternCode } from "../pattern-scaffolds.js";
 import { collectPiSessions, prunePiSessionFiles } from "../pi-session.js";
 import { getRunStatusLabel } from "../run-state.js";
+import type { WorkflowPattern } from "../surface/index.js";
+import {
+	ensureDir,
+	listWorkflows,
+	loadWorkflowPatternCode,
+	resolveWorkflow,
+	resolveWorkflowForRun,
+} from "../surface/index.js";
 import type { WorkflowDefinition, WorkflowRunRecord } from "../types.js";
-import { ensureDir, listWorkflows, resolveWorkflow, resolveWorkflowForRun } from "../workflow-resolve.js";
 import { showLiveAgentView } from "./agent-view.js";
 import {
 	collectWorkflowActivity,

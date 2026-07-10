@@ -13,15 +13,15 @@ import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { CONFIG_DIR_NAME, type ExtensionContext, getAgentDir } from "@earendil-works/pi-coding-agent";
-import { resolveInsideRoot } from "./path-safety.js";
-import { getWorkflowPatternPath, resolveWorkflowPattern, WORKFLOW_PATTERN_CATALOG } from "./pattern-scaffolds.js";
+import { resolveInsideRoot } from "../path-safety.js";
 import type {
 	WorkflowDefinition,
 	WorkflowLocation,
 	WorkflowRunRecord,
 	WorkflowScope,
 	WorkflowScopeInput,
-} from "./types.js";
+} from "../types.js";
+import { getWorkflowPatternPath, resolveWorkflowPattern, WORKFLOW_PATTERN_CATALOG } from "./pattern-scaffolds.js";
 
 export const WORKFLOW_DIR = "workflows";
 export const WORKFLOW_DRAFT_DIR = path.join(WORKFLOW_DIR, "drafts");

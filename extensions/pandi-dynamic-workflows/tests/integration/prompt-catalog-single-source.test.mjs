@@ -42,7 +42,7 @@ async function buildTemplates() {
 	// pattern-scaffolds.ts no tiene imports de peer-dependency, así que no hacen falta stubs.
 	const { url } = await sharedBuildExtension({
 		name: "pi-dwf-prompt-ssot",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "pattern-scaffolds.ts"),
+		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "surface", "pattern-scaffolds.ts"),
 		outName: "pattern-scaffolds.mjs",
 	});
 	return url;

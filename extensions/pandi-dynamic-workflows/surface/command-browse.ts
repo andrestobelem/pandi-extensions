@@ -2,20 +2,13 @@ import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { CONFIG_DIR_NAME, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { parseCliJsonOrText } from "./config.js";
-import { notify } from "./notify.js";
-import { writeRunReport } from "./observe/index.js";
-import {
-	formatWorkflowPatternCatalog,
-	getDefaultScaffold,
-	loadWorkflowPatternCode,
-	resolveWorkflowPattern,
-	WORKFLOW_PATTERN_CATALOG,
-} from "./pattern-scaffolds.js";
-import { collectPiSessions, formatPiSessionList } from "./pi-session.js";
-import { formatDraftUsageIndex, formatWorkflowList } from "./presentation.js";
-import { getRunState } from "./run-state.js";
-import { showWorkflowGraph } from "./tui/graph/index.js";
+import { parseCliJsonOrText } from "../config.js";
+import { notify } from "../notify.js";
+import { writeRunReport } from "../observe/index.js";
+import { collectPiSessions, formatPiSessionList } from "../pi-session.js";
+import { formatDraftUsageIndex, formatWorkflowList } from "../presentation.js";
+import { getRunState } from "../run-state.js";
+import { showWorkflowGraph } from "../tui/graph/index.js";
 import {
 	formatRunList,
 	listRuns,
@@ -25,10 +18,17 @@ import {
 	showRunView,
 	showText,
 	switchToPiSession,
-} from "./tui/index.js";
-import { parseRunReportArgs } from "./workflow-command-parsers.js";
-import { formatWorkflowPreflightSummary, preflightWorkflowLaunch } from "./workflow-preflight.js";
-import { ensureDir, listWorkflows, parsePatternFlag, resolveWorkflow, WORKFLOW_DRAFT_DIR } from "./workflow-resolve.js";
+} from "../tui/index.js";
+import { parseRunReportArgs } from "./command-parsers.js";
+import {
+	formatWorkflowPatternCatalog,
+	getDefaultScaffold,
+	loadWorkflowPatternCode,
+	resolveWorkflowPattern,
+	WORKFLOW_PATTERN_CATALOG,
+} from "./pattern-scaffolds.js";
+import { formatWorkflowPreflightSummary, preflightWorkflowLaunch } from "./preflight.js";
+import { ensureDir, listWorkflows, parsePatternFlag, resolveWorkflow, WORKFLOW_DRAFT_DIR } from "./resolve.js";
 
 export type WorkflowCommandParsed = {
 	action: string;

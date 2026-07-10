@@ -7,6 +7,7 @@ import { computeCodeHash } from "./journal.js";
 import { type AgentFocusMetrics, aggregateRunFocusMetrics, formatFocusMetricsMarkdown } from "./observe/index.js";
 import { OccurrenceCounter } from "./occurrence-counter.js";
 import { writeJsonFile, writeRunStatus } from "./run-store.js";
+import { ensureDir, preflightWorkflowLaunch } from "./surface/index.js";
 import { formatRunSummary } from "./tui/index.js";
 import type {
 	PreparedWorkflowRun,
@@ -20,8 +21,6 @@ import type {
 } from "./types.js";
 import type { BashAskContext } from "./workflow-bash-ask.js";
 import { makeApi } from "./workflow-make-api.js";
-import { preflightWorkflowLaunch } from "./workflow-preflight.js";
-import { ensureDir } from "./workflow-resolve.js";
 import { createWorkflowRunHost } from "./workflow-run-host.js";
 import { prepareWorkflowRun } from "./workflow-run-prepare.js";
 import { writeWorkflowRunSnapshots } from "./workflow-run-snapshots.js";

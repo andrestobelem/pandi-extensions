@@ -1,9 +1,9 @@
 import { StringEnum } from "@earendil-works/pi-ai";
 import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import { HARD_MAX_AGENTS, HARD_MAX_CONCURRENCY } from "./config.js";
+import { HARD_MAX_AGENTS, HARD_MAX_CONCURRENCY } from "../config.js";
+import type { DynamicWorkflowAction } from "../types.js";
 import { formatWorkflowCompositionPromptSummary, formatWorkflowPatternKeyList } from "./pattern-scaffolds.js";
-import type { DynamicWorkflowAction } from "./types.js";
 
 export const TOOL_ACTIONS = [
 	"list",

@@ -50,7 +50,7 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const SCAFFOLDS_DIR = path.resolve(__dirname, "..", "..", "scaffolds");
+const SCAFFOLDS_DIR = path.resolve(__dirname, "..", "..", "..", "scaffolds");
 
 const CANONICAL_TIERS = `const TIERS = { cheap: "haiku", balanced: "sonnet", deep: "opus" };`;
 const VALID_TIERS = new Set(["cheap", "balanced", "deep"]);

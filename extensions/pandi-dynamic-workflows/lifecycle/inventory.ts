@@ -3,9 +3,9 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { CONFIG_DIR_NAME, type ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { getRunState } from "../run-state.js";
+import { WORKFLOW_DRAFT_DIR } from "../surface/index.js";
 import { listRuns } from "../tui/index.js";
 import type { WorkflowRunRecord, WorkflowRunState } from "../types.js";
-import { WORKFLOW_DRAFT_DIR } from "../workflow-resolve.js";
 import { activeRunIds } from "./registry.js";
 
 export type CleanupTarget = "sessions" | "runs" | "drafts" | "tmp";

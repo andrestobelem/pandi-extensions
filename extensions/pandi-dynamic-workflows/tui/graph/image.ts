@@ -11,7 +11,7 @@ import { getCapabilities } from "@earendil-works/pi-tui";
 import type { ProcessResult } from "../../process-spawn.js";
 import { runProcess } from "../../process-spawn.js";
 import { EXTENSION_ROOT } from "../../runtime-constants.js";
-import { ensureDir, getGraphRoot, slugify } from "../../workflow-resolve.js";
+import { ensureDir, getGraphRoot, slugify } from "../../surface/index.js";
 import type { WorkflowGraphFanoutInfo, WorkflowGraphFanoutUnit, WorkflowGraphModel } from "./types.js";
 
 export interface WorkflowGraphImageRender {

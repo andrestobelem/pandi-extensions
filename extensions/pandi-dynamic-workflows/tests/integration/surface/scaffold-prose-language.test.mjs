@@ -8,7 +8,7 @@
  */
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { createChecker, REPO_ROOT } from "../../../shared/test/harness.mjs";
+import { createChecker, REPO_ROOT } from "../../../../shared/test/harness.mjs";
 
 const { check, counts } = createChecker();
 
@@ -17,8 +17,8 @@ const CANONICAL_FILES = [
 		.readdirSync(path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "scaffolds"))
 		.filter((file) => file.endsWith(".js"))
 		.map((file) => path.join("extensions", "pandi-dynamic-workflows", "scaffolds", file)),
-	path.join("extensions", "pandi-dynamic-workflows", "catalog.ts"),
-	path.join("extensions", "pandi-dynamic-workflows", "pattern-format.ts"),
+	path.join("extensions", "pandi-dynamic-workflows", "surface", "catalog.ts"),
+	path.join("extensions", "pandi-dynamic-workflows", "surface", "pattern-format.ts"),
 ];
 
 const BANNED_PROSE = [

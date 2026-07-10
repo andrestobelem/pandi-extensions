@@ -21,7 +21,7 @@ import {
 	REPO_ROOT,
 	sdkStub,
 	buildExtension as sharedBuildExtension,
-} from "../../../shared/test/harness.mjs";
+} from "../../../../shared/test/harness.mjs";
 
 const { check, counts } = createChecker();
 

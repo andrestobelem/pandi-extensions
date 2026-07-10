@@ -23,7 +23,7 @@ const { check, counts } = createChecker();
 async function loadModule() {
 	const { url } = await buildExtension({
 		name: "pi-dwf-cleanup-command-parse",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "command-handlers.ts"),
+		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "surface", "command-handlers.ts"),
 		outName: "command-handlers.mjs",
 		stubs: {
 			typebox: true,

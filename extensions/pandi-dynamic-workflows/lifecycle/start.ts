@@ -7,6 +7,7 @@ import * as path from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { formatParallelAgents } from "../run-state.js";
 import { writeJsonFile, writeRunStatus } from "../run-store.js";
+import { preflightWorkflowLaunch } from "../surface/index.js";
 import { formatRunSummary, refreshActiveWorkflowStatus } from "../tui/index.js";
 import type {
 	ActiveWorkflowRun,
@@ -17,7 +18,6 @@ import type {
 	WorkflowRunStatus,
 } from "../types.js";
 import { runWorkflow } from "../workflow-engine.js";
-import { preflightWorkflowLaunch } from "../workflow-preflight.js";
 import { prepareWorkflowRun } from "../workflow-run-prepare.js";
 import { notifyWorkflowResult } from "./notify.js";
 import { registerActiveRun, unregisterActiveRun } from "./registry.js";

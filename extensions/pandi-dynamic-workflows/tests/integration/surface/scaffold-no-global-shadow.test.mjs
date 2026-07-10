@@ -19,8 +19,8 @@
  */
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { createChecker } from "../../../shared/test/harness.mjs";
-import { EXT_DIR, loadInjectedGlobals } from "./worker-source-test-support.mjs";
+import { createChecker } from "../../../../shared/test/harness.mjs";
+import { EXT_DIR, loadInjectedGlobals } from "../worker-source-test-support.mjs";
 
 const { check, counts } = createChecker();
 

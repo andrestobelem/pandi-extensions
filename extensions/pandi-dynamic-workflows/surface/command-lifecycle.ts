@@ -1,6 +1,6 @@
 import * as fs from "node:fs/promises";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { buildLimits, limitParamsFromInput, parseCliJsonOrText } from "./config.js";
+import { buildLimits, limitParamsFromInput, parseCliJsonOrText } from "../config.js";
 import {
 	cancelWorkflowRun,
 	cleanupWorkflowDrafts,
@@ -12,16 +12,16 @@ import {
 	inventoryWorkflowRuns,
 	shouldLaunchWorkflowInBackground,
 	startWorkflowBackground,
-} from "./lifecycle/index.js";
-import { notify } from "./notify.js";
-import { prunePiSessionFiles } from "./pi-session.js";
-import { getRunStatusLabel } from "./run-state.js";
-import { canCancelRun, formatRunSummary, resolveRun, runWorkflowWithUi, showText } from "./tui/index.js";
-import type { WorkflowLogEntry } from "./types.js";
-import type { WorkflowCommandParsed } from "./workflow-command-browse.js";
-import { parseCleanupArgs } from "./workflow-command-parsers.js";
-import { resolveWorkflow } from "./workflow-resolve.js";
-import { resumeWorkflowForCaller } from "./workflow-resume-usecase.js";
+} from "../lifecycle/index.js";
+import { notify } from "../notify.js";
+import { prunePiSessionFiles } from "../pi-session.js";
+import { getRunStatusLabel } from "../run-state.js";
+import { canCancelRun, formatRunSummary, resolveRun, runWorkflowWithUi, showText } from "../tui/index.js";
+import type { WorkflowLogEntry } from "../types.js";
+import { resumeWorkflowForCaller } from "../workflow-resume-usecase.js";
+import type { WorkflowCommandParsed } from "./command-browse.js";
+import { parseCleanupArgs } from "./command-parsers.js";
+import { resolveWorkflow } from "./resolve.js";
 
 /** Returns true if the action was handled. */
 export async function handleLifecycleWorkflowCommand(

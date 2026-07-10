@@ -944,7 +944,7 @@ async function scenarioResolveRunExactMatchFirst(url) {
 // arrastra todo el graph de módulos de pattern a un bundle que podemos importar in-process.
 async function buildScaffolds() {
 	const outDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-dwf-scaffolds-"));
-	const src = path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "pattern-scaffolds.ts");
+	const src = path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "surface", "pattern-scaffolds.ts");
 	if (!existsSync(src)) throw new Error(`missing source: ${src}`);
 	const out = path.join(outDir, "pattern-scaffolds.mjs");
 	const r = spawnSync(

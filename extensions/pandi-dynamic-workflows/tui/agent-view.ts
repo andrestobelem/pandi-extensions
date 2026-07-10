@@ -74,7 +74,7 @@ async function formatWorkflowDefinition(run: WorkflowRunRecord): Promise<string>
 // la acción de gráfico independiente posee el componente más rico capaz de PNG.
 async function formatWorkflowGraphView(ctx: ExtensionContext, run: WorkflowRunRecord): Promise<string> {
 	const header = [`# Workflow graph: ${run.workflow}`, "", `Run: ${run.runId}`];
-	const { resolveWorkflowForRun } = await import("../workflow-resolve.js");
+	const { resolveWorkflowForRun } = await import("../surface/index.js");
 	const workflow = await resolveWorkflowForRun(ctx, run);
 	if (!workflow) return [...header, "", "Cannot open graph: workflow file not found."].join("\n");
 	let code: string;

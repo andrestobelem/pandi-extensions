@@ -6,7 +6,6 @@
  */
 import { existsSync } from "node:fs";
 import { readRunEvents, readRunLogEvents } from "../observe/index.js";
-import type { WorkflowPattern } from "../pattern-scaffolds.js";
 import type { PiSessionModel } from "../pi-session.js";
 import { workflowProgress } from "../presentation.js";
 import {
@@ -18,6 +17,7 @@ import {
 	getRunState,
 } from "../run-state.js";
 import { JOURNAL_FILE } from "../runtime-constants.js";
+import type { WorkflowPattern } from "../surface/index.js";
 import type {
 	AgentMonitorModel,
 	WorkflowDefinition,

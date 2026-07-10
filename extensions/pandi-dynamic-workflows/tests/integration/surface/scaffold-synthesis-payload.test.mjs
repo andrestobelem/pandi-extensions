@@ -13,10 +13,10 @@
 
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { sdkStub, buildExtension as sharedBuildExtension } from "../../../shared/test/harness.mjs";
+import { sdkStub, buildExtension as sharedBuildExtension } from "../../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
+const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 
 async function buildExtension() {
 	return await sharedBuildExtension({

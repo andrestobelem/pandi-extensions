@@ -4,8 +4,8 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { throwIfAborted } from "./concurrency-primitives.js";
 import { computeCallKey, computeCodeHash } from "./journal.js";
 import type { OccurrenceCounter } from "./occurrence-counter.js";
+import { resolveWorkflow } from "./surface/index.js";
 import type { RunLimits, WorkflowDefinition } from "./types.js";
-import { resolveWorkflow } from "./workflow-resolve.js";
 import type { WorkflowRuntimeApi } from "./workflow-runtime-api.js";
 import { executeWorkflowCode } from "./workflow-worker-bridge.js";
 

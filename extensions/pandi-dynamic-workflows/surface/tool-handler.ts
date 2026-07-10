@@ -1,24 +1,17 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { AgentToolUpdateCallback, ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { buildLimits, limitParamsFromInput, normalizeWorkflowInput } from "./config.js";
-import { text } from "./format.js";
+import { buildLimits, limitParamsFromInput, normalizeWorkflowInput } from "../config.js";
+import { text } from "../format.js";
 import {
 	cancelWorkflowRun,
 	formatBackgroundStart,
 	shouldLaunchWorkflowInBackground,
 	startWorkflowBackground,
-} from "./lifecycle/index.js";
-import { writeRunReport } from "./observe/index.js";
-import {
-	formatWorkflowPatternCatalog,
-	getDefaultScaffold,
-	loadWorkflowPatternCode,
-	resolveWorkflowPattern,
-	WORKFLOW_PATTERN_CATALOG,
-} from "./pattern-scaffolds.js";
-import { formatWorkflowList } from "./presentation.js";
-import { makeWorkflowGraphForContext } from "./tui/graph/index.js";
+} from "../lifecycle/index.js";
+import { writeRunReport } from "../observe/index.js";
+import { formatWorkflowList } from "../presentation.js";
+import { makeWorkflowGraphForContext } from "../tui/graph/index.js";
 import {
 	formatRunList,
 	formatRunSummary,
@@ -26,14 +19,21 @@ import {
 	listRuns,
 	resolveRun,
 	runWorkflowWithUi,
-} from "./tui/index.js";
-import type { DynamicWorkflowToolParams, WorkflowLogEntry } from "./types.js";
-import { currentWorkflowDepth, maxWorkflowDepth } from "./workflow-depth.js";
-import { formatWorkflowPreflightSummary, preflightWorkflowLaunch } from "./workflow-preflight.js";
-import { ensureDir, listWorkflows, resolveWorkflow } from "./workflow-resolve.js";
-import { resumeWorkflowForCaller } from "./workflow-resume-usecase.js";
-import { classifyDynamicWorkflowRequest } from "./workflow-tool-request.js";
-import { transformWorkflowCode } from "./workflow-transform.js";
+} from "../tui/index.js";
+import type { DynamicWorkflowToolParams, WorkflowLogEntry } from "../types.js";
+import { currentWorkflowDepth, maxWorkflowDepth } from "../workflow-depth.js";
+import { resumeWorkflowForCaller } from "../workflow-resume-usecase.js";
+import {
+	formatWorkflowPatternCatalog,
+	getDefaultScaffold,
+	loadWorkflowPatternCode,
+	resolveWorkflowPattern,
+	WORKFLOW_PATTERN_CATALOG,
+} from "./pattern-scaffolds.js";
+import { formatWorkflowPreflightSummary, preflightWorkflowLaunch } from "./preflight.js";
+import { ensureDir, listWorkflows, resolveWorkflow } from "./resolve.js";
+import { classifyDynamicWorkflowRequest } from "./tool-request.js";
+import { transformWorkflowCode } from "./transform.js";
 
 // Centraliza el preview de las últimas N líneas de log, formateadas como HH:MM:SS + mensaje.
 function formatLogPreview(logs: WorkflowLogEntry[], max = 8): string {

@@ -16,9 +16,9 @@
  * siblings. Extracted byte-identically.
  */
 
-import { WORKFLOW_PATTERN_CATALOG } from "../pattern-scaffolds.js";
 import type { PiSessionModel } from "../pi-session.js";
 import { compactInline, formatElapsedMs } from "../presentation.js";
+import { WORKFLOW_PATTERN_CATALOG } from "../surface/index.js";
 import type { AgentMonitorModel, WorkflowDefinition, WorkflowRunRecord } from "../types.js";
 import { renderDashboardChrome } from "./chrome.js";
 import type {

@@ -9,6 +9,7 @@ import { buildLimits, limitParamsFromInput } from "../config.js";
 import { computeCodeHash, loadJournal, maxAgentArtifactNumber, maxJournalAgentId } from "../journal.js";
 import { notify } from "../notify.js";
 import { getRunPeakParallelAgents, getRunState } from "../run-state.js";
+import { ensureDir, resolveWorkflow } from "../surface/index.js";
 import { resolveRun, runWorkflowWithUi } from "../tui/index.js";
 import type {
 	DynamicWorkflowToolParams,
@@ -17,7 +18,6 @@ import type {
 	WorkflowRunRecord,
 	WorkflowRunStatus,
 } from "../types.js";
-import { ensureDir, resolveWorkflow } from "../workflow-resolve.js";
 import { hasActiveRun } from "./registry.js";
 import { shouldLaunchWorkflowInBackground, startWorkflowBackground } from "./start.js";
 

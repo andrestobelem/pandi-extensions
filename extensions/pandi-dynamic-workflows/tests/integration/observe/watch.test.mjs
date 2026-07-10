@@ -75,7 +75,11 @@ async function readStatusFile(runDir) {
 async function main() {
 	const htmlMod = await buildModule("observe/html.ts", "run-report-html.mjs", "run-report-watch-html");
 	const writer = await buildModule("observe/writer.ts", "run-report-writer.mjs", "run-report-watch-writer");
-	const handlers = await buildModule("command-handlers.ts", "command-handlers.mjs", "run-report-watch-handlers");
+	const handlers = await buildModule(
+		"surface/command-handlers.ts",
+		"command-handlers.mjs",
+		"run-report-watch-handlers",
+	);
 
 	check("buildRunReportHtml exported", typeof htmlMod.buildRunReportHtml === "function");
 	check("watchRunReport exported", typeof writer.watchRunReport === "function");

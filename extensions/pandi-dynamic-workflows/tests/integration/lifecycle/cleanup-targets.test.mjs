@@ -14,7 +14,7 @@ const oldDate = new Date("2026-06-01T00:00:00Z");
 async function loadHandlers() {
 	const { url } = await buildExtension({
 		name: "pi-dwf-cleanup-command-targets",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "command-handlers.ts"),
+		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "surface", "command-handlers.ts"),
 		outName: "command-handlers.mjs",
 		stubs: {
 			typebox: true,

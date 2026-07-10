@@ -1,4 +1,4 @@
-import { DEFAULT_CLEANUP_KEEP } from "./lifecycle/index.js";
+import { DEFAULT_CLEANUP_KEEP } from "../lifecycle/index.js";
 
 // Re-exported from lifecycle/index.ts (single source of truth for the retention default) so
 // the CLI parser and its test can reference it without reaching across modules.
