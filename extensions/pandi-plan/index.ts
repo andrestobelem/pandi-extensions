@@ -3,14 +3,14 @@
  *
  * El modo plan pone el agente PRINCIPAL en una postura de planificación DE SOLO LECTURA. Mientras está activo,
  * el agente PUEDE INVESTIGAR (read/grep/find/ls + bash de solo lectura) y PRODUCIR un plan,
- * pero NO PUEDE mutar el workspace. El entregable es un artefacto PLAN, presentado
+ * pero NO PUEDE mutar el workspace. El entregable es un artifact PLAN, presentado
  * para aprobación EXPLÍCITA del usuario, y solo si se aprueba el agente SALE del modo e
  * IMPLEMENTA.
  *
  * Las tres cosas que lo hacen modo plan (no "un prompt que dice porfa planifica"):
  *   1. El GATE de solo lectura — un manejador pi.on("tool_call") HARD-BLOQUEA tools mutantes
  *      mientras el modo está activo. Impuesto, no asesor.
- *   2. El plan como un ARTEFACTO — el modelo emite el plan a través de una tool registrada
+ *   2. El plan como un ARTIFACT — el modelo emite el plan a través de una tool registrada
  *      (submit_plan), exactamente como /loop emite vía loop_schedule y /goal vía
  *      goal_progress. El texto del plan es el payload.
  *   3. Aprobación antes de cualquier mutación — submit_plan presenta el plan en un
@@ -404,7 +404,7 @@ async function handlePlanCommand(pi: ExtensionAPI, args: string, ctx: ExtensionC
 // ---------------------------------------------------------------------------
 
 export default function planExtension(pi: ExtensionAPI): void {
-	// La tool de artefacto del plan (≈ ExitPlanMode). La ÚNICA forma de presentar un plan + salir del modo.
+	// La tool de artifact del plan (≈ ExitPlanMode). La ÚNICA forma de presentar un plan + salir del modo.
 	pi.registerTool({
 		name: "submit_plan",
 		label: "Enviar plan",

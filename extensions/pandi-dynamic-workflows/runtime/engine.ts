@@ -53,7 +53,7 @@ export async function runWorkflow(
 	const agentSemaphore = createSemaphore(runLimits.concurrency, runSignal.signal);
 	const trackedSubagents = new Set<Promise<unknown>>();
 	const logs: WorkflowLogEntry[] = [];
-	// Ejecuciones reanudadas comienzan agentCount más allá de los artefactos agents/NNNN ya en disco
+	// Ejecuciones reanudadas comienzan agentCount más allá de los artifacts agents/NNNN ya en disco
 	// para que los subagentes recién re-ejecutados nunca sobrescriban los en caché. Ese ID histórico
 	// no es un presupuesto: maxAgents limita solo los lanzamientos frescos de esta ejecución.
 	let agentCount = preparedRun.resume?.baseAgentCount ?? 0;

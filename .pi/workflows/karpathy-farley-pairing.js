@@ -17,7 +17,7 @@
  * sus pruebas + justificación de diseño + quién dio forma a qué).
  *
  * Las personas son asesoras READ-ONLY (no editan archivos), por lo que el entregable es un
- * artefacto de diseño + código expresado en prosa, no código commiteado; esa es la salida
+ * artifact de diseño + código expresado en prosa, no código commiteado; esa es la salida
  * honesta de una sesión de programación en pareja de solo lectura.
  *
  * Parámetros (args serializado como JSON; se parsea defensivamente):
@@ -27,7 +27,7 @@
  *                   limitado a 1..5.
  *   lang    string  indicación del lenguaje de implementación. Predeterminado: "TypeScript".
  *
- * Artefactos de salida (en el directorio de ejecución): transcript.md, pairing.json,
+ * Artifacts de salida (en el directorio de ejecución): transcript.md, pairing.json,
  * deliverable.md.
  */
 export const meta = {

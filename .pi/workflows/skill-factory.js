@@ -6,7 +6,7 @@
  * Cada figura recibe una línea independiente de investigación profunda (por defecto, 4 ángulos
  * centrados en la metodología: mecánica, economía de decisiones, dificultades/críticas y aplicación
  * moderna en la era de la IA). Nada se combina entre figuras. Los resultados finales se escriben
- * solo como artefactos de ejecución; luego el orquestador los inspecciona, ejecuta el lint y los
+ * solo como artifacts de ejecución; luego el orquestador los inspecciona, ejecuta el lint y los
  * instala en `.pi/skills/` (más allowlist MIRRORED + wiring de personas).
  *
  * Entrada (args, JSON):
@@ -346,7 +346,7 @@ A continuación aparecen skills de ejemplo (modelos de estructura, tono, densida
 	}
 
 	const draftedFigures = viableFigures.filter((f) => drafts[f.id].raw);
-	if (draftedFigures.length === 0) return { error: "todas las ramas de redacción fallaron; consultá los artefactos de investigación" };
+	if (draftedFigures.length === 0) return { error: "todas las ramas de redacción fallaron; consultá los artifacts de investigación" };
 
 	// ---------- Fase 3: Jurado de revisión adversarial ----------
 	phase("Revisar");

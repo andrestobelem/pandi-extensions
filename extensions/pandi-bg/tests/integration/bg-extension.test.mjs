@@ -3,11 +3,11 @@
  * Test de integración conductual durable para rutas de seguridad/lectura de `/bg`.
  *
  * Pinea el contrato M2 crítico para seguridad:
- * - `/bg plan` es solo dry-run y no crea artefactos runtime.
- * - `/bg list/status/logs` leen de forma segura artefactos confiables locales del proyecto
+ * - `/bg plan` es solo dry-run y no crea artifacts runtime.
+ * - `/bg list/status/logs` leen de forma segura artifacts confiables locales del proyecto
  *   y global fallback.
  * - las slash commands mutantes start/cancel se bloquean en plan mode.
- * - proyectos no confiables no inspeccionan artefactos locales `.pi/bg` y no pueden iniciar jobs.
+ * - proyectos no confiables no inspeccionan artifacts locales `.pi/bg` y no pueden iniciar jobs.
  * - la salida de log es acotada/truncada y los job ids no pueden hacer path traversal.
  */
 
@@ -683,7 +683,7 @@ async function sessionStartReconcilesInterruptedJobs(url) {
 		await readState(tui.runDir),
 	);
 
-	// Modo json no persistente: gateado off, el artefacto queda running.
+	// Modo json no persistente: gateado off, el artifact queda running.
 	const json = await seedDeadJob("dead-json");
 	await handler({}, makeCtx({ cwd: json.cwd, trusted: true, mode: "json" }));
 	check(

@@ -5,7 +5,7 @@
  *
  * Cada figura recibe una línea de investigación completamente independiente
  * (4 ángulos de forma predeterminada); nada se combina hasta la síntesis propia de cada
- * figura. Los JSON finales se escriben solo como artefactos de ejecución; después, el
+ * figura. Los JSON finales se escriben solo como artifacts de ejecución; después, el
  * orquestador los inspecciona y los instala en .pi/personas/.
  *
  * Entrada (args, JSON):
@@ -333,7 +333,7 @@ Siguen ${references.length} persona(s) de referencia (ejemplos de estructura, to
 	}
 
 	const draftedFigures = viableFigures.filter((f) => drafts[f.id].raw);
-	if (draftedFigures.length === 0) return { error: "fallaron todas las ramas de síntesis; consultá los artefactos de investigación" };
+	if (draftedFigures.length === 0) return { error: "fallaron todas las ramas de síntesis; consultá los artifacts de investigación" };
 
 	// ---------- Fase 3: Jurado de revisión adversarial ----------
 	phase("Revisión");

@@ -52,7 +52,7 @@ Evidencia encontrada:
 - **OpenAI** (agent improvement loop cookbook) señala que el área todavía evoluciona; la idea durable es conectar feedback, testing e implementación en un solo loop. [developers.openai.com/.../agent_improvement_loop](https://developers.openai.com/cookbook/examples/agents_sdk/agent_improvement_loop)
 - **The Register (2026-06-24)** lo caracteriza como un *nuevo buzzword de IA* y advierte que la automatización sigue necesitando controles de costo y humanos en el loop. [theregister.com/.../loop_engineering...](https://www.theregister.com/ai-and-ml/2026/06/24/loop-engineering-latest-ai-buzzword-still-needs-humans-in-the-loop/5261735)
 
-**Definición de trabajo sintetizada (este artefacto):** *loop engineering* es la disciplina de **diseñar, acotar y verificar** loops iterativos/de feedback alrededor de sistemas agénticos y de software. Un loop debe hacer progreso medible hacia una meta y **parar en evidencia** (done/quiet/blocked) en vez de hacerlo por reloj, por autodeclaración o nunca. Este es el marco paraguas que el repo ya practica bajo otros nombres: `/loop`, `loop-until-done`, `/goal`.
+**Definición de trabajo sintetizada (este artifact):** *loop engineering* es la disciplina de **diseñar, acotar y verificar** loops iterativos/de feedback alrededor de sistemas agénticos y de software. Un loop debe hacer progreso medible hacia una meta y **parar en evidencia** (done/quiet/blocked) en vez de hacerlo por reloj, por autodeclaración o nunca. Este es el marco paraguas que el repo ya practica bajo otros nombres: `/loop`, `loop-until-done`, `/goal`.
 
 ## 3. Fundamentos y trabajos previos — con citas
 

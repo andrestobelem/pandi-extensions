@@ -95,7 +95,7 @@ gap de TDD es exactamente donde están los defectos.
 - **Sintetizado:** dashboard-tui, run-resume-state, concurrency-spawn (core run);
   engine-run y tool-dispatch (reseñas recuperadas del stream, citas spot-checked).
 - **Revisado pero sin síntesis final:** parsing, graph, unidades livianas y
-  14/23 hallazgos que sobrevivieron el jurado del run grande (artefactos en
+  14/23 hallazgos que sobrevivieron el jurado del run grande (artifacts en
   `…revisar-dw-farley-2560a7c6/agents/`), lentes security/concurrency/errors
   (fallaron por schema/timeout).
 - **No cubierto:** catálogo de 25 scaffolds a nivel por-archivo (muestreo del run

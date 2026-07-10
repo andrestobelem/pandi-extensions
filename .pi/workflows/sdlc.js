@@ -6,7 +6,7 @@
  * PLANIFICAR -> IMPLEMENTAR (TDD estricto) -> REVISIÓN adversarial -> VERIFICAR -> COMMIT con
  * aprobación humana.
  *
- * Columna secuencial: cada fase consume el artefacto de la fase anterior, por lo que una
+ * Columna secuencial: cada fase consume el artifact de la fase anterior, por lo que una
  * pipeline/secuencia es la forma mínima suficiente. El ÚNICO paralelismo son 2-3 revisores
  * adversariales independientes en REVISIÓN (fan-out orchestrator-workers), seguidos por COMO MÁXIMO
  * una pasada acotada de corrección self-refine impulsada por hallazgos bloqueantes (resueltos o
@@ -21,7 +21,7 @@
  * - El gate humano de COMMIT es una confirmación REAL con ask() (segura al reanudar y registrada en
  *   el journal): headless/sin UI resuelve default=false → SIN commit; input.autoCommit===true es el
  *   único bypass.
- * - Los artefactos de cada fase quedan en el directorio de ejecución mediante writeArtifact() para
+ * - Los artifacts de cada fase quedan en el directorio de ejecución mediante writeArtifact() para
  *   que un tercero pueda auditar los gates.
  *
  * Entrada:
@@ -29,7 +29,7 @@
  *                          forma DETERMINISTA desde el board del Project 4 (fuente de verdad): el
  *                          elemento con mayor Priority en Status Todo (P0<P1<P2<P3, desempate por
  *                          Size S<M<L y luego por el menor número de issue). Recurre a un agente que
- *                          lee el artefacto de ejecución MÁS RECIENTE de grooming
+ *                          lee el artifact de ejecución MÁS RECIENTE de grooming
  *                          (backlog-groom-summary.json) solo cuando ningún elemento Todo tiene una
  *                          Priority (fallar rápido, nunca adivinar).
  *   autoCommit   boolean  opcional, valor predeterminado false. El ÚNICO bypass del gate humano de COMMIT.
@@ -64,7 +64,7 @@ export const meta = {
 	basedOn: [
 		{ name: "orchestrator-workers", role: "2-3 revisores adversariales independientes en REVISIÓN + settle/síntesis del lado del host" },
 		{ name: "self-refine", role: "el ÚNICO ciclo acotado hallazgo-de-revisión -> corrector -> reverificación (resuelto o dispensado, no un loop)" },
-		{ name: "grooming", role: "patrón de entrega de artefactos DESDE el que lee este workflow cuando se omite input.issue (backlog-groom-summary.json)" },
+		{ name: "grooming", role: "patrón de entrega de artifacts DESDE el que lee este workflow cuando se omite input.issue (backlog-groom-summary.json)" },
 	],
 };
 
@@ -166,7 +166,7 @@ const MUTATING_TOOLS = ["read", "grep", "find", "ls", "bash", "write", "edit"];
 // Las comillas simples desactivan toda expansión.
 const shq = (s) => `'${String(s).replace(/'/g, `'\\''`)}'`;
 
-log(`sdlc iniciado ${JSON.stringify({ issue: input?.issue ?? "(sin resolver; se leerá el artefacto de grooming)", autoCommit: input?.autoCommit === true })}`);
+log(`sdlc iniciado ${JSON.stringify({ issue: input?.issue ?? "(sin resolver; se leerá el artifact de grooming)", autoCommit: input?.autoCommit === true })}`);
 
 // ---------------------------------------------------------------------------------------------
 // FASE 0 (dentro de Comprender): resolver el número del issue objetivo si se omitió y luego ejecutar
@@ -221,7 +221,7 @@ if (issueNumber == null) {
 			candidates: candidates.slice(0, 5).map((c) => `#${c.content.number} ${c.priority}/${c.size ?? "?"}`),
 		});
 	} else {
-		log("no hay un elemento Todo priorizado en el board; se recurre al artefacto más reciente de grooming (resuelto por agente)");
+		log("no hay un elemento Todo priorizado en el board; se recurre al artifact más reciente de grooming (resuelto por agente)");
 	}
 }
 
@@ -233,7 +233,7 @@ if (issueNumber == null) {
 		properties: {
 			found: { type: "boolean" },
 			issue: { type: "number", description: "número del primer issue accionable del orden de prioridad; 0 si no se encontró" },
-			reason: { type: "string", description: "qué archivo de artefacto leíste y por qué este issue encabeza la lista, o por qué no se encontró ninguno" },
+			reason: { type: "string", description: "qué archivo de artifact leíste y por qué este issue encabeza la lista, o por qué no se encontró ninguno" },
 		},
 	};
 	const resolved = await agent(
@@ -241,16 +241,16 @@ if (issueNumber == null) {
 			"1. Aplicá Glob a `.pi/workflows/runs/*grooming*` y elegí el directorio de ejecución lexicográficamente MÁS RECIENTE (sus nombres comienzan con un timestamp, por lo que el último se ordena al final).\n" +
 			"2. Leé `<that-dir>/backlog-groom-summary.json` (campos: issues, priorityOrder si está presente, reportPath) y el informe Markdown referenciado para obtener el orden de prioridad explícito.\n" +
 			"3. Devolvé el PRIMER número de issue de ese orden de prioridad que siga abierto y sea accionable (volvé a comprobarlo con `gh issue view <n>`; un issue NOT_FOUND/cerrado debe omitirse, no reemplazarse con una suposición).\n" +
-			"NUNCA inventes un número de issue. Si no existe ningún artefacto de ejecución de grooming o ninguno de sus issues sigue abierto y accionable, devolvé found:false con un motivo claro; no adivines.\n",
+			"NUNCA inventes un número de issue. Si no existe ningún artifact de ejecución de grooming o ninguno de sus issues sigue abierto y accionable, devolvé found:false con un motivo claro; no adivines.\n",
 		node("understand", { model: "haiku", effort: "low", schema: RESOLVE_SCHEMA, agentType: "explore", ...READ_ONLY, timeoutMs: 8 * 60 * 1000 }),
 	);
 	if (!resolved?.found || !Number.isFinite(+resolved?.issue) || +resolved.issue <= 0) {
 		throw new Error(
-			`sdlc: se omitió input.issue y no pudo resolverse ningún issue accionable desde el artefacto de ejecución más reciente de grooming. ${resolved?.reason ?? "(no se informó ningún motivo)"}`,
+			`sdlc: se omitió input.issue y no pudo resolverse ningún issue accionable desde el artifact de ejecución más reciente de grooming. ${resolved?.reason ?? "(no se informó ningún motivo)"}`,
 		);
 	}
 	issueNumber = Math.floor(+resolved.issue);
-	log(`issue resuelto desde el artefacto más reciente de grooming ${JSON.stringify({ issue: issueNumber, reason: resolved.reason })}`);
+	log(`issue resuelto desde el artifact más reciente de grooming ${JSON.stringify({ issue: issueNumber, reason: resolved.reason })}`);
 }
 
 const UNDERSTAND_SCHEMA = {
@@ -387,7 +387,7 @@ const plan = await agent(
 			issueNumber +
 			"` y SIN trailers de ningún tipo (nunca agregues Co-Authored-By ni ninguna línea de atribución de herramientas).",
 		"",
-		"REGLA DE ESPEJO: si se edita algún archivo bajo docs/ o README.md, su gemelo de docs/html se regenera con `npm run -s sync:docs:html`; incluí también la ruta de ese gemelo en filesToTouch (es un artefacto generado que debe commitearse junto con el original).",
+		"REGLA DE ESPEJO: si se edita algún archivo bajo docs/ o README.md, su gemelo de docs/html se regenera con `npm run -s sync:docs:html`; incluí también la ruta de ese gemelo en filesToTouch (es un artifact generado que debe commitearse junto con el original).",
 		"REGLA DE ESPEJO (scaffolds): si se edita extensions/pandi-dynamic-workflows/scaffolds/*.js, DEBEN regenerarse e incluirse en filesToTouch LAS CUATRO capas de espejo generadas: (1) `node .claude/scripts/generate-claude-workflows.mjs` → .claude/workflows/ + .pi/skills/ultracode/reference/claude-workflows/; (2) `node scripts/generate-claude-ultracode-skills.mjs` → .claude/skills/{ultracode,dynamic-workflows}/reference/claude-workflows/; (3) `node scripts/vendor-extension-skills.mjs` → extensions/pandi-dynamic-workflows/skills/ultracode/reference/claude-workflows/. Las suites claude-parity, claude-ultracode-skills-parity Y extension-skills-vendor-parity fijan la paridad byte a byte; omitir CUALQUIER capa deja VERIFICAR en rojo (defecto encontrado en vivo: una ejecución regeneró solo la capa 1 y falló VERIFICAR en las otras dos).",
 		"",
 		fence("understanding", understanding),
@@ -753,7 +753,7 @@ log(`verificación completa ${JSON.stringify({ allGreen: verify?.allGreen === tr
 // protocolo de sesiones concurrentes antes de proponer nada.
 // ---------------------------------------------------------------------------------------------
 
-// ---- Artefactos por fase ANTES del gate: la evidencia debe sobrevivir un commit rechazado o vencido. ----
+// ---- Artifacts por fase ANTES del gate: la evidencia debe sobrevivir un commit rechazado o vencido. ----
 await writeArtifact("understand.md", compact(understanding, 20000));
 await writeArtifact("plan.md", compact(plan, 20000));
 await writeArtifact("red-evidence.txt", implementResult.redEvidence ?? "");

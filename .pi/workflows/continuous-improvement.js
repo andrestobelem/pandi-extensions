@@ -14,7 +14,7 @@
  *      (impide tanto vaciarla como inflarla sin límite).
  *   5. changelog: cada cambio aplicado agrega una entrada con su justificación a
  *      .pi/workflows/continuous-improvement.changelog.md.
- * Si falla algún control, la propuesta se conserva como artefacto de la ejecución, pero NO se aplica.
+ * Si falla algún control, la propuesta se conserva como artifact de la ejecución, pero NO se aplica.
  *
  * Entrada: { task: "...", maxRounds?: 1-8, selfImprove?: boolean (valor predeterminado: true),
  *            models?/efforts?/toolsByRole?/skillsByRole? sobrescrituras por rol (roles: draft, critique, refine, meta),

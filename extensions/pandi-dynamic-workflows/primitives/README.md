@@ -41,8 +41,8 @@ export default async function main() {
 | Filesystem y shell | [`writeFile`](writeFile.md) | Escribe un archivo (crea parent dirs). |
 | Filesystem y shell | [`appendFile`](appendFile.md) | Agrega contenido a un archivo (crea parent dirs). |
 | Filesystem y shell | [`listFiles`](listFiles.md) | Lista archivos recursivamente (omite `node_modules`/`.git`). |
-| Artefactos | [`writeArtifact`](writeArtifact.md) | Escribe un artefacto de run con nombre. |
-| Artefactos | [`appendArtifact`](appendArtifact.md) | Agrega contenido a un artefacto con nombre (seguro con concurrencia). |
+| Artifacts | [`writeArtifact`](writeArtifact.md) | Escribe un artifact de run con nombre. |
+| Artifacts | [`appendArtifact`](appendArtifact.md) | Agrega contenido a un artifact con nombre (seguro con concurrencia). |
 | Utilidades | [`sleep`](sleep.md) | Demora abortable. |
 | Utilidades | [`json`](json.md) | `stringify` seguro y acotado. |
 | Utilidades | [`compact`](compact.md) | `stringify` acotado para prompts. |

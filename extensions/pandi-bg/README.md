@@ -7,7 +7,7 @@
 ```bash
 /bg start npm test
 # Job en segundo plano bg-lz3k2p1-a1b2c3d4 iniciado.
-# Artefactos: /path/to/artifacts/bg-lz3k2p1-a1b2c3d4
+# Artifacts: /path/to/artifacts/bg-lz3k2p1-a1b2c3d4
 # Estado: /bg status bg-lz3k2p1-a1b2c3d4
 # Logs: /bg logs bg-lz3k2p1-a1b2c3d4
 
@@ -34,7 +34,7 @@ pi --no-extensions -e ./extensions/pandi-bg   # prueba puntual, sin cargar nada 
 ## Qué obtenés
 
 - Comandos slash para iniciar, inspeccionar, cancelar y limpiar jobs locales en segundo plano. No se registra ningún tool LLM `background_job`.
-- Artefactos por job bajo `.pi/bg/runs/<jobId>/`: `job.json`, `status.json`, `events.jsonl`, `stdout.log`, `stderr.log`, `combined.log`.
+- Artifacts por job bajo `.pi/bg/runs/<jobId>/`: `job.json`, `status.json`, `events.jsonl`, `stdout.log`, `stderr.log`, `combined.log`.
 - Un journal acotado del ciclo de vida (`/bg events`) que explica *por qué* un job terminó `failed`/`cancelled`/`interrupted`; `status.json` solo no alcanza.
 - Limpieza segura de disco (`/bg delete`, `/bg prune`) que solo borra jobs terminados y deja una línea de auditoría.
 
@@ -49,7 +49,7 @@ pi --no-extensions -e ./extensions/pandi-bg   # prueba puntual, sin cargar nada 
 | `/bg logs <jobId>` | Lee logs acotados y truncados. |
 | `/bg events <jobId>` | Lee el journal acotado del ciclo de vida (`events.jsonl`). |
 | `/bg cancel <jobId>` | Cancela un job propiedad de este proceso de Pi (o un huérfano verificado). |
-| `/bg delete <jobId>` | Borra los artefactos de un job terminado. |
+| `/bg delete <jobId>` | Borra los artifacts de un job terminado. |
 | `/bg prune [--yes]` | Muestra qué jobs terminados pueden borrarse (dry-run); `--yes` los elimina. |
 
 ## Cómo funciona
@@ -57,13 +57,13 @@ pi --no-extensions -e ./extensions/pandi-bg   # prueba puntual, sin cargar nada 
 - `/bg start` solo funciona en sesiones TUI/RPC persistentes y en proyectos confiables; los proyectos no confiables se rechazan antes de ejecutar o escribir nada.
 - Los comandos mutantes (`start`, `cancel`, `delete`, `prune`) se bloquean mientras `/plan` está activo.
 - Los jobs corren como grupos de procesos detached, salvo en Windows, donde el child no se crea detached. `job.json` y `status.json` se escriben con archivo temporal + rename atómico; los logs son append-only.
-- Los artefactos locales del proyecto viven en `.pi/bg/runs/<jobId>/`. Existe un fallback global de solo lectura en `~/.pi/agent/bg/runs/<cwd-hash>/<jobId>/`.
+- Los artifacts locales del proyecto viven en `.pi/bg/runs/<jobId>/`. Existe un fallback global de solo lectura en `~/.pi/agent/bg/runs/<cwd-hash>/<jobId>/`.
 - No hay runner de Supacode, daemon, rehidratación automática ni panel de `/bg`.
 
 ## Límites y seguridad
 
-- **Artefactos en texto plano.** El comando (`job.json`) y sus logs de salida se guardan sin redacción. Evitá pasar secretos en la línea de comando; recuperá espacio con `/bg prune` o `/bg delete`.
-- **El trust gate protege contexto y artefactos, no el comando.** Igual que el resto de `Pi` exec, `/bg start` ejecuta lo que escribas vía `shell:true`.
+- **Artifacts en texto plano.** El comando (`job.json`) y sus logs de salida se guardan sin redacción. Evitá pasar secretos en la línea de comando; recuperá espacio con `/bg prune` o `/bg delete`.
+- **El trust gate protege contexto y artifacts, no el comando.** Igual que el resto de `Pi` exec, `/bg start` ejecuta lo que escribas vía `shell:true`.
 - **Los jobs no sobreviven a un restart de Pi.** Quedan en memoria del proceso de Pi que los inició; `/bg cancel` rechaza jobs que no estén activos en la sesión actual (salvo huérfanos verificados, abajo).
 - Un job detached que sigue corriendo queda huérfano después de un restart. Detené un huérfano **verificado** con `/bg cancel`; si no, usá herramientas del SO (`kill`/`pkill`/`taskkill`).
 - El borrado solo aplica a jobs terminados: el estado vivo se rederiva en el momento del prune, así que un job en ejecución, activo en sesión o vivo verificado por identidad nunca se borra. La limpieza actúa solo sobre el almacén local del proyecto, es segura frente a symlinks/path traversal (un symlink interno se deslinkea, no se sigue) y agrega una línea en `.pi/bg/runs/.audit.jsonl` por cada remoción.

@@ -11,7 +11,7 @@ Consultalo antes de empezar una tarea no trivial o cuando necesites retomar cont
 
 - Hablamos en español, de forma directa y práctica.
 - Antes de tocar archivos, inspeccionamos el estado del repo y leemos lo relevante.
-- Para tareas no triviales usamos workflows dinámicos: subagentes paralelos o secuenciales, límites explícitos de recursos, y artefactos persistidos como evidencia.
+- Para tareas no triviales usamos workflows dinámicos: subagentes paralelos o secuenciales, límites explícitos de recursos, y artifacts persistidos como evidencia.
 - Todo lo importante se documenta en `docs/`: decisiones, workflows, runs, conversaciones y próximos pasos.
 - Preferimos cambios pequeños, verificables y con rutas de archivo claras.
 - Validamos lo que se pueda con comandos concretos (`node --check`, tests, lint, typecheck, etc.).

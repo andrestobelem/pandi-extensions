@@ -34,7 +34,7 @@ Este registro documenta cada pass de mejora del dashboard, en orden temporal. Si
   - `tsc -p tsconfig.json --noEmit`
   - `biome check extensions/pandi-dynamic-workflows` (98 files, sin errores)
   - Bucle `for f in tests/integration/*.test.mjs` (todas las suites PASS, incl. la nueva con 9 checks)
-  - esbuild de `workflow-dashboard.ts` a `.pi/tmp/wfdash.check.mjs` OK (artefacto borrado)
+  - esbuild de `workflow-dashboard.ts` a `.pi/tmp/wfdash.check.mjs` OK (artifact borrado)
   - `node --check` de la `.mjs` nueva OK
 
 - **Verificación adversarial:** mutando SOLO el caller de Agents (append `stray:1` tras `${meta}`) el test FALLA (`per-row meta suffix … byte-identical` → exit 1), probando que ancla la divergencia por-caller; revertido y re-verificado verde.

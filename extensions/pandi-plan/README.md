@@ -44,7 +44,7 @@ pi --no-extensions -e ./extensions/pandi-plan   # prueba puntual, sin cargar nad
 | `/plan auto-submit on\|off\|status` | Valor por defecto de sesión para autoaprobar tras 60 segundos sin elección. |
 | `/plan exit\|cancel` | Sale del modo plan sin implementar. |
 | `enter_plan_mode` | Tool de modelo: Pi entra por sí mismo en modo plan antes de un cambio riesgoso o de varios pasos. Acepta booleanos `nonInteractive`, `ultracode` y `ultracodeSteps`. |
-| `submit_plan` | Tool de modelo: envía el artefacto del plan para aprobación humana explícita. |
+| `submit_plan` | Tool de modelo: envía el artifact del plan para aprobación humana explícita. |
 
 ## `/plan` vs `enter_plan_mode`
 

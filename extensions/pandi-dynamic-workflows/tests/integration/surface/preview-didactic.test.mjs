@@ -101,7 +101,7 @@ async function writeContractRunFixture() {
 		path.join(runDir, "result.json"),
 		JSON.stringify({
 			output: {
-				improvedTask: "Traducir el artefacto de workflow",
+				improvedTask: "Traducir el artifact de workflow",
 				successCriteria: ["El preview orienta en español"],
 				assumptions: ["Los tokens de API quedan sin traducir"],
 				nonGoals: ["Traducir nombres de campos JSON"],
@@ -178,7 +178,7 @@ check("client sanitizes artifact markdown before innerHTML", preHtml.includes("s
 check("client labels node-count chip in Spanish", preHtml.includes("tipos de nodo"));
 check("client copy action is Spanish", preHtml.includes(">copiar</button>"));
 check("client labels provenance helper in Spanish", preHtml.includes("Scaffolds base de este workflow"));
-check("client labels empty results in Spanish", preHtml.includes("El run no produjo artefactos."));
+check("client labels empty results in Spanish", preHtml.includes("El run no produjo artifacts."));
 check("client no longer emits English node-count chip", !preHtml.includes("node types"));
 check("client no longer emits English copy action", !preHtml.includes(">copy</button>"));
 check("client no longer emits English provenance label", !preHtml.includes("<b>Based on</b>"));

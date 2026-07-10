@@ -33,7 +33,7 @@ import { shouldLaunchWorkflowInBackground, startWorkflowBackground } from "./sta
 // lecturas entre su guardia del registro de runs activos y el momento que startWorkflowBackground /
 // runWorkflowWithUi registra la ejecución, así que dos reanudaciones disparadas en el mismo tick
 // pasarían ambas la guardia e impulsarían runWorkflow contra el mismo runDir y
-// journal (agentes duplicados, aplastamiento de artefactos). El Set se reserva en
+// journal (agentes duplicados, aplastamiento de artifacts). El Set se reserva en
 // el mismo bloque síncrono que la verificación de guardia y se libera en finally.
 const resumingRuns = new Set<string>();
 
@@ -90,7 +90,7 @@ async function resumeReservedRun(
 	const journal = await loadJournal(record.runDir);
 	// Comienza agentCount por encima del id más alto ya usado (registrado en el journal O en disco),
 	// para que los subagentes recién re-ejecutados nunca puedan sobrescribir un
-	// artefacto agents/NNNN existente, incluso cuando el journal es no contiguo o tiene espacios {cache:false}.
+	// artifact agents/NNNN existente, incluso cuando el journal es no contiguo o tiene espacios {cache:false}.
 	const baseAgentCount = Math.max(maxJournalAgentId(journal), await maxAgentArtifactNumber(record.runDir));
 
 	let input: unknown = {};

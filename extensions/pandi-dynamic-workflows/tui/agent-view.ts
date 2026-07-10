@@ -113,7 +113,7 @@ export async function showLiveAgentView(
 		return;
 	}
 	if (ctx.mode === "tui") {
-		// loop open→action→reopen: `f` deja al usuario abrir uno de los artefactos de la ejecución en
+		// loop open→action→reopen: `f` deja al usuario abrir uno de los artifacts de la ejecución en
 		// el visor correcto (.md → Markdown, de lo contrario texto), luego regresa a la vista de agente en vivo —
 		// la misma capacidad que tiene la vista de ejecución, para que la pantalla del agente "encaje" con ella.
 		// La pantalla de detalle es un visor SUB-TABULADO (Card / Prompt / Graph / Output / Definition / Run)
@@ -143,7 +143,7 @@ export async function showLiveAgentView(
 							component.setState(latest.state);
 							const active = component.getActiveTab();
 							if (active === "card" || active === "prompt" || active === "output") {
-								// Una lectura de artefacto produce las tres secciones del agente; rellénalas juntas.
+								// Una lectura de artifact produce las tres secciones del agente; rellénalas juntas.
 								const parts = await buildAgentViewParts(run, latest);
 								component.setTabContent("card", parts.card);
 								component.setTabContent("prompt", parts.prompt);

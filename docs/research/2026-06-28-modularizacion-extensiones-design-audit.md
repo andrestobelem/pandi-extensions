@@ -32,7 +32,7 @@ Si vas a tocar una extensión grande o a mover código compartido, empezá por a
 - **Design Audit** (9 analizadores por extensión + 4 transversales + síntesis-as-judge),
   ejecutado como dynamic workflow read-only.
 
-  Artefactos del run:
+  Artifacts del run:
   - `.pi/workflows/drafts/modularizar-extensiones-design-audit.js` →
   - `.pi/workflows/runs/2026-06-28T06-02-42-987Z-drafts-modularizar-extensiones-design-audit-a6e2980c/`
   - `design-audit.md`, `roadmap.json`, `scout-evidence.md`, `analyzer-*.json`
@@ -67,7 +67,7 @@ Rondas ejecutadas con las siguientes garantías:
 - Consolidarla en loop/goal fuerza shadowing de nombres por ~1 línea de ahorro.
 - Principio: "Make complexity earn its place" — el costo supera el payoff.
 
-> **Artefacto de DESIGN-AUDIT (synthesis-as-judge)**
+> **Artifact de DESIGN-AUDIT (synthesis-as-judge)**
 >
 > - **Fuente de verdad:** únicamente los analizadores verificados (8 por extensión + 4 transversales).
 > - **Cobertura:** `ext=8 válidos`, `cross=4 válidos`, `1 analizador por extensión fallido` (ver §9).
@@ -227,7 +227,7 @@ Queda en `index.ts`: comando `/bg`, completions, wiring; **re-exportar** helpers
 | Personas system prompts | `index.ts:179-199` (ya SSOT, sin copias en docs) | — (grep confirma solo en `index.ts`) | Test ligero opcional que verifica que `makeAgentOptions` usa la constante (`index.ts:178`) |
 | promptGuidelines loop/goal/plan | SSOT local por extensión (`pi-goal:1002`, `pi-loop:1405`, `pi-plan:529`) | READMEs parafrasean en prosa (no copias) | **No DRY cruzado**: packaging (profundidad uno, sin carpeta común en `files` para README) lo desaconseja |
 
-Regla general: el único trabajo de prompts en Fase 1 es **añadir guardianes** (no reescribir wording). Solo si más adelante se quiere reducir LOC, generar las secciones markdown desde `formatWorkflowPatternCatalog()` en un paso de build, dejando los `.md` como artefactos derivados.
+Regla general: el único trabajo de prompts en Fase 1 es **añadir guardianes** (no reescribir wording). Solo si más adelante se quiere reducir LOC, generar las secciones markdown desde `formatWorkflowPatternCatalog()` en un paso de build, dejando los `.md` como artifacts derivados.
 
 ---
 

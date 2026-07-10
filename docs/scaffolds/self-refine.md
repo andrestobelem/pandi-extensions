@@ -1,10 +1,10 @@
 # self-refine
 
-> Bucle acotado de generar → criticar → refinar en el mismo artefacto, con memoria verbal; quiet-stop cuando el crítico queda conforme (arXiv:2303.17651).
+> Bucle acotado de generar → criticar → refinar en el mismo artifact, con memoria verbal; quiet-stop cuando el crítico queda conforme (arXiv:2303.17651).
 
 ## En 30 segundos
 
-Es un patrón para pulir un solo artefacto (un texto, un doc o una sección de spec) por rondas: un agente genera un borrador, otro lo critica de forma adversarial y localizada, y un tercer paso incorpora esa crítica. El loop se corta por `satisfied`, cuando ya no queda nada accionable; por `maxRounds`, cuando se llega al tope; por `draft` inicial `null`; por `critique` `null`; o por una excepción. Usalo cuando la señal de mejora puede salir de otro LLM leyendo el mismo texto; si necesitás un oráculo externo y reintentos desde cero, elegí `reflexion`.
+Es un patrón para pulir un solo artifact (un texto, un doc o una sección de spec) por rondas: un agente genera un borrador, otro lo critica de forma adversarial y localizada, y un tercer paso incorpora esa crítica. El loop se corta por `satisfied`, cuando ya no queda nada accionable; por `maxRounds`, cuando se llega al tope; por `draft` inicial `null`; por `critique` `null`; o por una excepción. Usalo cuando la señal de mejora puede salir de otro LLM leyendo el mismo texto; si necesitás un oráculo externo y reintentos desde cero, elegí `reflexion`.
 
 ## Cómo lanzarlo
 
@@ -62,7 +62,7 @@ flowchart TD
 
 ## Qué hace
 
-`self-refine` implementa el patrón Self-Refine (Madaan et al., arXiv:2303.17651): un mismo artefacto se produce, se critica y se revisa en un ciclo, en vez de generarse una sola vez. La crítica se acumula como "memoria verbal" — cada ronda ve TODAS las críticas anteriores, no solo la última — así el refine no repite errores ya señalados ni pierde contexto de por qué se cambió algo.
+`self-refine` implementa el patrón Self-Refine (Madaan et al., arXiv:2303.17651): un mismo artifact se produce, se critica y se revisa en un ciclo, en vez de generarse una sola vez. La crítica se acumula como "memoria verbal" — cada ronda ve TODAS las críticas anteriores, no solo la última — así el refine no repite errores ya señalados ni pierde contexto de por qué se cambió algo.
 
 El bucle está acotado en ambos extremos, que es la parte que las implementaciones ingenuas de "seguir mejorando" suelen fallar: un tope duro `maxRounds` (el paper reporta retornos decrecientes después de ~4 rondas) y un "quiet stop" cuando el crítico declara `satisfied` (sin issues accionables). Para que el quiet-stop sea confiable, al crítico se le exige ser específico y localizado (apuntar a spans concretos con un fix concreto), y se le pide una postura adversarial — nunca acordar mansamente con el propio draft.
 
@@ -72,7 +72,7 @@ La corrección puramente intrínseca (el crítico es, en esencia, el mismo gener
 
 | Si querés... | Usá... |
 |---|---|
-| pulir un solo artefacto in-place con crítica intrínseca | `self-refine` |
+| pulir un solo artifact in-place con crítica intrínseca | `self-refine` |
 | reintentar la tarea completa en cada trial, con memoria cross-trial y un oráculo externo | `reflexion` |
 
 - Activá `useJury: true` cuando quieras que la crítica venga de `adversarial-verify`, un jurado más duro que un solo crítico.

@@ -119,7 +119,7 @@ sintetiza la respuesta usando solo la traza, citando evidencia, o devolviendo
 `null` (subagente caído o el usuario lo saltó), se sustituye por un mensaje
 explícito de insuficiencia en vez de propagar `null` en silencio.
 
-No hay caché explícita ni artefactos escritos por este scaffold; el
+No hay caché explícita ni artifacts escritos por este scaffold; el
 resultado se devuelve directamente al llamador.
 
 ## Input y output

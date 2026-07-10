@@ -43,7 +43,7 @@ const MIN_SUBSTANTIVE_CHARS = 200;
 const PREFIX = [
 	"Actuá como revisor de una SUITE DE TESTS al estilo de Dave Farley (tenés el skill modern-software-engineering; aplicalo).",
 	"Estás revisando las suites de tests de integración de UNA extensión del monorepo pandi-extensions.",
-	"Evaluá las suites como ARTEFACTOS DE INGENIERÍA: ¿optimizan el aprendizaje y gestionan la complejidad?",
+	"Evaluá las suites como ARTIFACTS DE INGENIERÍA: ¿optimizan el aprendizaje y gestionan la complejidad?",
 	"Evaluá de forma concreta:",
 	"- Cobertura de COMPORTAMIENTO: ¿los tests fijan comportamiento observable (salidas, mensajes, estado) o detalles de implementación?",
 	"- NO VACUIDAD: ¿un test podría pasar aunque el comportamiento estuviera roto? Nombrá toda aserción que no pueda fallar de manera significativa.",

@@ -122,7 +122,7 @@ async function findJobDir(ctx: ExtensionContext, jobId: string): Promise<string 
 }
 
 const RECONCILABLE_STATES = new Set(["starting", "running"]);
-// Únicos estados en los que pueden eliminarse los artefactos de un job terminado.
+// Únicos estados en los que pueden eliminarse los artifacts de un job terminado.
 // `starting`/`running` (y read-time `orphaned`/`stale`/`unknown`) nunca son eliminables;
 // ver classifyForDeletion.
 const DELETABLE_STATES = new Set(["completed", "failed", "cancelled", "interrupted"]);
@@ -161,7 +161,7 @@ async function eachProjectRunDir(
 // Self-heal al session-start: un proceso Pi nuevo no posee jobs (activeJobs está vacío),
 // así que todo job local del proyecto persistido como starting/running viene de una corrida
 // anterior. Se prueba su pid registrado; un pid DEAD significa que el proceso ya no existe
-// (Pi murió antes de finalize), así que el artefacto se reescribe atómicamente a un estado
+// (Pi murió antes de finalize), así que el artifact se reescribe atómicamente a un estado
 // terminal `interrupted`. Los jobs vivos/no comprobables quedan intactos (la proyección
 // read-time aún muestra orphaned/stale). Escribir `interrupted` solo con un pid confirmado
 // muerto evita el riesgo de reutilización de pid: un pid muerto nunca puede ser nuestro job
@@ -205,7 +205,7 @@ export async function reconcileInterruptedJobs(ctx: ExtensionContext): Promise<n
 			});
 			reconciled++;
 		} catch {
-			// Mejor esfuerzo: deja el artefacto intacto si falla la reescritura atómica.
+			// Mejor esfuerzo: deja el artifact intacto si falla la reescritura atómica.
 		}
 	}
 	return reconciled;
@@ -355,7 +355,7 @@ async function handleStart(ctx: ExtensionContext, command: string): Promise<BgRe
 	return response(
 		[
 			`Job en segundo plano ${jobId} iniciado.`,
-			`Artefactos: ${runDir}`,
+			`Artifacts: ${runDir}`,
 			`Estado: /bg status ${jobId}`,
 			`Logs: /bg logs ${jobId}`,
 		].join("\n"),
@@ -515,7 +515,7 @@ async function handleList(ctx: ExtensionContext): Promise<BgResponse> {
 	return response(["Jobs en segundo plano:", ...jobs.map(formatJob)].join("\n"), { jobs });
 }
 
-// Fuente única de verdad para decidir si pueden eliminarse los artefactos de un job. Nunca
+// Fuente única de verdad para decidir si pueden eliminarse los artifacts de un job. Nunca
 // confía en status.json.state como liveness: rederiva el estado vivo vía projectState y refina
 // un pid huérfano por identidad. Los jobs activos (poseídos), verificados o vivos no verificables
 // nunca son eliminables; un pid reutilizado refina a `interrupted` y sí lo es.
@@ -601,7 +601,7 @@ async function handlePrune(ctx: ExtensionContext, tail: string): Promise<BgRespo
 	});
 }
 
-// Elimina artefactos de un job terminado, gateado por estado LIVE rederivado
+// Elimina artifacts de un job terminado, gateado por estado LIVE rederivado
 // (classifyForDeletion) para que un job running/active/verified-alive nunca sea eliminable.
 // removeRunDir aplica scope de proyecto + seguridad de symlink en el borde.
 async function handleDelete(ctx: ExtensionContext, jobId: string): Promise<BgResponse> {
@@ -723,8 +723,8 @@ async function readBoundedLog(file: string): Promise<string | undefined> {
 	}
 }
 
-// Lee un tail acotado y symlink-safe de un artefacto con forma de respuesta /bg, o undefined
-// cuando el artefacto no existe para que quienes llaman puedan recurrir a otra fuente.
+// Lee un tail acotado y symlink-safe de un artifact con forma de respuesta /bg, o undefined
+// cuando el artifact no existe para que quienes llaman puedan recurrir a otra fuente.
 async function boundedArtifactResponse(
 	runDir: string,
 	jobId: string,
@@ -821,12 +821,12 @@ const BG_ARGUMENT_COMPLETIONS = [
 	{ value: "preview", description: "Dry-run (vista previa) de un comando en segundo plano" },
 	{ value: "start", description: "Iniciar un job en segundo plano" },
 	{ value: "cancel", description: "Cancelar un job activo en segundo plano" },
-	{ value: "list", description: "Listar artefactos de jobs en segundo plano" },
+	{ value: "list", description: "Listar artifacts de jobs en segundo plano" },
 	{ value: "status", description: "Leer el estado del job" },
 	{ value: "logs", description: "Leer logs acotados del job" },
 	{ value: "events", description: "Leer eventos acotados del ciclo de vida del job" },
-	{ value: "delete", description: "Eliminar los artefactos de un job terminado" },
-	{ value: "prune", description: "Vista previa/prune de artefactos de jobs terminados (--yes para eliminar)" },
+	{ value: "delete", description: "Eliminar los artifacts de un job terminado" },
+	{ value: "prune", description: "Vista previa/prune de artifacts de jobs terminados (--yes para eliminar)" },
 ].map((item) => ({ ...item, label: item.value }));
 
 export default function bgExtension(pi: ExtensionAPI): void {
@@ -843,7 +843,7 @@ export default function bgExtension(pi: ExtensionAPI): void {
 
 	// Self-heal al startup (solo sesiones persistentes y confiables, donde se poseen jobs):
 	// reescribe jobs locales del proyecto cuyo pid registrado está muerto, de `running` stale
-	// a `interrupted` terminal, para que el artefacto en disco deje de afirmar `running`.
+	// a `interrupted` terminal, para que el artifact en disco deje de afirmar `running`.
 	// Mejor esfuerzo; nunca dejar que rompa session start.
 	pi.on("session_start", async (_event, ctx) => {
 		if (!canRunInMode(ctx)) return;

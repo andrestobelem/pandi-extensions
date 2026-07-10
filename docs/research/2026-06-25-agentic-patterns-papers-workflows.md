@@ -28,15 +28,15 @@ Consolidar lo aprendido sobre workflows agénticos y papers relevantes para mejo
 
 - **ReAct: Synergizing Reasoning and Acting in Language Models** — arXiv:2210.03629. Idea útil: alternar razonamiento y acciones/herramientas; en workflows, separar scouting barato, ejecución con herramientas y síntesis con evidencia.
 - **Self-Consistency Improves Chain of Thought Reasoning in Language Models** — arXiv:2203.11171. Idea útil: múltiples caminos independientes + selección por consenso; en workflows, usar fan-out de perspectivas y síntesis como juez.
-- **Reflexion: Language Agents with Verbal Reinforcement Learning** — arXiv:2303.11366. Idea útil: memoria verbal de fallas y reflexión; en workflows, loops con artefactos de error, retries y verificación.
+- **Reflexion: Language Agents with Verbal Reinforcement Learning** — arXiv:2303.11366. Idea útil: memoria verbal de fallas y reflexión; en workflows, loops con artifacts de error, retries y verificación.
 - **Self-Refine: Iterative Refinement with Self-Feedback** — arXiv:2303.17651. Idea útil: generar → criticar → refinar; en workflows, plan → crítica adversarial → plan revisado → checklist.
 - **Tree of Thoughts: Deliberate Problem Solving with Large Language Models** — arXiv:2305.10601. Idea útil: ramificar/evaluar/podar; en workflows, generar alternativas en paralelo, evaluarlas con una rúbrica y podarlas antes de implementar.
 - **Improving Factuality and Reasoning in Language Models through Multiagent Debate** — arXiv:2305.14325. Idea útil: el debate multiagente mejora la factualidad; en workflows, reviewers independientes y un juez que descarte afirmaciones sin soporte.
 - **AutoGen: Enabling Next-Gen LLM Applications via Multi-Agent Conversation** — arXiv:2308.08155. Idea útil: patrones de conversación multiagente programables; en workflows, roles explícitos, contratos de salida y scopes de herramientas.
 - **CAMEL: Communicative Agents for "Mind" Exploration of Large Language Model Society** — arXiv:2303.17760. Idea útil: cooperación con role-play y roles definidos; en workflows, `agentType` y responsabilidades no superpuestas.
-- **MetaGPT: Meta Programming for A Multi-Agent Collaborative Framework** — arXiv:2308.00352. Idea útil: codificar workflows humanos en roles y artefactos; en workflows, artefactos estables y fases explícitas.
+- **MetaGPT: Meta Programming for A Multi-Agent Collaborative Framework** — arXiv:2308.00352. Idea útil: codificar workflows humanos en roles y artifacts; en workflows, artifacts estables y fases explícitas.
 - **AgentVerse: Facilitating Multi-Agent Collaboration and Exploring Emergent Behaviors** — arXiv:2308.10848. Idea útil: ajustar dinámicamente la composición del grupo; en workflows, elegir cantidad y tipo de agentes después del scouting.
-- **SWE-agent: Agent-Computer Interfaces Enable Automated Software Engineering** — arXiv:2405.15793. Idea útil: importa la interfaz agente-computadora; en workflows, herramientas restringidas, prompts con paths/comandos y artefactos inspectables.
+- **SWE-agent: Agent-Computer Interfaces Enable Automated Software Engineering** — arXiv:2405.15793. Idea útil: importa la interfaz agente-computadora; en workflows, herramientas restringidas, prompts con paths/comandos y artifacts inspectables.
 - **DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines** — arXiv:2310.03714. Idea útil: módulos declarativos y contratos; en workflows, schemas, formatos fijos y helpers reutilizables.
 
 ## Principios derivados
@@ -73,7 +73,7 @@ Consolidar lo aprendido sobre workflows agénticos y papers relevantes para mejo
    - Para auditorías, herramientas read-only.
    - Para implementación, separar plan/review de la edición real.
 
-8. **Artefactos como memoria externa**
+8. **Artifacts como memoria externa**
    - Persistir la lista de trabajo, salidas crudas, descartes, síntesis, checks y riesgos aceptados.
    - No depender de que todo entre en el contexto del chat.
 

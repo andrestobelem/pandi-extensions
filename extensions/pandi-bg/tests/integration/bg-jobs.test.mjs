@@ -3,7 +3,7 @@
  * Test de integración conductual con jobs reales para `/bg` M2a.
  *
  * Cubre el runner local solo slash: start/completion, failure, cancellation,
- * PIDs stale/no poseídos, gates de mode/trust, artefactos y logs.
+ * PIDs stale/no poseídos, gates de mode/trust, artifacts y logs.
  */
 
 import { spawn, spawnSync } from "node:child_process";

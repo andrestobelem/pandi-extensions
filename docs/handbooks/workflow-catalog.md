@@ -35,7 +35,7 @@ flowchart TD
     F -->|descubrir entre muchos ítems| H[Discover & fan-out]
     F -->|hay hallazgos, hace falta confianza| I[Verify]
     F -->|hay que elegir lo mejor entre varias opciones| J[Generate & select]
-    F -->|pulir un solo artefacto| K[Iterate & refine]
+    F -->|pulir un solo artifact| K[Iterate & refine]
     F -->|aplicar cambios en una codebase| L[Migrate]
 ```
 
@@ -49,7 +49,7 @@ flowchart TD
 | Tenés hallazgos/afirmaciones y querés solo los que sobreviven al escrutinio | Verify | `adversarial-verify` |
 | Hay que probar un bug con una ejecución fallida, no discutirlo | Verify | `bug-verify` |
 | Querés el mejor de N candidatos, pero el score absoluto no es confiable | Generate & select | `tournament` |
-| Un artefacto necesita pulido, no una ronda nueva de generación | Iterate & refine | `self-refine` |
+| Un artifact necesita pulido, no una ronda nueva de generación | Iterate & refine | `self-refine` |
 | Vas a mutar muchos archivos y no podés dejar ninguno roto | Migrate | `large-migration` |
 
 ---
@@ -89,7 +89,7 @@ flowchart TD
 | [`adversarial-verify`](../scaffolds/adversarial-verify.md) | Jurado escéptico por hallazgo que filtra por refutación mayoritaria; default-to-doubt. | Podar una lista ruidosa de hallazgos; descartar hallazgos alucinados antes de actuar. | Tenés muchos hallazgos/afirmaciones para podar por argumento, no ejecutando código — para eso usá `bug-verify`. |
 | [`bug-verify`](../scaffolds/bug-verify.md) | Confirma bugs sospechados por **reproducción**: solo son reales si una corrida falla en el código actual; chequeo opcional FAIL→PASS y minimización. Secuencial. | Confirmar leads de `repo-bug-hunt`; bucle reproducir-y-corregir. | Tenés que probarlo con una corrida fallida (por ejemplo, confirmando leads de `repo-bug-hunt`), no argumentarlo. |
 | [`verify-claims-lib`](../scaffolds/verify-claims-lib.md) | Subworkflow reutilizable: verifica `{claims, skeptics?}` con jurados escépticos; devuelve verified/dropped/votes/coverage. | Bloque de verificación para un workflow padre. | Estás escribiendo un workflow *padre* (como `composition-driver`) y necesitás verificación como bloque de construcción. |
-| [`adversarial-plan-review`](../scaffolds/adversarial-plan-review.md) | N revisores con ángulos fijos (correctness, security, maintainability, scope) sintetizan un plan revisado. | Revisión de diseño/RFC; compuerta pre-implementación. | El artefacto bajo revisión es un *plan*, no código ni afirmaciones — usalo antes de empezar a implementar. |
+| [`adversarial-plan-review`](../scaffolds/adversarial-plan-review.md) | N revisores con ángulos fijos (correctness, security, maintainability, scope) sintetizan un plan revisado. | Revisión de diseño/RFC; compuerta pre-implementación. | El artifact bajo revisión es un *plan*, no código ni afirmaciones — usalo antes de empezar a implementar. |
 
 ## 🎯 Generate & select
 
@@ -104,7 +104,7 @@ flowchart TD
 
 | Workflow | Qué hace | Casos de uso | Usalo en lugar de su vecino cuando… |
 | --- | --- | --- | --- |
-| [`self-refine`](../scaffolds/self-refine.md) | Bucle acotado in-place de generar → criticar → refinar con memoria verbal; se detiene en silencio cuando el crítico queda conforme. | Pulir un artefacto (doc/spec/code) hasta calidad. | Un solo artefacto necesita pulido y la crítica puede ser intrínseca — no hace falta un oráculo externo. |
+| [`self-refine`](../scaffolds/self-refine.md) | Bucle acotado in-place de generar → criticar → refinar con memoria verbal; se detiene en silencio cuando el crítico queda conforme. | Pulir un artifact (doc/spec/code) hasta calidad. | Un solo artifact necesita pulido y la crítica puede ser intrínseca — no hace falta un oráculo externo. |
 | [`reflexion`](../scaffolds/reflexion.md) | Bucle outer trial de verbal-RL: reintenta cada trial llevando auto-reflexiones; el evaluador puede estar anclado externamente (`verifyCmd`). | Code-with-tests; tareas con oráculo pass/fail; reset-and-re-attempt en vez de editar in place. | Tenés un oráculo pass/fail (por ejemplo, tests) y un reintento fresco gana a editar en el lugar. |
 
 ## 🚚 Migrate

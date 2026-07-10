@@ -65,7 +65,7 @@ flowchart TD
 
 ## Qué hace
 
-`reflexion` implementa el patrón de *verbal reinforcement learning* del paper original: un loop externo de trials que reintenta la tarea completa desde cero, en lugar de refinar el mismo artefacto in-place. Separa explícitamente tres roles fieles al paper — Actor (M_a), Evaluador (M_e) y Auto-Reflexión (M_sr) — y cada uno corre como una llamada distinta a `agent`, no como un único modelo que se evalúa a sí mismo.
+`reflexion` implementa el patrón de *verbal reinforcement learning* del paper original: un loop externo de trials que reintenta la tarea completa desde cero, en lugar de refinar el mismo artifact in-place. Separa explícitamente tres roles fieles al paper — Actor (M_a), Evaluador (M_e) y Auto-Reflexión (M_sr) — y cada uno corre como una llamada distinta a `agent`, no como un único modelo que se evalúa a sí mismo.
 
 La fortaleza del diseño es que el grounding se puede falsar. Cuando se pasa `verifyCmd`, el Evaluador debe correr ese comando de verdad con la tool de bash en un directorio scratch aislado, y citar el output real en `evidence`. El código no confía en lo que el modelo diga: si `verifyCmd` fue pedido pero el Evaluador no citó output no vacío, `grounded` se degrada a `false` y un `pass` reclamado sin evidencia NO se acepta como éxito. Eso imita la regla de *no reproduced without quoted output* de `bug-verify.js`.
 
@@ -76,7 +76,7 @@ La memoria episódica es un buffer acotado (`memoryCap`, default 3, siguiendo el
 | Situación | Patrón recomendado |
 |---|---|
 | Tenés un oráculo objetivo (`tests`, `build`, `verifyCmd`) y "empezar de nuevo" rinde más que parchear | `reflexion` |
-| Preferís editar UN borrador in-place con crítica y refinamiento sobre el mismo artefacto | `self-refine` (una sola cadena, sin reset, sin evaluador separado) |
+| Preferís editar UN borrador in-place con crítica y refinamiento sobre el mismo artifact | `self-refine` (una sola cadena, sin reset, sin evaluador separado) |
 | No tenés forma de verificar objetivamente el resultado ni un criterio claro de éxito/fracaso | reconsiderar: el Evaluador ungrounded es intrínsecamente más débil (arXiv:2310.01798) |
 
 Casos de uso listados en el catálogo: código con tests, tareas con señal binaria de pass/fail y decisiones de reset-y-reintentar vs. editar-en-el-lugar. **Caveat del código:** en runtimes que no aíslan las tools por agente (por ejemplo, el runtime de Claude Code Workflow), el Actor conserva acceso completo a archivos y bash, puede leer el propio verificador y correr `verifyCmd` él mismo, y entonces converge en el trial 1. Para ejercitar el loop reflect→retry ahí hace falta una tarea cuyo primer intento falle de verdad, o un harness de test que stubee `agent`.

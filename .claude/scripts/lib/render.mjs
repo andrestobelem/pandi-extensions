@@ -67,7 +67,7 @@ function topCallouts(runData) {
     callouts.push(`<div class="callout error"><b>Falla visible:</b> ${failed} ${plural(failed, "agente")} falló${failed === 1 ? "" : "n"}; no trates este reporte como aprobado hasta revisar esas tarjetas.</div>`);
   }
   if (runData.active || runData.state === "running") {
-    callouts.push(`<div class="callout info"><b>Run activo:</b> este artefacto puede cambiar en el próximo refresh.</div>`);
+    callouts.push(`<div class="callout info"><b>Run activo:</b> este artifact puede cambiar en el próximo refresh.</div>`);
   }
   if (runData.state === "stale") {
     callouts.push(`<div class="callout warn"><b>Stale:</b> no hay señal de owner activo; usalo para diagnosticar antes de continuar.</div>`);
@@ -289,7 +289,7 @@ export function assembleArtifact({ merged, basePhases, composes, meta, provenanc
   const planSection = `<section data-s="plan"${active("plan")}><h2 class="sec">Plan — blueprint antes de ejecutar</h2><p class="section-intro">Este plan sale del workflow mismo: fases, agentes, contratos y composición detectados por el preview estático.</p>${planHtml}</section>`;
   const overviewSection = `<section data-s="overview"${active("overview")}><h2 class="sec">Orquestación</h2><p class="section-intro">El diagrama muestra la estructura detectada: fases, tipos de agente y composición entre workflows. Usalo como mapa; los prompts exactos están en la pestaña de agentes.</p><div class="diagram"><pre class="mermaid" id="mm"></pre></div></section>`;
   const contractSection = hasContract ? '<section data-s="contract"><h2 class="sec">Contrato — contrato de tarea del gate</h2><div class="mdbody" id="contract"></div></section>' : "";
-  const resultsSection = `<section data-s="results"${active("results")}><h2 class="sec">Resultados — valor de retorno y artefactos</h2><div id="results"></div></section>`;
+  const resultsSection = `<section data-s="results"${active("results")}><h2 class="sec">Resultados — valor de retorno y artifacts</h2><div id="results"></div></section>`;
   const agentsSection = '<section data-s="agents"><h2 class="sec">Agentes — abrí para ver el prompt exacto</h2><div id="agents"></div></section>';
   const schemasSection = '<section data-s="schemas"><h2 class="sec">Schemas de structured output</h2><div id="schemas"></div></section>';
   const basedSection = '<section data-s="based"><h2 class="sec">Basado en — fuentes y scaffolds</h2><div id="based"></div></section>';

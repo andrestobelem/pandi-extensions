@@ -30,7 +30,7 @@ python -m reference_agent visualize --bundle ./bundles/ga4
 
 El **Open Knowledge Format (OKF)** es una **especificación abierta en estado borrador (v0.1 — Draft)** de Google Cloud para representar *conocimiento*: "los metadatos, el contexto y la perspectiva curada que rodean a los datos y los sistemas" (SPEC.md). Su tesis central es ser **un formato, no una plataforma**: "un directorio de archivos markdown con frontmatter YAML. No hay registro de esquemas, ni autoridad central, ni herramientas obligatorias" (SPEC.md).
 
-La propuesta de valor es que el conocimiento organizativo (definiciones de tablas, métricas, runbooks, descripciones de APIs, rutas de join) se vuelva **legible, parseable, diffeable y portable**: "si puedes hacer `cat` a un archivo, puedes leer OKF; si puedes hacer `git clone` a un repo, puedes distribuirlo" (README de OKF). Sirve como una **capa durable de conocimiento/contexto** que tanto humanos como agentes de IA pueden consumir, frente a otros artefactos del ecosistema agentico que resuelven capas distintas (descubrimiento de agentes, protocolos de runtime, instrucciones de repo).
+La propuesta de valor es que el conocimiento organizativo (definiciones de tablas, métricas, runbooks, descripciones de APIs, rutas de join) se vuelva **legible, parseable, diffeable y portable**: "si puedes hacer `cat` a un archivo, puedes leer OKF; si puedes hacer `git clone` a un repo, puedes distribuirlo" (README de OKF). Sirve como una **capa durable de conocimiento/contexto** que tanto humanos como agentes de IA pueden consumir, frente a otros artifacts del ecosistema agentico que resuelven capas distintas (descubrimiento de agentes, protocolos de runtime, instrucciones de repo).
 
 **Puntos clave:**
 
@@ -278,7 +278,7 @@ El demo OKF mapea cada `.md` a una **entry** de Knowledge Catalog usando el **Do
 
 > **Advertencia importante de evidencia.** Se verificó por grep que **A2A, MCP, AGENTS.md, llms.txt, "Agent Card" y "Model Context" NO aparecen en `SPEC.md` ni en `okf/README.md`**. El §10 del SPEC ("Relationship to other formats") solo nombra tres comparadores: **repositorios "wiki" para LLM**, **herramientas de conocimiento personal (Obsidian/Notion)** y **"metadata as code"**, afirmando que OKF "difiere principalmente en estar *especificado*". Por tanto, **la comparativa siguiente es síntesis/interpretación** a partir de las fuentes primarias de cada formato, **no texto normativo de OKF**.
 
-| Formato | Capa | Artefacto | Pregunta que responde | Estructura requerida |
+| Formato | Capa | Artifact | Pregunta que responde | Estructura requerida |
 |---|---|---|---|---|
 | **OKF** | Conocimiento/contenido | Árbol de directorios Markdown + frontmatter YAML | "¿Qué conocimiento curado existe sobre estos activos?" | `type` requerido; recomendados `title`/`description`/`resource`/`tags`/`timestamp` |
 | **A2A Agent Card** | Descubrimiento/manifiesto de capacidades de un agente | Un único JSON en `/.well-known/agent-card.json` | "¿Qué puede hacer este *agente* y cómo lo invoco?" | `name`, `description`, `version`, `supportedInterfaces`, `capabilities`, `defaultInputModes`, `defaultOutputModes`, `skills` |

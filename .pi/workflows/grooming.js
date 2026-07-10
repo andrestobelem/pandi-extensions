@@ -28,7 +28,7 @@
  *                       (predeterminado: 20); superarlo limita la cobertura de forma VISIBLE
  *                       (se registra junto con los números de issues excluidas).
  *
- * Salida: { issues, driftCount, proposedCommands, reportPath }, además del artefacto
+ * Salida: { issues, driftCount, proposedCommands, reportPath }, además del artifact
  *   Markdown con el informe completo escrito en el directorio de ejecución.
  *
  * Usa: bash (preflight + exploración con gh), agents (analistas por issue), agent

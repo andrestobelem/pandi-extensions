@@ -109,7 +109,7 @@ Retorna:
 }
 ```
 
-No escribe artefactos (`writeArtifact`) — el resultado viaja completo en el valor de retorno del workflow.
+No escribe artifacts (`writeArtifact`) — el resultado viaja completo en el valor de retorno del workflow.
 
 ## Fases
 

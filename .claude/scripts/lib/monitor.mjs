@@ -70,7 +70,7 @@ function featuredAgent(node) {
   const state = nodeState(node);
   const prompt = String(node.prompt || "").trim();
   const runOutput = node.run?.output ? `<div class="rout"><span class="lbl">output runtime · ${esc(node.id)}</span>${esc(node.run.output)}</div>` : "";
-  const artifact = node.run?.artifact ? `<div class="rart">artefacto: ${esc(node.run.artifact)}</div>` : "";
+  const artifact = node.run?.artifact ? `<div class="rart">artifact: ${esc(node.run.artifact)}</div>` : "";
   return `<div class="card open"><div class="head"><span class="caret">▸</span>${pill(state.kind, state.label)}<span class="nid">${esc(node.id || node.role)}</span><span class="me">${esc(shortModel(node.model))} · ${esc(node.effort || "inherited")}</span><span class="schema">${esc(node.phase || "—")}</span></div><div class="body"><div class="meta-row"><span><b>schema</b> ${esc(node.schema || "—")}</span><span><b>tools</b> ${esc(node.tools || "inherited")}</span><span><b>skills</b> ${esc(Array.isArray(node.skills) && node.skills.length ? node.skills.join(", ") : "default")}</span><span><b>extensiones</b> ${esc(node.extensions || "inherited")}</span></div>${runOutput}${artifact}${prompt ? `<div class="prompt">${esc(prompt.slice(0, 1200))}${prompt.length > 1200 ? "\n…[truncated]" : ""}</div>` : ""}</div></div>`;
 }
 

@@ -3,7 +3,7 @@
 // (datos del directorio de ejecución), que responde 4 preguntas abiertas con justificación y alternativas rechazadas.
 // Forma según el contrato 80394258: 3 exploraciones paralelas de solo lectura (arquitecto: ubicación y
 // unificar-vs-nuevo; investigador: inventario de datos de ejecución; revisor: riesgos/límites/degradación)
-// -> 1 revisión adversarial -> 1 síntesis que escribe el artefacto del registro de diseño.
+// -> 1 revisión adversarial -> 1 síntesis que escribe el artifact del registro de diseño.
 // Entrada: { sampleRunDir?: string, model?, effort?, models?{role}, efforts?{role} }
 export const meta = {
 	name: "design-run-report-html",
@@ -91,7 +91,7 @@ export default async function main() {
 			ask:
 				"Tu perspectiva: pregunta (d), INVENTARIO DE DATOS. Abrí el directorio de ejecución de muestra y construí un mapa por campo: para " +
 				"cada sección HTML propuesta (encabezado/estado, línea de tiempo de fases, tabla de agentes, detalle por agente con " +
-				"prompt+output, métricas/costo, lista de artefactos y logs), enumerá el archivo fuente EXACTO y los campos JSON/JSONL " +
+				"prompt+output, métricas/costo, lista de artifacts y logs), enumerá el archivo fuente EXACTO y los campos JSON/JSONL " +
 				"que la alimentan (p. ej., status.json.elapsedMs, entradas type:log de events.jsonl, filas por agente de " +
 				"metrics.json y estructura de agents/0001-*.md; describí la disposición interna real de ese archivo). Marcá toda BRECHA DE DATOS " +
 				"(cualquier dato deseable para un buen informe que el directorio de ejecución no persista) e indicá si un campo aditivo pequeño " +

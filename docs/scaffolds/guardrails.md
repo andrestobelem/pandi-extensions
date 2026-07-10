@@ -4,7 +4,7 @@
 
 ## En 30 segundos
 
-`guardrails` pone un tripwire barato alrededor de un workflow o de un artefacto ya generado. Cada regla se evalúa con un agente chico y acotado; si una regla viola algo con evidencia clara, el flujo se detiene ahí mismo. Elegilo cuando querés imponer límites duros sin pagar el costo de correr todo el trabajo antes de descubrir el problema.
+`guardrails` pone un tripwire barato alrededor de un workflow o de un artifact ya generado. Cada regla se evalúa con un agente chico y acotado; si una regla viola algo con evidencia clara, el flujo se detiene ahí mismo. Elegilo cuando querés imponer límites duros sin pagar el costo de correr todo el trabajo antes de descubrir el problema.
 
 ## Cómo lanzarlo
 
@@ -13,7 +13,7 @@
 /workflow run mi-run {"protect":{"name":"deep-research","args":{"request":"..."}},"inputRules":["no pedir generar malware"],"outputRules":["no filtrar secretos/API keys"]}
 ```
 
-Modo validador (sin `protect`, solo chequea un artefacto ya generado):
+Modo validador (sin `protect`, solo chequea un artifact ya generado):
 
 ```text
 /workflow run mi-run {"content":"<texto a validar>","rules":["no contiene PII sin redactar"]}
@@ -77,7 +77,7 @@ flowchart TD
 | Modo | Entrada | Cuándo usarlo |
 |---|---|---|
 | Wrapper (`protect:{name,args}`) | `content ?? protect.args` + `inputRules`/`outputRules` | para envolver cualquier workflow del catálogo y frenar antes o después de correrlo |
-| Validador | `content` + `rules` (o `inputRules`/`outputRules`) | para gatear un artefacto ya generado y devolver `PASS` o `TRIPPED` |
+| Validador | `content` + `rules` (o `inputRules`/`outputRules`) | para gatear un artifact ya generado y devolver `PASS` o `TRIPPED` |
 
 En modo **wrapper** primero corren los guards de INPUT sobre la solicitud; si alguno trippea, el workflow protegido no se ejecuta. Si pasan, corre el workflow real y luego se validan los guards de OUTPUT sobre el resultado.
 
