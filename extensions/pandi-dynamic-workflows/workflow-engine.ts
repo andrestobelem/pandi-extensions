@@ -18,7 +18,6 @@ import {
 	throwIfAborted,
 } from "./concurrency-primitives.js";
 import { phaseEventFields } from "./event-parser.js";
-import { appendJsonLine } from "./file-append.js";
 import {
 	type AgentFocusMetrics,
 	aggregateRunFocusMetrics,
@@ -36,9 +35,8 @@ import {
 } from "./journal.js";
 import { extractJsonCandidate } from "./json-extract.js";
 import { OccurrenceCounter } from "./occurrence-counter.js";
-import { resolveArtifactPath, resolveCwdPath } from "./path-safety.js";
+import { resolveCwdPath } from "./path-safety.js";
 import { runStreamingAgentProcess, type StreamingProcessResult } from "./process-spawn.js";
-import { hasActiveRun } from "./run-registry.js";
 import { formatRunSummary } from "./run-status-ui.js";
 import { writeJsonFile, writeRunStatus } from "./run-store.js";
 import { MAX_AGENT_OUTPUT_IN_RESULT, MAX_JOURNALED_STREAM } from "./runtime-constants.js";
@@ -51,7 +49,6 @@ import {
 import type {
 	AgentOptions,
 	AgentPhaseInfo,
-	BashResult,
 	PreparedWorkflowRun,
 	RunLimits,
 	SubagentResult,
@@ -63,13 +60,16 @@ import type {
 	WorkflowRunStatus,
 } from "./types.js";
 import { buildAgentProcess, hostBinName, sanitizeAgentOpts } from "./workflow-agent-process.js";
-import { type AskOptions, type BashAskContext, type BashOptions, runAsk, runBash } from "./workflow-bash-ask.js";
+import { type BashAskContext, runAsk, runBash } from "./workflow-bash-ask.js";
 import { currentWorkflowDepth, WORKFLOW_DEPTH_ENV } from "./workflow-depth.js";
 import { preflightWorkflowLaunch } from "./workflow-preflight.js";
-import { ensureDir, resolveWorkflow, slugify } from "./workflow-resolve.js";
-import { type AgentSpec, makeRunAgents } from "./workflow-run-agents.js";
+import { ensureDir, slugify } from "./workflow-resolve.js";
+import { makeRunAgents } from "./workflow-run-agents.js";
+import { createWorkflowRunHost } from "./workflow-run-host.js";
 import { prepareWorkflowRun } from "./workflow-run-prepare.js";
 import { writeWorkflowRunSnapshots } from "./workflow-run-snapshots.js";
+import { runSubworkflow as runSubworkflowImpl } from "./workflow-run-subworkflow.js";
+import type { WorkflowRuntimeApi } from "./workflow-runtime-api.js";
 import { makeModelArg, TIER_ALIASES, tierModelTable } from "./workflow-tier-models.js";
 import { callSignal, executeWorkflowCode } from "./workflow-worker-bridge.js";
 
@@ -86,37 +86,6 @@ interface InternalAgentOptions extends AgentOptions {
 	label?: string;
 	__workflowPhase?: AgentPhaseInfo;
 	__workflowNamespace?: string;
-}
-
-interface WorkflowRuntimeApi {
-	cwd: string;
-	runId: string;
-	runDir: string;
-	input: unknown;
-	limits: Readonly<RunLimits>;
-	log(message: string, details?: unknown): Promise<void>;
-	phase(label: string): Promise<void>;
-	agent(prompt: string, options?: AgentOptions): Promise<SubagentResult>;
-	agents(
-		items: (string | AgentSpec)[],
-		options?: AgentOptions & { concurrency?: number; settle?: false },
-	): Promise<SubagentResult[]>;
-	agents(
-		items: (string | AgentSpec)[],
-		options: AgentOptions & { concurrency?: number; settle: true },
-	): Promise<(SubagentResult | null)[]>;
-	workflow(name: string, input?: unknown): Promise<unknown>;
-	ask(question: string, options?: AskOptions): Promise<string | boolean>;
-	bash(command: string, options?: BashOptions): Promise<BashResult>;
-	readFile(filePath: string, encoding?: BufferEncoding): Promise<string>;
-	writeFile(filePath: string, data: string | Uint8Array): Promise<{ path: string }>;
-	appendFile(filePath: string, data: string | Uint8Array): Promise<{ path: string }>;
-	listFiles(dir?: string, options?: { maxFiles?: number }): Promise<string[]>;
-	writeArtifact(name: string, data: unknown): Promise<{ path: string }>;
-	appendArtifact(name: string, data: string | Uint8Array): Promise<{ path: string }>;
-	sleep(ms: number): Promise<void>;
-	json(value: unknown, maxChars?: number): string;
-	compact(value: unknown, maxChars?: number): string;
 }
 
 let tierEnvWarned = false;
@@ -164,9 +133,6 @@ export async function runWorkflow(
 	// persona/access fs awaits interleave under ctx.agents/parallel/pipeline concurrency.
 	// This is what makes occ (and therefore resume-cache lookups) deterministic.
 	const occAssignMutex = new AsyncMutex();
-	// Per-artifact-path append locks: concurrent agents appending to the same shared
-	// artifact must not interleave/corrupt each other's bytes (see appendArtifact).
-	const appendArtifactMutexes = new Map<string, AsyncMutex>();
 	let cachedCalls = 0;
 	// Focus observability (research §4): per-agent metrics folded from each freshly-run
 	// subagent's JSON-mode stdout, aggregated into metrics.json/metrics.md at run end.
@@ -182,129 +148,40 @@ export async function runWorkflow(
 		schemaFailedAgents: 0,
 	};
 
-	function recordAgentIntegrity(result: SubagentResult): void {
-		integrity.agentResults++;
-		if (!result.ok) integrity.failedAgents++;
-		if (result.outputEmpty) integrity.emptyOutputAgents++;
-		if (result.outputTruncated) integrity.outputTruncatedAgents++;
-		if (result.stdoutTruncated) integrity.stdoutTruncatedAgents++;
-		if (result.timedOut) integrity.timedOutAgents++;
-		if (result.schemaOk === false) integrity.schemaFailedAgents++;
-	}
-
-	function resultIntegrity(): WorkflowResultIntegrity | undefined {
-		if (integrity.agentResults === 0) return undefined;
-		return {
-			...integrity,
-			agentOutputs: {
-				observed: integrity.agentResults,
-				ok: integrity.agentResults - integrity.failedAgents,
-				failed: integrity.failedAgents,
-				empty: integrity.emptyOutputAgents,
-				truncated: integrity.outputTruncatedAgents,
-				stdoutTruncated: integrity.stdoutTruncatedAgents,
-				timedOut: integrity.timedOutAgents,
-				schemaFailed: integrity.schemaFailedAgents,
-			},
-		};
-	}
-
-	function trackSubagent<T>(promise: Promise<T>): Promise<T> {
-		const tracked = promise.finally(() => trackedSubagents.delete(tracked));
-		trackedSubagents.add(tracked);
-		return tracked;
-	}
-
-	async function appendEvent(event: unknown): Promise<void> {
-		await appendJsonLine(path.join(runDir, "events.jsonl"), event);
-	}
-
-	function makeStatus(statusState: WorkflowRunState = state, now = Date.now()): WorkflowRunStatus {
-		const integrity = resultIntegrity();
-		return {
-			workflow: workflowDefinition.name,
-			scope: workflowDefinition.scope,
-			file: workflowDefinition.path,
-			runId,
-			runDir,
-			state: statusState,
-			background: preparedRun.background,
-			active: statusState === "running" && hasActiveRun(runId),
-			startedAt: new Date(started).toISOString(),
-			updatedAt: new Date(now).toISOString(),
-			...(statusState !== "running" && statusState !== "stale" ? { endedAt: new Date(now).toISOString() } : {}),
-			elapsedMs: now - started,
-			agentCount,
-			agentConcurrency: runLimits.concurrency,
-			maxAgents: runLimits.maxAgents,
-			parallelAgents,
-			peakParallelAgents,
-			logs,
-			...(logs.length ? { lastLog: logs[logs.length - 1] } : {}),
-			...(integrity ? { integrity } : {}),
-			...(codeHash ? { codeHash } : {}),
-			...(cachedCalls ? { cachedCalls } : {}),
-			...(resumedFrom ? { resumedFrom } : {}),
-		};
-	}
-
-	async function persistStatus(statusState: WorkflowRunState = state): Promise<WorkflowRunStatus> {
-		const status = makeStatus(statusState);
-		await writeRunStatus(status);
-		return status;
-	}
-
-	async function publishStatus(statusState: WorkflowRunState = state): Promise<WorkflowRunStatus> {
-		const status = await persistStatus(statusState);
-		onProgress?.(logs, status);
-		return status;
-	}
-
-	async function log(message: string, details?: unknown): Promise<void> {
-		const entry: WorkflowLogEntry = {
-			time: new Date().toISOString(),
-			message,
-			...(details === undefined ? {} : { details }),
-		};
-		logs.push(entry);
-		await appendEvent({ type: "log", ...entry });
-		await publishStatus();
-	}
-
-	async function phase(label: string): Promise<void> {
-		const text = String(label ?? "").trim();
-		if (!text) return;
-		const time = new Date().toISOString();
-		const id = ++explicitPhaseCount;
-		await appendEvent({ type: "phase", id, label: text, time });
-		await log(`phase: ${text}`);
-	}
-
-	async function writeArtifact(name: string, data: unknown): Promise<{ path: string }> {
-		throwIfAborted(runSignal.signal);
-		const file = resolveArtifactPath(runDir, name);
-		await ensureDir(path.dirname(file));
-		const body = typeof data === "string" || data instanceof Uint8Array ? data : `${safeJson(data)}\n`;
-		await fs.writeFile(file, body);
-		await appendEvent({ type: "artifact", path: file });
-		return { path: file };
-	}
-
-	async function appendArtifact(name: string, data: string | Uint8Array): Promise<{ path: string }> {
-		throwIfAborted(runSignal.signal);
-		const file = resolveArtifactPath(runDir, name);
-		await ensureDir(path.dirname(file));
-		// Serialize per-path so concurrent agents appending to a shared artifact never
-		// interleave a partial write and corrupt it.
-		let mutex = appendArtifactMutexes.get(file);
-		if (!mutex) {
-			mutex = new AsyncMutex();
-			appendArtifactMutexes.set(file, mutex);
-		}
-		await mutex.runExclusive(() => fs.appendFile(file, data));
-		await appendEvent({ type: "artifact_append", path: file });
-		return { path: file };
-	}
+	const host = createWorkflowRunHost({
+		runDir,
+		runId,
+		workflowDefinition,
+		preparedRun,
+		started,
+		runLimits,
+		resumedFrom,
+		onProgress,
+		signal: runSignal.signal,
+		getState: () => state,
+		getAgentCount: () => agentCount,
+		getParallelAgents: () => parallelAgents,
+		getPeakParallelAgents: () => peakParallelAgents,
+		getLogs: () => logs,
+		getCodeHash: () => codeHash,
+		getCachedCalls: () => cachedCalls,
+		getIntegrity: () => integrity,
+		bumpExplicitPhaseCount: () => ++explicitPhaseCount,
+		trackedSubagents,
+	});
+	const {
+		log,
+		phase,
+		writeArtifact,
+		appendArtifact,
+		appendEvent,
+		trackSubagent,
+		recordAgentIntegrity,
+		resultIntegrity,
+		persistStatus,
+		publishStatus,
+		makeStatus,
+	} = host;
 
 	async function runSubagent(prompt: string, options: InternalAgentOptions = {}): Promise<SubagentResult> {
 		throwIfAborted(runSignal.signal);
@@ -813,76 +690,6 @@ export async function runWorkflow(
 	// Copy of agent options excluding fields that do not affect model output, so
 	const agent = (prompt: string, options: InternalAgentOptions = {}) => trackSubagent(runSubagent(prompt, options));
 
-	async function runSubworkflow(name: string, workflowInput: unknown = {}): Promise<unknown> {
-		throwIfAborted(runSignal.signal);
-		const subWorkflow = await resolveWorkflow(ctx, name, "auto");
-		if (path.resolve(subWorkflow.path) === path.resolve(workflowDefinition.path)) {
-			throw new Error(
-				`workflow() refused recursive call to ${subWorkflow.name}. Sub-workflows are depth-1 and may not call their parent.`,
-			);
-		}
-		const subCode = await fs.readFile(subWorkflow.path, "utf8");
-		const subCodeHash = computeCodeHash(subCode);
-		const workflowCallKey = computeCallKey("workflow", [subWorkflow.name, workflowInput]);
-		const workflowOcc = occurrences.next(workflowCallKey);
-		const namespace = `workflow:${subWorkflow.name}:${subCodeHash.slice(0, 12)}:${workflowOcc}`;
-		await appendEvent({
-			type: "workflow",
-			phase: "start",
-			name: subWorkflow.name,
-			file: subWorkflow.path,
-			namespace,
-			occ: workflowOcc,
-		});
-		await log(`sub-workflow start: ${subWorkflow.name}`, {
-			file: subWorkflow.path,
-			namespace,
-			occ: workflowOcc,
-			remainingAgents: Math.max(0, runLimits.maxAgents - agentCount),
-		});
-		try {
-			const result = await executeWorkflowCode(
-				subWorkflow,
-				subCode,
-				makeApi(namespace, false, workflowInput),
-				workflowInput,
-				runLimits,
-				runSignal.signal,
-			);
-			await appendEvent({
-				type: "workflow",
-				phase: "end",
-				name: subWorkflow.name,
-				namespace,
-				occ: workflowOcc,
-				ok: true,
-			});
-			await log(`sub-workflow end: ${subWorkflow.name}`, {
-				namespace,
-				occ: workflowOcc,
-				remainingAgents: Math.max(0, runLimits.maxAgents - agentCount),
-			});
-			return result;
-		} catch (err) {
-			const message = err instanceof Error ? err.stack || err.message : String(err);
-			await appendEvent({
-				type: "workflow",
-				phase: "error",
-				name: subWorkflow.name,
-				namespace,
-				occ: workflowOcc,
-				ok: false,
-				error: message,
-			});
-			await log(`sub-workflow failed: ${subWorkflow.name}`, {
-				namespace,
-				occ: workflowOcc,
-				error: message,
-			});
-			throw err;
-		}
-	}
-
 	const bashAsk: BashAskContext = {
 		pi,
 		ctx,
@@ -898,6 +705,24 @@ export async function runWorkflow(
 		log,
 		appendEvent,
 	};
+
+	async function runSubworkflowLocal(name: string, workflowInput: unknown = {}): Promise<unknown> {
+		return runSubworkflowImpl(
+			{
+				ctx,
+				parentWorkflowDefinition: workflowDefinition,
+				runSignal,
+				runLimits,
+				occurrences,
+				getAgentCount: () => agentCount,
+				appendEvent,
+				log,
+				makeApi,
+			},
+			name,
+			workflowInput,
+		);
+	}
 
 	function makeApi(
 		workflowNamespace: string | undefined,
@@ -927,7 +752,7 @@ export async function runWorkflow(
 				namespacedAgent,
 			),
 			workflow: allowWorkflow
-				? runSubworkflow
+				? runSubworkflowLocal
 				: async () => {
 						throw new Error(
 							"workflow() composition depth limit is 1: sub-workflows cannot call other sub-workflows.",
