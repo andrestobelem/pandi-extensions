@@ -51,6 +51,12 @@ export {
 	WORKFLOW_GRAPH_DIR,
 	WORKFLOW_RUN_DIR,
 } from "./paths.js";
+export type { WorkflowPattern } from "./pattern-catalog.js";
+export {
+	getPatternUseCases,
+	resolveWorkflowPattern,
+	WORKFLOW_PATTERN_CATALOG,
+} from "./pattern-catalog.js";
 export {
 	compactInline,
 	formatDraftUsageIndex,

@@ -1,4 +1,5 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import "./lifecycle/runtime-deps.js";
 import {
 	registerDynamicWorkflowTool,
 	registerWorkflowRoutingCommands,

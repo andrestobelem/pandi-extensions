@@ -3,9 +3,9 @@
  * El host expone estado mutable y helpers; la clase del dashboard delega handleInput acá.
  */
 import { Key, matchesKey } from "@earendil-works/pi-tui";
+import { WORKFLOW_PATTERN_CATALOG } from "../lib/pattern-catalog.js";
 import type { PiSessionModel } from "../pi-session.js";
 import { getRunState } from "../runtime/index.js";
-import { WORKFLOW_PATTERN_CATALOG } from "../surface/index.js";
 import type { AgentMonitorModel, WorkflowDefinition, WorkflowRunRecord } from "../types.js";
 import {
 	canRerunRun,

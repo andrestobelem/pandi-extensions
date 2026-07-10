@@ -17,7 +17,7 @@ import {
 	summarizeWorkflowGraphChildren,
 } from "../../lib/graph/parse.js";
 import { notify } from "../../lib/notify.js";
-import { resolveWorkflow } from "../../surface/index.js";
+import { requireTuiWorkflowDiscoveryDeps } from "../../lib/tui-discovery-deps.js";
 import type { WorkflowDefinition } from "../../types.js";
 import { padRightVisible } from "../render-utils.js";
 import { WorkflowGraphComponent } from "./component.js";
@@ -259,8 +259,9 @@ export async function makeWorkflowGraphForContext(
 	workflow: WorkflowDefinition,
 	code: string,
 ): Promise<string> {
+	const discovery = requireTuiWorkflowDiscoveryDeps();
 	return renderWorkflowGraphDocumentLines(
-		await buildWorkflowGraphModelWithSubworkflows(ctx, workflow, code, resolveWorkflow),
+		await buildWorkflowGraphModelWithSubworkflows(ctx, workflow, code, discovery.resolveWorkflow),
 		120,
 	).join("\n");
 }
@@ -274,7 +275,8 @@ export async function showWorkflowGraph(
 	workflow: WorkflowDefinition,
 	code: string,
 ): Promise<void> {
-	const model = await buildWorkflowGraphModelWithSubworkflows(ctx, workflow, code, resolveWorkflow);
+	const discovery = requireTuiWorkflowDiscoveryDeps();
+	const model = await buildWorkflowGraphModelWithSubworkflows(ctx, workflow, code, discovery.resolveWorkflow);
 	if (ctx.mode === "print") {
 		console.log(renderWorkflowGraphDocumentLines(model, 120).join("\n"));
 		return;

@@ -4,6 +4,7 @@
  * the dashboard class wires theme formatters and pushes returned lines.
  */
 
+import { getPatternUseCases, WORKFLOW_PATTERN_CATALOG } from "../lib/pattern-catalog.js";
 import { compactInline, formatElapsedMs } from "../lib/presentation.js";
 import type { PiSessionModel } from "../pi-session.js";
 import {
@@ -17,7 +18,6 @@ import {
 	isResumableState,
 	PI_SESSION_HEARTBEAT_MS,
 } from "../runtime/index.js";
-import { getPatternUseCases, WORKFLOW_PATTERN_CATALOG } from "../surface/index.js";
 import type { WorkflowDefinition, WorkflowRunRecord } from "../types.js";
 import type { WorkflowActivityEntry } from "./collectors.js";
 import { renderSafeInline } from "./render-utils.js";

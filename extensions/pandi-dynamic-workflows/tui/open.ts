@@ -10,6 +10,9 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { buildLimits, limitParamsFromInput, parseCliJsonOrText } from "../lib/config.js";
 import { stringify } from "../lib/format.js";
 import { notify } from "../lib/notify.js";
+import { ensureDir } from "../lib/paths.js";
+import type { WorkflowPattern } from "../lib/pattern-catalog.js";
+import { requireTuiWorkflowDiscoveryDeps } from "../lib/tui-discovery-deps.js";
 import {
 	cancelWorkflowRun,
 	cleanupWorkflowRuns,
@@ -22,14 +25,6 @@ import {
 } from "../lifecycle/index.js";
 import { collectPiSessions, prunePiSessionFiles } from "../pi-session.js";
 import { getRunStatusLabel, listRuns } from "../runtime/index.js";
-import type { WorkflowPattern } from "../surface/index.js";
-import {
-	ensureDir,
-	listWorkflows,
-	loadWorkflowPatternCode,
-	resolveWorkflow,
-	resolveWorkflowForRun,
-} from "../surface/index.js";
 import type { WorkflowDefinition, WorkflowRunRecord } from "../types.js";
 import { showLiveAgentView } from "./agent-view.js";
 import {
@@ -94,10 +89,11 @@ async function createWorkflowDraftFromPattern(
 	const nameText = await ctx.ui.editor("Nombre del workflow", pattern.defaultName);
 	const name = nameText?.trim();
 	if (!name) return undefined;
-	const code = await loadWorkflowPatternCode(pattern);
+	const discovery = requireTuiWorkflowDiscoveryDeps();
+	const code = await discovery.loadWorkflowPatternCode(pattern);
 	const edited = await ctx.ui.editor(`Workflow nuevo desde el pattern: ${pattern.key}`, code);
 	if (edited === undefined) return undefined;
-	const workflow = await resolveWorkflow(ctx, name, "project", "draft");
+	const workflow = await discovery.resolveWorkflow(ctx, name, "project", "draft");
 	if (existsSync(workflow.path)) {
 		const ok = await ctx.ui.confirm("¿Sobrescribir el workflow existente?", `${workflow.name}\n${workflow.path}`);
 		if (!ok) return undefined;
@@ -127,7 +123,8 @@ export async function openWorkflowDashboard(
 	// vuelven al dashboard en el mismo tab/selección en vez de caer al
 	// editor. Solo cambiar de sesión, crear un draft de patrón o q/esc salen.
 	for (;;) {
-		const workflows = await listWorkflows(ctx);
+		const discovery = requireTuiWorkflowDiscoveryDeps();
+		const workflows = await discovery.listWorkflows(ctx);
 		const runs = await listRuns(ctx);
 		const [activity, piSessions, monitorModels, agentEntries] = await Promise.all([
 			collectWorkflowActivity(runs),
@@ -218,7 +215,9 @@ async function handleDashboardChoice(
 		return "close";
 	}
 	if (choice.type === "graph") {
-		const workflow = choice.workflow ?? (choice.run ? await resolveWorkflowForRun(ctx, choice.run) : undefined);
+		const discovery = requireTuiWorkflowDiscoveryDeps();
+		const workflow =
+			choice.workflow ?? (choice.run ? await discovery.resolveWorkflowForRun(ctx, choice.run) : undefined);
 		if (!workflow) {
 			notify(ctx, "No se puede abrir el graph: no se encontró el archivo del workflow.", "warning");
 			return "reopen";
@@ -323,7 +322,8 @@ async function handleDashboardChoice(
 			notify(ctx, `El run sigue activo; cancelalo o esperá antes de relanzarlo: ${choice.run.runId}`, "warning");
 			return "reopen";
 		}
-		const workflow = await resolveWorkflowForRun(ctx, choice.run);
+		const discovery = requireTuiWorkflowDiscoveryDeps();
+		const workflow = await discovery.resolveWorkflowForRun(ctx, choice.run);
 		if (!workflow) {
 			notify(ctx, "No se puede relanzar: no se encontró el archivo del workflow.", "warning");
 			return "reopen";
