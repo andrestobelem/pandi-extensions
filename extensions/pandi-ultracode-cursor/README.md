@@ -1,6 +1,6 @@
 # @pandi-coding-agent/pandi-ultracode-cursor
 
-Ejecutá los workflows portables de Ultracode desde la terminal integrada de Cursor, sin instalar ni iniciar Pi. El runner conserva artifacts y journal bajo `.cursor/ultracode/runs/` y usa `cursor-agent --print` para cada llamada a `agent()`. Usalo cuando necesitás orquestación visible y reanudable; para una consulta o edición puntual, usá Cursor directamente. 🐼
+Ejecutá los workflows portables de Ultracode desde Cursor, sin instalar ni iniciar Pi. El plugin local ofrece `/ultracode` dentro del chat; el runner conserva artifacts y journal bajo `.cursor/ultracode/runs/` y usa `cursor-agent --print` para cada llamada a `agent()`. Usalo cuando necesitás orquestación visible y reanudable; para una consulta o edición puntual, usá Cursor directamente. 🐼
 
 ## Inicio rápido
 
@@ -11,6 +11,18 @@ npm install -D @pandi-coding-agent/pandi-ultracode-cursor
 npx pandi-ultracode-cursor doctor
 npx pandi-ultracode-cursor list
 ```
+
+## Usarlo desde el chat de Cursor
+
+El paquete incluye un plugin local: la entrada `/ultracode` hace Contract Gate, elige el camino más chico y deja visible el `runDir`. Instalalo explícitamente; no escribimos `~/.cursor` por vos:
+
+```bash
+mkdir -p ~/.cursor/plugins/local
+ln -s "$(node -p \"require('node:path').dirname(require.resolve('@pandi-coding-agent/pandi-ultracode-cursor/package.json'))\")/cursor-plugin" \
+  ~/.cursor/plugins/local/pandi-ultracode
+```
+
+Reabrí Cursor y escribí `/ultracode <tu tarea>`. El comando usa el binario local del proyecto, por lo que la dependencia sigue siendo explícita y versionable. Sus workers son read-only: si una tarea necesita escribir, el comando se detiene para que decidas cómo habilitarlo.
 
 Un workflow propio vive en `.cursor/ultracode/workflows/`. Este ejemplo lanza una llamada read-only:
 
@@ -38,6 +50,7 @@ El runner resuelve primero workflows del proyecto y luego el catálogo portable 
 | Fuente | Ubicación | Uso |
 | --- | --- | --- |
 | Proyecto Cursor | `.cursor/ultracode/workflows/<name>.js` | Tu orquestación local. |
+| Host Cursor | paquete `workflows/` | `cursor-ultracode`, el gateway genérico que empieza por Contract Gate. |
 | Catálogo portable | dependencia `pandi-dynamic-workflows/scaffolds/` | `fan-out-and-synthesize`, `scout-fanout`, `contract-gate` y demás scaffolds canónicos. |
 
 Los archivos comparten el formato portable: sin `import`, con `export const meta` opcional y un `return` final. El host inyecta `args`, `agent`, `agents`, `parallel`, `pipeline`, `race`, `workflow`, `phase`, `log`, `ask`, `bash`, `readFile`, `writeFile`, `appendFile`, `listFiles`, `limits`, `runId`, `runDir` y `cwd`.
@@ -121,7 +134,7 @@ pandi-ultracode-cursor view <run-dir>
 pandi-ultracode-cursor doctor [--cursor-command <path>]
 ```
 
-Corré `pandi-ultracode-cursor --help` para la referencia completa de flags. No incluye un panel o slash command dentro del chat de Cursor: la interfaz estable de esta primera entrega es la terminal/tarea de Cursor CLI.
+Corré `pandi-ultracode-cursor --help` para la referencia completa de flags. `/ultracode` es una entrada de chat para el runner; la inspección y recuperación detalladas siguen en la terminal mediante `view` y `resume`.
 
 ## Smoke real opt-in
 

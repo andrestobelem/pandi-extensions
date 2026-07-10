@@ -4,6 +4,7 @@ import * as fs from "node:fs/promises";
 import { createRequire } from "node:module";
 import * as path from "node:path";
 import * as readline from "node:readline/promises";
+import { fileURLToPath } from "node:url";
 import vm from "node:vm";
 import Ajv from "ajv";
 
@@ -151,25 +152,28 @@ function packageScaffoldsDir() {
 	return path.join(path.dirname(manifest), "scaffolds");
 }
 
+function packageWorkflowsDir() {
+	return path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "workflows");
+}
+
 async function resolveWorkflow(cwd, name) {
 	if (!name || name.includes("\\") || name.split("/").some((part) => part === ".." || !part)) {
 		throw new Error(`Invalid workflow name: ${name}`);
 	}
-	const localRoot = path.join(cwd, ".cursor", "ultracode", "workflows");
-	const local = inside(localRoot, `${name}.js`);
-	try {
-		return { path: local, source: await fs.readFile(local, "utf8"), scope: "cursor-project" };
-	} catch (error) {
-		if (error?.code !== "ENOENT") throw error;
+	const candidates = [
+		{ root: path.join(cwd, ".cursor", "ultracode", "workflows"), scope: "cursor-project" },
+		{ root: packageWorkflowsDir(), scope: "cursor-host" },
+		{ root: packageScaffoldsDir(), scope: "catalog" },
+	];
+	for (const candidate of candidates) {
+		const file = inside(candidate.root, `${name}.js`);
+		try {
+			return { path: file, source: await fs.readFile(file, "utf8"), scope: candidate.scope };
+		} catch (error) {
+			if (error?.code !== "ENOENT") throw error;
+		}
 	}
-	const catalogRoot = packageScaffoldsDir();
-	const catalog = inside(catalogRoot, `${name}.js`);
-	try {
-		return { path: catalog, source: await fs.readFile(catalog, "utf8"), scope: "catalog" };
-	} catch (error) {
-		if (error?.code === "ENOENT") throw new Error(`Workflow not found: ${name}`);
-		throw error;
-	}
+	throw new Error(`Workflow not found: ${name}`);
 }
 
 async function listFilesRecursive(directory, relative = "", output = []) {
@@ -623,16 +627,19 @@ export async function runWorkflow(rawOptions) {
 
 export async function listWorkflows(cwd) {
 	const entries = [];
-	try {
-		for (const file of await fs.readdir(path.join(cwd, ".cursor", "ultracode", "workflows"))) {
-			if (file.endsWith(".js")) entries.push({ name: file.slice(0, -3), scope: "cursor-project" });
+	for (const candidate of [
+		{ root: path.join(cwd, ".cursor", "ultracode", "workflows"), scope: "cursor-project" },
+		{ root: packageWorkflowsDir(), scope: "cursor-host" },
+		{ root: packageScaffoldsDir(), scope: "catalog" },
+	]) {
+		try {
+			for (const file of await fs.readdir(candidate.root)) {
+				const name = file.endsWith(".js") ? file.slice(0, -3) : undefined;
+				if (name && !entries.some((entry) => entry.name === name)) entries.push({ name, scope: candidate.scope });
+			}
+		} catch (error) {
+			if (error?.code !== "ENOENT") throw error;
 		}
-	} catch (error) {
-		if (error?.code !== "ENOENT") throw error;
-	}
-	for (const file of await fs.readdir(packageScaffoldsDir())) {
-		if (file.endsWith(".js") && !entries.some((entry) => entry.name === file.slice(0, -3)))
-			entries.push({ name: file.slice(0, -3), scope: "catalog" });
 	}
 	return entries.sort((left, right) => left.name.localeCompare(right.name));
 }

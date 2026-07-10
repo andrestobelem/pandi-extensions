@@ -85,6 +85,120 @@ test("parseCursorStream uses the terminal result event instead of thinking delta
 	assert.deepEqual(parsed, { ok: true, output: "final", sessionId: undefined });
 });
 
+test("cursor-ultracode turns an explicit task into a contract-gated single-agent run", async () => {
+	const project = await makeProject("return 'local workflow is not selected';");
+	const fakeCursor = await makeFakeCursor();
+	const log = path.join(project, "fake-calls.jsonl");
+	const contract = JSON.stringify({
+		improvedTask: "Explain the repository",
+		successCriteria: ["Return a concise answer"],
+		assumptions: [],
+		nonGoals: [],
+		constraints: ["Read-only"],
+		verificationPlan: "Inspect the answer.",
+		routingHint: {
+			shape: "single-agent",
+			pattern: "n/a",
+			maxAgents: 1,
+			concurrency: "none",
+			rationale: "A single answer is enough.",
+		},
+		ambiguities: [],
+	});
+	const env = {
+		...process.env,
+		FAKE_CURSOR_LOG: log,
+		FAKE_CURSOR_RESPONSES: [
+			contract,
+			contract,
+			contract,
+			contract,
+			"Explain the repository concisely.",
+			"Repository summary.",
+		].join("|"),
+	};
+
+	try {
+		const outcome = await runWorkflow({
+			cwd: project,
+			name: "cursor-ultracode",
+			input: { request: "Explain the repository" },
+			cursorCommand: process.execPath,
+			cursorCommandArgs: [fakeCursor],
+			env,
+		});
+		assert.equal(outcome.result.status, "completed");
+		assert.equal(outcome.result.output, "Repository summary.");
+		assert.equal(outcome.result.contract.improvedTask, "Explain the repository");
+		assert.equal((await fs.readFile(log, "utf8")).trim().split("\n").length, 6);
+	} finally {
+		await fs.rm(project, { recursive: true, force: true });
+		await fs.rm(path.dirname(fakeCursor), { recursive: true, force: true });
+	}
+});
+
+test("cursor-ultracode fans out only after a dynamic-workflow contract", async () => {
+	const project = await makeProject("return 'local workflow is not selected';");
+	const fakeCursor = await makeFakeCursor();
+	const log = path.join(project, "fake-calls.jsonl");
+	const contract = JSON.stringify({
+		improvedTask: "Audit two files",
+		successCriteria: ["Inspect both files"],
+		assumptions: [],
+		nonGoals: [],
+		constraints: ["Read-only"],
+		verificationPlan: "Review the synthesis.",
+		routingHint: {
+			shape: "dynamic-workflow",
+			pattern: "fan-out-and-synthesize",
+			maxAgents: 4,
+			concurrency: "medium",
+			rationale: "The files can be inspected independently.",
+		},
+		ambiguities: [],
+	});
+	const env = {
+		...process.env,
+		FAKE_CURSOR_LOG: log,
+		FAKE_CURSOR_RESPONSES: [
+			contract,
+			contract,
+			contract,
+			contract,
+			"Audit the two files.",
+			JSON.stringify({
+				work: [
+					{ title: "first", focus: "Inspect first.md" },
+					{ title: "second", focus: "Inspect second.md" },
+				],
+			}),
+			"first evidence",
+			"second evidence",
+			"Combined evidence.",
+		].join("|"),
+	};
+
+	try {
+		const outcome = await runWorkflow({
+			cwd: project,
+			name: "cursor-ultracode",
+			input: { request: "Audit two files", concurrency: 1 },
+			concurrency: 1,
+			maxAgents: 10,
+			cursorCommand: process.execPath,
+			cursorCommandArgs: [fakeCursor],
+			env,
+		});
+		assert.equal(outcome.result.mode, "dynamic-workflow");
+		assert.deepEqual(outcome.result.coverage, { completed: 2, total: 2 });
+		assert.equal(outcome.result.output, "Combined evidence.");
+		assert.equal((await fs.readFile(log, "utf8")).trim().split("\n").length, 9);
+	} finally {
+		await fs.rm(project, { recursive: true, force: true });
+		await fs.rm(path.dirname(fakeCursor), { recursive: true, force: true });
+	}
+});
+
 test("runWorkflow validates structured output, retries it, records artifacts, and resumes from its journal", async () => {
 	const project = await makeProject(`
 export const meta = { name: "demo" };

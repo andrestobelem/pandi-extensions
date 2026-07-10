@@ -1,0 +1,8 @@
+{
+	"name": "pandi-ultracode",
+	"version": "0.1.0",
+	"description": "Entrada explícita de Ultracode para Cursor sobre el runner verificable de Pandi.",
+	"author": {
+		"name": "Pandi Coding Agent"
+	}
+}

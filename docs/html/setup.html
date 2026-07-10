@@ -246,6 +246,11 @@ pi install ./                                                      <span class="
 <td>macOS: <code>brew install podman &amp;&amp; podman machine init &amp;&amp; podman machine start</code>; Linux: gestor de paquetes de la distribución</td>
 </tr>
 <tr>
+<td>Ultracode desde el chat de Cursor</td>
+<td>Cursor + <code>cursor-agent</code> autenticado + <code>@pandi-coding-agent/pandi-ultracode-cursor</code></td>
+<td>Instalá el paquete en el proyecto y el plugin local explícito; ver el <a href="https://github.com/andrestobelem/pandi-extensions/tree/main/extensions/pandi-ultracode-cursor">README del host</a>.</td>
+</tr>
+<tr>
 <td>Aislamiento por micro-VM (Gondolin)</td>
 <td><code>@earendil-works/gondolin</code> (darwin-arm64 / linux-x64, Node ≥ 23.6.0)</td>
 <td><code>npm run setup:gondolin</code>, después <code>pi -e .pi/tools/gondolin</code></td>
@@ -392,6 +397,11 @@ pi install ./                                                      <span class="
 <td><strong>npm con scope <code>@pandi-coding-agent/*</code></strong></td>
 <td><code>pi install npm:@pandi-coding-agent/pandi-&lt;ext&gt;</code></td>
 <td>A la carta por extensión — los paquetes publican bajo la identidad <code>pandi-*</code>. Con <code>min-release-age</code>, las versiones recién publicadas recién se pueden instalar después de esa ventana.</td>
+</tr>
+<tr>
+<td><strong>Host Cursor local</strong></td>
+<td><code>npm install -D @pandi-coding-agent/pandi-ultracode-cursor</code> + symlink de plugin</td>
+<td>El host autónomo no se instala con <code>pi install</code>; seguí el <a href="https://github.com/andrestobelem/pandi-extensions/tree/main/extensions/pandi-ultracode-cursor">README del paquete</a> para activar <code>/ultracode</code> en Cursor.</td>
 </tr>
 </tbody></table></div>
 <p>Cada <code>extensions/pandi-&lt;ext&gt;/package.json</code> lleva su identidad pública <code>@pandi-coding-agent/pandi-&lt;ext&gt;</code> (npm workspaces; <code>npm pack -w @pandi-coding-agent/pandi-&lt;ext&gt;</code> para probar el tarball). El manifiesto raíz de <code>pi</code> se <strong>genera</strong> desde los subpackages (<code>npm run sync:manifest</code>); un test de paridad falla si hay drift. Horizonte: <strong>Pandi</strong> como distro sobre Pi (extensiones + theme + persona), no como un fork del CLI.</p>

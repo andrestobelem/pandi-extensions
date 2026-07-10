@@ -50,6 +50,7 @@ Este repo funciona como **paquete instalable** y como **libro práctico**. Eleg�
 | Si querés… | Empezá por | Después mirá |
 | --- | --- | --- |
 | Instalar y probar Pandi | [`docs/setup.md`](docs/setup.md) | `/effort status`, `/workflow patterns` |
+| Usar Ultracode desde Cursor | [`pandi-ultracode-cursor`](https://github.com/andrestobelem/pandi-extensions/tree/main/extensions/pandi-ultracode-cursor) | `/ultracode <tarea>` |
 | Entender Dynamic Workflows | [`docs/dynamic-workflows.md`](docs/dynamic-workflows.md) | [`docs/scaffolds/`](docs/scaffolds/index.md) |
 | Aprender patrones agénticos | [`docs/scaffolds/`](docs/scaffolds/index.md) | [`docs/research/`](docs/research/index.md) |
 | Entender el código top-down | [`docs/handbooks/top-down-onboarding.md`](docs/handbooks/top-down-onboarding.md) | `extensions/<name>/README.md` + tests de integración |
