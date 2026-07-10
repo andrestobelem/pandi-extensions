@@ -9,13 +9,14 @@ import { transformWorkflowCode } from "../lib/transform.js";
 import {
 	cancelWorkflowRun,
 	formatBackgroundStart,
+	runWorkflowWithUi,
 	shouldLaunchWorkflowInBackground,
 	startWorkflowBackground,
 } from "../lifecycle/index.js";
 import { writeRunReport } from "../observe/index.js";
 import { currentWorkflowDepth, formatRunList, listRuns, maxWorkflowDepth, resolveRun } from "../runtime/index.js";
 import { makeWorkflowGraphForContext } from "../tui/graph/index.js";
-import { formatRunView, runWorkflowWithUi } from "../tui/index.js";
+import { formatRunView } from "../tui/index.js";
 import type { DynamicWorkflowToolParams, WorkflowLogEntry } from "../types.js";
 import { resumeWorkflowForCaller } from "../workflow-resume-usecase.js";
 import {

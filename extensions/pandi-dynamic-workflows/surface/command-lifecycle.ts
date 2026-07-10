@@ -12,12 +12,13 @@ import {
 	formatBackgroundStart,
 	formatCleanupInventory,
 	inventoryWorkflowRuns,
+	runWorkflowWithUi,
 	shouldLaunchWorkflowInBackground,
 	startWorkflowBackground,
 } from "../lifecycle/index.js";
 import { prunePiSessionFiles } from "../pi-session.js";
 import { getRunStatusLabel, resolveRun } from "../runtime/index.js";
-import { canCancelRun, runWorkflowWithUi, showText } from "../tui/index.js";
+import { canCancelRun, showText } from "../tui/index.js";
 import type { WorkflowLogEntry } from "../types.js";
 import { resumeWorkflowForCaller } from "../workflow-resume-usecase.js";
 import type { WorkflowCommandParsed } from "./command-browse.js";

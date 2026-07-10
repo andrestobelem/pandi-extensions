@@ -1,76 +1,20 @@
 /**
  * Orquestación del dashboard — cambio de sesión Pi, draft-from-pattern helpers compartidos,
- * quoting de argumentos de comando y la ruta de run foreground runWorkflowWithUi.
- * La capa UI sobre el engine runWorkflow y el componente WorkflowDashboard vive en dashboard-open.ts.
+ * quoting de argumentos de comando. runWorkflowWithUi vive en lifecycle/run-with-ui; se reexporta acá
+ * para back-compat de dashboard-open y la fachada tui.
  *
- * Ciclos totalmente diferidos: lifecycle/ importa runWorkflowWithUi; dashboard-open.ts importa
- * switchToPiSession y runWorkflowWithUi; dashboard-down-editor.ts importa openWorkflowDashboard
- * (reexportado desde acá) y los tipos Dashboard{CommandSubmitter,Opener}.
+ * dashboard-open.ts importa switchToPiSession y runWorkflowWithUi; dashboard-down-editor.ts importa
+ * openWorkflowDashboard (reexportado desde acá) y los tipos Dashboard{CommandSubmitter,Opener}.
  */
 import { existsSync } from "node:fs";
 import * as path from "node:path";
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { notify } from "../lib/notify.js";
-import { activeRunCount } from "../lifecycle/index.js";
+import { activeRunCount, runWorkflowWithUi } from "../lifecycle/index.js";
 import type { PiSessionModel } from "../pi-session.js";
 import { sessionManagerMetadata } from "../pi-session.js";
-import { runWorkflow } from "../runtime/index.js";
-import type {
-	PreparedWorkflowRun,
-	RunLimits,
-	WorkflowDefinition,
-	WorkflowLogEntry,
-	WorkflowRunResult,
-	WorkflowRunStatus,
-} from "../types.js";
-import {
-	clearWorkflowWidget,
-	setWorkflowErrorStatus,
-	setWorkflowFinishedStatus,
-	setWorkflowRunningStatus,
-	setWorkflowWidget,
-} from "./status-ui.js";
 
-export async function runWorkflowWithUi(
-	pi: ExtensionAPI,
-	ctx: ExtensionContext,
-	workflow: WorkflowDefinition,
-	input: unknown,
-	limits: RunLimits,
-	signal: AbortSignal | undefined,
-	onProgress?: (logs: WorkflowLogEntry[], status?: WorkflowRunStatus) => void,
-	prepared?: PreparedWorkflowRun,
-): Promise<WorkflowRunResult> {
-	if (ctx.hasUI) {
-		setWorkflowRunningStatus(ctx, workflow.name, []);
-		setWorkflowWidget(ctx, workflow.name, []);
-	}
-	try {
-		const result = await runWorkflow(
-			pi,
-			ctx,
-			workflow,
-			input,
-			limits,
-			signal,
-			(logs, status) => {
-				onProgress?.(logs, status);
-				if (ctx.hasUI) {
-					setWorkflowRunningStatus(ctx, workflow.name, logs, status);
-					setWorkflowWidget(ctx, workflow.name, logs, status);
-				}
-			},
-			prepared,
-		);
-		setWorkflowFinishedStatus(ctx, result);
-		return result;
-	} catch (err) {
-		setWorkflowErrorStatus(ctx, workflow.name);
-		throw err;
-	} finally {
-		clearWorkflowWidget(ctx);
-	}
-}
+export { runWorkflowWithUi };
 
 export type DashboardCommandSubmitter = (command: string) => void;
 export type DashboardOpener = (submitCommand?: DashboardCommandSubmitter) => Promise<void>;

@@ -42,9 +42,16 @@ export {
 	shouldSuppressReloadHandoffResult,
 } from "./reload-handoff.js";
 export { resumeWorkflow } from "./resume.js";
+export { runWorkflowWithUi } from "./run-with-ui.js";
 export { formatBackgroundStart, shouldLaunchWorkflowInBackground, startWorkflowBackground } from "./start.js";
 export {
+	clearWorkflowWidget,
 	refreshActiveWorkflowStatus,
+	setWorkflowErrorStatus,
+	setWorkflowFinishedStatus,
 	setWorkflowIdleStatus,
+	setWorkflowRunningStatus,
+	setWorkflowWidget,
 	WORKFLOW_STATUS_KEY,
+	WORKFLOW_WIDGET_KEY,
 } from "./status.js";

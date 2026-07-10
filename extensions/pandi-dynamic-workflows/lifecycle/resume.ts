@@ -17,7 +17,6 @@ import {
 	resolveRun,
 } from "../runtime/index.js";
 import { ensureDir, resolveWorkflow } from "../surface/index.js";
-import { runWorkflowWithUi } from "../tui/index.js";
 import type {
 	DynamicWorkflowToolParams,
 	PreparedWorkflowRun,
@@ -26,6 +25,7 @@ import type {
 	WorkflowRunStatus,
 } from "../types.js";
 import { hasActiveRun } from "./registry.js";
+import { runWorkflowWithUi } from "./run-with-ui.js";
 import { shouldLaunchWorkflowInBackground, startWorkflowBackground } from "./start.js";
 
 // Reserva síncrona para reanudaciones en vuelo: resumeWorkflow espera varios
