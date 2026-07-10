@@ -28,6 +28,8 @@ const ROOT_PKG = join(REPO, "package.json");
 // Orden de carga curado (nombres de dir). Mantené el core primero y los aliases de UX al final.
 const LOAD_ORDER = [
 	"pandi-dynamic-workflows",
+	// CLI host autónomo: no declara recursos `pi`, pero se registra para que el sync no lo marque como paquete desconocido.
+	"pandi-ultracode-cursor",
 	"pandi-personas",
 	"pandi-session",
 	"pandi-loop",

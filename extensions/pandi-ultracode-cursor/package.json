@@ -1,0 +1,31 @@
+{
+	"name": "@pandi-coding-agent/pandi-ultracode-cursor",
+	"version": "0.1.0",
+	"description": "Runner autónomo de Ultracode que orquesta workflows portables mediante Cursor CLI.",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/andrestobelem/pandi-extensions.git",
+		"directory": "extensions/pandi-ultracode-cursor"
+	},
+	"type": "module",
+	"bin": {
+		"pandi-ultracode-cursor": "./bin/pandi-ultracode-cursor.mjs"
+	},
+	"keywords": [
+		"cursor",
+		"cursor-cli",
+		"dynamic-workflows",
+		"subagents",
+		"ultracode"
+	],
+	"files": [
+		"bin",
+		"runtime",
+		"README.md"
+	],
+	"dependencies": {
+		"@pandi-coding-agent/pandi-dynamic-workflows": "^0.4.5",
+		"ajv": "^8.18.0"
+	}
+}
