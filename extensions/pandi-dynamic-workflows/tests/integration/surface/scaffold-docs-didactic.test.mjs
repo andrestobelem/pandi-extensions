@@ -93,6 +93,13 @@ async function main() {
 	const problems = checkScaffoldDocs();
 	check("docs/scaffolds conforms to the didactic contract", problems.length === 0, problems.join(" | "));
 
+	// El runtime reutiliza el journal al reanudar; esta página no debe prometer agentes siempre frescos.
+	const mapReduceDoc = fs.readFileSync(path.join(REPO_ROOT, "docs", "scaffolds", "map-reduce.md"), "utf8");
+	check(
+		"map-reduce explains journal cache on resume and its opt-out",
+		/\breanudar\w*\b/i.test(mapReduceDoc) && mapReduceDoc.includes("cache: false"),
+	);
+
 	// 2) Negative controls: the checker is non-vacuous, but mutations happen in an isolated repo copy.
 	await withIsolatedRepoCopy(REPO_ROOT, async (copyRoot) => {
 		const { docsDir } = scaffoldDocsPaths(copyRoot);
