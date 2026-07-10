@@ -33,7 +33,7 @@ Este registro documenta cada pass de mejora del dashboard, en orden temporal. Si
 - **Verificación (verde):**
   - `tsc -p tsconfig.json --noEmit`
   - `biome check extensions/pandi-dynamic-workflows` (98 files, sin errores)
-  - Bucle `for f in tests/integration/*.test.mjs` (todas las suites PASS, incl. la nueva con 9 checks)
+  - Loop `for f in tests/integration/*.test.mjs` (todas las suites PASS, incl. la nueva con 9 checks)
   - esbuild de `workflow-dashboard.ts` a `.pi/tmp/wfdash.check.mjs` OK (artifact borrado)
   - `node --check` de la `.mjs` nueva OK
 
@@ -65,7 +65,7 @@ Este registro documenta cada pass de mejora del dashboard, en orden temporal. Si
 - **Verificación:** DIFERIDA al orquestador (el gate prohíbe ejecutarla aquí). Plan esperado en verde:
   - `tsc --noEmit`
   - `biome check extensions/pandi-dynamic-workflows`
-  - Bucle `for f in tests/integration/*.test.mjs`
+  - Loop `for f in tests/integration/*.test.mjs`
   - esbuild de la ext
   - `node --check`
 

@@ -1,6 +1,6 @@
 # react-scout
 
-> Bucle ReAct de reason → act → observe: cada paso apoya el siguiente pensamiento en una observación real de solo lectura.
+> Loop ReAct de reason → act → observe: cada paso apoya el siguiente pensamiento en una observación real de solo lectura.
 
 ## En 30 segundos
 

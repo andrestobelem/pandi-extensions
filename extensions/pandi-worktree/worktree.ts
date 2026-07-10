@@ -67,7 +67,7 @@ function createBoundedSink(): { append(chunk: Buffer): void; readonly text: stri
  * Ejecuta `git <args>` en `cwd` y resuelve con un resultado tipado. NUNCA
  * rechaza: un fallo de spawn, salida no cero, timeout o abort vuelven todos
  * como GitResult para que quien llama pueda bifurcar sin try/catch. La salida
- * se acota por bytes para que un git desbocado no bloquee el bucle de eventos ni
+ * se acota por bytes para que un git desbocado no bloquee el event loop ni
  * inunde la transcripción.
  */
 export function runGit(args: string[], options: RunGitOptions): Promise<GitResult> {

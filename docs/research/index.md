@@ -17,7 +17,7 @@ Usá este índice para navegar las investigaciones por tema, no por fecha. Si ne
 - [Mejorar prompts para dynamic workflows](./2026-06-25-prompt-patterns-workflows.md) — contratos de evidencia, síntesis y fallos parciales.
 - [Ultracode siempre activo](./2026-06-25-ultracode-always-on.md) — router por defecto para decidir cuándo orquestar.
 - [Claude Dynamic Workflows](./2026-06-26-claude-dynamic-workflows-harness.md) — comparación del harness de Claude Code con Pi.
-- [Loop engineering](./2026-06-28-loop-engineering.md) — bucles actuar → observar → verificar → continuar.
+- [Loop engineering](./2026-06-28-loop-engineering.md) — loops actuar → observar → verificar → continuar.
 - [Revisión Farley de Pi Dynamic Workflows](./2026-07-03-farley-review-dynamic-workflows.md) — revisión técnica con lente de Modern Software Engineering.
 
 ## Ingeniería, contexto y diseño

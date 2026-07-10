@@ -51,7 +51,7 @@ function refreshGoalStatus(ctx: ExtensionContext): void {
 // ---------------------------------------------------------------------------
 
 /**
- * Un goal solo puede correr donde el bucle del agente es lo bastante interactivo para
+ * Un goal solo puede correr donde el loop del agente es lo bastante interactivo para
  * reinyectar un prompt y retomar por su cuenta: TUI y RPC. "print" es de una sola
  * ejecución, "json" es no interactivo; ninguno puede sostener un goal.
  */

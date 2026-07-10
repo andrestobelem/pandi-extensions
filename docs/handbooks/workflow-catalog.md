@@ -79,7 +79,7 @@ flowchart TD
 | [`scout-fanout`](../scaffolds/scout-fanout.md) | Pipeline de profundidad adaptativa: clasifica el riesgo de cada archivo barato, revisa en profundidad solo los de riesgo alto/medio; los de bajo riesgo cortan temprano. | Triage y revisión de un árbol grande; gastar presupuesto solo donde rinde. | Querés cobertura pero solo querés pagar por los ítems riesgosos. |
 | [`repo-bug-hunt`](../scaffolds/repo-bug-hunt.md) | Escanea archivos, asigna revisores por archivo, y el juez deduplica y prioriza con citas. Los hallazgos son **leads**, no bugs confirmados. | Auditoría del repo; barrido previo a revisión (y después confirmar con `bug-verify`). | Querés una lista priorizada de bugs con citas — emparejalo después con `bug-verify`, porque estos leads no están confirmados. |
 | [`loop-until-dry`](../scaffolds/loop-until-dry.md) | Sigue fan-out de buscadores hasta K rondas silenciosas consecutivas o `maxRounds`. | Conjunto de tamaño desconocido que querés agotar: "encontrar todos los call-sites / edge-cases". | El conjunto es de tamaño desconocido y necesitás exhaustividad, a diferencia de la lista acotada en `fan-out-and-synthesize`. |
-| [`react-scout`](../scaffolds/react-scout.md) | Bucle ReAct reason → act → observe: cada paso ancla un pensamiento en una observación real de solo lectura. | Investigación basada en evidencia antes de comprometerte o hacer fan-out. | Necesitás evidencia *antes* de comprometerte con un fan-out, no cobertura de una lista. |
+| [`react-scout`](../scaffolds/react-scout.md) | Loop ReAct reason → act → observe: cada paso ancla un pensamiento en una observación real de solo lectura. | Investigación basada en evidencia antes de comprometerte o hacer fan-out. | Necesitás evidencia *antes* de comprometerte con un fan-out, no cobertura de una lista. |
 | [`complex-research`](../scaffolds/complex-research.md) | Ángulos de research independientes (cada uno corre web search), sintetizados como juez con citas y vacíos de cobertura. | Respuesta citada a una pregunta externa: comparaciones técnicas, barridos de panorama. | La pregunta es externa (requiere la web), no algo que pueda responderse leyendo este repo. |
 
 ## ✅ Verify
@@ -87,7 +87,7 @@ flowchart TD
 | Workflow | Qué hace | Casos de uso | Usalo en lugar de su vecino cuando… |
 | --- | --- | --- | --- |
 | [`adversarial-verify`](../scaffolds/adversarial-verify.md) | Jurado escéptico por hallazgo que filtra por refutación mayoritaria; default-to-doubt. | Podar una lista ruidosa de hallazgos; descartar hallazgos alucinados antes de actuar. | Tenés muchos hallazgos/afirmaciones para podar por argumento, no ejecutando código — para eso usá `bug-verify`. |
-| [`bug-verify`](../scaffolds/bug-verify.md) | Confirma bugs sospechados por **reproducción**: solo son reales si una corrida falla en el código actual; chequeo opcional FAIL→PASS y minimización. Secuencial. | Confirmar leads de `repo-bug-hunt`; bucle reproducir-y-corregir. | Tenés que probarlo con una corrida fallida (por ejemplo, confirmando leads de `repo-bug-hunt`), no argumentarlo. |
+| [`bug-verify`](../scaffolds/bug-verify.md) | Confirma bugs sospechados por **reproducción**: solo son reales si una corrida falla en el código actual; chequeo opcional FAIL→PASS y minimización. Secuencial. | Confirmar leads de `repo-bug-hunt`; loop reproducir-y-corregir. | Tenés que probarlo con una corrida fallida (por ejemplo, confirmando leads de `repo-bug-hunt`), no argumentarlo. |
 | [`verify-claims-lib`](../scaffolds/verify-claims-lib.md) | Subworkflow reutilizable: verifica `{claims, skeptics?}` con jurados escépticos; devuelve verified/dropped/votes/coverage. | Bloque de verificación para un workflow padre. | Estás escribiendo un workflow *padre* (como `composition-driver`) y necesitás verificación como bloque de construcción. |
 | [`adversarial-plan-review`](../scaffolds/adversarial-plan-review.md) | N revisores con ángulos fijos (correctness, security, maintainability, scope) sintetizan un plan revisado. | Revisión de diseño/RFC; compuerta pre-implementación. | El artifact bajo revisión es un *plan*, no código ni afirmaciones — usalo antes de empezar a implementar. |
 
@@ -104,8 +104,8 @@ flowchart TD
 
 | Workflow | Qué hace | Casos de uso | Usalo en lugar de su vecino cuando… |
 | --- | --- | --- | --- |
-| [`self-refine`](../scaffolds/self-refine.md) | Bucle acotado in-place de generar → criticar → refinar con memoria verbal; se detiene en silencio cuando el crítico queda conforme. | Pulir un artifact (doc/spec/code) hasta calidad. | Un solo artifact necesita pulido y la crítica puede ser intrínseca — no hace falta un oráculo externo. |
-| [`reflexion`](../scaffolds/reflexion.md) | Bucle outer trial de verbal-RL: reintenta cada trial llevando auto-reflexiones; el evaluador puede estar anclado externamente (`verifyCmd`). | Code-with-tests; tareas con oráculo pass/fail; reset-and-re-attempt en vez de editar in place. | Tenés un oráculo pass/fail (por ejemplo, tests) y un reintento fresco gana a editar en el lugar. |
+| [`self-refine`](../scaffolds/self-refine.md) | Loop acotado in-place de generar → criticar → refinar con memoria verbal; se detiene en silencio cuando el crítico queda conforme. | Pulir un artifact (doc/spec/code) hasta calidad. | Un solo artifact necesita pulido y la crítica puede ser intrínseca — no hace falta un oráculo externo. |
+| [`reflexion`](../scaffolds/reflexion.md) | Loop outer trial de verbal-RL: reintenta cada trial llevando auto-reflexiones; el evaluador puede estar anclado externamente (`verifyCmd`). | Code-with-tests; tareas con oráculo pass/fail; reset-and-re-attempt en vez de editar in place. | Tenés un oráculo pass/fail (por ejemplo, tests) y un reintento fresco gana a editar en el lugar. |
 
 ## 🚚 Migrate
 

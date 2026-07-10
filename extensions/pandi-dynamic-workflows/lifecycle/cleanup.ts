@@ -127,7 +127,7 @@ export async function cleanupWorkflowRuns(
 }
 
 // Carrera de una promesa contra un tiempo de espera. El temporizador de tiempo de espera siempre se borra después para que
-// una promesa que se resuelve rápido no pueda dejar un temporizador pendiente manteniendo vivo el bucle de eventos (p. ej.
+// una promesa que se resuelve rápido no pueda dejar un temporizador pendiente manteniendo vivo el event loop (p. ej.
 // en el apagado de la sesión).
 export async function settleWithinTimeout<T>(work: Promise<T>, timeoutMs: number): Promise<void> {
 	let timer: ReturnType<typeof setTimeout> | undefined;

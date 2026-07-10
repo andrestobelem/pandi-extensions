@@ -1,7 +1,7 @@
 ---
 type: "Research Note"
 title: "Loop engineering — una investigación respaldada por fuentes"
-description: "Investigación sobre bucles agente observación verificación y condiciones de parada basadas en evidencia."
+description: "Investigación sobre loops agente observación verificación y condiciones de parada basadas en evidencia."
 tags: [loop-engineering, agents, verification, control]
 timestamp: 2026-06-28T00:00:00Z
 ---
@@ -14,7 +14,7 @@ Fecha: 2026-06-28
 
 ## En 30 segundos
 
-Este documento explica qué significa *loop engineering* y cómo ese patrón aparece en este repo. La idea central es simple: diseñar bucles que **actúan → observan → verifican → continúan** hasta cumplir una condición de parada basada en evidencia.
+Este documento explica qué significa *loop engineering* y cómo ese patrón aparece en este repo. La idea central es simple: diseñar loops que **actúan → observan → verifican → continúan** hasta cumplir una condición de parada basada en evidencia.
 
 La conclusión práctica es más importante que el nombre: un loop confiable necesita límites explícitos, una señal de crítica independiente y una salida que no dependa de la autodeclaración del modelo.
 

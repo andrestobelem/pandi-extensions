@@ -10,7 +10,7 @@
  *
  * Diferencia vs `/loop` (mecánicamente idéntico, semánticamente opuesto):
  * - `/loop` repite una TAREA a una cadencia; el modelo elige CUÁNDO despertar
- *   (delaySeconds); el bucle no tiene noción de "terminado".
+ *   (delaySeconds); el loop no tiene noción de "terminado".
  * - `/goal` persigue un OBJETIVO con CRITERIOS; el modelo elige QUÉ ESTADO reportar
  *   (goal_progress({status})). Su sello es el CHEQUEO DE COMPLETITUD: antes de
  *   declarar `done`, el motor fuerza una VERIFICACIÓN explícita del objetivo contra
@@ -52,7 +52,7 @@
  * - FAIL → reinyecta UNA iteración `continue` normal con la devolución del verificador
  *   como nextStep, y sube verifyAttempts. Un TOPE (maxIndependentVerifications,
  *   por defecto 2) de verificaciones independientes FALLIDAS → stopGoal("blocked") con la
- *   devolución (necesita a un humano). Nunca es un bucle infinito.
+ *   devolución (necesita a un humano). Nunca es un loop infinito.
  * - Configuración (valores por defecto): verifierTools (solo lectura ["read","grep","find","ls"]),
  *   verifierTimeoutMs (120000), maxIndependentVerifications (2).
  * - la máquina de estados crece: pursuing -> verifying -> verifying-independent -> done |

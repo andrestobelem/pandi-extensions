@@ -111,4 +111,4 @@ No lo uses cuando necesitás un score absoluto por candidato — ahí conviene u
 ## Fases
 
 1. **Seed** — resuelve el campo de entrantes: usa `candidates` tal cual, o genera un candidato por cada ángulo vía `agent` en `parallel` (rol `seed`, sonnet·medium) a partir de `topic`; clamp a `MAX_ENTRANTS`.
-2. **Bracket** — bucle de rondas de eliminación simple: empareja sobrevivientes (con bye si el campo es impar), un `agent` juez por partido en `parallel` con settle y schema tipado (rol `match`, opus·high), washout de sesgo de posición, default explícito ante fallos, hasta que sobrevive un único campeón.
+2. **Bracket** — loop de rondas de eliminación simple: empareja sobrevivientes (con bye si el campo es impar), un `agent` juez por partido en `parallel` con settle y schema tipado (rol `match`, opus·high), washout de sesgo de posición, default explícito ante fallos, hasta que sobrevive un único campeón.

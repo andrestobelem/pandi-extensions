@@ -1,6 +1,6 @@
 # reflexion
 
-> Bucle de reintentos con RL verbal: en cada trial reintenta la tarea completa con lecciones acumuladas; el evaluador puede estar fundamentado externamente (`verifyCmd`).
+> Loop de reintentos con RL verbal: en cada trial reintenta la tarea completa con lecciones acumuladas; el evaluador puede estar fundamentado externamente (`verifyCmd`).
 
 ## En 30 segundos
 
