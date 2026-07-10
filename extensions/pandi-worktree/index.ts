@@ -18,8 +18,6 @@
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
-import * as fsp from "node:fs/promises";
-import * as path from "node:path";
 import { StringEnum } from "@earendil-works/pi-ai";
 import { CONFIG_DIR_NAME, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
@@ -35,22 +33,17 @@ import {
 	repoError,
 } from "./git-context.js";
 import {
-	buildAddArgs,
 	buildListArgs,
-	buildListIgnoredArgs,
-	buildListUntrackedArgs,
 	buildPruneArgs,
 	buildRemoveArgs,
 	describeWorktree,
-	ensureWorktreesBaseDir,
-	filterCopyableEntries,
 	DEFAULT_GIT_TIMEOUT_MS as GIT_TIMEOUT_MS,
 	isValidBranchName,
-	parseLsFilesEntries,
 	parseWorktreeList,
 	resolveWorktreeTarget,
 	runGit,
 } from "./worktree.js";
+import { addWorktree } from "./worktree-actions.js";
 import {
 	ensureWorktreeWriterForCommand,
 	formatWorktreeWriterBlock,
@@ -87,6 +80,8 @@ export {
 	parseLsFilesEntries,
 	parseWorktreeList,
 } from "./worktree.js";
+// Acciones compartidas slash/tool; reexport mínimo si la suite necesita characterization.
+export { addWorktree, copyFilesToWorktree, copyNote } from "./worktree-actions.js";
 
 const WORKTREE_ACTIONS = [
 	{ value: "list", selectLabel: "list — listar worktrees" },
@@ -142,71 +137,6 @@ async function handleList(ctx: ExtensionContext, signal?: AbortSignal): Promise<
 	notify(ctx, `Lista de worktrees (${listed.entries.length}):\n${lines.join("\n")}`, "info");
 }
 
-interface CopyFilesOptions {
-	copyIgnored?: boolean;
-	copyUntracked?: boolean;
-}
-
-interface CopyFilesResult {
-	ignored: number;
-	untracked: number;
-	failed: number;
-}
-
-/**
- * Después de crear un worktree NUEVO, copia opcionalmente archivos gitignored
- * y/o untracked desde el worktree principal (ctx.cwd) hacia él. Es de mejor
- * esfuerzo y abortable: la enumeración pasa por runGit (argv, nunca shell); la copia usa
- * fs.cp con verbatimSymlinks para que sobrevivan los symlinks (p. ej.
- * node_modules/.bin). El dir base de worktrees y .git siempre se excluyen
- * (filterCopyableEntries) para evitar una copia recursiva de otros worktrees.
- * Nunca lanza hacia quien llama.
- */
-async function copyFilesToWorktree(
-	ctx: ExtensionContext,
-	destPath: string,
-	opts: CopyFilesOptions,
-	signal?: AbortSignal,
-): Promise<CopyFilesResult> {
-	const result: CopyFilesResult = { ignored: 0, untracked: 0, failed: 0 };
-	const gitOpts = { cwd: ctx.cwd, signal, timeoutMs: GIT_TIMEOUT_MS };
-	const copyEntries = async (entries: string[]): Promise<number> => {
-		let copied = 0;
-		for (const entry of entries) {
-			if (signal?.aborted) break;
-			const src = path.join(ctx.cwd, entry);
-			const dst = path.join(destPath, entry);
-			try {
-				await fsp.mkdir(path.dirname(dst), { recursive: true });
-				await fsp.cp(src, dst, { recursive: true, force: true, errorOnExist: false, verbatimSymlinks: true });
-				copied++;
-			} catch {
-				result.failed++;
-			}
-		}
-		return copied;
-	};
-	if (opts.copyIgnored) {
-		const r = await runGit(buildListIgnoredArgs(), gitOpts);
-		if (r.ok) result.ignored = await copyEntries(filterCopyableEntries(parseLsFilesEntries(r.stdout)));
-	}
-	if (opts.copyUntracked) {
-		const r = await runGit(buildListUntrackedArgs(), gitOpts);
-		if (r.ok) result.untracked = await copyEntries(filterCopyableEntries(parseLsFilesEntries(r.stdout)));
-	}
-	return result;
-}
-
-/** Sufijo corto " (se copiaron N ignorados + M sin seguimiento archivo(s))"; "" cuando no se pidió nada. */
-function copyNote(opts: CopyFilesOptions, r: CopyFilesResult): string {
-	if (!opts.copyIgnored && !opts.copyUntracked) return "";
-	const parts: string[] = [];
-	if (opts.copyIgnored) parts.push(`${r.ignored} ignorados`);
-	if (opts.copyUntracked) parts.push(`${r.untracked} sin seguimiento`);
-	const failed = r.failed ? `, ${r.failed} fallidos` : "";
-	return ` (se copiaron ${parts.join(" + ")} archivo(s)${failed})`;
-}
-
 /** Resumen de una línea de los copy-defaults resueltos (sesión/env, sin params por llamada). */
 function describeCopyDefaults(): string {
 	const r = resolveCopyPrefs({});
@@ -251,33 +181,25 @@ async function handleAdd(ctx: ExtensionContext, parsed: ParsedCommand, signal?: 
 		notify(ctx, parsed.error, "warning");
 		return;
 	}
-	const target = resolveWorktreeTarget(parsed.path ?? "", ctx.cwd);
-	if (!target) {
+	// Uso slash-específico cuando falta path; el núcleo addWorktree habla en términos de tool.
+	if (!parsed.path?.trim()) {
 		notify(ctx, "Uso: /worktree add [-b <branch>] <path> [<commit-ish>]", "warning");
 		return;
 	}
-	if (target.usedDefaultBase) ensureWorktreesBaseDir(ctx.cwd);
-	const args = buildAddArgs({
-		path: target.path,
-		newBranch: parsed.newBranch,
-		commitish: parsed.commitish,
-		detach: parsed.detach,
-		force: parsed.force,
-	});
-	const result = await runGit(args, { cwd: ctx.cwd, signal, timeoutMs: GIT_TIMEOUT_MS });
-	if (!result.ok) {
-		notify(ctx, `No se pudo crear el worktree: ${gitError(result)}`, "error");
-		return;
-	}
-	const copyOpts = resolveCopyPrefs({ copyIgnored: parsed.copyIgnored, copyUntracked: parsed.copyUntracked });
-	const copyRes = await copyFilesToWorktree(ctx, target.path, copyOpts, signal);
-	const branchNote = parsed.newBranch ? ` (rama nueva ${parsed.newBranch})` : "";
-	const locationNote = target.usedDefaultBase ? ` (por defecto ${CONFIG_DIR_NAME}/worktrees/)` : "";
-	notify(
+	const outcome = await addWorktree(
 		ctx,
-		`Se creó el worktree en ${target.path}${branchNote}${locationNote}${copyNote(copyOpts, copyRes)}.`,
-		"info",
+		{
+			path: parsed.path,
+			newBranch: parsed.newBranch,
+			commitish: parsed.commitish,
+			detach: parsed.detach,
+			force: parsed.force,
+			copyIgnored: parsed.copyIgnored,
+			copyUntracked: parsed.copyUntracked,
+		},
+		signal,
 	);
+	notify(ctx, outcome.message, outcome.isError ? "error" : "info");
 }
 
 // --------------------------------------------------------------------------
@@ -472,28 +394,31 @@ async function openWorktree(ctx: ExtensionContext, opts: OpenOptions, signal?: A
 	let created = false;
 	let copySuffix = "";
 	if (!existsSync(target.path)) {
-		if (target.usedDefaultBase) ensureWorktreesBaseDir(ctx.cwd);
-		const args = buildAddArgs({
-			path: target.path,
-			newBranch: opts.newBranch,
-			commitish: opts.commitish,
-			detach: opts.detach,
-			force: opts.force,
-		});
-		const result = await runGit(args, { cwd: ctx.cwd, signal, timeoutMs: GIT_TIMEOUT_MS });
-		if (!result.ok) {
+		const added = await addWorktree(
+			ctx,
+			{
+				path: opts.path,
+				newBranch: opts.newBranch,
+				commitish: opts.commitish,
+				detach: opts.detach,
+				force: opts.force,
+				copyIgnored: opts.copyIgnored,
+				copyUntracked: opts.copyUntracked,
+			},
+			signal,
+		);
+		if (!added.ok) {
 			return {
 				ok: false,
-				path: target.path,
+				path: added.path || target.path,
 				created: false,
 				opened: false,
 				isError: true,
-				message: `No se pudo crear el worktree: ${gitError(result)}`,
+				message: added.message,
 			};
 		}
 		created = true;
-		const copyOpts = resolveCopyPrefs({ copyIgnored: opts.copyIgnored, copyUntracked: opts.copyUntracked });
-		copySuffix = copyNote(copyOpts, await copyFilesToWorktree(ctx, target.path, copyOpts, signal));
+		copySuffix = added.copySuffix;
 	}
 	const state = created ? "creado" : "listo";
 	const openHint = `cd ${target.path} && pi`;
@@ -872,45 +797,32 @@ export default function worktreeExtension(pi: ExtensionAPI): void {
 			}
 
 			if (params.action === "add") {
-				const target = resolveWorktreeTarget(params.path ?? "", ctx.cwd);
-				if (!target) {
-					return toolError("La acción 'add' requiere 'path'.", { action: "add" });
-				}
-				if (params.branch !== undefined && !isValidBranchName(params.branch)) {
-					return toolError(
-						`Nombre de rama inválido "${params.branch}" — sin espacios, caracteres de control ni puntos o barras iniciales/finales.`,
-						{ action: "add" },
-					);
-				}
-				if (target.usedDefaultBase) ensureWorktreesBaseDir(ctx.cwd);
-				const args = buildAddArgs({
-					path: target.path,
-					newBranch: params.branch,
-					commitish: params.commitish,
-					detach: params.detach,
-					force: params.force,
-				});
-				const result = await runGit(args, opts);
-				if (!result.ok) {
-					return toolError(`No se pudo crear el worktree: ${gitError(result)}`, {
+				const outcome = await addWorktree(
+					ctx,
+					{
+						path: params.path,
+						newBranch: params.branch,
+						commitish: params.commitish,
+						detach: params.detach,
+						force: params.force,
+						copyIgnored: params.copyIgnored,
+						copyUntracked: params.copyUntracked,
+					},
+					signal ?? undefined,
+				);
+				if (!outcome.ok) {
+					return toolError(outcome.message, {
 						action: "add",
-						path: target.path,
+						...(outcome.path ? { path: outcome.path } : {}),
 					});
 				}
-				const copyOpts = resolveCopyPrefs({ copyIgnored: params.copyIgnored, copyUntracked: params.copyUntracked });
-				const copyRes = await copyFilesToWorktree(ctx, target.path, copyOpts, signal ?? undefined);
-				const branchNote = params.branch ? ` (rama nueva ${params.branch})` : "";
-				const locationNote = target.usedDefaultBase ? ` (por defecto ${CONFIG_DIR_NAME}/worktrees/)` : "";
-				return toolResult(
-					`Se creó el worktree en ${target.path}${branchNote}${locationNote}${copyNote(copyOpts, copyRes)}. Abrilo con: cd ${target.path} && pi`,
-					{
-						action: "add",
-						path: target.path,
-						branch: params.branch ?? null,
-						defaultBase: target.usedDefaultBase,
-						copied: copyRes,
-					},
-				);
+				return toolResult(`${outcome.message} Abrilo con: cd ${outcome.path} && pi`, {
+					action: "add",
+					path: outcome.path,
+					branch: outcome.branch ?? null,
+					defaultBase: outcome.usedDefaultBase,
+					copied: outcome.copied,
+				});
 			}
 
 			if (params.action === "open") {
