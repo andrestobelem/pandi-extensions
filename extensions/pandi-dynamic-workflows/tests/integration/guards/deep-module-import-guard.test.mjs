@@ -41,10 +41,9 @@ const RULES = [
 		importRe: /from\s+["']\.\.\/tui(?:\/[^"']+)?["']/,
 	},
 	{
-		name: "lib does not import runtime (value imports)",
+		name: "lib does not import runtime",
 		dir: "lib",
 		importRe: /from\s+["']\.\.\/runtime(?:\/[^"']+)?["']/,
-		skipTypeOnly: true,
 	},
 	{
 		name: "ultracode does not import runtime",
