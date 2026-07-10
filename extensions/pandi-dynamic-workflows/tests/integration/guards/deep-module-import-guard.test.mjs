@@ -2,6 +2,7 @@
  * Guardrail: inversas de acoplamiento intencional post-migración deep-module.
  *
  * - runtime no importa surface (paths/transform viven en lib/)
+ * - runtime no importa tui (engine sin dependencia de presentación)
  * - tui no importa surface (discovery vía lib/tui-discovery-deps)
  * - lifecycle no importa tui (widget vía lib/workflow-widget-deps; status en lifecycle/)
  *
@@ -21,6 +22,11 @@ const RULES = [
 		name: "runtime does not import surface",
 		dir: "runtime",
 		importRe: /from\s+["']\.\.\/surface(?:\/[^"']+)?["']/,
+	},
+	{
+		name: "runtime does not import tui",
+		dir: "runtime",
+		importRe: /from\s+["']\.\.\/tui(?:\/[^"']+)?["']/,
 	},
 	{
 		name: "tui does not import surface",
