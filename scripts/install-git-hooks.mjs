@@ -38,7 +38,7 @@ export function installGitHooks(root, spawn = spawnSync) {
 function main() {
 	const r = installGitHooks(repoRoot);
 	if (!r.skipped && r.status === 0)
-		console.error("git hooks: core.hooksPath -> scripts/git-hooks (pre-commit gate active)");
+		console.error("git hooks: core.hooksPath -> scripts/git-hooks (pre-commit + commit-msg gates active)");
 	process.exit(0);
 }
 

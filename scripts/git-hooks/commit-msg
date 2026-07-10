@@ -1,0 +1,19 @@
+#!/bin/sh
+# commit-msg gate for pandi-extensions.
+#
+# Rejects any commit message that contains a Co-authored-by trailer.
+# AGENTS.md / CLAUDE.md forbid tool-attribution lines (e.g. "Generated with
+# Claude" or Co-authored-by added by an assistant) in commits and PRs.
+#
+# Git passes the path to the commit message file as the first argument.
+# The escape hatch is git commit --no-verify (discouraged).
+
+commit_msg_file="$1"
+
+if grep -qE '^Co-authored-by:' "$commit_msg_file"; then
+	echo "" >&2
+	echo "commit-msg: BLOQUEADO — no se permiten líneas Co-authored-by en los commits." >&2
+	echo "  Revisá el mensaje de commit y quitá la línea Co-authored-by." >&2
+	echo "  Escape explícito (no recomendado): git commit --no-verify" >&2
+	exit 1
+fi

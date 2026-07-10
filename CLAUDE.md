@@ -127,6 +127,6 @@ El trabajo se trackea en el **GitHub Project v2 `pandi`** ([#4](https://github.c
 
 - Usá Conventional Commits con scope explícito, por ejemplo `docs(agents): refresh root agent guide` o `fix(pandi-goal): clear terminated goals`.
 - Mantené commits atómicos: cada commit contiene un cambio coherente y solo sus docs/tests relacionados.
-- **Nunca agregues `Co-Authored-By:` ni líneas de atribución de herramienta** (p. ej. “Generated with Claude”) a commits o PRs.
+- **Nunca agregues líneas `Co-authored-by:`** (también escritas `Co-Authored-By:`) ni otras de atribución de herramienta (p. ej. “Generated with Claude”) a commits o PRs. El repo no usa atribuciones de coautoría en mensajes de commit; el hook `commit-msg` las rechaza automáticamente.
 - **Nunca hagas `git commit --amend` a ciegas.** Chequeá `git log`/`git reflog` primero; sesiones concurrentes pueden haber aterrizado commits arriba del tuyo.
 - Si hay cambios ajenos en el árbol, stageá explícitamente solo tus archivos (`git add AGENTS.md CLAUDE.md`, etc.) o no commitees.
