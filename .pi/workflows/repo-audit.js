@@ -1,12 +1,12 @@
-// TEMP repo-audit (borrar luego): auditoría de solo lectura de errores e inconsistencias.
+// TEMPORAL repo-audit (borrar luego): auditoría de solo lectura de errores e inconsistencias.
 // 1) Gate determinista (bash): typecheck + biome + markdownlint como evidencia.
 // 2) Fan-out por grupos de extensiones + una rama de docs + una de config/manifest.
 // 3) Síntesis como juez (opus): deduplica, descarta lo no sustentado y prioriza por severidad.
-// Todos los subagentes son READ-ONLY y deben citar archivo:línea.
+// Todos los subagentes trabajan en SOLO LECTURA y deben citar archivo:línea.
 
 export const meta = {
 	name: "repo-audit",
-	description: "Read-only audit of the repo for bugs and inconsistencies; ranked, evidence-backed report.",
+	description: "Auditoría de solo lectura del repo para detectar bugs e inconsistencias; informe priorizado y respaldado por evidencia.",
 	phases: 3,
 };
 
@@ -37,19 +37,19 @@ const FINDINGS_SCHEMA = {
 };
 
 const REVIEW_PREFIX = [
-	"You are a meticulous, ADVERSARIAL code reviewer auditing a monorepo of Pi (the `@earendil-works/pi-coding-agent` CLI) extensions for ERRORS and INCONSISTENCIES.",
-	"Read (read-only) the files in your assigned area and hunt for CONCRETE defects:",
-	"- Logic bugs, wrong edge-case handling, off-by-one, incorrect conditionals, unreachable/contradictory code.",
-	"- Concurrency hazards: races, unawaited promises, shared-state mutation, missing cancellation/cleanup, resource/handle leaks.",
-	"- Error handling: swallowed errors, unhandled rejections, throw/return mismatches, misleading messages.",
-	"- Type-unsafe casts (`as any`, non-null `!` on maybe-undefined), unchecked JSON.parse, unvalidated input.",
-	"- Security: shell injection (string vs argv spawn), secret/env leakage into logs/artifacts, path traversal.",
-	"- Inconsistencies: between sibling extensions, between code and its OWN comments/JSDoc/README, between declared and actual behavior, stale/incorrect defaults.",
-	"For EACH finding return: severity (high|medium|low), category, file (repo-relative path), line (number or range), issue (what is wrong), evidence (the exact code/quote that proves it), suggestion (a concrete fix).",
-	"GROUND every finding in the actual code you read. If you cannot cite it, do NOT report it. If the area is clean, return findings: [] with a short note on what you checked.",
-	"Do NOT invent issues, do NOT speculate, do NOT edit anything.",
+	"Sos un revisor de código meticuloso y ADVERSARIAL que audita un monorepo de extensiones de Pi (la CLI `@earendil-works/pi-coding-agent`) en busca de ERRORES e INCONSISTENCIAS.",
+	"Leé, en modo de solo lectura, los archivos de tu área asignada y buscá defectos CONCRETOS:",
+	"- Bugs lógicos, manejo incorrecto de casos límite, errores off-by-one, condicionales incorrectos y código inalcanzable o contradictorio.",
+	"- Riesgos de concurrencia: condiciones de carrera, promesas sin await, mutación de estado compartido, cancelación o limpieza ausente y fugas de recursos o handles.",
+	"- Manejo de errores: errores silenciados, rechazos no manejados, discrepancias entre throw y return y mensajes engañosos.",
+	"- Casts sin seguridad de tipos (`as any`, `!` de no nulo sobre valores quizá undefined), JSON.parse sin comprobación y entradas sin validar.",
+	"- Seguridad: inyección de shell (spawn con string frente a argv), filtración de secretos o variables de entorno en logs o artifacts y path traversal.",
+	"- Inconsistencias: entre extensiones hermanas, entre el código y sus PROPIOS comentarios/JSDoc/README, entre el comportamiento declarado y el real, y defaults obsoletos o incorrectos.",
+	"Por CADA hallazgo devolvé: severity (high|medium|low), category, file (ruta relativa al repo), line (número o rango), issue (qué está mal), evidence (el código o cita exactos que lo demuestran) y suggestion (una corrección concreta).",
+	"FUNDAMENTÁ cada hallazgo en el código real que leíste. Si no podés citarlo, NO lo informes. Si el área está limpia, devolvé findings: [] con una nota breve sobre lo que revisaste.",
+	"NO inventes problemas, NO especules y NO edites nada.",
 	"",
-	"Your assigned area:",
+	"Tu área asignada:",
 ].join("\n");
 
 function reviewItem(label, description, model = "anthropic/claude-sonnet-4-6") {
@@ -65,7 +65,7 @@ function reviewItem(label, description, model = "anthropic/claude-sonnet-4-6") {
 
 export default async function main() {
 	const input = (() => { try { return typeof args === "string" ? JSON.parse(args) || {} : args || {}; } catch { return {}; } })();
-	await log("repo-audit start", { concurrency: limits.concurrency, maxAgents: limits.maxAgents });
+	await log("inicio de repo-audit", { concurrency: limits.concurrency, maxAgents: limits.maxAgents });
 
 	// 1) Gate determinista: evidencia barata y de alta señal (sin cache; refleja el árbol actual).
 	const gate = await bash(
@@ -77,51 +77,51 @@ export default async function main() {
 		{ cache: false },
 	);
 	await writeArtifact("gate.txt", gate?.stdout || String(gate || ""));
-	await log("deterministic gate captured", {});
+	await log("gate determinista capturado", {});
 
 	// 2) Fan-out de áreas de revisión.
 	const areas = [
 		reviewItem(
 			"core-runtime",
-			"The Dynamic Workflows CORE runtime. Prioritize the highest-risk files: extensions/pandi-dynamic-workflows/index.ts (subagent dispatcher, journal/resume, runAsk/runBash/runSubagent, makeApi, handleTool), concurrency-primitives.ts (race/agents/parallel/pipeline cancellation), process-spawn.ts, agent-env-persona.ts (keys/env isolation, web_search/context7 resolution), worker-source.ts, types.ts. Focus on concurrency, cancellation, resume/journal correctness, and secret handling.",
+			"El runtime CORE de Dynamic Workflows. Priorizá los archivos de mayor riesgo: extensions/pandi-dynamic-workflows/index.ts (dispatcher de subagentes, journal/resume, runAsk/runBash/runSubagent, makeApi, handleTool), concurrency-primitives.ts (cancelación de race/agents/parallel/pipeline), process-spawn.ts, agent-env-persona.ts (aislamiento de keys/env, resolución de web_search/context7), worker-source.ts y types.ts. Concentrate en concurrencia, cancelación, corrección de resume/journal y manejo de secretos.",
 			"anthropic/claude-opus-4-8",
 		),
 		reviewItem(
 			"loops-goal-plan",
-			"Persistent-loop extensions: extensions/pandi-loop, extensions/pandi-goal, extensions/pandi-plan. Review each *.ts (skip tests/). Focus on state rehydration, iteration/deadline clamps, trust/mode gating, plan-mode read-only enforcement, and verifier/gate logic.",
+			"Extensiones de loops persistentes: extensions/pandi-loop, extensions/pandi-goal y extensions/pandi-plan. Revisá cada archivo *.ts (omití tests/). Concentrate en la rehidratación de estado, los límites de iteraciones/deadlines, los gates de trust/mode, la aplicación del modo de solo lectura de plan y la lógica de verifier/gate.",
 		),
 		reviewItem(
 			"context-effort",
-			"extensions/pandi-effort, extensions/pandi-local-memory, extensions/pandi-auto-compact, extensions/pandi-btw. Review each *.ts (skip tests/). Focus on env-var parsing/defaults, memory injection safety, compaction/snapshot correctness, and no-tools guarantees.",
+			"extensions/pandi-effort, extensions/pandi-local-memory, extensions/pandi-auto-compact y extensions/pandi-btw. Revisá cada archivo *.ts (omití tests/). Concentrate en el parseo y los defaults de variables de entorno, la seguridad de la inyección de memoria, la corrección de compaction/snapshot y las garantías de no usar tools.",
 		),
 		reviewItem(
 			"devtools",
-			"extensions/pandi-typescript-lsp, extensions/pandi-worktree, extensions/pandi-container, extensions/pandi-bg. Review each *.ts (skip tests/). Focus on argv-vs-shell spawning, PID/identity handling, tsc resolution, container platform guards, and bg job lifecycle/atomic writes.",
+			"extensions/pandi-typescript-lsp, extensions/pandi-worktree, extensions/pandi-container y extensions/pandi-bg. Revisá cada archivo *.ts (omití tests/). Concentrate en el spawn mediante argv frente a shell, el manejo de PID/identity, la resolución de tsc, los guards de plataforma de containers y el ciclo de vida de jobs en background y sus escrituras atómicas.",
 		),
 		reviewItem(
 			"ux-aliases",
-			"extensions/pandi-mdview, extensions/pandi-rename, extensions/pandi, extensions/pandi-exit, extensions/pandi-clear, and extensions/shared. Review each *.ts (skip tests/). Focus on alias coexistence (never override native), timeouts/fallbacks, and shared harness helpers.",
+			"extensions/pandi-mdview, extensions/pandi-rename, extensions/pandi, extensions/pandi-exit, extensions/pandi-clear y extensions/shared. Revisá cada archivo *.ts (omití tests/). Concentrate en la coexistencia de aliases (nunca sobrescribir los nativos), timeouts/fallbacks y helpers compartidos del harness.",
 		),
 		reviewItem(
 			"docs-consistency",
-			"DOC/CODE consistency. Compare claims in the root README.md and each extensions/*/README.md against the ACTUAL code: slash-command names, model tool names, env-var names AND defaults, file paths, and documented behavior. Report every drift (README says X, code does Y) with both citations. Also flag internal contradictions across docs.",
+			"Consistencia DOC/CODE. Compará las afirmaciones del README.md raíz y de cada extensions/*/README.md con el código REAL: nombres de slash commands, nombres de tools de modelos, nombres Y defaults de variables de entorno, rutas de archivos y comportamiento documentado. Informá cada divergencia (el README dice X, el código hace Y) con ambas citas. Señalá también las contradicciones internas entre documentos.",
 		),
 		reviewItem(
 			"config-manifest",
-			"CONFIG/MANIFEST consistency. Check: package.json `pi.extensions` vs the actual extensions/ dirs (missing/extra); `files` vs what must ship; scripts correctness; `pi.skills` vs skills on disk; biome.jsonc + .gitignore + tsconfig.json coherence; the pi scaffolds (extensions/pandi-dynamic-workflows/scaffolds/*.js) vs the generated .claude/workflows/*.js (run `node .claude/scripts/generate-claude-workflows.mjs --check` mentally / by reading); .env.example vs actual PI_* usage. Report mismatches with citations.",
+			"Consistencia CONFIG/MANIFEST. Comprobá: `pi.extensions` de package.json frente a los directorios reales de extensions/ (faltantes o adicionales); `files` frente a lo que debe distribuirse; corrección de scripts; `pi.skills` frente a los skills en disco; coherencia entre biome.jsonc, .gitignore y tsconfig.json; los scaffolds de Pi (extensions/pandi-dynamic-workflows/scaffolds/*.js) frente a los archivos generados .claude/workflows/*.js (evaluá `node .claude/scripts/generate-claude-workflows.mjs --check` mentalmente o mediante lectura); y .env.example frente al uso real de PI_*. Informá las discrepancias con citas.",
 		),
 	];
 
 	const requestedConcurrency = Number.isFinite(+input.concurrency) ? Math.max(1, Math.floor(+input.concurrency)) : 4;
 	const concurrency = Math.max(1, Math.min(requestedConcurrency, limits.concurrency));
-	if (concurrency !== requestedConcurrency) log(`concurrency clamped ${requestedConcurrency} -> ${concurrency} by limits.concurrency=${limits.concurrency}`);
+	if (concurrency !== requestedConcurrency) log(`concurrency limitada ${requestedConcurrency} -> ${concurrency} por limits.concurrency=${limits.concurrency}`);
 	const recommendedMaxAgents = areas.length + 1;
-	if (limits.maxAgents && recommendedMaxAgents > limits.maxAgents) log(`WARNING: maxAgents may be tight for repo-audit ${JSON.stringify({ recommendedMaxAgents, limit: limits.maxAgents, areas: areas.length, synthesis: 1 })}`);
-	await log("review fan-out", { areas: areas.length, concurrency, recommendedMaxAgents });
+	if (limits.maxAgents && recommendedMaxAgents > limits.maxAgents) log(`ADVERTENCIA: maxAgents puede quedar justo para repo-audit ${JSON.stringify({ recommendedMaxAgents, limit: limits.maxAgents, areas: areas.length, synthesis: 1 })}`);
+	await log("fan-out de revisión", { areas: areas.length, concurrency, recommendedMaxAgents });
 	const reviews = await agents(areas, { concurrency, settle: true });
 	const ok = reviews.filter(Boolean);
 	const failed = reviews.length - ok.length;
-	await log("reviews complete", { ok: ok.length, failed });
+	await log("revisiones completas", { ok: ok.length, failed });
 
 	const allFindings = [];
 	ok.forEach((r, i) => {
@@ -130,27 +130,27 @@ export default async function main() {
 		for (const f of arr) allFindings.push({ area: areas[i]?.label, ...f });
 	});
 	await writeArtifact("raw-findings.json", allFindings);
-	await log("findings collected", { total: allFindings.length });
+	await log("hallazgos recopilados", { total: allFindings.length });
 
 	// 3) Síntesis como juez.
 	const synthPrompt = [
-		"You are the SYNTHESIS JUDGE for a read-only repo audit (bugs + inconsistencies) of a Pi extensions monorepo.",
-		"Task: from the raw findings and the deterministic gate output below, produce a de-duplicated, prioritized report.",
-		"Rules: DROP any finding without concrete file/evidence. Merge duplicates across areas. Rank by severity (high first) then blast radius. For each kept finding give: severity, category, file:line, what's wrong, why it matters, and a concrete fix. Separately list anything that looks like ANOTHER SESSION'S in-flight WIP (e.g. open-prose skill, skills-lock churn) so the reader does not confuse it with real defects.",
-		"Be honest about coverage: mention how many review branches failed/were empty and what was NOT covered.",
-		"Output Markdown with sections: `## Resumen` (counts by severity), `## Hallazgos priorizados` (numbered), `## Gate determinista` (typecheck/biome/markdownlint status), `## Posible WIP ajeno`, `## Cobertura y límites`.",
+		"Sos el JUEZ DE SÍNTESIS de una auditoría de solo lectura del repo (bugs e inconsistencias) de un monorepo de extensiones de Pi.",
+		"Tarea: a partir de los hallazgos sin procesar y de la salida del gate determinista que aparecen abajo, generá un informe sin duplicados y priorizado.",
+		"Reglas: DESCARTÁ cualquier hallazgo sin file/evidence concretos. Fusioná duplicados entre áreas. Ordená por severity (high primero) y luego por radio de impacto. Para cada hallazgo conservado indicá: severity, category, file:line, qué está mal, por qué importa y una corrección concreta. Enumerá por separado todo lo que parezca WIP en curso DE OTRA SESIÓN (por ejemplo, el skill open-prose o cambios frecuentes en skills-lock), para que quien lea no lo confunda con defectos reales.",
+		"Sé transparente sobre la cobertura: mencioná cuántas ramas de revisión fallaron o quedaron vacías y qué NO se cubrió.",
+		"Generá Markdown con estas secciones: `## Resumen` (conteos por severity), `## Hallazgos priorizados` (numerados), `## Gate determinista` (estado de typecheck/biome/markdownlint), `## Posible WIP ajeno` y `## Cobertura y límites`.",
 		"",
-		"=== DETERMINISTIC GATE OUTPUT ===",
+		"=== SALIDA DEL GATE DETERMINISTA ===",
 		compact(gate?.stdout || String(gate || ""), 8000),
 		"",
-		"=== RAW FINDINGS (JSON) ===",
+		"=== HALLAZGOS SIN PROCESAR (JSON) ===",
 		compact(allFindings, 40000),
 		"",
-		`Branches: ${ok.length} ok, ${failed} failed of ${reviews.length}. Restate: dedup + prioritize by severity, drop unsupported, separate in-flight WIP, be explicit about coverage gaps.`,
+		`Ramas: ${ok.length} ok, ${failed} fallidas de ${reviews.length}. Reiterá: eliminá duplicados y priorizá por severity, descartá lo no sustentado, separá el WIP en curso y explicitá los huecos de cobertura.`,
 	].join("\n");
 
 	const report = await agent(synthPrompt, { model: "anthropic/claude-opus-4-8", effort: "high", tools: READ_ONLY });
 	await writeArtifact("audit-report.md", typeof report === "string" ? report : compact(report, 40000));
-	await log("synthesis done", {});
+	await log("síntesis terminada", {});
 	return { areas: areas.length, reviewsFailed: failed, totalFindings: allFindings.length, report };
 }

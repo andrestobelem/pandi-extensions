@@ -17,12 +17,17 @@ const CANONICAL_FILES = [
 		.readdirSync(path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "scaffolds"))
 		.filter((file) => file.endsWith(".js"))
 		.map((file) => path.join("extensions", "pandi-dynamic-workflows", "scaffolds", file)),
+	...fs
+		.readdirSync(path.join(REPO_ROOT, ".pi", "workflows"))
+		.filter((file) => file.endsWith(".js"))
+		.map((file) => path.join(".pi", "workflows", file)),
 	path.join("extensions", "pandi-dynamic-workflows", "surface", "catalog.ts"),
 	path.join("extensions", "pandi-dynamic-workflows", "surface", "pattern-format.ts"),
 ];
 
 const BANNED_PROSE = [
 	{ re: /\bYou are\b/, why: "rol de prompt en inglés" },
+	{ re: /\bAct as\b/, why: "rol de prompt en inglés" },
 	{ re: /\bYour job\b/, why: "instrucción de prompt en inglés" },
 	{ re: /\bEverything inside\b/, why: "regla de fence en inglés" },
 	{ re: /\bTreat everything\b/, why: "regla de datos no confiables en inglés" },

@@ -1,66 +1,66 @@
 /**
- * dave-test-review (stable; promoted from drafts/ after verified runs) — Dave Farley-lens review of every extension's integration
- * test suites, with a FAIL-FAST PREFLIGHT (issue #5).
+ * dave-test-review (estable; promovido desde drafts/ después de ejecuciones verificadas): revisión con la perspectiva
+ * de Dave Farley de las suites de tests de integración de cada extensión, con una VERIFICACIÓN PREVIA DE CORTE TEMPRANO (issue #5).
  *
- * Failure mode being defended against: under provider rate-limits, fan-out
- * branches can resolve ok:true with EMPTY output. The synthesis judge then
- * (correctly) refuses to fabricate, but the whole run's budget is wasted.
- * Defense in depth:
- *   1. PREFLIGHT: review ONE baseline extension first. If its output is not
- *      substantive after one cache-busted retry, THROW — never fan out.
- *   2. FAN-OUT: every branch is asserted substantive; empties are retried once
- *      with cache:false, then flagged loudly (never silently counted as clean).
- *   3. SYNTHESIS: the judge receives the coverage table and must NAME empty or
- *      failed branches instead of papering over them.
+ * Modo de falla contra el que se protege: bajo límites de tasa del proveedor, las ramas
+ * de la distribución pueden resolver ok:true con salida EMPTY. Entonces el juez de síntesis
+ * se niega (correctamente) a inventar, pero se desperdicia todo el presupuesto de la ejecución.
+ * Defensa en profundidad:
+ *   1. VERIFICACIÓN PREVIA: revisar primero UNA extensión de referencia. Si su salida no es
+ *      sustantiva después de un reintento sin caché, lanzar una excepción; nunca ejecutar la distribución.
+ *   2. DISTRIBUCIÓN: validar que cada rama sea sustantiva; reintentar una vez las vacías
+ *      con cache:false y luego marcarlas de forma visible (nunca contarlas silenciosamente como limpias).
+ *   3. SÍNTESIS: el juez recibe la tabla de cobertura y debe NOMBRAR las ramas vacías
+ *      o fallidas en lugar de disimularlas.
  *
- * Params (args is JSON-stringified; parsed defensively):
- *   extensions  string[]  optional. Explicit extension names; bypasses the scout.
- *   limit       number    default 32. Max extensions reviewed; excess logged & dropped.
- *   concurrency number    default 4 (clamped to limits.concurrency).
- *   baseline    string    optional. Which extension to preflight (default: first sorted).
- *   forceEmpty  string    TEST SEAM, logged loudly. "baseline": the preflight
- *                         branch produces "" on BOTH attempts (must halt before
- *                         fan-out). "once": every branch's FIRST attempt is ""
- *                         (must recover via the cache-busted retry).
+ * Parámetros (args contiene JSON serializado como string; se parsea defensivamente):
+ *   extensions  string[]  opcional. Nombres explícitos de extensiones; omite el relevamiento.
+ *   limit       number    valor predeterminado: 32. Máximo de extensiones revisadas; el excedente se registra y descarta.
+ *   concurrency number    valor predeterminado: 4 (ajustado a limits.concurrency).
+ *   baseline    string    opcional. Extensión usada para la verificación previa (valor predeterminado: la primera ordenada).
+ *   forceEmpty  string    PUNTO DE PRUEBA, registrado de forma visible. "baseline": la rama de verificación previa
+ *                         produce "" en AMBOS intentos (debe detenerse antes de la distribución).
+ *                         "once": el PRIMER intento de cada rama es ""
+ *                         (debe recuperarse mediante el reintento sin caché).
  *
- * Reviewers use the project persona `dave-farley` (.pi/personas/dave-farley.json):
- * read-only advisor, modern-software-engineering skill. Explicit model/effort
- * below override the persona defaults per call.
+ * Los revisores usan la persona `dave-farley` del proyecto (.pi/personas/dave-farley.json):
+ * asesor de solo lectura con el skill modern-software-engineering. Los valores explícitos
+ * de model/effort indicados abajo sobrescriben los valores predeterminados de la persona en cada llamada.
  */
 export const meta = {
 	name: "dave-test-review",
 	description:
-		"Dave Farley-lens review of extension integration suites with fail-fast preflight, retry-on-empty, and empty-branch-honest synthesis",
-	phases: [{ title: "Scout" }, { title: "Preflight" }, { title: "Fan-out" }, { title: "Synthesize" }],
+		"Revisión de suites de integración de extensiones con la perspectiva de Dave Farley, verificación previa con corte temprano, reintento ante salida vacía y síntesis honesta sobre ramas vacías",
+	phases: [{ title: "Relevar" }, { title: "Verificación previa" }, { title: "Distribuir" }, { title: "Sintetizar" }],
 	basedOn: [
-		{ name: "fan-out-and-synthesize", role: "base pattern (scatter-gather + synthesis-as-judge)" },
-		{ name: "repo-audit-4", role: "retry-on-empty (cache:false) precedent" },
+		{ name: "fan-out-and-synthesize", role: "patrón base (scatter-gather + síntesis como juez)" },
+		{ name: "repo-audit-4", role: "precedente de reintento ante salida vacía (cache:false)" },
 	],
 };
 
 const MIN_SUBSTANTIVE_CHARS = 200;
 
 const PREFIX = [
-	"Act as a Dave Farley-style reviewer of a TEST SUITE (you have the modern-software-engineering skill; apply it).",
-	"You are reviewing the integration test suites of ONE extension in the pandi-extensions monorepo.",
-	"Judge the suites as ENGINEERING ARTIFACTS: do they optimize for learning and manage complexity?",
-	"Evaluate concretely:",
-	"- BEHAVIORAL coverage: do tests pin observable behavior (outputs, messages, state) or implementation detail?",
-	"- NON-VACUITY: could a test pass while the behavior is broken? Name any assertion that cannot fail meaningfully.",
-	"- HERMETICITY: hidden network/global-state/timing dependencies; anything that could flake under parallelism.",
-	"- FEEDBACK SPEED: sleeps, oversized fixtures, serial work that could be cheap.",
-	"- GAPS: the most important UNTESTED behaviors of this extension (read the source to know what it does).",
-	"GROUND every claim in file+line evidence you actually read. Do NOT edit anything.",
-	"EFFICIENCY: use grep/find to navigate; read only the regions you need. Emit your report before the turn ends.",
+	"Actuá como revisor de una SUITE DE TESTS al estilo de Dave Farley (tenés el skill modern-software-engineering; aplicalo).",
+	"Estás revisando las suites de tests de integración de UNA extensión del monorepo pandi-extensions.",
+	"Evaluá las suites como ARTEFACTOS DE INGENIERÍA: ¿optimizan el aprendizaje y gestionan la complejidad?",
+	"Evaluá de forma concreta:",
+	"- Cobertura de COMPORTAMIENTO: ¿los tests fijan comportamiento observable (salidas, mensajes, estado) o detalles de implementación?",
+	"- NO VACUIDAD: ¿un test podría pasar aunque el comportamiento estuviera roto? Nombrá toda aserción que no pueda fallar de manera significativa.",
+	"- HERMETICIDAD: dependencias ocultas de red/estado global/temporización; cualquier elemento que pueda producir flakiness bajo paralelismo.",
+	"- VELOCIDAD DE FEEDBACK: esperas, fixtures sobredimensionados y trabajo serial que podría ser barato.",
+	"- BRECHAS: los comportamientos NO CUBIERTOS más importantes de esta extensión (leé la fuente para saber qué hace).",
+	"FUNDAMENTÁ cada afirmación con evidencia de archivo+línea que realmente hayas leído. NO edites nada.",
+	"EFICIENCIA: usá grep/find para navegar; leé solo las regiones necesarias. Emití tu informe antes de que termine el turno.",
 	"",
-	"OUTPUT FORMAT (Markdown, ALL sections required, keep it under ~500 lines):",
-	"## VERDICT — one of: STRONG | ADEQUATE | WEAK, plus a one-sentence justification",
-	"## STRENGTHS — bullet list with evidence",
-	"## GAPS — prioritized, most important first, each with the missing behavior + why it matters",
-	"## FLAKINESS RISKS — or 'none found'",
-	"## RECOMMENDATIONS — smallest safe next steps, TDD-first",
+	"FORMATO DE SALIDA (Markdown, TODAS las secciones son obligatorias; mantenelo por debajo de ~500 líneas):",
+	"## VEREDICTO — uno de: STRONG | ADEQUATE | WEAK, más una justificación de una oración",
+	"## FORTALEZAS — lista con viñetas y evidencia",
+	"## BRECHAS — priorizadas, las más importantes primero; cada una con el comportamiento faltante + por qué importa",
+	"## RIESGOS DE FLAKINESS — o 'no se encontró ninguno'",
+	"## RECOMENDACIONES — los próximos pasos seguros más pequeños, con TDD primero",
 	"",
-	"Your assigned extension:",
+	"Extensión asignada:",
 ].join("\n");
 
 export default async function main() {
@@ -80,8 +80,8 @@ export default async function main() {
 	const REVIEWER = { agentType: "dave-farley", model: "anthropic/claude-sonnet-4-6", effort: "medium" };
 	const JUDGE = { agentType: "dave-farley", model: "anthropic/claude-opus-4-8", effort: "high" };
 
-	// --- Scout: constant command (no interpolation), grouped by extension. -----
-	phase("Scout");
+	// --- Relevamiento: comando constante (sin interpolación), agrupado por extensión. -----
+	phase("Relevar");
 	const lsOut = await bash("git ls-files 'extensions/*/tests/integration/*.test.mjs'");
 	const suites = String(lsOut?.stdout ?? lsOut ?? "")
 		.split("\n")
@@ -99,32 +99,32 @@ export default async function main() {
 	if (Array.isArray(input?.extensions) && input.extensions.length) {
 		const requested = input.extensions.filter((e) => byExt.has(e));
 		const unknown = input.extensions.filter((e) => !byExt.has(e));
-		if (unknown.length) await log("ignoring unknown extensions", { unknown });
+		if (unknown.length) await log("se ignoran extensiones desconocidas", { unknown });
 		extNames = requested;
 	}
 	const limit = Math.max(1, Math.min(256, Math.floor(Number(input?.limit) || 32)));
 	if (extNames.length > limit) {
-		await log("limit cap applied — extensions DROPPED from this run", {
+		await log("se aplicó el tope limit; se DESCARTAN extensiones de esta ejecución", {
 			reviewed: limit,
 			dropped: extNames.slice(limit),
 		});
 		extNames = extNames.slice(0, limit);
 	}
-	if (extNames.length === 0) throw new Error("Scout found no extension integration suites to review.");
-	await log("work-list", { extensions: extNames.length, suites: suites.length });
+	if (extNames.length === 0) throw new Error("El relevamiento no encontró suites de integración de extensiones para revisar.");
+	await log("lista de trabajo", { extensions: extNames.length, suites: suites.length });
 
-	// --- Substantive-output assertion + retry-on-empty (the #5 core). ----------
+	// --- Validación de salida sustantiva + reintento ante salida vacía (núcleo de #5). ----------
 	const forceEmpty = input?.forceEmpty === "baseline" || input?.forceEmpty === "once" ? input.forceEmpty : null;
-	if (forceEmpty) await log(`TEST SEAM ACTIVE: forceEmpty=${forceEmpty} — simulating empty branch output`);
+	if (forceEmpty) await log(`PUNTO DE PRUEBA ACTIVO: forceEmpty=${forceEmpty}; se simula una salida de rama vacía`);
 
 	const isSubstantive = (out) => typeof out === "string" && out.trim().length >= MIN_SUBSTANTIVE_CHARS;
 
 	const prompt = (ext) => `${PREFIX}\n${ext} — suites:\n${byExt.get(ext).join("\n")}`;
 
-	// One review attempt. The seam simulates the observed failure (ok:true, empty
-	// output) WITHOUT spending an agent call.
+	// Un intento de revisión. El punto de prueba simula la falla observada (ok:true, salida
+	// vacía) SIN consumir una llamada a un agente.
 	const reviewOnce = async (ext, { cache = true, attempt, phaseTitle }) => {
-		if (forceEmpty === "baseline" && phaseTitle === "Preflight") return "";
+		if (forceEmpty === "baseline" && phaseTitle === "Verificación previa") return "";
 		if (forceEmpty === "once" && attempt === 1) return "";
 		const out = await agent(prompt(ext), {
 			...REVIEWER,
@@ -135,19 +135,19 @@ export default async function main() {
 		return typeof out === "string" ? out : (out?.output ?? out?.text ?? "");
 	};
 
-	// Attempt + one cache-busted retry; returns { ext, output|null, empty, retried }.
+	// Intento + un reintento sin caché; devuelve { ext, output|null, empty, retried }.
 	const reviewWithRetry = async (ext, phaseTitle) => {
 		let out = await reviewOnce(ext, { attempt: 1, phaseTitle });
 		let retried = false;
 		if (!isSubstantive(out)) {
-			await log(`EMPTY branch output for ${ext} — retrying once with cache:false`, {
+			await log(`salida de rama EMPTY para ${ext}; se reintenta una vez con cache:false`, {
 				chars: String(out ?? "").trim().length,
 			});
 			retried = true;
 			out = await reviewOnce(ext, { cache: false, attempt: 2, phaseTitle });
 		}
 		if (!isSubstantive(out)) {
-			await log(`EMPTY branch output for ${ext} AFTER retry — flagged as failed`, {
+			await log(`salida de rama EMPTY para ${ext} DESPUÉS del reintento; se marca como fallida`, {
 				chars: String(out ?? "").trim().length,
 			});
 			return { ext, output: null, empty: true, retried };
@@ -155,31 +155,31 @@ export default async function main() {
 		return { ext, output: out, empty: false, retried };
 	};
 
-	// --- PREFLIGHT: one baseline extension BEFORE any fan-out spend. -----------
-	phase("Preflight");
+	// --- VERIFICACIÓN PREVIA: una extensión de referencia ANTES de consumir recursos en la distribución. -----------
+	phase("Verificación previa");
 	const baseline = typeof input?.baseline === "string" && extNames.includes(input.baseline) ? input.baseline : extNames[0];
-	await log("preflight baseline", { baseline });
-	const canary = await reviewWithRetry(baseline, "Preflight");
+	await log("referencia de la verificación previa", { baseline });
+	const canary = await reviewWithRetry(baseline, "Verificación previa");
 	if (canary.empty) {
 		await writeArtifact("preflight-failure.json", { baseline, retried: canary.retried, forceEmpty });
 		throw new Error(
-			`PREFLIGHT FAILED: baseline review of ${baseline} produced empty output even after a cache-busted retry ` +
-				"(likely rate-limiting). Aborting BEFORE the fan-out — nothing else was spent. Re-run later or switch models.",
+			`FALLÓ LA VERIFICACIÓN PREVIA: la revisión de referencia de ${baseline} produjo una salida vacía incluso después de un reintento sin caché ` +
+				"(probablemente por límites de tasa). Se aborta ANTES de la distribución; no se consumieron más recursos. Volvé a ejecutar más tarde o cambiá de modelo.",
 		);
 	}
 	await writeArtifact(`review-${baseline}.md`, canary.output);
-	await log("preflight PASS", { baseline, chars: canary.output.length, retried: canary.retried });
+	await log("verificación previa SUPERADA", { baseline, chars: canary.output.length, retried: canary.retried });
 
-	// --- Fan-out over the remaining extensions. --------------------------------
-	phase("Fan-out");
+	// --- Distribución sobre las extensiones restantes. --------------------------------
+	phase("Distribuir");
 	const rest = extNames.filter((e) => e !== baseline);
 	const concurrency = Math.max(1, Math.min(Number(input?.concurrency) || 4, limits.concurrency));
-	await log("fan-out", { extensions: rest.length, concurrency, maxAgents: limits.maxAgents });
+	await log("distribución", { extensions: rest.length, concurrency, maxAgents: limits.maxAgents });
 	const settled = await parallel(
-		rest.map((ext) => () => reviewWithRetry(ext, "Fan-out")),
+		rest.map((ext) => () => reviewWithRetry(ext, "Distribuir")),
 		{ concurrency },
 	);
-	// parallel(settle-like): a thrown branch is null — recover its identity positionally.
+	// parallel con semántica similar a settle: una rama que lanza una excepción queda en null; recuperar su identidad por posición.
 	const results = [canary, ...settled.map((r, i) => r ?? { ext: rest[i], output: null, empty: true, retried: false })];
 
 	const coverage = results.map((r) => ({
@@ -191,16 +191,16 @@ export default async function main() {
 	const empties = coverage.filter((c) => c.status === "EMPTY").map((c) => c.ext);
 	for (const r of results) if (r.output && r.ext !== baseline) await writeArtifact(`review-${r.ext}.md`, r.output);
 	await writeArtifact("coverage.json", coverage);
-	await log("fan-out complete", { ok: results.length - empties.length, empty: empties.length, empties });
+	await log("distribución completa", { ok: results.length - empties.length, empty: empties.length, empties });
 
-	// --- Synthesis-as-judge: empty branches are NAMED, never papered over. ------
-	phase("Synthesize");
+	// --- Síntesis como juez: las ramas vacías se NOMBRAN, nunca se disimulan. ------
+	phase("Sintetizar");
 	const reviewed = results.filter((r) => !r.empty);
 	const synth = [
-		"You are the SYNTHESIS JUDGE for a Dave Farley-lens review of extension test suites (reports below).",
-		"Task + success criteria: produce ONE prioritized, evidence-grounded report. Discard any claim without file/line evidence. De-duplicate cross-extension themes.",
-		`Coverage: ${reviewed.length}/${results.length} extensions reviewed. EMPTY/FAILED branches you MUST name as unreviewed (never infer anything about them): ${empties.length ? JSON.stringify(empties) : "none"}.`,
-		"Output Markdown: `## Resumen` (verdict counts, systemic themes), `## Hallazgos priorizados` (numbered, most valuable first, with extension + evidence), `## Cobertura` (per-extension verdict table, EMPTY branches marked), `## Próximos pasos` (smallest safe TDD-first steps).",
+		"Sos el JUEZ DE SÍNTESIS de una revisión de suites de tests de extensiones con la perspectiva de Dave Farley (informes abajo).",
+		"Tarea + criterios de éxito: producí UN informe priorizado y fundamentado en evidencia. Descartá toda afirmación sin evidencia de archivo/línea. Eliminá temas duplicados entre extensiones.",
+		`Cobertura: ${reviewed.length}/${results.length} extensiones revisadas. DEBÉS nombrar las ramas EMPTY/fallidas como no revisadas (nunca infieras nada sobre ellas): ${empties.length ? JSON.stringify(empties) : "ninguna"}.`,
+		"Salida Markdown: `## Resumen` (conteos de veredictos y temas sistémicos), `## Hallazgos priorizados` (numerados, los más valiosos primero, con extensión + evidencia), `## Cobertura` (tabla de veredictos por extensión, con las ramas EMPTY marcadas), `## Próximos pasos` (los pasos TDD-first seguros más pequeños).",
 		"",
 		"=== COVERAGE (JSON) ===",
 		compact(coverage, 4000),
@@ -211,9 +211,9 @@ export default async function main() {
 			120000,
 		),
 		"",
-		`Restate: prioritize with evidence, de-duplicate themes, and explicitly name the ${empties.length} EMPTY branch(es)${empties.length ? `: ${JSON.stringify(empties)}` : ""}.`,
+		`Reiteración: priorizá con evidencia, eliminá temas duplicados y nombrá explícitamente las ${empties.length} ramas EMPTY${empties.length ? `: ${JSON.stringify(empties)}` : ""}.`,
 	].join("\n");
-	const report = await agent(synth, { ...JUDGE, label: "synthesis-judge", phase: "Synthesize" });
+	const report = await agent(synth, { ...JUDGE, label: "synthesis-judge", phase: "Sintetizar" });
 	await writeArtifact("test-review-report.md", typeof report === "string" ? report : compact(report, 80000));
 
 	return {

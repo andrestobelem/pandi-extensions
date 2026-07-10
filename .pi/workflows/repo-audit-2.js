@@ -1,21 +1,21 @@
-// TEMP repo-audit-2 (delete after): covers the 5 areas that returned empty output in run 1.
-// Root cause of run-1 failures: heavy areas produced very verbose findings whose JSON output
-// exceeded the token budget and was TRUNCATED mid-string -> strict schema parse failed -> retries failed.
-// Fixes here: small per-extension/file-cluster scopes, NO strict schema (lenient JSON-block parse),
-// a HARD verbosity cap (short issue/evidence + max findings) so the JSON always terminates,
-// an explicit model/effort matrix per agent (logged + saved as an artifact), and correct
-// area-label alignment (iterate WITH nulls so filtered branches never shift labels).
+// TEMPORAL repo-audit-2 (borrar luego): cubre las 5 áreas que devolvieron una salida vacía en la corrida 1.
+// Causa raíz de las fallas de la corrida 1: las áreas pesadas produjeron hallazgos muy verbosos cuya salida JSON
+// superó el presupuesto de tokens y quedó TRUNCADA en medio de un string -> falló el parseo con schema estricto -> fallaron los reintentos.
+// Correcciones: alcances chicos por extensión o grupo de archivos, SIN schema estricto (parseo tolerante de bloques JSON),
+// un límite ESTRICTO de verbosidad (issue/evidence breves + máximo de hallazgos) para que el JSON siempre termine,
+// una matriz explícita de model/effort por agente (registrada en el log + guardada como artifact) y una alineación correcta
+// entre áreas y labels (se itera CON los null para que las ramas filtradas nunca desplacen los labels).
 
 export const meta = {
 	name: "repo-audit-2",
-	description: "Robust re-audit of the heavy areas.",
-	phases: [{ title: "fan-out review" }, { title: "synthesis" }],
+	description: "Reauditoría robusta de las áreas pesadas.",
+	phases: [{ title: "revisión fan-out" }, { title: "síntesis" }],
 };
 
 const READ_ONLY = ["read", "grep", "find", "ls"];
 
-// model/effort tiers across BOTH authenticated providers (anthropic + openai-codex) for
-// cross-provider adversarial diversity. Reported to the user and logged so the run is self-describing.
+// Niveles de model/effort entre AMBOS proveedores autenticados (anthropic + openai-codex) para
+// obtener diversidad adversarial entre proveedores. Se informan al usuario y se registran para que la corrida se describa a sí misma.
 const TIER = {
 	opusHigh: { model: "anthropic/claude-opus-4-8", effort: "high" },
 	sonnetHigh: { model: "anthropic/claude-sonnet-4-6", effort: "high" },
@@ -25,21 +25,21 @@ const TIER = {
 };
 
 const PREFIX = [
-	"You are a meticulous, ADVERSARIAL code reviewer auditing part of a Pi (the `@earendil-works/pi-coding-agent` CLI) extensions monorepo for ERRORS and INCONSISTENCIES.",
-	"Read (read-only) ONLY the files in your assigned scope and hunt for CONCRETE defects: logic bugs, wrong edge cases, concurrency hazards (races, unawaited promises, missing cancellation/cleanup), swallowed/incorrect error handling, type-unsafe casts, unchecked JSON.parse, security (shell injection via string-spawn, secret/env leakage, path traversal), and inconsistencies (between sibling extensions, between code and its OWN comments/README, stale defaults).",
-	"GROUND every finding in code you actually read; if you cannot cite file+line+the exact snippet, do NOT report it. Do not edit anything.",
+	"Sos un revisor de código meticuloso y ADVERSARIAL que audita parte de un monorepo de extensiones de Pi (la CLI `@earendil-works/pi-coding-agent`) en busca de ERRORES e INCONSISTENCIAS.",
+	"Leé, en modo de solo lectura, ÚNICAMENTE los archivos de tu alcance asignado y buscá defectos CONCRETOS: bugs lógicos, casos límite incorrectos, riesgos de concurrencia (condiciones de carrera, promesas sin await, cancelación o limpieza ausente), manejo de errores silenciado o incorrecto, casts sin seguridad de tipos, JSON.parse sin comprobación, problemas de seguridad (inyección de shell mediante spawn con string, filtración de secretos o variables de entorno, path traversal) e inconsistencias (entre extensiones hermanas, entre el código y sus PROPIOS comentarios/README, defaults obsoletos).",
+	"FUNDAMENTÁ cada hallazgo en código que realmente hayas leído; si no podés citar file+line+el snippet exacto, NO lo informes. No edites nada.",
 	"",
-	"HARD OUTPUT LIMITS (critical — violating these truncates your answer and it is DISCARDED):",
-	"- Report AT MOST 8 findings. Prioritize the most severe; drop nitpicks.",
-	"- Keep each `issue` under ~350 characters and each `evidence` under ~250 characters. Be terse; no essays.",
-	"- Output ONLY a single fenced ```json code block with a JSON array and NOTHING else. CLOSE the array (`]`) and the block.",
-	"- Each element: {\"severity\":\"high|medium|low\",\"category\":\"...\",\"file\":\"repo/rel/path\",\"line\":\"N or N-M\",\"issue\":\"...\",\"evidence\":\"...\",\"suggestion\":\"...\"}. If clean, output [].",
+	"LÍMITES ESTRICTOS DE SALIDA (crítico: incumplirlos trunca tu respuesta y hace que se DESCARTE):",
+	"- Informá COMO MÁXIMO 8 hallazgos. Priorizá los más graves; descartá detalles menores.",
+	"- Mantené cada `issue` por debajo de ~350 caracteres y cada `evidence` por debajo de ~250 caracteres. Sé breve; no escribas ensayos.",
+	"- Generá ÚNICAMENTE un solo bloque cercado de código ```json con un array JSON y NADA más. CERRÁ el array (`]`) y el bloque.",
+	"- Cada elemento: {\"severity\":\"high|medium|low\",\"category\":\"...\",\"file\":\"repo/rel/path\",\"line\":\"N o N-M\",\"issue\":\"...\",\"evidence\":\"...\",\"suggestion\":\"...\"}. Si está limpio, generá [].",
 	"",
-	"Your assigned scope:",
+	"Tu alcance asignado:",
 ].join("\n");
 
 function item(area, tier, scope) {
-	return { label: area, area, phase: "fan-out review", ...TIER[tier], tier, tools: READ_ONLY, prompt: `${PREFIX}\n${scope}` };
+	return { label: area, area, phase: "revisión fan-out", ...TIER[tier], tier, tools: READ_ONLY, prompt: `${PREFIX}\n${scope}` };
 }
 
 function parseFindings(text) {
@@ -62,42 +62,42 @@ function parseFindings(text) {
 
 export default async function main() {
 	const input = (() => { try { return typeof args === "string" ? JSON.parse(args) || {} : args || {}; } catch { return {}; } })();
-	// Scope strings (reused so the 3 CORE areas can be reviewed by BOTH providers).
+	// Strings de alcance (se reutilizan para que AMBOS proveedores puedan revisar las 3 áreas CORE).
 	const S = {
-		coreDispatch: "extensions/pandi-dynamic-workflows/index.ts — the subagent dispatcher, journal/resume cache, runSubagent/runAsk/runBash, makeApi globals, handleTool. Focus on cancellation, resume/journal correctness, and secret redaction.",
-		corePrimitives: "extensions/pandi-dynamic-workflows/concurrency-primitives.ts + process-spawn.ts + worker-source.ts. Focus on race()/agents()/parallel()/pipeline() cancellation & error propagation, AbortSignal wiring, and child-process spawn (argv vs shell) safety.",
-		coreEnvResume: "extensions/pandi-dynamic-workflows/agent-env-persona.ts + config.ts + run-lifecycle.ts + run-state.ts. Focus on keys/env isolation & redaction, web_search/context7 resolution, limit clamps, and atomic status/result writes.",
+		coreDispatch: "extensions/pandi-dynamic-workflows/index.ts — el dispatcher de subagentes, el cache de journal/resume, runSubagent/runAsk/runBash, los globals de makeApi y handleTool. Concentrate en la cancelación, la corrección de resume/journal y la redacción de secretos.",
+		corePrimitives: "extensions/pandi-dynamic-workflows/concurrency-primitives.ts + process-spawn.ts + worker-source.ts. Concentrate en la cancelación y propagación de errores de race()/agents()/parallel()/pipeline(), la conexión de AbortSignal y la seguridad del spawn de procesos hijos (argv frente a shell).",
+		coreEnvResume: "extensions/pandi-dynamic-workflows/agent-env-persona.ts + config.ts + run-lifecycle.ts + run-state.ts. Concentrate en el aislamiento y la redacción de keys/env, la resolución de web_search/context7, los límites y las escrituras atómicas de status/result.",
 	};
 	const items = [
-		// CORE (critical) — dual, cross-provider: anthropic opus + openai-codex gpt-5.6-sol.
+		// CORE (crítico) — revisión dual entre proveedores: anthropic opus + openai-codex gpt-5.6-sol.
 		item("core-dispatch", "opusHigh", S.coreDispatch),
 		item("core-dispatch", "codexHigh", S.coreDispatch),
 		item("core-primitives", "opusHigh", S.corePrimitives),
 		item("core-primitives", "codexHigh", S.corePrimitives),
 		item("core-env-resume", "opusHigh", S.coreEnvResume),
 		item("core-env-resume", "codexHigh", S.coreEnvResume),
-		// loops/goal/plan — single reviewer, alternate providers.
-		item("pandi-loop", "codexHigh", "extensions/pandi-loop/*.ts (skip tests/). Focus on state rehydration, delay/iteration/deadline clamps, tui/rpc gating, watchdog force-stop, autopilotTurnInFlight lifecycle vs activeLoops, and GC of terminal state."),
-		item("pandi-goal", "sonnetHigh", "extensions/pandi-goal/*.ts (skip tests/). Focus on activeGoals cleanup on stop/shutdown, sidecar write-vs-read symmetry, independent-verifier gating & caps, and iteration/wait clamps."),
-		item("pandi-plan", "codexHigh", "extensions/pandi-plan/*.ts (skip tests/). Focus on read-only mutation gate enforcement, blocked dynamic_workflow actions, bash allowlist, and non-interactive plan-only handling."),
-		// devtools + docs/config — single reviewer, alternate providers, medium effort.
-		item("devtools-a", "sonnetMed", "extensions/pandi-typescript-lsp/*.ts + extensions/pandi-bg/*.ts (skip tests/). Focus on tsc resolution & touched-file scoping, and bg job lifecycle, PID/identity reuse detection, atomic writes, trust gating."),
-		item("devtools-b", "codexMed", "extensions/pandi-worktree/*.ts + extensions/pandi-container/*.ts (skip tests/). Focus on argv-array (never shell) git/container spawning, platform guards, and never-force-delete defaults."),
-		item("docs-consistency", "codexMed", "Compare the ROOT README.md claims against actual code: slash-command names, model tool names, PI_* env-var names AND defaults, and file paths. Read README.md plus the specific source lines it references. Report each drift with both citations."),
-		item("config-manifest", "sonnetMed", "package.json (`pi.extensions` vs extensions/ dirs, `files`, `pi.skills`, scripts), biome.jsonc, tsconfig.json, .gitignore, .env.example vs actual PI_* usage, and pi scaffolds vs .claude/workflows (parity). Report mismatches with citations."),
+		// loops/goal/plan — un solo revisor, alternando proveedores.
+		item("pandi-loop", "codexHigh", "extensions/pandi-loop/*.ts (omití tests/). Concentrate en la rehidratación de estado, los límites de delay/iteration/deadline, los gates de tui/rpc, la detención forzada del watchdog, el ciclo de vida de autopilotTurnInFlight frente a activeLoops y el GC del estado terminal."),
+		item("pandi-goal", "sonnetHigh", "extensions/pandi-goal/*.ts (omití tests/). Concentrate en la limpieza de activeGoals al ejecutar stop/shutdown, la simetría entre escritura y lectura del sidecar, los gates y límites de independent-verifier y los límites de iteration/wait."),
+		item("pandi-plan", "codexHigh", "extensions/pandi-plan/*.ts (omití tests/). Concentrate en la aplicación del gate de mutaciones de solo lectura, las acciones bloqueadas de dynamic_workflow, la allowlist de bash y el manejo no interactivo exclusivo de plan."),
+		// devtools + docs/config — un solo revisor, alternando proveedores, con effort medium.
+		item("devtools-a", "sonnetMed", "extensions/pandi-typescript-lsp/*.ts + extensions/pandi-bg/*.ts (omití tests/). Concentrate en la resolución de tsc, el alcance de los archivos modificados, el ciclo de vida de jobs en background, la detección de reutilización de PID/identity, las escrituras atómicas y los gates de trust."),
+		item("devtools-b", "codexMed", "extensions/pandi-worktree/*.ts + extensions/pandi-container/*.ts (omití tests/). Concentrate en el spawn de git/containers con arrays argv (nunca shell), los guards de plataforma y los defaults que nunca fuerzan el borrado."),
+		item("docs-consistency", "codexMed", "Compará las afirmaciones del README.md RAÍZ con el código real: nombres de slash commands, nombres de tools de modelos, nombres Y defaults de variables de entorno PI_* y rutas de archivos. Leé README.md junto con las líneas específicas del código fuente a las que hace referencia. Informá cada divergencia con ambas citas."),
+		item("config-manifest", "sonnetMed", "Revisá package.json (`pi.extensions` frente a los directorios de extensions/, `files`, `pi.skills`, scripts), biome.jsonc, tsconfig.json, .gitignore, .env.example frente al uso real de PI_* y los scaffolds de Pi frente a .claude/workflows (paridad). Informá las discrepancias con citas."),
 	];
 
-	// Self-describing run: log + persist the model/effort matrix so it shows in events.jsonl / the dashboard.
+	// Corrida autodescriptiva: registrar + persistir la matriz de model/effort para que aparezca en events.jsonl y en el dashboard.
 	const plan = items.map((it) => ({ agent: it.area, model: it.model, effort: it.effort, tier: it.tier }));
 	plan.push({ agent: "synthesis-judge", model: TIER.opusHigh.model, effort: TIER.opusHigh.effort, tier: "opusHigh" });
-	await log("model/effort matrix", { plan });
+	await log("matriz de model/effort", { plan });
 	await writeArtifact("plan.json", plan);
 
 	const requestedConcurrency = Number.isFinite(+input.concurrency) ? Math.max(1, Math.floor(+input.concurrency)) : 4;
 	const concurrency = Math.max(1, Math.min(requestedConcurrency, limits.concurrency));
-	if (concurrency !== requestedConcurrency) log(`concurrency clamped ${requestedConcurrency} -> ${concurrency} by limits.concurrency=${limits.concurrency}`);
+	if (concurrency !== requestedConcurrency) log(`concurrency limitada ${requestedConcurrency} -> ${concurrency} por limits.concurrency=${limits.concurrency}`);
 	const recommendedMaxAgents = items.length + 1;
-	if (limits.maxAgents && recommendedMaxAgents > limits.maxAgents) log(`WARNING: maxAgents may be tight for repo-audit-2 ${JSON.stringify({ recommendedMaxAgents, limit: limits.maxAgents, items: items.length, synthesis: 1 })}`);
+	if (limits.maxAgents && recommendedMaxAgents > limits.maxAgents) log(`ADVERTENCIA: maxAgents puede quedar justo para repo-audit-2 ${JSON.stringify({ recommendedMaxAgents, limit: limits.maxAgents, items: items.length, synthesis: 1 })}`);
 	await log("fan-out", { items: items.length, concurrency, maxAgents: limits.maxAgents, recommendedMaxAgents });
 	const results = await agents(items, { concurrency, settle: true });
 
@@ -110,25 +110,25 @@ export default async function main() {
 		coverage.push({ area: items[i].area, status: found.length ? "ok" : "empty", findings: found.length, model: items[i].model, effort: items[i].effort });
 		for (const f of found) allFindings.push({ area: items[i].area, ...f });
 	});
-	await log("fan-out complete", { ok: results.length - failed, failed, findings: allFindings.length, coverage });
+	await log("fan-out completo", { ok: results.length - failed, failed, findings: allFindings.length, coverage });
 	await writeArtifact("findings-2.json", allFindings);
 	await writeArtifact("coverage-2.json", coverage);
 
 	const synth = [
-		"You are the SYNTHESIS JUDGE for the second pass of a read-only repo audit (bugs + inconsistencies).",
-		"De-duplicate and prioritize the findings below. DROP anything without concrete file/evidence. Rank by severity (high first) then blast radius. For each kept finding: severity, category, file:line, what's wrong, why it matters, concrete fix.",
-		"Be explicit about coverage: which branches were ok/empty/failed (see coverage JSON).",
-		"Output Markdown: `## Resumen` (counts by severity), `## Hallazgos priorizados` (numbered), `## Cobertura`.",
+		"Sos el JUEZ DE SÍNTESIS de la segunda pasada de una auditoría de solo lectura del repo (bugs e inconsistencias).",
+		"Eliminá duplicados y priorizá los hallazgos que aparecen abajo. DESCARTÁ todo lo que no tenga file/evidence concretos. Ordená por severity (high primero) y luego por radio de impacto. Para cada hallazgo conservado indicá: severity, category, file:line, qué está mal, por qué importa y una corrección concreta.",
+		"Explicitá la cobertura: qué ramas quedaron ok/empty/failed (consultá el JSON de cobertura).",
+		"Generá Markdown: `## Resumen` (conteos por severity), `## Hallazgos priorizados` (numerados) y `## Cobertura`.",
 		"",
-		"=== COVERAGE (JSON) ===",
+		"=== COBERTURA (JSON) ===",
 		compact(coverage, 4000),
 		"",
-		"=== FINDINGS (JSON) ===",
+		"=== HALLAZGOS (JSON) ===",
 		compact(allFindings, 40000),
 		"",
-		`Branches ok: ${results.length - failed}/${results.length}. Restate: dedup, prioritize by severity, drop unsupported, be explicit about coverage gaps.`,
+		`Ramas ok: ${results.length - failed}/${results.length}. Reiterá: eliminá duplicados, priorizá por severity, descartá lo no sustentado y explicitá los huecos de cobertura.`,
 	].join("\n");
-	const report = await agent(synth, { ...TIER.opusHigh, tools: READ_ONLY, phase: "synthesis" });
+	const report = await agent(synth, { ...TIER.opusHigh, tools: READ_ONLY, phase: "síntesis" });
 	await writeArtifact("audit-report-2.md", typeof report === "string" ? report : compact(report, 40000));
 	return { areasOk: results.length - failed, areasFailed: failed, totalFindings: allFindings.length, plan, coverage, report };
 }
