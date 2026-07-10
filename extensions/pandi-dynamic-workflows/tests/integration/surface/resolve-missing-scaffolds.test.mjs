@@ -113,6 +113,42 @@ async function main() {
 		JSON.stringify(listed.details.workflows.map((wf) => wf.name)),
 	);
 
+	let scaffoldLoadError = "";
+	try {
+		await tool.execute(
+			"resolve-missing-scaffolds-load",
+			{ action: "scaffold", name: "contract-gate" },
+			new AbortController().signal,
+			undefined,
+			ctx,
+		);
+	} catch (err) {
+		scaffoldLoadError = err instanceof Error ? err.message : String(err);
+	}
+	check(
+		"scaffold with name fails when assets are absent",
+		scaffoldLoadError.includes("Workflow scaffold missing for pattern contract-gate"),
+		scaffoldLoadError || "(no error)",
+	);
+
+	const catalog = await tool.execute(
+		"resolve-missing-scaffolds-catalog",
+		{ action: "scaffold" },
+		new AbortController().signal,
+		undefined,
+		ctx,
+	);
+	check(
+		"scaffold catalog still lists patterns without assets",
+		Array.isArray(catalog.details.patterns) && catalog.details.patterns.length > 0,
+		JSON.stringify(catalog.details.patterns?.length),
+	);
+	check(
+		"default scaffold omitted when assets are absent",
+		catalog.details.scaffold === undefined,
+		String(catalog.details.scaffold),
+	);
+
 	let dashboardOpened = false;
 	ctx.ui.custom = async (factory) => {
 		dashboardOpened = true;
