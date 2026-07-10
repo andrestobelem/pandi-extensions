@@ -25,12 +25,11 @@
 import type { ExtensionAPI, ExtensionContext, ToolCallEvent } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { capExceeded } from "./caps.js";
-import { parseLoopCommandIntent } from "./command-intent.js";
+import { handleLoopCommand } from "./command-handler.js";
 import { MAX_DELAY_SECONDS, MIN_DELAY_SECONDS, SAFETY_NET_DELAY_SECONDS } from "./constants.js";
 import { destructiveReason } from "./gate.js";
 import { formatLoopInterval } from "./interval.js";
-import { configureLifecycle, pauseLoop, resumeLoop, startAutonomousLoop, startLoop, stopLoop } from "./lifecycle.js";
-import { resolveLoop } from "./loop-resolve.js";
+import { configureLifecycle, stopLoop } from "./lifecycle.js";
 import { notify } from "./notify.js";
 import { persist } from "./persistence.js";
 import { makeLoopIterationPrompt } from "./prompt.js";
@@ -47,97 +46,11 @@ import {
 } from "./scheduler.js";
 import { configureRecovery, gcOldTerminalLoops, rehydrate, watchdogSweep } from "./session-recovery.js";
 import type { ActiveLoop } from "./state.js";
-import { clearLoopStatus, formatStatus, setLoopStatus } from "./status.js";
+import { clearLoopStatus, setLoopStatus } from "./status.js";
 import { toolError, toolResult } from "./tool-results.js";
 
 // Fuente de verdad de los loops vivos en este proceso.
 const activeLoops = new Map<string, ActiveLoop>();
-
-// ---------------------------------------------------------------------------
-// Manejo de comandos
-// ---------------------------------------------------------------------------
-
-function formatLoopStatusList(loops: ActiveLoop[]): string {
-	return loops.map(formatStatus).join("\n");
-}
-
-async function handleLoopCommand(pi: ExtensionAPI, args: string, ctx: ExtensionContext): Promise<void> {
-	const intent = parseLoopCommandIntent(args);
-
-	if (intent.kind === "stop") {
-		const loop = await resolveLoop(ctx, activeLoops, intent.rest || undefined, ["running", "paused"]);
-		if (!loop) {
-			notify(
-				ctx,
-				"No hay ningún loop que coincida para detener. Usá /loop status para ver los loops activos.",
-				"warning",
-			);
-			return;
-		}
-		stopLoop(pi, ctx, loop.loopId, "detenido por el usuario (/loop stop)", "stopped");
-		notify(ctx, `Loop ${loop.loopId} detenido.`, "info");
-		return;
-	}
-
-	if (intent.kind === "pause") {
-		const loop = await resolveLoop(ctx, activeLoops, intent.rest || undefined, ["running"]);
-		if (!loop) {
-			notify(
-				ctx,
-				"No hay ningún loop corriendo para pausar. Usá /loop status para ver los loops activos.",
-				"warning",
-			);
-			return;
-		}
-		if (pauseLoop(pi, ctx, loop)) notify(ctx, `Loop ${loop.loopId} pausado.`, "info");
-		else notify(ctx, `El loop ${loop.loopId} no está corriendo.`, "warning");
-		return;
-	}
-
-	if (intent.kind === "resume") {
-		const loop = await resolveLoop(ctx, activeLoops, intent.rest || undefined, ["paused"]);
-		if (!loop) {
-			notify(
-				ctx,
-				"No hay ningún loop pausado para reanudar. Usá /loop status para ver los loops activos.",
-				"warning",
-			);
-			return;
-		}
-		if (resumeLoop(pi, ctx, loop)) notify(ctx, `Loop ${loop.loopId} reanudado.`, "info");
-		else notify(ctx, `El loop ${loop.loopId} no está pausado.`, "warning");
-		return;
-	}
-
-	if (intent.kind === "auto") {
-		await startAutonomousLoop(pi, ctx, intent.rest);
-		return;
-	}
-
-	if (intent.kind === "status") {
-		if (intent.rest) {
-			const loop = activeLoops.get(intent.rest);
-			notify(
-				ctx,
-				loop
-					? formatStatus(loop)
-					: `No hay ningún loop con id ${intent.rest}. Usá /loop status para listar los loops activos.`,
-				loop ? "info" : "warning",
-			);
-			return;
-		}
-		const all = [...activeLoops.values()];
-		if (all.length === 0) {
-			notify(ctx, "No hay loops.", "info");
-			return;
-		}
-		notify(ctx, formatLoopStatusList(all), "info");
-		return;
-	}
-
-	// Si no: args entero es la tarea (posiblemente con un token interval al final).
-	startLoop(pi, ctx, intent.rest);
-}
 
 // ---------------------------------------------------------------------------
 // Gate de acciones irreversibles
@@ -318,7 +231,7 @@ export default function loopExtension(pi: ExtensionAPI): void {
 			if (!prefix) return items;
 			return items.filter((i) => i.value.toLowerCase().startsWith(prefix));
 		},
-		handler: async (args, ctx) => await handleLoopCommand(pi, args, ctx),
+		handler: async (args, ctx) => await handleLoopCommand(pi, args, ctx, activeLoops),
 	});
 
 	// Bloquear/confirmar tools destructivas solo en turnos autopilot.
