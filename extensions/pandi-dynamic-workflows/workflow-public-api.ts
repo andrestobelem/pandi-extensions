@@ -37,6 +37,7 @@ export {
 	runProcess,
 	runStreamingAgentProcess,
 	runWorkflow,
+	selectRunByKey,
 } from "./runtime/index.js";
 export {
 	formatWorkflowPreflightSummary,
@@ -49,7 +50,7 @@ export {
 	WORKFLOW_RUN_DIR,
 	type WorkflowPreflightResult,
 } from "./surface/index.js";
-export { countRunArtifacts, liveAgentHeaderStatus, selectRunByKey } from "./tui/index.js";
+export { countRunArtifacts, liveAgentHeaderStatus } from "./tui/index.js";
 export type {
 	ActiveWorkflowRun,
 	AgentMonitorModel,

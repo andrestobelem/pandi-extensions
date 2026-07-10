@@ -32,6 +32,7 @@ export {
 export { prepareWorkflowRun } from "./prepare.js";
 export type { ProcessResult, StreamingProcessResult } from "./process-spawn.js";
 export { runProcess, runStreamingAgentProcess } from "./process-spawn.js";
+export { formatRunList, listRuns, resolveRun, selectRunByKey } from "./runs.js";
 export {
 	estimatePeakParallelAgents,
 	formatParallelAgents,

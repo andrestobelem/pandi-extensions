@@ -9,7 +9,7 @@
  * view, cancel y delete. Cleanup (run-state.ts) ya ordena por startedAt; la resolución
  * default debe coincidir.
  *
- * Contrato fijado acá (run-view.ts):
+ * Contrato fijado acá (runtime/runs.ts):
  *   - listRuns devuelve runs ordenados por startedAt (newest first) incluso cuando un
  *     run dir viejo tiene mtime más nuevo.
  *   - resolveRun(ctx, undefined) — "latest" — devuelve el startedAt más nuevo.
@@ -53,8 +53,8 @@ async function makeRun(runsRoot, runId, startedAt) {
 async function main() {
 	const { url } = await buildExtension({
 		name: "pi-dwf-latest-started-at",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "tui/run-view.ts"),
-		outName: "run-view.mjs",
+		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "runtime/runs.ts"),
+		outName: "runs.mjs",
 		stubs: {
 			typebox: true,
 			typeboxValue: true,

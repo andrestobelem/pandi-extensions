@@ -21,7 +21,7 @@ import {
 	startWorkflowBackground,
 } from "../lifecycle/index.js";
 import { collectPiSessions, prunePiSessionFiles } from "../pi-session.js";
-import { getRunStatusLabel } from "../runtime/index.js";
+import { getRunStatusLabel, listRuns } from "../runtime/index.js";
 import type { WorkflowPattern } from "../surface/index.js";
 import {
 	ensureDir,
@@ -43,7 +43,7 @@ import { WorkflowDashboard } from "./dashboard.js";
 import { showWorkflowGraph } from "./graph/index.js";
 import type { WorkflowDashboardOpenOptions } from "./orchestration.js";
 import { runWorkflowWithUi, switchToPiSession } from "./orchestration.js";
-import { listRuns, showRunView } from "./run-view.js";
+import { showRunView } from "./run-view.js";
 import { canCancelRun, formatRunSummary } from "./status-ui.js";
 
 async function runWorkflowFromUi(

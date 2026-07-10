@@ -8,12 +8,14 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import {
 	getRunDirs,
 	getRunStatusLabel,
+	listRuns,
 	readRunRecord,
 	readRunStatus,
+	resolveRun,
+	selectRunByKey,
 	selectRunsForCleanup,
 	writeRunStatus,
 } from "../runtime/index.js";
-import { listRuns, resolveRun, selectRunByKey } from "../tui/index.js";
 import type { ActiveWorkflowRun, WorkflowRunRecord, WorkflowRunResult, WorkflowRunState } from "../types.js";
 import { activeRunIds, clearActiveRuns, getActiveRun, hasActiveRun, listActiveRuns } from "./registry.js";
 

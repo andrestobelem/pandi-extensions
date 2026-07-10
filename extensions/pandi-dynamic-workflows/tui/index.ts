@@ -57,14 +57,10 @@ export {
 	switchToPiSession,
 } from "./orchestration.js";
 export {
-	formatRunList,
 	formatRunView,
 	listRunFiles,
-	listRuns,
 	openRunArtifact,
 	pickAndOpenRunArtifact,
-	resolveRun,
-	selectRunByKey,
 	showRunView,
 } from "./run-view.js";
 export {

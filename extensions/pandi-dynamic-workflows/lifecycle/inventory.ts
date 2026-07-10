@@ -2,9 +2,8 @@ import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { CONFIG_DIR_NAME, type ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { getRunState } from "../runtime/index.js";
+import { getRunState, listRuns } from "../runtime/index.js";
 import { WORKFLOW_DRAFT_DIR } from "../surface/index.js";
-import { listRuns } from "../tui/index.js";
 import type { WorkflowRunRecord, WorkflowRunState } from "../types.js";
 import { activeRunIds } from "./registry.js";
 

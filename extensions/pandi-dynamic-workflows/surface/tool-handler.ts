@@ -12,9 +12,9 @@ import {
 	startWorkflowBackground,
 } from "../lifecycle/index.js";
 import { writeRunReport } from "../observe/index.js";
-import { currentWorkflowDepth, maxWorkflowDepth } from "../runtime/index.js";
+import { currentWorkflowDepth, formatRunList, listRuns, maxWorkflowDepth, resolveRun } from "../runtime/index.js";
 import { makeWorkflowGraphForContext } from "../tui/graph/index.js";
-import { formatRunList, formatRunView, listRuns, resolveRun, runWorkflowWithUi } from "../tui/index.js";
+import { formatRunView, runWorkflowWithUi } from "../tui/index.js";
 import type { DynamicWorkflowToolParams, WorkflowLogEntry } from "../types.js";
 import { resumeWorkflowForCaller } from "../workflow-resume-usecase.js";
 import {

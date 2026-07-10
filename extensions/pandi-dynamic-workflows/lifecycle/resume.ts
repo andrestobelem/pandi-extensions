@@ -14,9 +14,10 @@ import {
 	loadJournal,
 	maxAgentArtifactNumber,
 	maxJournalAgentId,
+	resolveRun,
 } from "../runtime/index.js";
 import { ensureDir, resolveWorkflow } from "../surface/index.js";
-import { resolveRun, runWorkflowWithUi } from "../tui/index.js";
+import { runWorkflowWithUi } from "../tui/index.js";
 import type {
 	DynamicWorkflowToolParams,
 	PreparedWorkflowRun,
