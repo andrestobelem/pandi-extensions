@@ -121,6 +121,7 @@ export class WorkflowDashboard implements DashboardInputHost {
 		readonly done: (result: WorkflowDashboardResult | null) => void,
 		initialTab: WorkflowDashboardTab = "monitor",
 		restore?: DashboardSelection,
+		readonly sessionPicker = false,
 	) {
 		this.runs = runs;
 		this.activity = activity;

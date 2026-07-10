@@ -28,6 +28,7 @@ export interface DashboardInputHost {
 	monitorAgentIndex: number;
 	monitorRunIndex: number;
 	patternIndex: number;
+	readonly sessionPicker: boolean;
 	readonly workflows: readonly WorkflowDefinition[];
 	readonly runs: readonly WorkflowRunRecord[];
 	readonly activity: readonly WorkflowActivityEntry[];
@@ -80,7 +81,7 @@ export function handleDashboardInput(host: DashboardInputHost, data: string): vo
 		return;
 	}
 	if (matchesKey(data, Key.right)) {
-		if (host.tab === "sessions") {
+		if (host.tab === "sessions" && host.sessionPicker) {
 			const session = host.piSessions[host.sessionIndex];
 			if (session) host.done({ type: "switchSession", session });
 			return;

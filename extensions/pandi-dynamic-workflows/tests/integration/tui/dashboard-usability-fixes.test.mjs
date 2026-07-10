@@ -349,6 +349,23 @@ async function scenarioSessionsRender(url) {
 	);
 }
 
+async function scenarioSessionsTabRightMovesToRuns(url) {
+	const { component, getDone } = await openDashboardComponent(url);
+	component.setPiSessions([
+		{
+			id: "session-1",
+			pid: 1234,
+			sessionId: "sid-1",
+			sessionFile: "/tmp/project/.pi/sessions/sid-1.jsonl",
+		},
+	]);
+	component.handleInput("s");
+	component.handleInput("right");
+	const text = component.render(100).join("\n");
+	check("dashboard Sessions + Right moves to Runs", text.includes("[Runs]"), text.split("\n")[0]);
+	check("dashboard Sessions + Right does not switch Pi session", !getDone(), JSON.stringify(getDone()));
+}
+
 async function scenarioListPaging(url) {
 	const { component, getDone } = await openDashboardComponent(url);
 	const runs = Array.from({ length: 25 }, (_, i) => ({
@@ -882,6 +899,7 @@ async function main() {
 	await scenarioRunsSelectionStability(url);
 	await scenarioAgentsSelectionStability(url);
 	await scenarioSessionsRender(url);
+	await scenarioSessionsTabRightMovesToRuns(url);
 	await scenarioListPaging(url);
 	await scenarioFailedRunErrorVisible(url);
 	await scenarioReopenAfterAction(url);
