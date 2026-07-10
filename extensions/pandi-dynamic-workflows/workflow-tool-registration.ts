@@ -1,6 +1,6 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { handleTool } from "./command-handlers.js";
 import { makeWorkflowPromptGuidelines, workflowToolSchema } from "./workflow-tool-contract.js";
+import { handleTool } from "./workflow-tool-handler.js";
 
 export function registerDynamicWorkflowTool(pi: ExtensionAPI): void {
 	pi.registerTool({
