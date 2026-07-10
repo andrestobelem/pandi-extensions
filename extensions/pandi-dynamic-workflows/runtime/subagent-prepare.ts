@@ -3,11 +3,21 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { type AsyncMutex, throwIfAborted } from "../lib/concurrency.js";
+import type { OccurrenceCounter } from "../lib/occurrence-counter.js";
 import { phaseEventFields } from "../observe/index.js";
-import type { AgentOptions, AgentPhaseInfo, JournalCache, SubagentResult } from "../types.js";
-import type { normalizeAgentEnvAccess } from "./agent-env-persona.js";
-import { lookupJournalRecord } from "./journal.js";
+import type { AgentOptions, AgentPhaseInfo, JournalCache, RunLimits, SubagentResult } from "../types.js";
+import {
+	applyDefaultAgentAccess,
+	applyPersonaOptions,
+	formatAgentAccessMarkdown,
+	normalizeAgentEnvAccess,
+} from "./agent-env-persona.js";
+import { sanitizeAgentOpts } from "./agent-process.js";
+import { computeCallKey, lookupJournalRecord } from "./journal.js";
+import { appendSystemPromptOption, makeStructuredOutputSystemPrompt } from "./structured-output.js";
 import { makeModelArg, TIER_ALIASES, tierModelTable } from "./tier-models.js";
+import { callSignal } from "./worker-bridge.js";
 
 type AgentEnvAccess = ReturnType<typeof normalizeAgentEnvAccess>;
 
@@ -206,4 +216,110 @@ export async function tryReturnCachedSubagent(
 		...phaseEventFields(cachedPhase),
 	});
 	return cachedHit;
+}
+
+export type PreparedSubagentInvocation = {
+	effectiveOptions: InternalAgentOptions;
+	key: string;
+	occ: number;
+	phase: AgentPhaseInfo | undefined;
+	effectiveSignal: AbortSignal;
+	envAccess: AgentEnvAccess;
+	accessMarkdown: string;
+	cacheEnabled: boolean;
+};
+
+export type PrepareSubagentInvocationDeps = {
+	ctx: ExtensionContext;
+	runSignal: { signal: AbortSignal };
+	runLimits: Readonly<RunLimits>;
+	journal: JournalCache | undefined;
+	occurrences: OccurrenceCounter;
+	occAssignMutex: AsyncMutex;
+	getLaunchedAgents: () => number;
+	getAgentCount: () => number;
+	bumpCachedCalls: () => void;
+	recordAgentIntegrity: (result: SubagentResult) => void;
+	appendEvent: (event: unknown) => Promise<void>;
+	log: (message: string, details?: unknown) => Promise<void>;
+};
+
+export type PrepareSubagentInvocationResult =
+	| { kind: "cached"; result: SubagentResult }
+	| { kind: "prepared"; invocation: PreparedSubagentInvocation };
+
+// Prologue de runSubagent: captura la effectiveSignal sincrónico, resuelve opciones/persona/access
+// bajo occAssignMutex (asignando occ en orden de emisión sincrónica para que el journal keyado por
+// (key, occ) resume correcto bajo concurrencia), prueba cache-hit y aplica el gate de maxAgents.
+// Devuelve el resultado cacheado (early return) o la invocación preparada; el gate de maxAgents
+// deja traza de event+log antes de throw para que un drop bajo agents({settle:true}) no sea invisible.
+export async function prepareSubagentInvocation(
+	deps: PrepareSubagentInvocationDeps,
+	params: { prompt: string; options: InternalAgentOptions },
+): Promise<PrepareSubagentInvocationResult> {
+	const {
+		ctx,
+		runSignal,
+		runLimits,
+		journal,
+		occurrences,
+		occAssignMutex,
+		getLaunchedAgents,
+		getAgentCount,
+		bumpCachedCalls,
+		recordAgentIntegrity,
+		appendEvent,
+		log,
+	} = deps;
+	const { prompt, options } = params;
+	throwIfAborted(runSignal.signal);
+	// Captured synchronously at entry so it survives the occAssignMutex/semaphore awaits. For a
+	// race() loser this is the per-call signal that an abort-call aborts; for everything else it is
+	// the run signal (the dispatcher wraps every agent() call, so a normal call is unchanged).
+	const effectiveSignal = callSignal.getStore() ?? runSignal.signal;
+	const normalized = normalizeInternalAgentOptions(options);
+	const prologue = await occAssignMutex.runExclusive(async () => {
+		let resolved = (await applyPersonaOptions(ctx, normalized)) as InternalAgentOptions;
+		resolved = await applyDefaultAgentAccess(ctx, resolved);
+		if (resolved.schema !== undefined) {
+			resolved = appendSystemPromptOption(resolved, makeStructuredOutputSystemPrompt(resolved.schema));
+		}
+		const computedKey = computeCallKey("agent", [prompt, sanitizeAgentOpts(resolved)]);
+		return { effectiveOptions: resolved, key: computedKey, occ: occurrences.next(computedKey) };
+	});
+	const effectiveOptions = prologue.effectiveOptions;
+	const { key, occ } = prologue;
+	const phase = effectiveOptions.__workflowPhase;
+	const envAccess = normalizeAgentEnvAccess(effectiveOptions);
+	const accessMarkdown = formatAgentAccessMarkdown(effectiveOptions, envAccess);
+	const cacheEnabled = effectiveOptions.cache !== false;
+	const cachedHit = await tryReturnCachedSubagent(
+		{ bumpCachedCalls, recordAgentIntegrity, appendEvent, log },
+		{ journal, key, occ, effectiveOptions, phase, envAccess, cacheEnabled },
+	);
+	if (cachedHit) return { kind: "cached", result: cachedHit };
+	if (getLaunchedAgents() >= runLimits.maxAgents) {
+		// Leave a journal/event + log trace before throwing: under agents({settle:true})
+		// the rejection is swallowed into a null branch result, so without this record
+		// a maxAgents-exceeded drop would be invisible.
+		const capMessage = `Workflow exceeded maxAgents=${runLimits.maxAgents}.`;
+		await appendEvent({
+			type: "agent",
+			name: effectiveOptions.name ?? "agent",
+			state: "skipped",
+			error: capMessage,
+			...phaseEventFields(phase),
+		});
+		await log(`agent skipped (maxAgents=${runLimits.maxAgents} reached): ${effectiveOptions.name ?? "agent"}`, {
+			maxAgents: runLimits.maxAgents,
+			agentCount: getAgentCount(),
+			launchedAgents: getLaunchedAgents(),
+			...phaseEventFields(phase),
+		});
+		throw new Error(capMessage);
+	}
+	return {
+		kind: "prepared",
+		invocation: { effectiveOptions, key, occ, phase, effectiveSignal, envAccess, accessMarkdown, cacheEnabled },
+	};
 }
