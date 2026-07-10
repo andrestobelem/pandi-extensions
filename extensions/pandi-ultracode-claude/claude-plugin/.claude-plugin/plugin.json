@@ -1,0 +1,6 @@
+{
+	"name": "pandi-ultracode-claude",
+	"version": "0.1.0",
+	"description": "Entrada explícita para ejecutar el runner externo y read-only de Ultracode desde Claude Code.",
+	"author": { "name": "Pandi Coding Agent" }
+}

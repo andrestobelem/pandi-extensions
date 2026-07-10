@@ -1,0 +1,33 @@
+{
+	"name": "@pandi-coding-agent/pandi-ultracode-claude",
+	"version": "0.1.0",
+	"description": "Runner autónomo de Ultracode que orquesta workflows portables mediante Claude Code CLI.",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/andrestobelem/pandi-extensions.git",
+		"directory": "extensions/pandi-ultracode-claude"
+	},
+	"type": "module",
+	"bin": {
+		"pandi-ultracode-claude": "./bin/pandi-ultracode-claude.mjs"
+	},
+	"keywords": [
+		"claude-code",
+		"claude-cli",
+		"dynamic-workflows",
+		"subagents",
+		"ultracode"
+	],
+	"files": [
+		"bin",
+		"claude-plugin",
+		"runtime",
+		"workflows",
+		"README.md"
+	],
+	"dependencies": {
+		"@pandi-coding-agent/pandi-dynamic-workflows": "^0.4.5",
+		"ajv": "^8.18.0"
+	}
+}
