@@ -9,7 +9,7 @@
  */
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { notify } from "../notify.js";
-import { refreshActiveWorkflowStatus } from "../run-status-ui.js";
+import { refreshActiveWorkflowStatus } from "../tui/index.js";
 import type { ActiveWorkflowRun, RunLimits, WorkflowRunResult } from "../types.js";
 import { clearActiveRuns, listActiveRuns } from "./registry.js";
 

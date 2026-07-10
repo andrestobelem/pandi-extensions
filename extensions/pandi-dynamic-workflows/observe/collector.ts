@@ -22,8 +22,6 @@
 
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-
-import { extractMarkdownSection } from "../agent-view.js";
 import { computeCodeHash } from "../journal.js";
 import { getRunState } from "../run-state.js";
 import type { WorkflowLogEntry, WorkflowRunResult, WorkflowRunStatus } from "../types.js";
@@ -40,6 +38,7 @@ import {
 	readJsonBounded,
 	readTail,
 } from "./io.js";
+import { extractMarkdownSection } from "./markdown-section.js";
 import { extractRunReportBasedOn } from "./source-parse.js";
 
 export type { RunReportModel };

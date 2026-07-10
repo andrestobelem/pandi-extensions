@@ -9,9 +9,8 @@
  * Extracted byte-identically.
  */
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { openWorkflowDashboard } from "./dashboard-orchestration.js";
 import { notify } from "./notify.js";
-import { clearWorkflowWidget } from "./run-status-ui.js";
+import { clearWorkflowWidget, openWorkflowDashboard } from "./tui/index.js";
 import { handleBrowseWorkflowCommand } from "./workflow-command-browse.js";
 import { handleLifecycleWorkflowCommand } from "./workflow-command-lifecycle.js";
 

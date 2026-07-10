@@ -6,8 +6,8 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { formatParallelAgents } from "../run-state.js";
-import { formatRunSummary, refreshActiveWorkflowStatus } from "../run-status-ui.js";
 import { writeJsonFile, writeRunStatus } from "../run-store.js";
+import { formatRunSummary, refreshActiveWorkflowStatus } from "../tui/index.js";
 import type {
 	ActiveWorkflowRun,
 	PreparedWorkflowRun,

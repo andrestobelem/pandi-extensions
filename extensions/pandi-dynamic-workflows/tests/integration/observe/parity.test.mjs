@@ -93,12 +93,8 @@ async function main() {
 		"run-report-collector.mjs",
 		"run-report-parity-collector",
 	);
-	const runView = await buildModule("run-view.ts", "run-view.mjs", "run-report-parity-view");
-	const dashboard = await buildModule(
-		"dashboard-collectors.ts",
-		"dashboard-collectors.mjs",
-		"run-report-parity-dashboard",
-	);
+	const runView = await buildModule("tui/run-view.ts", "run-view.mjs", "run-report-parity-view");
+	const dashboard = await buildModule("tui/collectors.ts", "dashboard-collectors.mjs", "run-report-parity-dashboard");
 	check("collectRunReport exported", typeof collector.collectRunReport === "function");
 	check("formatRunView exported", typeof runView.formatRunView === "function");
 	check("deriveWorkflowMonitorModels exported", typeof dashboard.deriveWorkflowMonitorModels === "function");

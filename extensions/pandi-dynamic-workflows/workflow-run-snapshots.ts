@@ -2,8 +2,8 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { writeJsonFile } from "./run-store.js";
+import { buildWorkflowGraphModelWithSubworkflows } from "./tui/graph/index.js";
 import type { WorkflowDefinition } from "./types.js";
-import { buildWorkflowGraphModelWithSubworkflows } from "./workflow-graph.js";
 import { transformWorkflowCode } from "./workflow-transform.js";
 
 // Escribe snapshots de source/transformed/graph para un directorio de run.

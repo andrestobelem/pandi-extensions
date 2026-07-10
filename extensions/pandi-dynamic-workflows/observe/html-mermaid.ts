@@ -1,5 +1,15 @@
-import { mermaidLabel } from "../graph-parse.js";
 import type { RunReportAgent, RunReportModel } from "./html.js";
+
+/** Sanitiza etiquetas Mermaid (copia local; observe no importa tui/graph). */
+function mermaidLabel(value: string): string {
+	return (
+		value
+			.replace(/["<>{}[\]()|]/g, " ")
+			.replace(/\s+/g, " ")
+			.trim()
+			.slice(0, 90) || "step"
+	);
+}
 
 export const MERMAID_CDN_VERSION = "11.15.0";
 export const MERMAID_CDN_URL = `https://cdn.jsdelivr.net/npm/mermaid@${MERMAID_CDN_VERSION}/dist/mermaid.min.js`;

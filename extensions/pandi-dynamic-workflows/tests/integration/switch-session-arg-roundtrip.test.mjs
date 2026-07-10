@@ -46,7 +46,7 @@ function handlerAfterAction(submittedArgs) {
 async function loadRuntime() {
 	const { url } = await buildExtension({
 		name: "pi-dw-switch-session-arg",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "dashboard-orchestration.ts"),
+		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "tui/orchestration.ts"),
 		outName: "dashboard-orchestration.mjs",
 		stubs: { typebox: true, typeboxValue: true, ai: true, tui: true, sdk: (dir) => dir && "" },
 	});

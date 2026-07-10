@@ -1,0 +1,82 @@
+/**
+ * Fachada del deep module `tui` — dashboard, agent view, run view y grafo interactivo.
+ * Call sites externos importan desde aquí; el interior queda escondido.
+ */
+
+export type { AgentViewParts } from "./agent-view.js";
+export {
+	buildAgentViewParts,
+	extractMarkdownSection,
+	liveAgentHeaderStatus,
+	resolveAgentArtifactPath,
+	showLiveAgentView,
+} from "./agent-view.js";
+export type {
+	WorkflowActivityEntry,
+	WorkflowAgentEntry,
+	WorkflowDashboardResult,
+	WorkflowMonitorModel,
+} from "./collectors.js";
+export {
+	canRerunRun,
+	collectWorkflowActivity,
+	collectWorkflowAgents,
+	countRunArtifacts,
+	deriveWorkflowMonitorModels,
+} from "./collectors.js";
+export { installWorkflowDashboardDownEditor } from "./down-editor.js";
+export type {
+	WorkflowGraphCall,
+	WorkflowGraphChildCall,
+	WorkflowGraphFanoutInfo,
+	WorkflowGraphFanoutUnit,
+	WorkflowGraphImageAttempt,
+	WorkflowGraphImageRender,
+	WorkflowGraphModel,
+	WorkflowGraphRenderTheme,
+	WorkflowGraphStep,
+} from "./graph/index.js";
+export {
+	buildWorkflowGraphModelWithSubworkflows,
+	makeWorkflowGraphForContext,
+	renderWorkflowGraphDocumentLines,
+	renderWorkflowGraphImage,
+	renderWorkflowGraphMermaidLines,
+	showWorkflowGraph,
+	workflowGraphImageOptions,
+} from "./graph/index.js";
+export type {
+	DashboardCommandSubmitter,
+	DashboardOpener,
+	WorkflowDashboardOpenOptions,
+} from "./orchestration.js";
+export {
+	openWorkflowDashboard,
+	parseWorkflowCommandArgument,
+	runWorkflowWithUi,
+	switchToPiSession,
+} from "./orchestration.js";
+export {
+	formatRunList,
+	formatRunView,
+	listRunFiles,
+	listRuns,
+	openRunArtifact,
+	pickAndOpenRunArtifact,
+	resolveRun,
+	selectRunByKey,
+	showRunView,
+} from "./run-view.js";
+export {
+	canCancelRun,
+	clearWorkflowWidget,
+	formatRunSummary,
+	isActiveRunRecord,
+	refreshActiveWorkflowStatus,
+	setWorkflowErrorStatus,
+	setWorkflowFinishedStatus,
+	setWorkflowIdleStatus,
+	setWorkflowRunningStatus,
+	setWorkflowWidget,
+	showText,
+} from "./status-ui.js";

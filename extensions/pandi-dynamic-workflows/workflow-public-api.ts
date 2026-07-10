@@ -1,5 +1,3 @@
-export { liveAgentHeaderStatus } from "./agent-view.js";
-export { countRunArtifacts } from "./dashboard-collectors.js";
 export { appendFileMutexCount, appendJsonLine } from "./file-append.js";
 export {
 	activeRunCount,
@@ -27,7 +25,6 @@ export {
 } from "./observe/index.js";
 export { runProcess, runStreamingAgentProcess } from "./process-spawn.js";
 export { estimatePeakParallelAgents } from "./run-state.js";
-export { selectRunByKey } from "./run-view.js";
 export {
 	EXTENSION_ROOT,
 	JOURNAL_FILE,
@@ -36,6 +33,7 @@ export {
 	PI_SESSION_HEARTBEAT_MS,
 	PROCESS_KILL_GRACE_MS,
 } from "./runtime-constants.js";
+export { countRunArtifacts, liveAgentHeaderStatus, selectRunByKey } from "./tui/index.js";
 export type {
 	ActiveWorkflowRun,
 	AgentMonitorModel,

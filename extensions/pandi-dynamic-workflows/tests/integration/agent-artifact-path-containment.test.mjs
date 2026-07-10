@@ -28,7 +28,7 @@ const { check, counts } = createChecker();
 async function buildExtension() {
 	return await sharedBuildExtension({
 		name: "pi-agent-artifact-path-integration",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "agent-view.ts"),
+		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "tui/agent-view.ts"),
 		outName: "agent-view.mjs",
 		stubs: {
 			typebox: true,

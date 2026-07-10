@@ -6,11 +6,10 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { buildLimits, limitParamsFromInput } from "../config.js";
-import { runWorkflowWithUi } from "../dashboard-orchestration.js";
 import { computeCodeHash, loadJournal, maxAgentArtifactNumber, maxJournalAgentId } from "../journal.js";
 import { notify } from "../notify.js";
 import { getRunPeakParallelAgents, getRunState } from "../run-state.js";
-import { resolveRun } from "../run-view.js";
+import { resolveRun, runWorkflowWithUi } from "../tui/index.js";
 import type {
 	DynamicWorkflowToolParams,
 	PreparedWorkflowRun,

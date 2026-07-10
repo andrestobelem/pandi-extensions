@@ -123,7 +123,7 @@ async function main() {
 			"run-report-html.mjs",
 			"workflow-result-integrity-report-html",
 		);
-		const runView = await buildModule("run-view.ts", "run-view.mjs", "workflow-result-integrity-run-view");
+		const runView = await buildModule("tui/run-view.ts", "run-view.mjs", "workflow-result-integrity-run-view");
 		const made = await makeProject();
 		project = made.project;
 		process.env.PI_DYNAMIC_WORKFLOWS_PI_COMMAND = made.fakePi;

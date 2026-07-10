@@ -6,8 +6,8 @@ import { safeJson } from "./format.js";
 import { computeCodeHash } from "./journal.js";
 import { type AgentFocusMetrics, aggregateRunFocusMetrics, formatFocusMetricsMarkdown } from "./observe/index.js";
 import { OccurrenceCounter } from "./occurrence-counter.js";
-import { formatRunSummary } from "./run-status-ui.js";
 import { writeJsonFile, writeRunStatus } from "./run-store.js";
+import { formatRunSummary } from "./tui/index.js";
 import type {
 	PreparedWorkflowRun,
 	RunLimits,

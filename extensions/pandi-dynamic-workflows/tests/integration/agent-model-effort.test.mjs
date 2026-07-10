@@ -354,7 +354,7 @@ function detailField(lines, label) {
 async function scenarioDashboard() {
 	const { url } = await sharedBuildExtension({
 		name: "pi-dwf-model-effort-dashboard",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "workflow-dashboard.ts"),
+		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "tui/dashboard.ts"),
 		outName: "workflow-dashboard.mjs",
 		stubs: { typebox: true, typeboxValue: true, ai: true, tui: true, sdk: (dir) => dir && "" },
 	});

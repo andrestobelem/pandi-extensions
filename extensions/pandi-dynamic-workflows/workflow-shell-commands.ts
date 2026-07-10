@@ -1,7 +1,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Key } from "@earendil-works/pi-tui";
 import { handleWorkflowCommand, handleWorkflowsCommand } from "./command-handlers.js";
-import { openWorkflowDashboard } from "./dashboard-orchestration.js";
+import { openWorkflowDashboard } from "./tui/index.js";
 import { resolveWorkflowMenu } from "./workflow-menu.js";
 
 export function registerWorkflowShellCommands(pi: ExtensionAPI): void {

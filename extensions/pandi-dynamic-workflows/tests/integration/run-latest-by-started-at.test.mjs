@@ -53,7 +53,7 @@ async function makeRun(runsRoot, runId, startedAt) {
 async function main() {
 	const { url } = await buildExtension({
 		name: "pi-dwf-latest-started-at",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "run-view.ts"),
+		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "tui/run-view.ts"),
 		outName: "run-view.mjs",
 		stubs: {
 			typebox: true,

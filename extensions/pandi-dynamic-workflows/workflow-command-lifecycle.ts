@@ -1,7 +1,6 @@
 import * as fs from "node:fs/promises";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { buildLimits, limitParamsFromInput, parseCliJsonOrText } from "./config.js";
-import { runWorkflowWithUi } from "./dashboard-orchestration.js";
 import {
 	cancelWorkflowRun,
 	cleanupWorkflowDrafts,
@@ -17,8 +16,7 @@ import {
 import { notify } from "./notify.js";
 import { prunePiSessionFiles } from "./pi-session.js";
 import { getRunStatusLabel } from "./run-state.js";
-import { canCancelRun, formatRunSummary, showText } from "./run-status-ui.js";
-import { resolveRun } from "./run-view.js";
+import { canCancelRun, formatRunSummary, resolveRun, runWorkflowWithUi, showText } from "./tui/index.js";
 import type { WorkflowLogEntry } from "./types.js";
 import type { WorkflowCommandParsed } from "./workflow-command-browse.js";
 import { parseCleanupArgs } from "./workflow-command-parsers.js";

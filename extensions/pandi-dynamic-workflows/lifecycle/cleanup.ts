@@ -7,7 +7,7 @@ import * as fs from "node:fs/promises";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { getRunStatusLabel, selectRunsForCleanup } from "../run-state.js";
 import { getRunDirs, readRunRecord, readRunStatus, writeRunStatus } from "../run-store.js";
-import { listRuns, resolveRun, selectRunByKey } from "../run-view.js";
+import { listRuns, resolveRun, selectRunByKey } from "../tui/index.js";
 import type { ActiveWorkflowRun, WorkflowRunRecord, WorkflowRunResult, WorkflowRunState } from "../types.js";
 import { activeRunIds, clearActiveRuns, getActiveRun, hasActiveRun, listActiveRuns } from "./registry.js";
 
