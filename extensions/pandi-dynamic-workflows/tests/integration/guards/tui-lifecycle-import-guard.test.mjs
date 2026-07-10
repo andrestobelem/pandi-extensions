@@ -25,23 +25,33 @@ function check(name, ok, detail = "") {
 	}
 }
 
-async function main() {
-	const entries = await fs.readdir(TUI_DIR, { withFileTypes: true });
-	const files = entries
-		.filter((entry) => entry.isFile() && entry.name.endsWith(".ts"))
-		.map((entry) => entry.name)
-		.sort();
+async function listTsFiles(dir) {
+	const results = [];
+	const entries = await fs.readdir(dir, { withFileTypes: true });
+	for (const entry of entries) {
+		const fullPath = path.join(dir, entry.name);
+		if (entry.isDirectory()) {
+			results.push(...(await listTsFiles(fullPath)));
+		} else if (entry.isFile() && entry.name.endsWith(".ts")) {
+			results.push(fullPath);
+		}
+	}
+	return results;
+}
 
+async function main() {
+	const files = (await listTsFiles(TUI_DIR)).sort();
 	check("tui TS files discovered", files.length > 0, TUI_DIR);
 
 	for (const file of files) {
-		const source = await fs.readFile(path.join(TUI_DIR, file), "utf8");
+		const rel = path.relative(TUI_DIR, file);
+		const source = await fs.readFile(file, "utf8");
 		const importsLifecycle = LIFECYCLE_IMPORT_RE.test(source);
-		const allowed = ALLOWED_LIFECYCLE_IMPORTS.has(file);
+		const allowed = ALLOWED_LIFECYCLE_IMPORTS.has(rel);
 		if (allowed) {
-			check(`${file}: allowlisted lifecycle import`, importsLifecycle, "expected ../lifecycle import");
+			check(`${rel}: allowlisted lifecycle import`, importsLifecycle, "expected ../lifecycle import");
 		} else {
-			check(`${file}: does not import lifecycle`, !importsLifecycle, source.match(LIFECYCLE_IMPORT_RE)?.[0] ?? "");
+			check(`${rel}: does not import lifecycle`, !importsLifecycle, source.match(LIFECYCLE_IMPORT_RE)?.[0] ?? "");
 		}
 	}
 
