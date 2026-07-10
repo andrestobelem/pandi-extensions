@@ -3,9 +3,9 @@
  * Compartido por runtime (summary.md en disco), lifecycle y surface.
  */
 
-import { formatParallelAgents, getRunStatusLabel } from "../runtime/state.js";
 import type { WorkflowRunResult } from "../types.js";
 import { MAX_TOOL_TEXT, stringify } from "./format.js";
+import { formatParallelAgents, getRunStatusLabel } from "./run-state.js";
 
 export function formatRunSummary(result: WorkflowRunResult): string {
 	const status = getRunStatusLabel(result);

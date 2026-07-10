@@ -1,14 +1,12 @@
 /**
- * Núcleo compartido del modelo de estado de runs para el monitor/runner de dynamic-workflows.
+ * Derivaciones puras sobre WorkflowRunRecord: estado, etiquetas/iconos de status,
+ * tiempo transcurrido, conteos/pico de agentes paralelos y política de cleanup.
  *
- * Derivaciones puras y sin efectos sobre un WorkflowRunRecord (estado, etiqueta/icono
- * de status, tiempo transcurrido, conteos/pico de agentes paralelos). Vive acá para que TANTO
- * index.ts (ruta runner/tool) como la TUI del monitor puedan usarlas sin que la TUI
- * tenga que importar valores runtime desde index.ts (lo que crearía un ciclo ESM).
- * Los contratos cruzan desde types.ts como import type, así que index.ts -> run-state.js
- * es una arista runtime unidireccional.
+ * Vive en lib/ (sin activación) para que runtime, lifecycle, tui y run-summary
+ * compartan el mismo núcleo sin arista lib → runtime. Los contratos cruzan desde
+ * types.ts como import type.
  *
- * Cuerpos movidos textualmente desde index.ts (preserva comportamiento).
+ * Cuerpos movidos textualmente desde runtime/state.ts (preserva comportamiento).
  */
 
 import type {

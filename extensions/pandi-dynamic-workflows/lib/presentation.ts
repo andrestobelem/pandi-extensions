@@ -8,9 +8,8 @@
  * TYPE-only (WorkflowDefinition, WorkflowLogEntry) via `import type`, que se borra
  * at build time, así no hay runtime import cycle.
  *
- * NOTE: formatRunSummary y los getRun* run-state helpers permanecen en index.ts
- * a propósito — dependen de index internals (getRunStatusLabel, formatParallelAgents,
- * stringify, getRunState, WorkflowRunRecord), así no son pure leaves.
+ * NOTE: formatRunSummary vive en lib/run-summary.ts; los getRun* run-state helpers
+ * viven en lib/run-state.ts (reexportados por runtime/index.ts para call sites legacy).
  */
 
 import type { WorkflowDefinition, WorkflowLogEntry } from "../types.js";

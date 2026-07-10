@@ -3,6 +3,24 @@
  * Call sites externos importan desde aquí; el interior queda escondido.
  */
 
+export {
+	estimatePeakParallelAgents,
+	formatParallelAgents,
+	formatParallelAgentsCompact,
+	getRunAgentConcurrency,
+	getRunCachedCalls,
+	getRunElapsedMs,
+	getRunLogs,
+	getRunParallelAgents,
+	getRunPeakParallelAgents,
+	getRunState,
+	getRunStatusIcon,
+	getRunStatusLabel,
+	isResumableState,
+	isRunResult,
+	isTerminalRunState,
+	selectRunsForCleanup,
+} from "../lib/run-state.js";
 export { parsePiJsonModeOutput, parsePiJsonModeOutputLenient } from "./agent-output.js";
 export type { WorkflowRuntimeApi } from "./api.js";
 export {
@@ -34,24 +52,6 @@ export { prepareWorkflowRun } from "./prepare.js";
 export type { ProcessResult, StreamingProcessResult } from "./process-spawn.js";
 export { runProcess, runStreamingAgentProcess } from "./process-spawn.js";
 export { formatRunList, listRuns, resolveRun, selectRunByKey } from "./runs.js";
-export {
-	estimatePeakParallelAgents,
-	formatParallelAgents,
-	formatParallelAgentsCompact,
-	getRunAgentConcurrency,
-	getRunCachedCalls,
-	getRunElapsedMs,
-	getRunLogs,
-	getRunParallelAgents,
-	getRunPeakParallelAgents,
-	getRunState,
-	getRunStatusIcon,
-	getRunStatusLabel,
-	isResumableState,
-	isRunResult,
-	isTerminalRunState,
-	selectRunsForCleanup,
-} from "./state.js";
 export {
 	getRunDirs,
 	readRunRecord,

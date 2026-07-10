@@ -5,6 +5,7 @@
  * - runtime no importa tui (engine sin dependencia de presentación)
  * - tui no importa surface (discovery vía lib/tui-discovery-deps)
  * - lifecycle no importa tui (widget vía lib/workflow-widget-deps; status en lifecycle/)
+ * - lib no importa runtime (run-state y run-summary viven en lib/)
  * - ultracode no importa runtime (solo surface/lib para prompts y toggles)
  *
  * Ejecutalo:
@@ -40,6 +41,12 @@ const RULES = [
 		importRe: /from\s+["']\.\.\/tui(?:\/[^"']+)?["']/,
 	},
 	{
+		name: "lib does not import runtime (value imports)",
+		dir: "lib",
+		importRe: /from\s+["']\.\.\/runtime(?:\/[^"']+)?["']/,
+		skipTypeOnly: true,
+	},
+	{
 		name: "ultracode does not import runtime",
 		dir: "ultracode",
 		importRe: /from\s+["']\.\.\/runtime(?:\/[^"']+)?["']/,
@@ -70,6 +77,34 @@ async function listTsFiles(dir) {
 	return results;
 }
 
+function importStatements(source) {
+	const statements = [];
+	let current = "";
+	for (const line of source.split("\n")) {
+		if (!current && /^import\b/.test(line)) current = line;
+		else if (current) current += `\n${line}`;
+		if (current && /^import\s+["'][^"']+["'];?\s*$/.test(current)) {
+			statements.push(current);
+			current = "";
+		} else if (current && /\bfrom\s+["'][^"']+["'];?\s*$/.test(current)) {
+			statements.push(current);
+			current = "";
+		}
+	}
+	if (current) statements.push(current);
+	return statements;
+}
+
+function hasForbiddenImport(source, importRe, skipTypeOnly) {
+	if (!skipTypeOnly) return source.match(importRe)?.[0] ?? "";
+	for (const statement of importStatements(source)) {
+		if (/^import\s+type\b/.test(statement)) continue;
+		const match = statement.match(importRe);
+		if (match) return match[0];
+	}
+	return "";
+}
+
 async function main() {
 	for (const rule of RULES) {
 		const targetDir = path.join(PACKAGE_DIR, rule.dir);
@@ -79,8 +114,8 @@ async function main() {
 		for (const file of files) {
 			const rel = path.relative(PACKAGE_DIR, file);
 			const source = await fs.readFile(file, "utf8");
-			const match = source.match(rule.importRe);
-			check(`${rel}: ${rule.name}`, !match, match?.[0] ?? "");
+			const match = hasForbiddenImport(source, rule.importRe, rule.skipTypeOnly);
+			check(`${rel}: ${rule.name}`, !match, match ?? "");
 		}
 	}
 

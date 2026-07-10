@@ -3,7 +3,6 @@
  * Presentación (formatRunView, showRunView, viewers) vive en tui/run-view.ts.
  */
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import type { WorkflowRunRecord } from "../types.js";
 import {
 	formatParallelAgentsCompact,
 	getRunCachedCalls,
@@ -11,7 +10,8 @@ import {
 	getRunStatusIcon,
 	getRunStatusLabel,
 	isResumableState,
-} from "./state.js";
+} from "../lib/run-state.js";
+import type { WorkflowRunRecord } from "../types.js";
 import { getRunDirs, readRunRecord } from "./store.js";
 
 export async function listRuns(ctx: ExtensionContext): Promise<WorkflowRunRecord[]> {
