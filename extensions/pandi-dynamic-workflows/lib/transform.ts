@@ -1,6 +1,6 @@
 // Escanea un literal de objeto/array JS comenzando en/después de `start`, retornando el índice justo después
 // de su cierre coincidente (consciente de string/comentario de línea+bloque). -1 si no se puede equilibrar. Se usa para
-// extraer `export const meta = { ... }` de un flujo de trabajo sin una regex de llave frágil.
+// extraer `export const meta = { ... }` de un workflow sin una regex de llave frágil.
 function matchBalancedLiteral(src: string, start: number): number {
 	let i = start;
 	while (i < src.length && /\s/.test(src[i])) i++;
@@ -43,7 +43,7 @@ function matchBalancedLiteral(src: string, start: number): number {
 	return -1;
 }
 
-// Compila la fuente escrita de un flujo de trabajo en CommonJS que puede ejecutar el Worker. El contrato de autoría único
+// Compila la fuente escrita de un workflow en CommonJS que puede ejecutar el Worker. El contrato de autoría único
 // es un script de nivel superior que usa los globals inyectados (agent, parallel, pipeline,
 // workflow, phase, log, args), opcionalmente declara `export const meta = { ... }`, y termina con
 // `return <value>`. Extraemos `meta`, luego envolvemos el cuerpo en una función async para que su nivel superior

@@ -41,7 +41,7 @@ export function liveAgentHeaderStatus(state: string | undefined): string {
 	return isTerminalAgentState(state) ? `final (${state})` : "refresh 1s";
 }
 
-// La pestaña Definition: la fuente del flujo de trabajo que ejecutó esta ejecución, como un bloque de código cercado,
+// La pestaña Definition: la fuente del workflow que ejecutó esta ejecución, como un bloque de código cercado,
 // con una advertencia de caché de reanudación cuando el archivo cambió desde la ejecución (igual verificación de hash que
 // hace la vista de ejecución).
 async function formatWorkflowDefinition(run: WorkflowRunRecord): Promise<string> {
@@ -69,7 +69,7 @@ async function formatWorkflowDefinition(run: WorkflowRunRecord): Promise<string>
 	].join("\n");
 }
 
-// La pestaña Graph: una representación Markdown/texto del mismo gráfico de flujo de trabajo estático
+// La pestaña Graph: una representación Markdown/texto del mismo gráfico de workflow estático
 // usado por /workflow graph. Mantenlo como text+Mermaid dentro del visor Markdown con pestañas;
 // la acción de gráfico independiente posee el componente más rico capaz de PNG.
 async function formatWorkflowGraphView(ctx: ExtensionContext, run: WorkflowRunRecord): Promise<string> {
@@ -113,12 +113,12 @@ export async function showLiveAgentView(
 		return;
 	}
 	if (ctx.mode === "tui") {
-		// bucle open→action→reopen: `f` deja al usuario abrir uno de los artefactos de la ejecución en
+		// loop open→action→reopen: `f` deja al usuario abrir uno de los artefactos de la ejecución en
 		// el visor correcto (.md → Markdown, de lo contrario texto), luego regresa a la vista de agente en vivo —
 		// la misma capacidad que tiene la vista de ejecución, para que la pantalla del agente "encaje" con ella.
 		// La pantalla de detalle es un visor SUB-TABULADO (Card / Prompt / Graph / Output / Definition / Run)
-		// para que el usuario pueda moverse entre la tarjeta del agente, su prompt, el gráfico del flujo de trabajo, su salida,
-		// la fuente del flujo de trabajo, y la vista de ejecución completa sin rebotar al panel.
+		// para que el usuario pueda moverse entre la tarjeta del agente, su prompt, el gráfico del workflow, su salida,
+		// la fuente del workflow, y la vista de ejecución completa sin rebotar al panel.
 		let definitionCache: string | undefined; // estático por ejecución: carga una vez, reutiliza entre pestañas/actualizaciones
 		let graphCache: string | undefined; // estático por ejecución: carga una vez, reutiliza entre pestañas/actualizaciones
 		for (;;) {

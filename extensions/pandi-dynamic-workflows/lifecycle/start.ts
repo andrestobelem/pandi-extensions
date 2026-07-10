@@ -76,7 +76,7 @@ function canLaunchWorkflowInBackground(ctx: ExtensionContext): boolean {
 }
 
 export function shouldLaunchWorkflowInBackground(ctx: ExtensionContext): boolean {
-	// Preferencia del proyecto: cada flujo de trabajo lanzado desde una sesión persistente se ejecuta
+	// Preferencia del proyecto: cada workflow lanzado desde una sesión persistente se ejecuta
 	// en segundo plano para que el panel siga siendo el plano de control y la finalización pueda
 	// despertar al agente. Los modos print/json no tienen sesión en vivo para mantener viva la ejecución.
 	return canLaunchWorkflowInBackground(ctx);

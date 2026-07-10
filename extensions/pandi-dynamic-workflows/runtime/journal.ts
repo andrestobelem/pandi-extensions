@@ -1,5 +1,5 @@
 /**
- * Diario de cache de content-address para runs resumibles en dynamic-workflows.
+ * Journal de cache content-address para runs resumibles en dynamic-workflows.
  *
  * Subsistema journaling/cache: deterministic call keys (stableStringify +
  * computeCallKey), code hashing (computeCodeHash), reading/appending del
@@ -20,7 +20,7 @@ import { truncate } from "../lib/format.js";
 import type { AskResult, BashResult, JournalCache, JournalRecord, SubagentResult } from "../types.js";
 import { JOURNAL_FILE, MAX_AGENT_OUTPUT_IN_RESULT, MAX_JOURNALED_STREAM } from "./constants.js";
 
-// --- Runs resumibles: diario de cache content-address ---
+// --- Runs resumibles: journal de cache content-address ---
 
 // JSON determinístico: object keys ordenadas recursivamente así args idénticos siempre
 // producen el mismo string independientemente del key insertion order. Los valores undefined

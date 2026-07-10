@@ -49,7 +49,7 @@ export async function handleTool(
 	const request = classifyDynamicWorkflowRequest(params);
 	const action = request.action;
 
-	// Guardia de recursión: un subagente de flujo de trabajo (profundidad >= límite) no puede lanzar más flujos de trabajo.
+	// Guardia de recursión: un subagente de workflow (profundidad >= límite) no puede lanzar más workflows.
 	if (
 		(action === "start" || action === "run" || action === "resume") &&
 		currentWorkflowDepth() >= maxWorkflowDepth()

@@ -95,7 +95,7 @@ export async function deleteWorkflowRun(ctx: ExtensionContext, id: string | unde
 	return `Deleted workflow run artifacts: ${run.runId}\nDirectory: ${runDir}`;
 }
 
-// Número por defecto de ejecuciones de flujo de trabajo más recientes que `/workflow cleanup` retiene. Fuente única
+// Número por defecto de ejecuciones de workflow más recientes que `/workflow cleanup` retiene. Fuente única
 // de verdad para la política de retención (re-exportada por command-handlers.ts para el analizador CLI).
 export const DEFAULT_CLEANUP_KEEP = 20;
 

@@ -9,7 +9,7 @@ export const MAX_AGENT_OUTPUT_IN_RESULT = 24_000;
 /** Root del paquete de extensión, usado para resolver bins vendorizados. */
 export const EXTENSION_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-// Runs resumibles: diario de cache content-address.
+// Runs resumibles: journal de cache content-address.
 export const JOURNAL_FILE = "journal.jsonl";
 // Mantiene stdout/stderr en el journal por debajo del límite de resultado de tool.
 export const MAX_JOURNALED_STREAM = 200_000;
