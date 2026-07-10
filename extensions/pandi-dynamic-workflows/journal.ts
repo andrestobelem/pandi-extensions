@@ -128,6 +128,28 @@ export async function appendJournalRecord(runDir: string, record: JournalRecord)
 	await appendJsonLine(path.join(runDir, JOURNAL_FILE), record);
 }
 
+/** Versión del schema del journal.jsonl. Bump solo con cambios incompatibles de shape. */
+export const JOURNAL_VERSION = 4;
+
+/** Construye un JournalRecord listo para append (ts = ahora). */
+export function makeJournalRecord(input: {
+	key: string;
+	occ: number;
+	method: JournalRecord["method"];
+	codeHash: string;
+	result: JournalRecord["result"];
+}): JournalRecord {
+	return {
+		v: JOURNAL_VERSION,
+		key: input.key,
+		occ: input.occ,
+		method: input.method,
+		codeHash: input.codeHash,
+		ts: new Date().toISOString(),
+		result: input.result,
+	};
+}
+
 export function normalizeSubagentResultForJournal(result: SubagentResult): SubagentResult {
 	return {
 		...result,

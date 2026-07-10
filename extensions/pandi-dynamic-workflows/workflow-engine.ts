@@ -1,15 +1,12 @@
-import { readFileSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { getPackageDir } from "@earendil-works/pi-coding-agent";
 import {
 	applyDefaultAgentAccess,
 	applyPersonaOptions,
 	createAgentEnvWrapper,
 	formatAgentAccessMarkdown,
 	normalizeAgentEnvAccess,
-	sanitizeEnvForCache,
 } from "./agent-env-persona.js";
 import { parsePiJsonModeOutput, parsePiJsonModeOutputLenient } from "./agent-output.js";
 import {
@@ -35,6 +32,7 @@ import {
 	computeCallKey,
 	computeCodeHash,
 	lookupJournalRecord,
+	makeJournalRecord,
 	normalizeBashResultForJournal,
 	normalizeSubagentResultForJournal,
 } from "./journal.js";
@@ -67,6 +65,7 @@ import type {
 	WorkflowRunState,
 	WorkflowRunStatus,
 } from "./types.js";
+import { buildAgentProcess, hostBinName, sanitizeAgentOpts } from "./workflow-agent-process.js";
 import { currentWorkflowDepth, WORKFLOW_DEPTH_ENV } from "./workflow-depth.js";
 import { buildWorkflowGraphModelWithSubworkflows } from "./workflow-graph.js";
 import { preflightWorkflowLaunch } from "./workflow-preflight.js";
@@ -76,30 +75,6 @@ import { transformWorkflowCode } from "./workflow-transform.js";
 import { callSignal, executeWorkflowCode } from "./workflow-worker-bridge.js";
 
 const MAX_AGENT_PROMPT_COPY_IN_EVENT = 16_000;
-
-/**
- * Nombre del bin de la distribución HOST, leído desde el package.json del host: la primera
- * clave `bin` si está presente ("pi" bajo pi vanilla, "picante" bajo pi-cante), si no
- * piConfig.name (las distros pueden renombrar el bin de forma independiente del nombre del producto).
- * Vuelve a "pi" como defecto.
- */
-function hostBinName(): string {
-	try {
-		const pkg = JSON.parse(readFileSync(path.join(getPackageDir(), "package.json"), "utf8")) as {
-			bin?: string | Record<string, string>;
-			piConfig?: { name?: string };
-		};
-		if (pkg.bin && typeof pkg.bin === "object") {
-			const first = Object.keys(pkg.bin)[0];
-			if (first) return first;
-		}
-		return pkg.piConfig?.name || "pi";
-	} catch {
-		return "pi";
-	}
-}
-
-const JOURNAL_VERSION = 4;
 
 interface InternalAgentOptions extends AgentOptions {
 	/**
@@ -663,45 +638,22 @@ export async function runWorkflow(
 			...phaseFields,
 		});
 
-		function buildAgentArgs(attemptPrompt: string): string[] {
-			const args = ["-p", "--no-session", "--mode", "json"];
-			const explicitExtensions = effectiveOptions.extensions ?? [];
-			if (effectiveOptions.includeExtensions !== true) args.push("--no-extensions");
-			for (const extensionPath of explicitExtensions) args.push("--extension", extensionPath);
-			const explicitSkills = effectiveOptions.skills ?? [];
-			if (
-				effectiveOptions.includeSkills === false ||
-				(explicitSkills.length > 0 && effectiveOptions.includeSkills !== true)
-			)
-				args.push("--no-skills");
-			for (const skillPath of explicitSkills) args.push("--skill", skillPath);
-			if (effectiveOptions.approve ?? ctx.isProjectTrusted()) args.push("--approve");
-			else args.push("--no-approve");
-			if (effectiveOptions.useContextFiles === false) args.push("--no-context-files");
-			// model/provider/thinking are resolved once above (see resolvedModel) so the run
-			// records exactly what is passed here.
-			if (resolvedProvider) args.push("--provider", resolvedProvider);
-			if (resolvedModel) args.push("--model", resolvedModel);
-			if (resolvedThinking) args.push("--thinking", resolvedThinking);
-			if (effectiveOptions.tools?.length) args.push("--tools", effectiveOptions.tools.join(","));
-			if (effectiveOptions.excludeTools?.length)
-				args.push("--exclude-tools", effectiveOptions.excludeTools.join(","));
-			if (effectiveOptions.systemPrompt) args.push("--system-prompt", effectiveOptions.systemPrompt);
-			if (effectiveOptions.appendSystemPrompt)
-				args.push("--append-system-prompt", effectiveOptions.appendSystemPrompt);
-			args.push(attemptPrompt);
-			return args;
-		}
-
 		// Default to the HOST distribution's own binary (bin name === piConfig.name:
 		// "pi" under vanilla pi, "pi-cante" under pi-cante) so subagents inherit the
 		// same distribution and config dir. The env override still wins.
 		const piCommand = process.env.PI_DYNAMIC_WORKFLOWS_PI_COMMAND || hostBinName();
 		let envWrapper: { path: string; dir: string } | undefined;
-		function buildAgentProcess(attemptPrompt: string): { command: string; args: string[] } {
-			const agentArgs = buildAgentArgs(attemptPrompt);
-			if (!envWrapper) return { command: piCommand, args: agentArgs };
-			return { command: envWrapper.path, args: [piCommand, ...agentArgs] };
+		function agentProcessFor(attemptPrompt: string): { command: string; args: string[] } {
+			return buildAgentProcess({
+				attemptPrompt,
+				effectiveOptions,
+				resolvedProvider,
+				resolvedModel,
+				resolvedThinking,
+				defaultApprove: ctx.isProjectTrusted(),
+				piCommand,
+				envWrapper,
+			});
 		}
 		const schema = effectiveOptions.schema;
 		const schemaRetries = schema === undefined ? 0 : Math.max(0, Math.floor(effectiveOptions.schemaRetries ?? 2));
@@ -753,7 +705,7 @@ export async function runWorkflow(
 					.stat(liveStdoutArtifact.path)
 					.then((s) => s.size)
 					.catch(() => 0);
-				const processSpec = buildAgentProcess(attemptPrompt);
+				const processSpec = agentProcessFor(attemptPrompt);
 				result = await runStreamingAgentProcess(processSpec.command, processSpec.args, {
 					cwd: effectiveOptions.cwd ?? ctx.cwd,
 					timeoutMs: agentTimeoutMs,
@@ -913,15 +865,10 @@ export async function runWorkflow(
 			prompt: undefined,
 		});
 		if (!schemaShouldThrow && cacheEnabled) {
-			await appendJournalRecord(runDir, {
-				v: JOURNAL_VERSION,
-				key,
-				occ,
-				method: "agent",
-				codeHash,
-				ts: new Date().toISOString(),
-				result: subagent,
-			});
+			await appendJournalRecord(
+				runDir,
+				makeJournalRecord({ key, occ, method: "agent", codeHash, result: subagent }),
+			);
 		}
 		await log(`agent ${id} end: ${name}`, {
 			ok: subagent.ok,
@@ -944,30 +891,6 @@ export async function runWorkflow(
 	}
 
 	// Copy of agent options excluding fields that do not affect model output, so
-	// the cache key is stable across name/timeout/cache changes. prompt is also
-	// dropped: it is already the first element of the cache-key array, and
-	// agents() spreads a spec (which carries prompt) into options, so excluding
-	// it keeps the key dependent on the prompt exactly once.
-	function sanitizeAgentOpts(options: AgentOptions): Record<string, unknown> {
-		const {
-			name: _name,
-			timeoutMs: _timeoutMs,
-			cache: _cache,
-			concurrency: _concurrency,
-			settle: _settle,
-			agentType: _agentType,
-			__workflowPhase: _workflowPhase,
-			env,
-			...rest
-		} = options as InternalAgentOptions & {
-			prompt?: string;
-			concurrency?: number;
-			settle?: boolean;
-		};
-		delete (rest as { prompt?: string }).prompt;
-		return { ...rest, ...(env ? { env: sanitizeEnvForCache(env) } : {}) };
-	}
-
 	const agent = (prompt: string, options: InternalAgentOptions = {}) => trackSubagent(runSubagent(prompt, options));
 
 	function makeRunAgents(
@@ -1087,15 +1010,10 @@ export async function runWorkflow(
 			...(options.__workflowNamespace ? { workflowNamespace: options.__workflowNamespace } : {}),
 		});
 		if (cacheEnabled) {
-			await appendJournalRecord(runDir, {
-				v: JOURNAL_VERSION,
-				key,
-				occ,
-				method: "bash",
-				codeHash,
-				ts: new Date().toISOString(),
-				result: bashResult,
-			});
+			await appendJournalRecord(
+				runDir,
+				makeJournalRecord({ key, occ, method: "bash", codeHash, result: bashResult }),
+			);
 		}
 		await log(`bash end: ${command.slice(0, 120)}`, {
 			ok: bashResult.ok,
@@ -1228,15 +1146,7 @@ export async function runWorkflow(
 			...(namespace ? { workflowNamespace: namespace } : {}),
 		});
 		if (cacheEnabled) {
-			await appendJournalRecord(runDir, {
-				v: JOURNAL_VERSION,
-				key,
-				occ,
-				method: "ask",
-				codeHash,
-				ts: new Date().toISOString(),
-				result,
-			});
+			await appendJournalRecord(runDir, makeJournalRecord({ key, occ, method: "ask", codeHash, result }));
 		}
 		await log(`ask answered: ${question.slice(0, 80)}`, { answer: redactedAnswer ?? answer, defaulted });
 		return answer;
