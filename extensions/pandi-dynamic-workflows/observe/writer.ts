@@ -9,7 +9,9 @@
 
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { readRunStatus, writeTextFileAtomic } from "../runtime/index.js";
+import { hasActiveRun } from "../lib/active-run-query-deps.js";
+import { writeTextFileAtomic } from "../lib/file-utils.js";
+import { readRunStatus } from "../lib/run-status.js";
 import type { WorkflowRunRecord, WorkflowRunStatus } from "../types.js";
 import { ARTIFACT_VIEWER_FILE, buildRunArtifactViewerHtml } from "./artifact-viewer.js";
 import { collectRunReport } from "./collector.js";
@@ -72,7 +74,9 @@ export async function writeRunReportOnce(
 	options: RunReportWriteOptions = {},
 ): Promise<RunReportWriteResult> {
 	const intervalMs = options.intervalMs ?? RUN_REPORT_WATCH_INTERVAL_MS;
-	const liveStatus = await (options.readStatus ?? readRunStatus)(run.runDir);
+	const liveStatus = options.readStatus
+		? await options.readStatus(run.runDir)
+		: await readRunStatus(run.runDir, hasActiveRun);
 	const model = await collectRunReport(run.runDir, {
 		...(liveStatus ? { liveStatus } : {}),
 		currentScriptCode: await currentScriptCode(run),

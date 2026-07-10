@@ -22,7 +22,8 @@
 
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { computeCodeHash, getRunState } from "../runtime/index.js";
+import { computeCodeHash } from "../lib/code-hash.js";
+import { getRunState } from "../lib/run-state.js";
 import type { WorkflowLogEntry, WorkflowRunResult, WorkflowRunStatus } from "../types.js";
 import { readRunEvents } from "./event-parser.js";
 import { buildRunReportHtml, type RunReportAgent, type RunReportModel, type RunReportText } from "./html.js";

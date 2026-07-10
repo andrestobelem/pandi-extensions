@@ -3,6 +3,8 @@
  * Call sites externos importan desde aquí; el interior queda escondido.
  */
 
+export { computeCodeHash } from "../lib/code-hash.js";
+export { writeTextFileAtomic } from "../lib/file-utils.js";
 export {
 	estimatePeakParallelAgents,
 	formatParallelAgents,
@@ -37,7 +39,6 @@ export { runWorkflow } from "./engine.js";
 export {
 	appendJournalRecord,
 	computeCallKey,
-	computeCodeHash,
 	JOURNAL_VERSION,
 	loadJournal,
 	lookupJournalRecord,
@@ -59,6 +60,5 @@ export {
 	readRunStatus,
 	writeJsonFile,
 	writeRunStatus,
-	writeTextFileAtomic,
 } from "./store.js";
 export { WORKFLOW_WORKER_SOURCE } from "./worker-source.js";

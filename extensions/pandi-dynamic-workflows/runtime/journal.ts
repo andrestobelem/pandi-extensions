@@ -17,7 +17,6 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { appendJsonLine } from "../lib/file-append.js";
 import { truncate } from "../lib/format.js";
-import { transformWorkflowCode } from "../lib/transform.js";
 import type { AskResult, BashResult, JournalCache, JournalRecord, SubagentResult } from "../types.js";
 import { JOURNAL_FILE, MAX_AGENT_OUTPUT_IN_RESULT, MAX_JOURNALED_STREAM } from "./constants.js";
 
@@ -64,10 +63,6 @@ export function computeCallKey(method: string, args: unknown): string {
 		.createHash("sha256")
 		.update(`${method}\n${stableStringify(args)}`)
 		.digest("hex");
-}
-
-export function computeCodeHash(code: string): string {
-	return crypto.createHash("sha256").update(transformWorkflowCode(code)).digest("hex");
 }
 
 // Parsea journal.jsonl en un key -> array(occ) map (last-wins per (key, occ)).

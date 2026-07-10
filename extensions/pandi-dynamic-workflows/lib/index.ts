@@ -3,6 +3,7 @@
  * Deep modules import desde acá o desde el módulo hoja concreto cuando evita ciclos.
  */
 
+export { computeCodeHash } from "./code-hash.js";
 export {
 	AsyncMutex,
 	abortReasonMessage,
@@ -27,6 +28,7 @@ export {
 	parseCliJsonOrText,
 } from "./config.js";
 export { appendFileMutexCount, appendJsonLine } from "./file-append.js";
+export { writeTextFileAtomic } from "./file-utils.js";
 export { MAX_TOOL_TEXT, safeJson, stringify, text, truncate } from "./format.js";
 export { extractJsonCandidate } from "./json-extract.js";
 export {
@@ -73,6 +75,25 @@ export {
 	containsKeywordToken,
 	detectColorMode,
 } from "./rainbow.js";
+export {
+	estimatePeakParallelAgents,
+	formatParallelAgents,
+	formatParallelAgentsCompact,
+	getRunAgentConcurrency,
+	getRunCachedCalls,
+	getRunElapsedMs,
+	getRunLogs,
+	getRunParallelAgents,
+	getRunPeakParallelAgents,
+	getRunState,
+	getRunStatusIcon,
+	getRunStatusLabel,
+	isResumableState,
+	isRunResult,
+	isTerminalRunState,
+	selectRunsForCleanup,
+} from "./run-state.js";
+export { readRunStatus } from "./run-status.js";
 export { formatRunSummary } from "./run-summary.js";
 export { renderSafeInline, stripAnsiCodes } from "./text-sanitize.js";
 export { transformWorkflowCode } from "./transform.js";

@@ -50,6 +50,11 @@ const RULES = [
 		dir: "ultracode",
 		importRe: /from\s+["']\.\.\/runtime(?:\/[^"']+)?["']/,
 	},
+	{
+		name: "observe does not import runtime",
+		dir: "observe",
+		importRe: /from\s+["']\.\.\/runtime(?:\/[^"']+)?["']/,
+	},
 ];
 
 let failures = 0;

@@ -39,7 +39,7 @@ flowchart TB
   TUI --> LIFE
 ```
 
-**Dependency Rule:** activation/surface → deep modules; `runtime` no importa `tui` ni comandos. `ultracode` no conoce el interior de `runtime` (solo tool availability / prompts).
+**Dependency Rule:** activation/surface → deep modules; `runtime` no importa `tui` ni comandos. `ultracode` no conoce el interior de `runtime` (solo tool availability / prompts). El ciclo `runtime` ↔ `observe` se rompió moviendo las funciones puras de I/O de run (`computeCodeHash`, `readRunStatus`, `writeTextFileAtomic`) y las derivaciones de estado (`getRunState`) a `lib`; `observe` importa solo desde `lib`, `runtime` importa focus metrics desde `observe`.
 
 ## Decisiones de naming
 
@@ -82,3 +82,4 @@ Condición de stop por paso: `npm run typecheck` + suites del módulo en verde; 
 - **Graph model en lib/graph/:** el model builder (`buildWorkflowGraphModel`, `buildWorkflowGraphModelWithSubworkflows`) vive en `lib/graph/` sin importar `surface`. La expansión de sub-workflows recibe `ResolveWorkflowFn` inyectado: `surface/preflight`, `lib/tui-discovery-deps` (vía `lifecycle/runtime-deps`) y `tui/graph/render` pasan `resolveWorkflow`; `runtime/snapshots` acepta `resolveWorkflow` opcional en opciones y `runtime/engine` lo inyecta desde deps. Sin resolver, snapshots escribe un model shallow (sin expansión). El render interactivo permanece en `tui/graph/`.
 - **Run-state en lib/run-state.ts:** derivaciones puras sobre `WorkflowRunRecord` (`getRunState`, `getRunStatusLabel`, `formatParallelAgents`, `selectRunsForCleanup`, …) viven en `lib/run-state.ts`; `runtime/index.ts` reexporta para call sites que importan la fachada runtime. `lib/run-summary.ts` importa labels desde ahí — **sin arista lib → runtime**.
 - **Tests:** no quedan suites planas bajo `tests/integration/*.test.mjs`; las 19 restantes se movieron a carpetas espejo (`runtime/`, `surface/`, `tui/`, `observe/`, `guards/`). `fixtures/` y `worker-source-test-support.mjs` permanecen en la raíz de integración como soporte.
+- **runtime → observe unidireccional:** `runtime` importa focus metrics de `observe`; `observe` lee el estado de run y escribe reportes usando helpers puros en `lib` (`computeCodeHash`, `readRunStatus`, `writeTextFileAtomic`, `getRunState`). El guard `deep-module-import-guard` tiene una regla `observe does not import runtime` para mantenerlo así.

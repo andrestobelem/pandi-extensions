@@ -13,14 +13,15 @@
  * (borrados). Sibling de profundidad uno para que se shipee bajo el glob `files`.
  */
 
-import * as crypto from "node:crypto";
 import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { writeTextFileAtomic } from "../lib/file-utils.js";
 import { safeJson } from "../lib/format.js";
 import { getRunRoots } from "../lib/paths.js";
+import { readRunStatus as readRunStatusFile } from "../lib/run-status.js";
 import { hasActiveRun } from "../lifecycle/index.js";
 import type { WorkflowRunRecord, WorkflowRunResult, WorkflowRunStatus } from "../types.js";
 
@@ -44,19 +45,6 @@ export async function getRunDirs(ctx: ExtensionContext): Promise<string[]> {
 	return dirs.sort((a, b) => b.mtimeMs - a.mtimeMs).map((entry) => entry.full);
 }
 
-export async function writeTextFileAtomic(file: string, content: string): Promise<void> {
-	// Escritura atómica: escribí a un temp sibling único y luego renombrá, para que un crash a mitad de escritura
-	// nunca deje atrás un archivo generado truncado/corrupto.
-	const temp = `${file}.${crypto.randomBytes(6).toString("hex")}.tmp`;
-	await fs.writeFile(temp, content, "utf8");
-	try {
-		await fs.rename(temp, file);
-	} catch (err) {
-		await fs.rm(temp, { force: true }).catch(() => {});
-		throw err;
-	}
-}
-
 export async function writeJsonFile(file: string, value: unknown): Promise<void> {
 	// Escritura atómica: escribí a un archivo temp único y luego renombrá, para que un crash a mitad de escritura
 	// nunca deje atrás un status.json o result.json truncado/corrupto.
@@ -76,23 +64,7 @@ export async function readRunResult(runDir: string): Promise<WorkflowRunResult |
 }
 
 export async function readRunStatus(runDir: string): Promise<WorkflowRunStatus | undefined> {
-	try {
-		const status = JSON.parse(await fs.readFile(path.join(runDir, "status.json"), "utf8")) as WorkflowRunStatus;
-		if (status.state === "running" && !hasActiveRun(status.runId)) {
-			const now = Date.now();
-			const started = new Date(status.startedAt).getTime();
-			return {
-				...status,
-				state: "stale",
-				active: false,
-				updatedAt: new Date(now).toISOString(),
-				elapsedMs: Number.isFinite(started) ? now - started : status.elapsedMs,
-			};
-		}
-		return { ...status, active: status.state === "running" && hasActiveRun(status.runId) };
-	} catch {
-		return undefined;
-	}
+	return readRunStatusFile(runDir, hasActiveRun);
 }
 
 export async function readRunRecord(runDir: string): Promise<WorkflowRunRecord | undefined> {

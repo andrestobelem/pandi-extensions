@@ -1,6 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { computeCodeHash } from "../lib/code-hash.js";
 import { AsyncMutex, abortReasonMessage, combineSignal, createSemaphore } from "../lib/concurrency.js";
 import { safeJson } from "../lib/format.js";
 import { OccurrenceCounter } from "../lib/occurrence-counter.js";
@@ -20,7 +21,6 @@ import type {
 import type { BashAskContext } from "./bash-ask.js";
 import type { RuntimeWorkflowDeps } from "./deps.js";
 import { createWorkflowRunHost } from "./host.js";
-import { computeCodeHash } from "./journal.js";
 import { makeApi } from "./make-api.js";
 import { prepareWorkflowRun } from "./prepare.js";
 import { writeWorkflowRunSnapshots } from "./snapshots.js";

@@ -10,7 +10,7 @@ import {
 	getRunStatusIcon,
 	getRunStatusLabel,
 	isResumableState,
-} from "../lib/run-state.js";
+} from "../lib/index.js";
 import type { WorkflowRunRecord } from "../types.js";
 import { getRunDirs, readRunRecord } from "./store.js";
 

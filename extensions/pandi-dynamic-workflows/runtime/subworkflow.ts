@@ -1,12 +1,13 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { computeCodeHash } from "../lib/code-hash.js";
 import { throwIfAborted } from "../lib/concurrency.js";
 import type { ResolveWorkflowFn } from "../lib/graph/index.js";
 import type { OccurrenceCounter } from "../lib/occurrence-counter.js";
 import type { RunLimits, WorkflowDefinition } from "../types.js";
 import type { WorkflowRuntimeApi } from "./api.js";
-import { computeCallKey, computeCodeHash } from "./journal.js";
+import { computeCallKey } from "./journal.js";
 import { executeWorkflowCode } from "./worker-bridge.js";
 
 export type RunSubworkflowContext = {
