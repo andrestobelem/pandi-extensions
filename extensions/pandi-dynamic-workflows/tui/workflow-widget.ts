@@ -10,7 +10,7 @@ import {
 	workflowProgressLabel,
 } from "../lib/presentation.js";
 import { renderSafeInline } from "../lib/text-sanitize.js";
-import { WORKFLOW_WIDGET_KEY } from "../lifecycle/status.js";
+import { WORKFLOW_WIDGET_KEY } from "../lib/workflow-widget-key.js";
 import { formatParallelAgentsCompact } from "../runtime/index.js";
 import type { WorkflowLogEntry, WorkflowRunStatus } from "../types.js";
 

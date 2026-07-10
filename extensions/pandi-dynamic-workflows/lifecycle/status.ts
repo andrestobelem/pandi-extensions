@@ -11,15 +11,15 @@ import {
 	workflowProgressLabel,
 } from "../lib/presentation.js";
 import { requireWorkflowWidgetDeps } from "../lib/workflow-widget-deps.js";
+
+export { WORKFLOW_WIDGET_KEY } from "../lib/workflow-widget-key.js";
+
 import { formatParallelAgentsCompact } from "../runtime/index.js";
 import type { WorkflowLogEntry, WorkflowRunResult, WorkflowRunStatus } from "../types.js";
 import { activeRunCount } from "./registry.js";
 
 /** Clave compartida con el host para la línea de status del workflow. */
 export const WORKFLOW_STATUS_KEY = "dynamic-workflows";
-
-/** Clave compartida con el host para el widget inferior de progreso en vivo. */
-export const WORKFLOW_WIDGET_KEY = "dynamic-workflows";
 
 export function setWorkflowIdleStatus(ctx: ExtensionContext): void {
 	if (!ctx.hasUI) return;
