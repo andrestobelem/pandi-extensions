@@ -5,6 +5,7 @@
  * - runtime no importa tui (engine sin dependencia de presentación)
  * - tui no importa surface (discovery vía lib/tui-discovery-deps)
  * - lifecycle no importa tui (widget vía lib/workflow-widget-deps; status en lifecycle/)
+ * - ultracode no importa runtime (solo surface/lib para prompts y toggles)
  *
  * Ejecutalo:
  *   node extensions/pandi-dynamic-workflows/tests/integration/guards/deep-module-import-guard.test.mjs
@@ -37,6 +38,11 @@ const RULES = [
 		name: "lifecycle does not import tui",
 		dir: "lifecycle",
 		importRe: /from\s+["']\.\.\/tui(?:\/[^"']+)?["']/,
+	},
+	{
+		name: "ultracode does not import runtime",
+		dir: "ultracode",
+		importRe: /from\s+["']\.\.\/runtime(?:\/[^"']+)?["']/,
 	},
 ];
 
