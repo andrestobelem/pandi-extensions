@@ -16,45 +16,32 @@ import { parsePiJsonModeOutput, parsePiJsonModeOutputLenient } from "./agent-out
 import { type AsyncMutex, type createSemaphore, throwIfAborted } from "./concurrency-primitives.js";
 import { phaseEventFields } from "./event-parser.js";
 import { type AgentFocusMetrics, parseAgentFocusMetrics } from "./focus-metrics.js";
-import { safeJson, truncate } from "./format.js";
-import {
-	appendJournalRecord,
-	computeCallKey,
-	lookupJournalRecord,
-	makeJournalRecord,
-	normalizeSubagentResultForJournal,
-} from "./journal.js";
+import { truncate } from "./format.js";
+import { computeCallKey } from "./journal.js";
 import { extractJsonCandidate } from "./json-extract.js";
 import type { OccurrenceCounter } from "./occurrence-counter.js";
 import { runStreamingAgentProcess, type StreamingProcessResult } from "./process-spawn.js";
-import { MAX_AGENT_OUTPUT_IN_RESULT, MAX_JOURNALED_STREAM } from "./runtime-constants.js";
+import { MAX_AGENT_OUTPUT_IN_RESULT } from "./runtime-constants.js";
 import {
 	appendSystemPromptOption,
 	formatSchemaRetryPrompt,
 	makeStructuredOutputSystemPrompt,
 	validateStructuredData,
 } from "./structured-output.js";
-import type { AgentOptions, AgentPhaseInfo, JournalCache, RunLimits, SubagentResult } from "./types.js";
+import type { JournalCache, RunLimits, SubagentResult } from "./types.js";
 import { buildAgentProcess, hostBinName, sanitizeAgentOpts } from "./workflow-agent-process.js";
 import { currentWorkflowDepth, WORKFLOW_DEPTH_ENV } from "./workflow-depth.js";
 import { slugify } from "./workflow-resolve.js";
-import { makeModelArg, TIER_ALIASES, tierModelTable } from "./workflow-tier-models.js";
+import { finalizeSubagentResult } from "./workflow-run-subagent-finalize.js";
+import {
+	type InternalAgentOptions,
+	normalizeInternalAgentOptions,
+	resolveSubagentModelAndThinking,
+	tryReturnCachedSubagent,
+} from "./workflow-run-subagent-prepare.js";
 import { callSignal } from "./workflow-worker-bridge.js";
 
-const MAX_AGENT_PROMPT_COPY_IN_EVENT = 16_000;
-
-export interface InternalAgentOptions extends AgentOptions {
-	/**
-	 * Azúcar a nivel de worker. El global agent() del worker mapea effort->thinking y label->name
-	 * antes de publicar, pero las especificaciones per-item de agents(), las opciones compartidas de agents() y las llamadas ctx-style
-	 * llegan al host sin mapear — así que runSubagent normaliza ambas en la entrada (effort -> thinking con
-	 * max -> xhigh, label -> name) y las elimina (issues #22/#23).
-	 */
-	effort?: string;
-	label?: string;
-	__workflowPhase?: AgentPhaseInfo;
-	__workflowNamespace?: string;
-}
+export type { InternalAgentOptions } from "./workflow-run-subagent-prepare.js";
 
 export type RunSubagentContext = {
 	pi: ExtensionAPI;
@@ -128,25 +115,7 @@ export async function runSubagent(
 	// journal is keyed by (key, occ), so this ordering is what keeps resume lookups
 	// correct under ctx.agents/parallel/pipeline concurrency. agent() is cached by
 	// default; opt out with { cache: false }.
-	// Normalize worker-level sugar HOST-SIDE so EVERY path honors it — the worker's agent()
-	// global already maps effort->thinking, but agents() per-item specs, agents() shared
-	// options, and ctx-style calls arrive unmapped (issue #22: effort was silently dropped
-	// while still polluting the cache key). Done BEFORE the persona merge so an explicit
-	// per-item effort overrides a persona's thinking default, and BEFORE computeCallKey so
-	// the key sees the normalized `thinking` (journals recorded with raw `effort` items no
-	// longer match on resume and re-run — accepted, see #22).
-	const normalized: InternalAgentOptions = { ...options };
-	if (normalized.effort != null) {
-		if (normalized.thinking == null)
-			normalized.thinking = normalized.effort === "max" ? "xhigh" : String(normalized.effort);
-		delete normalized.effort;
-	}
-	// Same for label -> name (#23): runAgents prefers item.label when naming a spec item, so
-	// this mapping covers direct/ctx-style calls; the delete keeps label out of the cache key.
-	if (normalized.label != null) {
-		if (normalized.name == null) normalized.name = String(normalized.label);
-		delete normalized.label;
-	}
+	const normalized = normalizeInternalAgentOptions(options);
 	const prologue = await occAssignMutex.runExclusive(async () => {
 		let resolved = (await applyPersonaOptions(ctx, normalized)) as InternalAgentOptions;
 		resolved = await applyDefaultAgentAccess(ctx, resolved);
@@ -162,65 +131,11 @@ export async function runSubagent(
 	const envAccess = normalizeAgentEnvAccess(effectiveOptions);
 	const accessMarkdown = formatAgentAccessMarkdown(effectiveOptions, envAccess);
 	const cacheEnabled = effectiveOptions.cache !== false;
-	if (cacheEnabled) {
-		const hit = lookupJournalRecord(journal, key, occ) as SubagentResult | undefined;
-		if (hit && "artifactPath" in hit) {
-			bumpCachedCalls();
-			const cachedPhase =
-				phase ??
-				(hit.phaseIndex && hit.phaseTotal
-					? {
-							id: hit.phaseId ?? 0,
-							index: hit.phaseIndex,
-							total: hit.phaseTotal,
-							...(hit.phaseLabel ? { label: hit.phaseLabel } : {}),
-						}
-					: undefined);
-			const cachedHit: SubagentResult = {
-				...hit,
-				...(hit.tools?.length || !effectiveOptions.tools?.length ? {} : { tools: effectiveOptions.tools }),
-				...(hit.excludeTools?.length || !effectiveOptions.excludeTools?.length
-					? {}
-					: { excludeTools: effectiveOptions.excludeTools }),
-				...(hit.skills?.length || !effectiveOptions.skills?.length ? {} : { skills: effectiveOptions.skills }),
-				includeSkills: hit.includeSkills ?? effectiveOptions.includeSkills,
-				...(hit.extensions?.length || !effectiveOptions.extensions?.length
-					? {}
-					: { extensions: effectiveOptions.extensions }),
-				includeExtensions: hit.includeExtensions ?? effectiveOptions.includeExtensions,
-				...(hit.keys?.length || !envAccess.keyNames.length ? {} : { keys: envAccess.keyNames }),
-				...(hit.missingKeys?.length || !envAccess.missingKeys.length ? {} : { missingKeys: envAccess.missingKeys }),
-				isolatedEnv: hit.isolatedEnv ?? envAccess.isolatedEnv,
-				outputChars: hit.outputChars ?? hit.output.length,
-				...((hit.outputEmpty ?? hit.output.trim().length === 0) ? { outputEmpty: true } : {}),
-				...(hit.outputTruncated ? { outputTruncated: true } : {}),
-			};
-			recordAgentIntegrity(cachedHit);
-			await appendEvent({
-				type: "agent",
-				...cachedHit,
-				...phaseEventFields(cachedPhase),
-				state: "cached",
-				promptAvailable: !!cachedHit.artifactPath,
-				stdout: undefined,
-				stderr: undefined,
-				prompt: undefined,
-			});
-			await log(`agent cached: ${cachedHit.name}`, {
-				key: key.slice(0, 12),
-				occ,
-				artifactPath: cachedHit.artifactPath,
-				tools: cachedHit.tools,
-				skills: cachedHit.skills,
-				extensions: cachedHit.extensions,
-				keys: cachedHit.keys,
-				missingKeys: cachedHit.missingKeys,
-				isolatedEnv: cachedHit.isolatedEnv,
-				...phaseEventFields(cachedPhase),
-			});
-			return cachedHit;
-		}
-	}
+	const cachedHit = await tryReturnCachedSubagent(
+		{ bumpCachedCalls, recordAgentIntegrity, appendEvent, log },
+		{ journal, key, occ, effectiveOptions, phase, envAccess, cacheEnabled },
+	);
+	if (cachedHit) return cachedHit;
 	if (getLaunchedAgents() >= runLimits.maxAgents) {
 		// Leave a journal/event + log trace before throwing: under agents({settle:true})
 		// the rejection is swallowed into a null branch result, so without this record
@@ -251,57 +166,15 @@ export async function runSubagent(
 	const phaseLine = phase?.total
 		? `\n- phase: P${phase.id} ${phase.index}/${phase.total}${phase.label ? ` (${phase.label})` : ""}`
 		: "";
-	// Resolve model/provider/thinking ONCE, up front, so the start/end events, the .md
-	// artifact, and the SubagentResult all record what this subagent ACTUALLY runs with
-	// (the monitor renders these), and buildAgentArgs consumes the same resolved values.
-	// A BARE pattern alias ("sonnet"/"opus"/"haiku" — no "provider/") resolves through pi's provider
-	// routing and can land on an UNauthenticated provider (e.g. amazon-bedrock -> "No API key found"),
-	// which silently kills the subagent. Pin a bare alias to the session's provider so the shared
-	// dual-platform scaffolds (which use bare aliases for Claude Code) resolve within the authenticated
-	// provider on pi. An explicit provider always wins; qualified ids ("provider/id") and omitted models
-	// (already qualified by makeModelArg) are left untouched.
-	let resolvedModel = effectiveOptions.model ?? (effectiveOptions.provider ? undefined : makeModelArg(ctx));
-	const resolvedProvider =
-		effectiveOptions.provider ?? (resolvedModel && !resolvedModel.includes("/") ? ctx.model?.provider : undefined);
-	// #24: a bare LADDER alias pinned to a provider whose catalog lacks it would fail fast.
-	// Map it to that provider's tier id from the table, but ONLY when the model registry
-	// confirms the target exists — otherwise keep the verbatim pin (visible fail-fast); the
-	// session model is NEVER silently substituted. This runs AFTER the prologue computed the
-	// cache key from the RAW alias, so mapping never changes keys or invalidates journals.
-	let tierAliasNote: { message: string; details: Record<string, unknown> } | undefined;
-	if (resolvedModel && resolvedProvider && !resolvedModel.includes("/") && TIER_ALIASES.has(resolvedModel)) {
-		const { table, error } = tierModelTable();
-		if (error && !getTierEnvWarned()) {
-			setTierEnvWarned(true);
-			await log(`invalid PI_DYNAMIC_WORKFLOWS_TIER_MODELS (using builtin tier table): ${error}`);
-		}
-		const mappedId = table[resolvedProvider]?.[resolvedModel];
-		if (mappedId && mappedId !== resolvedModel) {
-			if (ctx.modelRegistry?.find?.(resolvedProvider, mappedId)) {
-				tierAliasNote = {
-					message: `tier alias mapped: ${resolvedModel} -> ${resolvedProvider}/${mappedId}`,
-					details: { alias: resolvedModel, provider: resolvedProvider, model: mappedId },
-				};
-				resolvedModel = mappedId;
-			} else {
-				tierAliasNote = {
-					message: `tier alias not confirmed by the model registry: ${resolvedProvider}/${mappedId} — pinning "${resolvedModel}" verbatim (may fail fast)`,
-					details: { alias: resolvedModel, provider: resolvedProvider, unconfirmed: mappedId },
-				};
-			}
-		}
-	}
-	if (tierAliasNote) await log(tierAliasNote.message, tierAliasNote.details);
-	const rawThinking = effectiveOptions.thinking ?? pi.getThinkingLevel?.();
-	const resolvedThinking = rawThinking ? String(rawThinking) : undefined;
-	// Recorded (display) form: qualify a bare model with the pinned provider so the
-	// monitor shows the same fully-resolved id the subagent runs with.
-	const recordedModel =
-		resolvedModel && resolvedProvider && !resolvedModel.includes("/")
-			? `${resolvedProvider}/${resolvedModel}`
-			: resolvedModel;
-	const modelLine = recordedModel ? `\n- model: ${recordedModel}` : "";
-	const thinkingLine = resolvedThinking ? `\n- thinking: ${resolvedThinking}` : "";
+	const { resolvedModel, resolvedProvider, resolvedThinking, recordedModel, modelLine, thinkingLine } =
+		await resolveSubagentModelAndThinking({
+			pi,
+			ctx,
+			effectiveOptions,
+			getTierEnvWarned,
+			setTierEnvWarned,
+			log,
+		});
 	const preliminaryArtifact = await writeArtifact(
 		artifactName,
 		`# ${name}\n\n- state: running\n- startedAt: ${startedAtIso}${modelLine}${thinkingLine}${phaseLine}\n\n## Access\n\n${accessMarkdown}\n\n## Prompt\n\n${prompt}\n`,
@@ -500,9 +373,6 @@ export async function runSubagent(
 	}
 
 	if (!result) throw new Error(`Agent did not produce a result: ${name}`);
-	if (schema !== undefined && schemaOk !== true && schemaOnInvalid === "null") schemaData = null;
-	const schemaShouldThrow = schema !== undefined && schemaOk !== true && schemaOnInvalid !== "null";
-	const endedAtIso = new Date().toISOString();
 	const elapsedMs = Date.now() - startedAt;
 	// Fold this agent's JSON-mode stdout into focus metrics (tokens, tool-error rate,
 	// retries) for the per-run observability artifact. Pure + fail-safe; never throws.
@@ -512,104 +382,41 @@ export async function runSubagent(
 		ok: result.code === 0 && !result.killed,
 		elapsedMs,
 	});
-	pushFocus(focus);
-	// Bounded head of the authoritative disk stdout for the .md embed and the
-	// journaled result; the complete copy stays in the adjacent .stdout.log.
-	const boundedStdout = truncate(attemptStdout, MAX_JOURNALED_STREAM);
-	const outputEmpty = fullOutput.trim().length === 0;
-	const outputTruncated = fullOutput.length > MAX_AGENT_OUTPUT_IN_RESULT;
-	const stdoutTruncated = result.stdoutTruncated || attemptStdout.length > MAX_JOURNALED_STREAM;
-	const outputChars = fullOutput.length;
-	const stdoutChars = Math.max(result.stdoutChars ?? 0, attemptStdout.length);
-	const timeoutLine = result.timedOut ? `\n- timedOut: true (timeoutMs ${agentTimeoutMs})` : "";
-	const queuedLine = `\n- queuedMs: ${queuedMs ?? 0}`;
-	const integrityLine = `\n- outputEmpty: ${outputEmpty}\n- outputTruncated: ${outputTruncated}\n- stdoutTruncated: ${stdoutTruncated}\n- outputChars: ${outputChars}\n- stdoutChars: ${stdoutChars}`;
-	const focusLine = `\n- focus: ${focus.turns} turns, peakInput ${focus.inputTokensPeak} tok, out ${focus.outputTokensTotal} tok, tools ${focus.toolCalls} (${focus.toolErrors} err), retries ${focus.autoRetries}`;
-	const artifact = await writeArtifact(
-		artifactName,
-		`# ${name}\n\n- ok: ${result.code === 0 && !result.killed}\n- code: ${result.code}\n- elapsedMs: ${elapsedMs}${queuedLine}${timeoutLine}${integrityLine}${focusLine}${modelLine}${thinkingLine}${phaseLine}${schema === undefined ? "" : `\n- schemaOk: ${schemaOk === true}`}\n\n## Access\n\n${accessMarkdown}\n\n## Prompt\n\n${prompt}${schema === undefined ? "" : `\n\n## Structured Output\n\n${schemaOk === true ? `Data:\n\n${safeJson(schemaData)}` : `Error:\n\n${schemaError || "schema validation failed"}`}`}\n\n## Stdout\n\n${boundedStdout}\n\n## Stderr\n\n${result.stderr}\n`,
+	return finalizeSubagentResult(
+		{ log, appendEvent, recordAgentIntegrity, pushFocus, writeArtifact, getCodeHash, runDir },
+		{
+			id,
+			name,
+			prompt,
+			key,
+			occ,
+			startedAtIso,
+			elapsedMs,
+			queuedMs,
+			result,
+			attemptStdout,
+			fullOutput,
+			output,
+			schema,
+			schemaOk,
+			schemaData,
+			schemaError,
+			schemaOnInvalid,
+			recordedModel,
+			resolvedThinking,
+			modelLine,
+			thinkingLine,
+			phaseLine,
+			effectiveOptions,
+			envAccess,
+			accessMarkdown,
+			phaseFields,
+			artifactName,
+			effectiveSignal,
+			runSignal: runSignal.signal,
+			cacheEnabled,
+			agentTimeoutMs,
+			focus,
+		},
 	);
-	const rawSubagent: SubagentResult = {
-		id,
-		name,
-		ok: result.code === 0 && !result.killed,
-		code: result.code,
-		killed: result.killed,
-		...(result.timedOut ? { timedOut: true } : {}),
-		elapsedMs,
-		queuedMs: queuedMs ?? 0,
-		prompt,
-		output,
-		outputChars,
-		...(outputEmpty ? { outputEmpty: true } : {}),
-		...(outputTruncated ? { outputTruncated: true } : {}),
-		...(stdoutTruncated ? { stdoutTruncated: true } : {}),
-		stdoutChars,
-		stdout: boundedStdout,
-		stderr: result.stderr,
-		artifactPath: artifact.path,
-		...(recordedModel ? { model: recordedModel } : {}),
-		...(resolvedThinking ? { thinking: resolvedThinking } : {}),
-		...(effectiveOptions.tools?.length ? { tools: effectiveOptions.tools } : {}),
-		...(effectiveOptions.excludeTools?.length ? { excludeTools: effectiveOptions.excludeTools } : {}),
-		...(effectiveOptions.skills?.length ? { skills: effectiveOptions.skills } : {}),
-		...(effectiveOptions.includeSkills !== undefined ? { includeSkills: effectiveOptions.includeSkills } : {}),
-		...(effectiveOptions.extensions?.length ? { extensions: effectiveOptions.extensions } : {}),
-		...(effectiveOptions.includeExtensions !== undefined
-			? { includeExtensions: effectiveOptions.includeExtensions }
-			: {}),
-		...(envAccess.keyNames.length ? { keys: envAccess.keyNames } : {}),
-		...(envAccess.missingKeys.length ? { missingKeys: envAccess.missingKeys } : {}),
-		isolatedEnv: envAccess.isolatedEnv,
-		...phaseFields,
-		...(schema === undefined ? {} : { data: schemaData, schemaOk: schemaOk === true }),
-	};
-	const promptCopy =
-		prompt.length > MAX_AGENT_PROMPT_COPY_IN_EVENT ? prompt.slice(0, MAX_AGENT_PROMPT_COPY_IN_EVENT) : prompt;
-	const promptTruncated = prompt.length > MAX_AGENT_PROMPT_COPY_IN_EVENT;
-	const subagent = cacheEnabled ? normalizeSubagentResultForJournal(rawSubagent) : rawSubagent;
-	// A loser whose abort ARRIVED produces a hole, never a record or a phantom "completed" event.
-	// (A loser that completed before the abort round-tripped still journals -> B2, accepted.)
-	if (effectiveSignal.aborted && !runSignal.signal.aborted)
-		await log("agent cancelled (race lost)", { key: key.slice(0, 12), occ });
-	throwIfAborted(effectiveSignal);
-	recordAgentIntegrity(subagent);
-	await appendEvent({
-		type: "agent",
-		...subagent,
-		state: subagent.ok ? "completed" : "failed",
-		startedAt: startedAtIso,
-		endedAt: endedAtIso,
-		promptAvailable: true,
-		promptCopy,
-		promptTruncated,
-		metrics: focus,
-		stdout: undefined,
-		stderr: undefined,
-		prompt: undefined,
-	});
-	if (!schemaShouldThrow && cacheEnabled) {
-		await appendJournalRecord(
-			runDir,
-			makeJournalRecord({ key, occ, method: "agent", codeHash: getCodeHash(), result: subagent }),
-		);
-	}
-	await log(`agent ${id} end: ${name}`, {
-		ok: subagent.ok,
-		code: subagent.code,
-		...(result.timedOut ? { timedOut: true, timeoutMs: agentTimeoutMs } : {}),
-		elapsedMs,
-		tools: subagent.tools,
-		skills: subagent.skills,
-		extensions: subagent.extensions,
-		keys: subagent.keys,
-		missingKeys: subagent.missingKeys,
-		...phaseFields,
-		...(schema === undefined ? {} : { schemaOk: subagent.schemaOk }),
-	});
-	if (schemaShouldThrow)
-		throw new Error(
-			`Agent ${name} did not produce valid structured output: ${schemaError || "schema validation failed"}`,
-		);
-	return subagent;
 }
