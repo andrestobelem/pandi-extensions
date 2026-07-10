@@ -392,6 +392,13 @@ export interface DashboardSelection {
 	patternIndex: number;
 }
 
+/** Navegación de lista por tab: longitud + índice activo (get/set). */
+interface TabNavSpec {
+	length: () => number;
+	getIndex: () => number;
+	setIndex: (value: number) => void;
+}
+
 export class WorkflowDashboard {
 	private tab: WorkflowDashboardTab;
 	private workflowIndex = 0;
@@ -559,73 +566,77 @@ export class WorkflowDashboard {
 		return data === "d" || matchesKey(data, Key.delete);
 	}
 
+	/** Mapa único de navegación por tab; monitor usa agentes del run enfocado. */
+	private tabNavSpecs(): Record<WorkflowDashboardTab, TabNavSpec> {
+		return {
+			monitor: {
+				length: () => this.selectedMonitor()?.agents.length ?? 0,
+				getIndex: () => this.monitorAgentIndex,
+				setIndex: (value) => {
+					this.monitorAgentIndex = value;
+				},
+			},
+			agents: {
+				length: () => this.agentEntries.length,
+				getIndex: () => this.agentIndex,
+				setIndex: (value) => {
+					this.agentIndex = value;
+				},
+			},
+			workflows: {
+				length: () => this.workflows.length,
+				getIndex: () => this.workflowIndex,
+				setIndex: (value) => {
+					this.workflowIndex = value;
+				},
+			},
+			patterns: {
+				length: () => WORKFLOW_PATTERN_CATALOG.length,
+				getIndex: () => this.patternIndex,
+				setIndex: (value) => {
+					this.patternIndex = value;
+				},
+			},
+			sessions: {
+				length: () => this.piSessions.length,
+				getIndex: () => this.sessionIndex,
+				setIndex: (value) => {
+					this.sessionIndex = value;
+				},
+			},
+			runs: {
+				length: () => this.runs.length,
+				getIndex: () => this.runIndex,
+				setIndex: (value) => {
+					this.runIndex = value;
+				},
+			},
+			activity: {
+				length: () => this.activity.length,
+				getIndex: () => this.activityIndex,
+				setIndex: (value) => {
+					this.activityIndex = value;
+				},
+			},
+		};
+	}
+
+	private activeTabNav(): TabNavSpec {
+		return this.tabNavSpecs()[this.tab];
+	}
+
 	private activeListLength(): number {
-		switch (this.tab) {
-			case "monitor":
-				return this.selectedMonitor()?.agents.length ?? 0;
-			case "agents":
-				return this.agentEntries.length;
-			case "workflows":
-				return this.workflows.length;
-			case "patterns":
-				return WORKFLOW_PATTERN_CATALOG.length;
-			case "sessions":
-				return this.piSessions.length;
-			case "runs":
-				return this.runs.length;
-			case "activity":
-				return this.activity.length;
-			default:
-				return 0;
-		}
+		return this.activeTabNav().length();
 	}
 
 	private getActiveIndex(): number {
-		switch (this.tab) {
-			case "monitor":
-				return this.monitorAgentIndex;
-			case "agents":
-				return this.agentIndex;
-			case "workflows":
-				return this.workflowIndex;
-			case "patterns":
-				return this.patternIndex;
-			case "sessions":
-				return this.sessionIndex;
-			case "runs":
-				return this.runIndex;
-			case "activity":
-				return this.activityIndex;
-			default:
-				return 0;
-		}
+		return this.activeTabNav().getIndex();
 	}
 
 	private setActiveIndex(value: number): void {
-		const clamped = Math.max(0, Math.min(this.activeListLength() - 1, value));
-		switch (this.tab) {
-			case "monitor":
-				this.monitorAgentIndex = clamped;
-				break;
-			case "agents":
-				this.agentIndex = clamped;
-				break;
-			case "workflows":
-				this.workflowIndex = clamped;
-				break;
-			case "patterns":
-				this.patternIndex = clamped;
-				break;
-			case "sessions":
-				this.sessionIndex = clamped;
-				break;
-			case "runs":
-				this.runIndex = clamped;
-				break;
-			case "activity":
-				this.activityIndex = clamped;
-				break;
-		}
+		const nav = this.activeTabNav();
+		const clamped = Math.max(0, Math.min(nav.length() - 1, value));
+		nav.setIndex(clamped);
 	}
 
 	handleInput(data: string): void {
