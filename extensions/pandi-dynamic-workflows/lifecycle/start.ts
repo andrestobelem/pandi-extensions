@@ -13,7 +13,6 @@ import {
 	writeJsonFile,
 	writeRunStatus,
 } from "../runtime/index.js";
-import { preflightWorkflowLaunch } from "../surface/index.js";
 import type {
 	ActiveWorkflowRun,
 	PreparedWorkflowRun,
@@ -25,6 +24,7 @@ import type {
 import { notifyWorkflowResult } from "./notify.js";
 import { registerActiveRun, unregisterActiveRun } from "./registry.js";
 import { shouldSuppressReloadHandoffResult } from "./reload-handoff.js";
+import { runtimeWorkflowDeps } from "./runtime-deps.js";
 import { refreshActiveWorkflowStatus } from "./status.js";
 
 function initialRunStatus(
@@ -96,7 +96,7 @@ export async function startWorkflowBackground(
 		);
 	}
 	// Para reanudar, preparedRun reutiliza el runDir/runId existente en su lugar.
-	if (!preparedRun) await preflightWorkflowLaunch(ctx, workflow, input);
+	if (!preparedRun) await runtimeWorkflowDeps.preflightWorkflowLaunch(ctx, workflow, input);
 	const prepared = preparedRun ?? (await prepareWorkflowRun(ctx, workflow.name, true));
 	const controller = new AbortController();
 	const active: ActiveWorkflowRun = {
@@ -116,7 +116,9 @@ export async function startWorkflowBackground(
 		rejectRunStart = reject;
 	});
 	const promise = runStartGate
-		.then(() => runWorkflow(pi, ctx, workflow, input, limits, controller.signal, undefined, prepared))
+		.then(() =>
+			runWorkflow(pi, ctx, workflow, input, limits, controller.signal, runtimeWorkflowDeps, undefined, prepared),
+		)
 		.then(async (result) => {
 			if (!shouldSuppressReloadHandoffResult(result)) await notifyWorkflowResult(pi, ctx, result);
 			return result;

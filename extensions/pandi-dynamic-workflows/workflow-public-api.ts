@@ -10,6 +10,7 @@ export {
 	settleWithinTimeout,
 	unregisterActiveRun,
 } from "./lifecycle/index.js";
+export { runtimeWorkflowDeps } from "./lifecycle/runtime-deps.js";
 export {
 	booleanValue,
 	formatAgentPhase,
@@ -23,6 +24,7 @@ export {
 	stringArrayValue,
 	stringValue,
 } from "./observe/index.js";
+export type { PreflightWorkflowLaunchFn, RuntimeWorkflowDeps } from "./runtime/deps.js";
 export {
 	currentWorkflowDepth,
 	EXTENSION_ROOT,
@@ -36,7 +38,6 @@ export {
 	prepareWorkflowRun,
 	runProcess,
 	runStreamingAgentProcess,
-	runWorkflow,
 	selectRunByKey,
 } from "./runtime/index.js";
 export {
@@ -79,3 +80,39 @@ export type {
 	WorkflowScopeInput,
 } from "./types.js";
 export { extractUltracodeTask } from "./ultracode/index.js";
+
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { runtimeWorkflowDeps } from "./lifecycle/runtime-deps.js";
+import { runWorkflow as runWorkflowEngine } from "./runtime/index.js";
+import type {
+	PreparedWorkflowRun,
+	RunLimits,
+	WorkflowDefinition,
+	WorkflowLogEntry,
+	WorkflowRunResult,
+	WorkflowRunStatus,
+} from "./types.js";
+
+/** API pública: cablea resolve/preflight de surface al engine sin exponer RuntimeWorkflowDeps. */
+export async function runWorkflow(
+	pi: ExtensionAPI,
+	ctx: ExtensionContext,
+	workflowDefinition: WorkflowDefinition,
+	input: unknown,
+	limits: RunLimits,
+	signal: AbortSignal | undefined,
+	onProgress?: (logs: WorkflowLogEntry[], status?: WorkflowRunStatus) => void,
+	prepared?: PreparedWorkflowRun,
+): Promise<WorkflowRunResult> {
+	return runWorkflowEngine(
+		pi,
+		ctx,
+		workflowDefinition,
+		input,
+		limits,
+		signal,
+		runtimeWorkflowDeps,
+		onProgress,
+		prepared,
+	);
+}

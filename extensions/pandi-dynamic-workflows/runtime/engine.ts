@@ -7,7 +7,6 @@ import { OccurrenceCounter } from "../lib/occurrence-counter.js";
 import { ensureDir } from "../lib/paths.js";
 import { formatRunSummary } from "../lib/run-summary.js";
 import { type AgentFocusMetrics, aggregateRunFocusMetrics, formatFocusMetricsMarkdown } from "../observe/index.js";
-import { preflightWorkflowLaunch, resolveWorkflow } from "../surface/index.js";
 import type {
 	PreparedWorkflowRun,
 	RunLimits,
@@ -19,6 +18,7 @@ import type {
 	WorkflowRunStatus,
 } from "../types.js";
 import type { BashAskContext } from "./bash-ask.js";
+import type { RuntimeWorkflowDeps } from "./deps.js";
 import { createWorkflowRunHost } from "./host.js";
 import { computeCodeHash } from "./journal.js";
 import { makeApi } from "./make-api.js";
@@ -38,9 +38,11 @@ export async function runWorkflow(
 	input: unknown,
 	limits: RunLimits,
 	signal: AbortSignal | undefined,
+	deps: RuntimeWorkflowDeps,
 	onProgress?: (logs: WorkflowLogEntry[], status?: WorkflowRunStatus) => void,
 	prepared?: PreparedWorkflowRun,
 ): Promise<WorkflowRunResult> {
+	const { resolveWorkflow, preflightWorkflowLaunch } = deps;
 	if (!prepared) await preflightWorkflowLaunch(ctx, workflowDefinition, input);
 	const preparedRun = prepared ?? (await prepareWorkflowRun(ctx, workflowDefinition.name, false));
 	const { started, runId, runDir } = preparedRun;
@@ -215,6 +217,7 @@ export async function runWorkflow(
 		return runSubworkflowImpl(
 			{
 				ctx,
+				resolveWorkflow,
 				parentWorkflowDefinition: workflowDefinition,
 				runSignal,
 				runLimits,

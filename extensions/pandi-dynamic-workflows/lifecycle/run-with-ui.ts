@@ -13,6 +13,7 @@ import type {
 	WorkflowRunResult,
 	WorkflowRunStatus,
 } from "../types.js";
+import { runtimeWorkflowDeps } from "./runtime-deps.js";
 import {
 	clearWorkflowWidget,
 	setWorkflowErrorStatus,
@@ -43,6 +44,7 @@ export async function runWorkflowWithUi(
 			input,
 			limits,
 			signal,
+			runtimeWorkflowDeps,
 			(logs, status) => {
 				onProgress?.(logs, status);
 				if (ctx.hasUI) {

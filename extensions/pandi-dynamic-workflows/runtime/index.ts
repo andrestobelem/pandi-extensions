@@ -13,6 +13,7 @@ export {
 	PI_SESSION_HEARTBEAT_MS,
 	PROCESS_KILL_GRACE_MS,
 } from "./constants.js";
+export type { PreflightWorkflowLaunchFn, RuntimeWorkflowDeps } from "./deps.js";
 export { currentWorkflowDepth, maxWorkflowDepth } from "./depth.js";
 export { runWorkflow } from "./engine.js";
 export {

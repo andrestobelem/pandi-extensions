@@ -2,8 +2,8 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { throwIfAborted } from "../lib/concurrency.js";
+import type { ResolveWorkflowFn } from "../lib/graph/index.js";
 import type { OccurrenceCounter } from "../lib/occurrence-counter.js";
-import { resolveWorkflow } from "../surface/index.js";
 import type { RunLimits, WorkflowDefinition } from "../types.js";
 import type { WorkflowRuntimeApi } from "./api.js";
 import { computeCallKey, computeCodeHash } from "./journal.js";
@@ -11,6 +11,7 @@ import { executeWorkflowCode } from "./worker-bridge.js";
 
 export type RunSubworkflowContext = {
 	ctx: ExtensionContext;
+	resolveWorkflow: ResolveWorkflowFn;
 	parentWorkflowDefinition: WorkflowDefinition;
 	runSignal: { signal: AbortSignal };
 	runLimits: Readonly<RunLimits>;
@@ -28,6 +29,7 @@ export async function runSubworkflow(
 ): Promise<unknown> {
 	const {
 		ctx,
+		resolveWorkflow,
 		parentWorkflowDefinition,
 		runSignal,
 		runLimits,
