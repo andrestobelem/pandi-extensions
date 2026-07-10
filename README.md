@@ -80,9 +80,10 @@ Y la progresión es deliberada — nadie empieza orquestando 16 agentes; el rout
 ```mermaid
 flowchart LR
     A[prompt simple] --> B[scout inline]
-    B --> C[scaffold del catálogo]
-    C --> D[draft propio en drafts/]
-    D --> E[workflow-factory]
+    B --> C{¿encaja un scaffold?}
+    C -- sí --> D[scaffold del catálogo]
+    C -- no --> E[workflow-factory]
+    E --> F[draft propio en drafts/]
 ```
 
 ## Dynamic Workflows en 60 segundos
@@ -162,7 +163,7 @@ Las 24 extensiones se cargan por defecto desde el campo `pi.extensions` de `pack
 
 ```text
 /workflows                              # dashboard TUI (Monitor/Agents/Sessions/Runs/Workflows/Patterns/Activity)
-/workflow run bug-hunt {"maxFiles":40,"concurrency":6,"maxAgents":16}
+/workflow run repo-bug-hunt {"maxFiles":40,"concurrency":6,"maxAgents":16}
 /workflow view latest                   # timeline + artifacts de la corrida más reciente
 /workflow resume latest                 # retoma una corrida interrumpida sin reejecutar agentes terminados
 /ultracode audit the whole repo for concurrency bugs
@@ -194,11 +195,11 @@ El README raíz es la puerta de entrada; `docs/` es el libro completo; `docs/htm
 npm test
 ```
 
-El gate corre, en este orden: `tsc` (typecheck de todas las extensiones), `biome check .` (lint + format de JS/TS/JSON), `markdownlint-cli2` (Markdown) y las suites de integración colocalizadas vía `scripts/test/run-all.mjs`. Verificá primero tu entorno con `npm run doctor`.
+El gate corre, en este orden: `tsc` (typecheck de todas las extensiones), `biome check .` (lint + format de JS/TS/JSON), `markdownlint-cli2` (Markdown), checks de mirrors HTML y personas, tests unitarios y las suites de integración colocalizadas vía `scripts/test/run-all.mjs`. Verificá primero tu entorno con `npm run doctor`.
 
 ## Seguimiento de issues
 
-El trabajo se sigue en el GitHub Project **[pandi-extensions](https://github.com/users/andrestobelem/projects/4)** (board v2).
+El trabajo se sigue en el GitHub Project **[pandi](https://github.com/users/andrestobelem/projects/4)** (board v2).
 
 - Las stories, tasks y bugs son [Issues](https://github.com/andrestobelem/pandi-extensions/issues) del repo, con labels `story` / `task` / `bug` / `tests` / `tech-debt`.
 - El board los agrupa por **Status** (Todo / In Progress / Done); una story padre enlaza sus sub-tareas en el body.

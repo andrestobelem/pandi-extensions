@@ -84,12 +84,12 @@ Pi packages no tiene un recurso nativo `pi.personas`; `pandi-personas` carga una
 
 ## Configuración (variables de entorno)
 
-Todas las extensiones arrancan con valores razonables; no hace falta configurar nada para empezar. Si querés ajustar el comportamiento, exportá variables de entorno — la lista completa con valores por defecto vive en **`.env.example`**. Las más usadas:
+Todas las extensiones arrancan con valores razonables; no hace falta configurar nada para empezar. Si querés ajustar el comportamiento, exportá variables de entorno. Una referencia versionada con los overrides más comunes vive en **`.env.example`**; las extensiones pueden exponer opciones avanzadas junto a su implementación. Las más usadas:
 
 | Variable | Extensión | Default | Propósito |
 | --- | --- | --- | --- |
 | `PI_DYNAMIC_WORKFLOWS_MAX_DEPTH` | core | `2` | Profundidad máxima de anidamiento de workflows; `0` = kill-switch total. |
-| `PI_DYNAMIC_WORKFLOWS_PI_COMMAND` | core, goal | `pi` | Binario de Pi usado para spawnear subagentes. |
+| `PI_DYNAMIC_WORKFLOWS_PI_COMMAND` | core, goal | binario de la distribución host (`pi` normalmente) | Binario de Pi usado para spawnear subagentes; la variable permite sobrescribirlo. |
 | `PI_AUTO_COMPACT_PERCENT` | auto-compact | `35` (`50` en Codex) | Porcentaje de contexto que dispara la compactación. |
 | `PI_AUTO_COMPACT_FAST_SUMMARY` | auto-compact | `on` | Usa un resumen rápido/acotado en `session_before_compact`; cae al compactor nativo si falla. |
 | `PI_AUTO_COMPACT_SUMMARY_MODEL` | auto-compact | Sonnet 5 (`gpt-5.6-sol` en Codex) | Override del modelo de resumen como `provider/model`. |

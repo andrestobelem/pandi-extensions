@@ -296,7 +296,7 @@ pi install ./                                                      <span class="
 <li><strong>Aislamiento Gondolin (micro-VM)</strong> — <code>npm run setup:gondolin</code> copia el ejemplo que trae Pi a <code>.pi/tools/gondolin/</code> (gitignored, no se auto-descubre) e instala sus dependencias con <code>--ignore-scripts</code>; cargalo cuando lo necesites con <code>pi -e .pi/tools/gondolin</code>. Requiere darwin-arm64/linux-x64 y Node ≥ 23.6.0. No aísla los spawns de subagentes de dynamic-workflows (ver <a href="gondolin-isolation.html"><code>docs/gondolin-isolation.md</code></a>).</li>
 </ul>
 <h2 id="configuración-variables-de-entorno">Configuración (variables de entorno)</h2>
-<p>Todas las extensiones arrancan con valores razonables; no hace falta configurar nada para empezar. Si querés ajustar el comportamiento, exportá variables de entorno — la lista completa con valores por defecto vive en <strong><code>.env.example</code></strong>. Las más usadas:</p>
+<p>Todas las extensiones arrancan con valores razonables; no hace falta configurar nada para empezar. Si querés ajustar el comportamiento, exportá variables de entorno. Una referencia versionada con los overrides más comunes vive en <strong><code>.env.example</code></strong>; las extensiones pueden exponer opciones avanzadas junto a su implementación. Las más usadas:</p>
 <div class="table-scroll"><table>
 <thead>
 <tr>
@@ -315,8 +315,8 @@ pi install ./                                                      <span class="
 <tr>
 <td><code>PI_DYNAMIC_WORKFLOWS_PI_COMMAND</code></td>
 <td>core, goal</td>
-<td><code>pi</code></td>
-<td>Binario de Pi usado para spawnear subagentes.</td>
+<td>binario de la distribución host (<code>pi</code> normalmente)</td>
+<td>Binario de Pi usado para spawnear subagentes; la variable permite sobrescribirlo.</td>
 </tr>
 <tr>
 <td><code>PI_AUTO_COMPACT_PERCENT</code></td>

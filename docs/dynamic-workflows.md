@@ -123,8 +123,8 @@ Estas globals son toda la interfaz de autoría. Las más importantes:
 
 Más sobre las claves:
 
-- `agent(prompt, opts)` — **desenvuelve** el resultado: texto plano sin schema, el objeto parseado con `{ schema }`, o `null` si la rama falla. Cachea por defecto para resume; podés desactivarlo por llamada con `{ cache: false }`.
-- `agent(prompt, { schema })` — pide JSON validado y **devuelve directamente el objeto parseado** (o `null` si falla o nunca valida); reintenta con `schemaRetries` (default `2`). Para el envelope completo (`output`/`data`/`schemaOk`) usá el plural `agents([...])`.
+- `agent(prompt, opts)` — **desenvuelve** el resultado: texto plano sin schema, el objeto parseado con `{ schema }`, o `null` si el subagente falla. Cachea por defecto para resume; podés desactivarlo por llamada con `{ cache: false }`.
+- `agent(prompt, { schema })` — pide JSON validado y **devuelve directamente el objeto parseado**; reintenta con `schemaRetries` (default `2`). Si la salida no valida, el default (`schemaOnInvalid: "throw"`) lanza un error; usá `schemaOnInvalid: "null"` para recibir `null`. Para el envelope completo (`output`/`data`/`schemaOk`) usá el plural `agents([...])`.
 - `agent(prompt, { agentType: "reviewer" })` — aplica defaults de persona (`explore`, `reviewer`, `planner`, `architect`, `implementer`, `researcher`); las opciones explícitas ganan.
 - `agents(items, { concurrency, settle: true })` — una rama fallida no hunde el batch; devuelve `Array<SubagentResult | null>` con `null` para las ramas fallidas.
 - `pipeline(items, ...stages)` — flujo multi-etapa por ítem sin barrera global; cada etapa recibe `(prev, item, index)` y los ítems fallidos devuelven `null`.
@@ -280,11 +280,11 @@ Cómo funciona:
 
 ## Catálogo de patrones y casos de uso
 
-La pestaña `Patterns` y `/workflow patterns` muestran todos los scaffolds y casos de uso registrados. Los scaffolds están embebidos en la extensión, así que el paquete no depende de archivos bajo `examples/workflows/`. Las claves del catálogo SON los nombres de archivo de los scaffolds (1:1, sin alias):
+La pestaña `Patterns` y `/workflow patterns` muestran todos los scaffolds y casos de uso registrados. Los scaffolds se distribuyen como assets ejecutables `.js`, incluidos en el paquete y cargados de forma lazy desde la extensión; no dependen de archivos bajo `examples/workflows/`. Las claves del catálogo SON los nombres de archivo de los scaffolds (1:1, sin alias):
 
-- **Scaffolds**: `fan-out-and-synthesize`, `adversarial-verify`, `judge-escalate`, `tournament`, `loop-until-dry`.
-- **Scaffolds de composición**: `composition-driver`, `verify-claims-lib`, `workflow-factory`.
-- **Casos de uso**: `repo-bug-hunt`, `large-migration`, `complex-research`, `adversarial-plan-review`, `bug-verify`.
+- **Scaffolds primarios (12)**: `fan-out-and-synthesize`, `scout-fanout`, `loop-until-dry`, `react-scout`, `adversarial-verify`, `judge-escalate`, `tournament`, `self-consistency`, `tree-of-thoughts`, `self-refine`, `reflexion`, `map-reduce`.
+- **Scaffolds de composición (7)**: `guardrails`, `router`, `orchestrator-workers`, `composition-driver`, `verify-claims-lib`, `workflow-factory`, `recursive-compose`.
+- **Casos de uso (6)**: `contract-gate`, `repo-bug-hunt`, `complex-research`, `bug-verify`, `adversarial-plan-review`, `large-migration`.
 
 Un naming anterior, al estilo Claude (`classify-and-act`, `adversarial-verification`, `generate-and-filter`, `tournaments`, `loop-until-done`, `compose-verify-claims`, `lib-verify-claims`, `bug-hunt-repo-audit`, `plan-review`, `claim-bug-verification`) quedó retirado por el refactor de interfaz única y ya no resuelve como alias de patrón. Los intents legacy `deep-research` y `default` siguen vivos como skills que enrutan a `complex-research` y `fan-out-and-synthesize` respectivamente.
 

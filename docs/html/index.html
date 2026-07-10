@@ -279,9 +279,10 @@ pi install ./                       <span class="hljs-comment"># local al proyec
 <p>Y la progresión es deliberada — nadie empieza orquestando 16 agentes; el router de Ultracode elige el camino más liviano que pueda verificar la respuesta:</p>
 <pre class="mermaid">flowchart LR
     A[prompt simple] --&gt; B[scout inline]
-    B --&gt; C[scaffold del catálogo]
-    C --&gt; D[draft propio en drafts/]
-    D --&gt; E[workflow-factory]</pre>
+    B --&gt; C{¿encaja un scaffold?}
+    C -- sí --&gt; D[scaffold del catálogo]
+    C -- no --&gt; E[workflow-factory]
+    E --&gt; F[draft propio en drafts/]</pre>
 <h2 id="dynamic-workflows-en-60-segundos">Dynamic Workflows en 60 segundos</h2>
 <p>Un Dynamic Workflow — el runtime del libro — es un <strong>script de JavaScript trusted</strong> que Pi ejecuta para orquestar trabajo grande con subagentes. El modelo mental es <strong>MapReduce con agentes</strong>: scoutear barato la lista real de trabajo, abrir ramas independientes con contratos de evidencia, persistir artifacts fuera del chat y dejar que una síntesis final haga deduplicación y priorización.</p>
 <pre><code class="hljs language-js"><span class="hljs-keyword">export</span> <span class="hljs-keyword">default</span> <span class="hljs-keyword">async</span> <span class="hljs-keyword">function</span> <span class="hljs-title function_">main</span>(<span class="hljs-params"></span>) {
@@ -475,7 +476,7 @@ pi install ./                       <span class="hljs-comment"># local al proyec
 </blockquote>
 <h2 id="comandos-de-todos-los-días">Comandos de todos los días</h2>
 <pre><code class="hljs language-text">/workflows                              # dashboard TUI (Monitor/Agents/Sessions/Runs/Workflows/Patterns/Activity)
-/workflow run bug-hunt {&quot;maxFiles&quot;:40,&quot;concurrency&quot;:6,&quot;maxAgents&quot;:16}
+/workflow run repo-bug-hunt {&quot;maxFiles&quot;:40,&quot;concurrency&quot;:6,&quot;maxAgents&quot;:16}
 /workflow view latest                   # timeline + artifacts de la corrida más reciente
 /workflow resume latest                 # retoma una corrida interrumpida sin reejecutar agentes terminados
 /ultracode audit the whole repo for concurrency bugs
@@ -499,9 +500,9 @@ pi install ./                       <span class="hljs-comment"># local al proyec
 </ul>
 <h2 id="verificación">Verificación</h2>
 <pre><code class="hljs language-bash">npm <span class="hljs-built_in">test</span></code></pre>
-<p>El gate corre, en este orden: <code>tsc</code> (typecheck de todas las extensiones), <code>biome check .</code> (lint + format de JS/TS/JSON), <code>markdownlint-cli2</code> (Markdown) y las suites de integración colocalizadas vía <code>scripts/test/run-all.mjs</code>. Verificá primero tu entorno con <code>npm run doctor</code>.</p>
+<p>El gate corre, en este orden: <code>tsc</code> (typecheck de todas las extensiones), <code>biome check .</code> (lint + format de JS/TS/JSON), <code>markdownlint-cli2</code> (Markdown), checks de mirrors HTML y personas, tests unitarios y las suites de integración colocalizadas vía <code>scripts/test/run-all.mjs</code>. Verificá primero tu entorno con <code>npm run doctor</code>.</p>
 <h2 id="seguimiento-de-issues">Seguimiento de issues</h2>
-<p>El trabajo se sigue en el GitHub Project <strong><a href="https://github.com/users/andrestobelem/projects/4">pandi-extensions</a></strong> (board v2).</p>
+<p>El trabajo se sigue en el GitHub Project <strong><a href="https://github.com/users/andrestobelem/projects/4">pandi</a></strong> (board v2).</p>
 <ul>
 <li>Las stories, tasks y bugs son <a href="https://github.com/andrestobelem/pandi-extensions/issues">Issues</a> del repo, con labels <code>story</code> / <code>task</code> / <code>bug</code> / <code>tests</code> / <code>tech-debt</code>.</li>
 <li>El board los agrupa por <strong>Status</strong> (Todo / In Progress / Done); una story padre enlaza sus sub-tareas en el body.</li>
