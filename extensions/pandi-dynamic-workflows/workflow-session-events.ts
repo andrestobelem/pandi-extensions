@@ -13,7 +13,7 @@ import {
 	ensureDynamicWorkflowToolActive,
 	setUltracodeContractGateStatus,
 	setUltracodeStatus,
-} from "./ultracode.js";
+} from "./ultracode/index.js";
 
 type WorkflowSessionEventState = {
 	getAlwaysOn: () => boolean;

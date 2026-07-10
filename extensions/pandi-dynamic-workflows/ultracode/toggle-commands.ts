@@ -1,12 +1,12 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { notify } from "./notify.js";
+import { notify } from "../notify.js";
 import {
 	ensureDynamicWorkflowToolActive,
 	parseToggleCommandValue,
 	resolveUltracodeModeValue,
 	setUltracodeContractGateStatus,
 	setUltracodeStatus,
-} from "./ultracode.js";
+} from "./router.js";
 
 type ToggleCommandHandlerOptions = {
 	resolveValue?: (args: string, ctx: ExtensionContext) => string | Promise<string>;

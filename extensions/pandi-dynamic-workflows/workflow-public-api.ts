@@ -63,7 +63,7 @@ export type {
 	WorkflowScope,
 	WorkflowScopeInput,
 } from "./types.js";
-export { extractUltracodeTask } from "./ultracode.js";
+export { extractUltracodeTask } from "./ultracode/index.js";
 export { currentWorkflowDepth, maxWorkflowDepth } from "./workflow-depth.js";
 export { runWorkflow } from "./workflow-engine.js";
 export { resolveWorkflowMenu } from "./workflow-menu.js";

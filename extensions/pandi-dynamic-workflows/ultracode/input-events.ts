@@ -6,7 +6,7 @@ import {
 	isGeneratedUltracodePrompt,
 	makeAlwaysOnUltracodeSystemPrompt,
 	makeUltracodePrompt,
-} from "./ultracode.js";
+} from "./router.js";
 
 type UltracodeInputEventState = {
 	getAlwaysOn: () => boolean;

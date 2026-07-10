@@ -1,5 +1,5 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { ensureDynamicWorkflowToolActive, setUltracodeStatus } from "./ultracode.js";
+import { ensureDynamicWorkflowToolActive, setUltracodeStatus } from "./router.js";
 
 // Gancho inter-extensión de mejor esfuerzo usado por extensions/effort/index.ts para `/effort ultracode`.
 const ULTRACODE_MODE_EVENT = "pandi-dynamic-workflows:ultracode-mode";

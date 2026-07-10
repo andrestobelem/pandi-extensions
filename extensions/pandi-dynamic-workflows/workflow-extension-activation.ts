@@ -1,8 +1,10 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { registerUltracodeInputEvents } from "./ultracode-input-events.js";
-import { registerUltracodeModeEvent } from "./ultracode-mode-event.js";
-import { createUltracodeRuntimeState } from "./ultracode-runtime-state.js";
-import { registerUltracodeToggleCommands } from "./ultracode-toggle-commands.js";
+import {
+	createUltracodeRuntimeState,
+	registerUltracodeInputEvents,
+	registerUltracodeModeEvent,
+	registerUltracodeToggleCommands,
+} from "./ultracode/index.js";
 import { registerWorkflowRoutingCommands } from "./workflow-routing-commands.js";
 import { registerWorkflowSessionEvents } from "./workflow-session-events.js";
 import { registerWorkflowShellCommands } from "./workflow-shell-commands.js";
