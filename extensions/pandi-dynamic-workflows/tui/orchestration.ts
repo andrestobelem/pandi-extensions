@@ -9,8 +9,8 @@
 import { existsSync } from "node:fs";
 import * as path from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { activeRunCount } from "../lib/active-run-query-deps.js";
 import { notify } from "../lib/notify.js";
-import { activeRunCount } from "../lifecycle/index.js";
 import type { PiSessionModel } from "../pi-session.js";
 import { sessionManagerMetadata } from "../pi-session.js";
 

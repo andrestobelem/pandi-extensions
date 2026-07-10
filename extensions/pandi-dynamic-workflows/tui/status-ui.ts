@@ -7,8 +7,8 @@
  */
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { hasActiveRun } from "../lib/active-run-query-deps.js";
 import { notify } from "../lib/notify.js";
-import { hasActiveRun } from "../lifecycle/index.js";
 import { getRunState } from "../runtime/index.js";
 import type { WorkflowRunRecord } from "../types.js";
 
