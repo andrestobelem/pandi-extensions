@@ -23,8 +23,8 @@ const { check, counts } = createChecker();
 async function loadModule() {
 	const { url } = await buildExtension({
 		name: "pi-dwf-cleanup-runs-select",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "run-state.ts"),
-		outName: "run-state.mjs",
+		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "runtime", "state.ts"),
+		outName: "state.mjs",
 		stubs: { typebox: true, typeboxValue: true, ai: true, tui: true, sdk: (dir) => dir && "" },
 	});
 	return await import(url);

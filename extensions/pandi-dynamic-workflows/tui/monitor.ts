@@ -12,7 +12,7 @@ import {
 	getRunParallelAgents,
 	getRunState,
 	getRunStatusLabel,
-} from "../run-state.js";
+} from "../runtime/index.js";
 import type { AgentMonitorModel, WorkflowRunRecord } from "../types.js";
 import type { WorkflowAgentEntry, WorkflowMonitorModel } from "./collectors.js";
 import { padRightVisible, renderMeter, renderSafeInline } from "./render-utils.js";

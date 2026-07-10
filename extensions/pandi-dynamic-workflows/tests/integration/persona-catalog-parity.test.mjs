@@ -74,7 +74,7 @@ const read = (p) => (fs.existsSync(p) ? fs.readFileSync(p, "utf8") : "");
 async function loadBuiltInPersonas() {
 	const { url } = await sharedBuildExtension({
 		name: "pi-dw-persona-catalog-parity",
-		src: path.join(EXT_DIR, "agent-env-persona.ts"),
+		src: path.join(EXT_DIR, "runtime", "agent-env-persona.ts"),
 		outName: "agent-env-persona.mjs",
 		stubs: { sdk: (dir) => sdkStub(dir) },
 	});

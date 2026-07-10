@@ -7,7 +7,7 @@ import { notify } from "../notify.js";
 import { writeRunReport } from "../observe/index.js";
 import { collectPiSessions, formatPiSessionList } from "../pi-session.js";
 import { formatDraftUsageIndex, formatWorkflowList } from "../presentation.js";
-import { getRunState } from "../run-state.js";
+import { getRunState } from "../runtime/index.js";
 import { showWorkflowGraph } from "../tui/graph/index.js";
 import {
 	formatRunList,

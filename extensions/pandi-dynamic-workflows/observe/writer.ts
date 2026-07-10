@@ -9,7 +9,7 @@
 
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { readRunStatus, writeTextFileAtomic } from "../run-store.js";
+import { readRunStatus, writeTextFileAtomic } from "../runtime/index.js";
 import type { WorkflowRunRecord, WorkflowRunStatus } from "../types.js";
 import { ARTIFACT_VIEWER_FILE, buildRunArtifactViewerHtml } from "./artifact-viewer.js";
 import { collectRunReport } from "./collector.js";

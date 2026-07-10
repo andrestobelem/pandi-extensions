@@ -12,43 +12,17 @@
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth } from "@earendil-works/pi-tui";
-import { MAX_TOOL_TEXT, stringify } from "../format.js";
 import { activeRunCount, hasActiveRun } from "../lifecycle/index.js";
 import { notify } from "../notify.js";
 import { shortWorkflowName, workflowDashboardHint, workflowProgress, workflowProgressLabel } from "../presentation.js";
-import { formatParallelAgents, formatParallelAgentsCompact, getRunState, getRunStatusLabel } from "../run-state.js";
+import { formatParallelAgentsCompact, getRunState } from "../runtime/index.js";
 import type { WorkflowLogEntry, WorkflowRunRecord, WorkflowRunResult, WorkflowRunStatus } from "../types.js";
 import { renderSafeInline } from "./render-utils.js";
 
 const WORKFLOW_STATUS_KEY = "dynamic-workflows";
 const WORKFLOW_WIDGET_KEY = "dynamic-workflows";
 
-export function formatRunSummary(result: WorkflowRunResult): string {
-	const status = getRunStatusLabel(result);
-	const parts = [
-		`Workflow ${status}: ${result.workflow}`,
-		`Run: ${result.runId}`,
-		`State: ${status}${result.background ? " (background)" : ""}`,
-		`Agents: ${result.agentCount}`,
-		`Parallel agents: ${formatParallelAgents(result)}`,
-		...(result.integrity
-			? [
-					`Integrity: failed:${result.integrity.failedAgents} empty-output:${result.integrity.emptyOutputAgents} output:truncated:${result.integrity.outputTruncatedAgents} stdout:truncated:${result.integrity.stdoutTruncatedAgents} timedOut:${result.integrity.timedOutAgents} schemaFailed:${result.integrity.schemaFailedAgents}`,
-				]
-			: []),
-		`Elapsed: ${Math.round(result.elapsedMs / 1000)}s`,
-		`Artifacts: ${result.runDir}`,
-	];
-	if (result.error) parts.push(`Error: ${result.error}`);
-	const agentOutputs = result.integrity?.agentOutputs;
-	if (agentOutputs) {
-		parts.push(
-			`Agent output integrity: observed ${agentOutputs.observed}, empty ${agentOutputs.empty}, truncated ${agentOutputs.truncated}, failed ${agentOutputs.failed}`,
-		);
-	}
-	if (result.output !== undefined) parts.push(`\nOutput:\n${stringify(result.output, MAX_TOOL_TEXT)}`);
-	return parts.join("\n");
-}
+export { formatRunSummary } from "../run-summary.js";
 
 export async function showText(ctx: ExtensionContext, title: string, content: string): Promise<void> {
 	if (ctx.mode === "print") {

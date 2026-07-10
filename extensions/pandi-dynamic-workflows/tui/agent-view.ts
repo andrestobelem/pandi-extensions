@@ -10,9 +10,9 @@
 import * as fs from "node:fs/promises";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { truncate } from "../format.js";
-import { computeCodeHash } from "../journal.js";
 import { notify } from "../notify.js";
 import { readRunEvents } from "../observe/event-parser.js";
+import { computeCodeHash } from "../runtime/index.js";
 import type { AgentMonitorModel, WorkflowRunRecord } from "../types.js";
 import { AgentLiveViewComponent } from "./agent-live-view.js";
 import {

@@ -4,7 +4,7 @@
  */
 import { Key, matchesKey } from "@earendil-works/pi-tui";
 import type { PiSessionModel } from "../pi-session.js";
-import { getRunState } from "../run-state.js";
+import { getRunState } from "../runtime/index.js";
 import { WORKFLOW_PATTERN_CATALOG } from "../surface/index.js";
 import type { AgentMonitorModel, WorkflowDefinition, WorkflowRunRecord } from "../types.js";
 import {

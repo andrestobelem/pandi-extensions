@@ -1,0 +1,29 @@
+import * as fs from "node:fs/promises";
+import * as path from "node:path";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { transformWorkflowCode } from "../surface/index.js";
+// Model builder only (no TUI render); graph model will move to lib/ later.
+import { buildWorkflowGraphModelWithSubworkflows } from "../tui/graph/model.js";
+import type { WorkflowDefinition } from "../types.js";
+import { writeJsonFile } from "./store.js";
+
+// Escribe snapshots de source/transformed/graph para un directorio de run.
+
+export async function writeWorkflowRunSnapshots(
+	ctx: ExtensionContext,
+	workflowDefinition: WorkflowDefinition,
+	code: string,
+	runDir: string,
+): Promise<void> {
+	await fs.writeFile(path.join(runDir, "workflow-source.js"), code, "utf8");
+	await fs.writeFile(path.join(runDir, "workflow-transformed.cjs"), transformWorkflowCode(code), "utf8");
+	try {
+		const graph = await buildWorkflowGraphModelWithSubworkflows(ctx, workflowDefinition, code);
+		await writeJsonFile(path.join(runDir, "workflow-graph.json"), graph);
+	} catch (err) {
+		await writeJsonFile(path.join(runDir, "workflow-graph.json"), {
+			workflow: { name: workflowDefinition.name, scope: workflowDefinition.scope, path: workflowDefinition.path },
+			error: err instanceof Error ? err.message : String(err),
+		});
+	}
+}

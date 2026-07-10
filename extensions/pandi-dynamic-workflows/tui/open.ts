@@ -21,7 +21,7 @@ import {
 } from "../lifecycle/index.js";
 import { notify } from "../notify.js";
 import { collectPiSessions, prunePiSessionFiles } from "../pi-session.js";
-import { getRunStatusLabel } from "../run-state.js";
+import { getRunStatusLabel } from "../runtime/index.js";
 import type { WorkflowPattern } from "../surface/index.js";
 import {
 	ensureDir,

@@ -15,8 +15,8 @@ import {
 	getRunState,
 	getRunStatusLabel,
 	isResumableState,
-} from "../run-state.js";
-import { PI_SESSION_HEARTBEAT_MS } from "../runtime-constants.js";
+	PI_SESSION_HEARTBEAT_MS,
+} from "../runtime/index.js";
 import { getPatternUseCases, WORKFLOW_PATTERN_CATALOG } from "../surface/index.js";
 import type { WorkflowDefinition, WorkflowRunRecord } from "../types.js";
 import type { WorkflowActivityEntry } from "./collectors.js";

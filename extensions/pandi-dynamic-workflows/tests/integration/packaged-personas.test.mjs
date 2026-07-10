@@ -22,7 +22,7 @@ function writeJson(file, value) {
 async function loadPersonaModule() {
 	const { url } = await buildExtension({
 		name: "pi-dw-packaged-personas",
-		src: path.join(EXT_DIR, "agent-env-persona.ts"),
+		src: path.join(EXT_DIR, "runtime", "agent-env-persona.ts"),
 		outName: "agent-env-persona.mjs",
 		stubs: { sdk: (dir) => sdkStub(dir) },
 	});

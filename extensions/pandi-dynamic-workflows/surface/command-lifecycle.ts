@@ -15,7 +15,7 @@ import {
 } from "../lifecycle/index.js";
 import { notify } from "../notify.js";
 import { prunePiSessionFiles } from "../pi-session.js";
-import { getRunStatusLabel } from "../run-state.js";
+import { getRunStatusLabel } from "../runtime/index.js";
 import { canCancelRun, formatRunSummary, resolveRun, runWorkflowWithUi, showText } from "../tui/index.js";
 import type { WorkflowLogEntry } from "../types.js";
 import { resumeWorkflowForCaller } from "../workflow-resume-usecase.js";

@@ -11,6 +11,7 @@ import {
 } from "../lifecycle/index.js";
 import { writeRunReport } from "../observe/index.js";
 import { formatWorkflowList } from "../presentation.js";
+import { currentWorkflowDepth, maxWorkflowDepth } from "../runtime/index.js";
 import { makeWorkflowGraphForContext } from "../tui/graph/index.js";
 import {
 	formatRunList,
@@ -21,7 +22,6 @@ import {
 	runWorkflowWithUi,
 } from "../tui/index.js";
 import type { DynamicWorkflowToolParams, WorkflowLogEntry } from "../types.js";
-import { currentWorkflowDepth, maxWorkflowDepth } from "../workflow-depth.js";
 import { resumeWorkflowForCaller } from "../workflow-resume-usecase.js";
 import {
 	formatWorkflowPatternCatalog,

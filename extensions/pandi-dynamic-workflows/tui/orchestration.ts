@@ -14,6 +14,7 @@ import { activeRunCount } from "../lifecycle/index.js";
 import { notify } from "../notify.js";
 import type { PiSessionModel } from "../pi-session.js";
 import { sessionManagerMetadata } from "../pi-session.js";
+import { runWorkflow } from "../runtime/index.js";
 import type {
 	PreparedWorkflowRun,
 	RunLimits,
@@ -22,7 +23,6 @@ import type {
 	WorkflowRunResult,
 	WorkflowRunStatus,
 } from "../types.js";
-import { runWorkflow } from "../workflow-engine.js";
 import {
 	clearWorkflowWidget,
 	setWorkflowErrorStatus,

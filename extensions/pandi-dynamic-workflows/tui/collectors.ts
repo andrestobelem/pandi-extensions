@@ -15,8 +15,8 @@ import {
 	getRunParallelAgents,
 	getRunPeakParallelAgents,
 	getRunState,
-} from "../run-state.js";
-import { JOURNAL_FILE } from "../runtime-constants.js";
+	JOURNAL_FILE,
+} from "../runtime/index.js";
 import type { WorkflowPattern } from "../surface/index.js";
 import type {
 	AgentMonitorModel,

@@ -18,23 +18,24 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { MAX_TOOL_TEXT, stringify } from "../format.js";
-import { computeCodeHash } from "../journal.js";
 import { pickViewerForPath, showMarkdown } from "../markdown-view.js";
 import { notify } from "../notify.js";
 import { formatAgentPhase, readRunEvents } from "../observe/index.js";
 import { compactInline, formatElapsedMs } from "../presentation.js";
 import {
+	computeCodeHash,
 	formatParallelAgents,
 	formatParallelAgentsCompact,
 	getRunCachedCalls,
+	getRunDirs,
 	getRunLogs,
 	getRunState,
 	getRunStatusIcon,
 	getRunStatusLabel,
 	isResumableState,
 	isRunResult,
-} from "../run-state.js";
-import { getRunDirs, readRunRecord } from "../run-store.js";
+	readRunRecord,
+} from "../runtime/index.js";
 import type { WorkflowRunRecord } from "../types.js";
 import { showText } from "./status-ui.js";
 

@@ -13,7 +13,7 @@ export function injectedGlobals(source) {
 export async function loadWorkerSource(name) {
 	const { url } = await sharedBuildExtension({
 		name,
-		src: path.join(EXT_DIR, "worker-source.ts"),
+		src: path.join(EXT_DIR, "runtime", "worker-source.ts"),
 		outName: "worker-source.mjs",
 	});
 	const mod = await import(url);

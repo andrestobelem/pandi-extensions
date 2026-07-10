@@ -1,6 +1,6 @@
 import * as fs from "node:fs/promises";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { computeCodeHash } from "../journal.js";
+import { computeCodeHash } from "../runtime/index.js";
 import type { WorkflowGraphModel } from "../tui/graph/index.js";
 import { buildWorkflowGraphModelWithSubworkflows } from "../tui/graph/index.js";
 import type { WorkflowDefinition } from "../types.js";

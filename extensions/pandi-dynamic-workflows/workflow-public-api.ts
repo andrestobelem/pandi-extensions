@@ -23,16 +23,21 @@ export {
 	stringArrayValue,
 	stringValue,
 } from "./observe/index.js";
-export { runProcess, runStreamingAgentProcess } from "./process-spawn.js";
-export { estimatePeakParallelAgents } from "./run-state.js";
 export {
+	currentWorkflowDepth,
 	EXTENSION_ROOT,
+	estimatePeakParallelAgents,
 	JOURNAL_FILE,
 	MAX_AGENT_OUTPUT_IN_RESULT,
 	MAX_JOURNALED_STREAM,
+	maxWorkflowDepth,
 	PI_SESSION_HEARTBEAT_MS,
 	PROCESS_KILL_GRACE_MS,
-} from "./runtime-constants.js";
+	prepareWorkflowRun,
+	runProcess,
+	runStreamingAgentProcess,
+	runWorkflow,
+} from "./runtime/index.js";
 export {
 	formatWorkflowPreflightSummary,
 	preflightWorkflowLaunch,
@@ -73,6 +78,3 @@ export type {
 	WorkflowScopeInput,
 } from "./types.js";
 export { extractUltracodeTask } from "./ultracode/index.js";
-export { currentWorkflowDepth, maxWorkflowDepth } from "./workflow-depth.js";
-export { runWorkflow } from "./workflow-engine.js";
-export { prepareWorkflowRun } from "./workflow-run-prepare.js";
