@@ -234,6 +234,19 @@ if (process.platform === "darwin" && process.arch === "arm64") {
 	report("optional", dim("·"), "Apple container", "N/A (solo macOS Apple Silicon)");
 }
 
+// Podman: la extensión pandi-podman es multiplataforma; macOS suele instalarlo con Homebrew.
+const podman = probe("podman");
+report(
+	"optional",
+	podman.found ? OK : WARN,
+	"Podman",
+	podman.found
+		? "sandboxes de contenedor restringidos (pandi-podman)"
+		: process.platform === "darwin"
+			? "ausente — brew install podman"
+			: "ausente — instalalo con el gestor de paquetes del sistema",
+);
+
 // Sincronización global de Claude: ¿el home global de Claude (default ~/.claude) es un espejo al día del repo?
 // Delegamos en el propio script (fuente de verdad del "qué es drift") vía --check; hereda
 // CLAUDE_GLOBAL_DIR, así que doctor y sync miran exactamente el mismo destino. Opcional a

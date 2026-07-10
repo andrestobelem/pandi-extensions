@@ -1,6 +1,6 @@
 # pandi-extensions
 
-**Un libro de patrones agénticos que se ejecuta.** Este repo destila los patrones multi-agente de la literatura (Tree of Thoughts, Reflexion, orchestrator-workers…) en **25 scaffolds corribles de JavaScript**. **Una suite de 24 extensiones más un tema para [Pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent)** — el CLI de coding agent `@earendil-works/pi-coding-agent` — convierte a Pi en el laboratorio donde correrlos: graficarlos antes, inspeccionar journal y artifacts después, y verificar con evidencia en vez de fe.
+**Un libro de patrones agénticos que se ejecuta.** Este repo destila los patrones multi-agente de la literatura (Tree of Thoughts, Reflexion, orchestrator-workers…) en **25 scaffolds corribles de JavaScript**. **Una suite de 25 extensiones más un tema para [Pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent)** — el CLI de coding agent `@earendil-works/pi-coding-agent` — convierte a Pi en el laboratorio donde correrlos: graficarlos antes, inspeccionar journal y artifacts después, y verificar con evidencia en vez de fe.
 
 El corazón es **Dynamic Workflows / Ultracode**: scripts de JavaScript confiables que Pi ejecuta para orquestar subagentes en paralelo, persistir artifacts fuera del contexto del chat y devolver una síntesis coordinada. Alrededor, cada extensión operacionaliza una disciplina de ingeniería — `/plan` ≈ pensar antes de codear, `/goal` ≈ ejecución con criterios verificables, `/loop` ≈ cambios quirúrgicos con safeguards — además de memoria local, auto-compactación de contexto, diagnósticos de TypeScript, git worktrees, sandboxes Linux y varios aliases/shortcuts de UX. Son piezas independientes: podés instalarlas una por una o todas juntas, según lo que necesite tu proyecto. 🐼
 
@@ -41,7 +41,7 @@ cd /your/project && pi
 #   /workflows          (dashboard TUI)  o  /workflow patterns
 ```
 
-Los extras opcionales (web search para subagentes, docs de Context7, gráficos PNG, sandboxes Apple `container`, micro-VMs de Gondolin) y la skill externa `karpathy-guidelines` están cubiertos en [`docs/setup.md`](docs/setup.md).
+Los extras opcionales (web search para subagentes, docs de Context7, gráficos PNG, sandboxes Apple `container` y Podman, micro-VMs de Gondolin) y la skill externa `karpathy-guidelines` están cubiertos en [`docs/setup.md`](docs/setup.md).
 
 ## Cómo leer este repo
 
@@ -128,7 +128,7 @@ Usalos como patterns, no como ceremonia: cada rama necesita una razón, un contr
 
 ## Catálogo de extensiones
 
-Las 24 extensiones se cargan por defecto desde el campo `pi.extensions` de `package.json` cuando corrés `pi install ./`; `pandi-theme` se registra a través de `pi.themes`. Cada extensión también se puede instalar por separado con `pi install ./extensions/<name>`.
+Las 25 extensiones se cargan por defecto desde el campo `pi.extensions` de `package.json` cuando corrés `pi install ./`; `pandi-theme` se registra a través de `pi.themes`. Cada extensión también se puede instalar por separado con `pi install ./extensions/<name>`.
 
 | Extensión | Surface (human · model) | Qué hace | Requisitos extra |
 | --- | --- | --- | --- |
@@ -144,6 +144,7 @@ Las 24 extensiones se cargan por defecto desde el campo `pi.extensions` de `pack
 | **pandi-worktree** | `/worktree` · `git_worktree` | Administra git worktrees desde Pi; abre sesiones nuevas y nunca cambia el cwd. | git + un repo git |
 | **pandi-kitty** | `/kitty` · `kitty_remote` | Controla kitty vía remote control: tabs, ventanas, splits, layout, cerrar y enfocar ventanas. | kitty con `allow_remote_control yes` |
 | **pandi-container** | `/container` · `container_sandbox` | Ejecuta comandos Linux aislados en micro-VMs Apple `container`, sin tocar el host. | macOS Apple Silicon + `container` |
+| **pandi-podman** | `/podman` · `podman_sandbox` | Corre sandboxes Podman efímeros y restringidos, sin mounts, puertos ni privilegios. | Podman; en macOS/Windows usa una Podman machine |
 | **pandi-bg** | `/bg` | Jobs en background en memoria para comandos humanos puntuales; no son resumables (el hermano pequeño de `dynamic_workflow`). | trust para `start` |
 | **pandi-session** | `/sessions` | Dashboard independiente de sesiones Pi TUI/RPC del proyecto, con heartbeats locales y limpieza de registros stale. | TUI/RPC para heartbeats vivos |
 | **pandi-mdview** | `/mdview` · `view_markdown` | Abre un archivo Markdown en el viewer TUI con scroll de Pi. | — |
@@ -175,7 +176,7 @@ Las 24 extensiones se cargan por defecto desde el campo `pi.extensions` de `pack
 /bg start npm test                      # background job humano de una sola vez (ver extensions/pandi-bg/README.md)
 ```
 
-Algunas extensiones también exponen tools que **Pi decide usar por su cuenta** (no como slash commands humanos): `enter_plan_mode`/`submit_plan` (planificar antes de cambios riesgosos; solo vos aprobás), `remember` (persistir notas durables en `.pi/memory/`), `git_worktree`, `container_sandbox`, `typescript_diagnostics`, `ask_choice`/`ask_confirm`, `loop_schedule`/`loop_stop` y `goal_progress`. El README de cada extensión documenta su surface.
+Algunas extensiones también exponen tools que **Pi decide usar por su cuenta** (no como slash commands humanos): `enter_plan_mode`/`submit_plan` (planificar antes de cambios riesgosos; solo vos aprobás), `remember` (persistir notas durables en `.pi/memory/`), `git_worktree`, `container_sandbox`, `podman_sandbox`, `typescript_diagnostics`, `ask_choice`/`ask_confirm`, `loop_schedule`/`loop_stop` y `goal_progress`. El README de cada extensión documenta su surface.
 
 ## Documentación
 

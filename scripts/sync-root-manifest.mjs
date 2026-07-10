@@ -42,6 +42,7 @@ const LOAD_ORDER = [
 	"pandi-worktree",
 	"pandi-kitty",
 	"pandi-container",
+	"pandi-podman",
 	"pandi-typescript-lsp",
 	"pandi-rename",
 	"pandi-btw",

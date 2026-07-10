@@ -241,6 +241,11 @@ pi install ./                                                      <span class="
 <td><code>brew install container &amp;&amp; container system kernel set --recommended &amp;&amp; container system start</code></td>
 </tr>
 <tr>
+<td>Sandboxes de contenedor restringidos (<code>pandi-podman</code>)</td>
+<td>Podman</td>
+<td>macOS: <code>brew install podman &amp;&amp; podman machine init &amp;&amp; podman machine start</code>; Linux: gestor de paquetes de la distribución</td>
+</tr>
+<tr>
 <td>Aislamiento por micro-VM (Gondolin)</td>
 <td><code>@earendil-works/gondolin</code> (darwin-arm64 / linux-x64, Node ≥ 23.6.0)</td>
 <td><code>npm run setup:gondolin</code>, después <code>pi -e .pi/tools/gondolin</code></td>
@@ -293,6 +298,7 @@ pi install ./                                                      <span class="
 <li><strong>Context7 (docs de librerías)</strong> — el skill <code>context7-cli</code> <strong>no</strong> viene vendorizado en el repo. Configuralo con <code>npx ctx7 setup --cli</code> (modo &quot;CLI + Skills&quot;; sucesor de <code>ctx7 skills install</code>, que deja de funcionar en la próxima major). Pi autodetecta el skill desde el scope global (<code>~/.agents/skills/</code> o <code>~/.pi/agent/skills/</code>) en cualquier proyecto y lo agrega a los subagentes. El CLI <code>ctx7</code> se distribuye como <strong>devDependency</strong>: ejecutalo con <code>npx ctx7</code> después de <code>npm install</code> (o globalmente con <code>npm i -g ctx7@latest</code>). Exclusión por subagente: <code>includeSkills: false</code>.</li>
 <li><strong>Visuales de <code>/workflow graph</code></strong> — <code>mmdc</code> se instala automáticamente con <code>npm install</code> (<code>@mermaid-js/mermaid-cli</code> como <code>optionalDependency</code>). El PNG inline necesita una terminal con protocolo de imagen (Kitty/Ghostty/WezTerm/Warp/iTerm2; Pi lo desactiva bajo <code>tmux</code>). Si <code>mmdc</code> falla con Chrome/Puppeteer: <code>npx puppeteer browsers install chrome-headless-shell</code>. Sin <code>mmdc</code>: fallback de topología ASCII + exportación Mermaid.</li>
 <li><strong>Sandboxes Linux (<code>pandi-container</code>)</strong> — solo macOS Apple Silicon: <code>brew install container &amp;&amp; container system kernel set --recommended &amp;&amp; container system start</code>. En hosts no compatibles, la extensión devuelve un mensaje acotado; no crashea.</li>
+<li><strong>Sandboxes de contenedor restringidos (<code>pandi-podman</code>)</strong> — instalá Podman (<code>brew install podman</code> en macOS; gestor de paquetes de la distribución en Linux). macOS y Windows requieren una VM de Podman: iniciala una vez con <code>podman machine init</code> y arrancala con <code>podman machine start</code> o <code>/podman machine-start</code>. La extensión no expone mounts, puertos ni privilegios y no es una frontera infalible contra código hostil, especialmente en Linux.</li>
 <li><strong>Aislamiento Gondolin (micro-VM)</strong> — <code>npm run setup:gondolin</code> copia el ejemplo que trae Pi a <code>.pi/tools/gondolin/</code> (gitignored, no se auto-descubre) e instala sus dependencias con <code>--ignore-scripts</code>; cargalo cuando lo necesites con <code>pi -e .pi/tools/gondolin</code>. Requiere darwin-arm64/linux-x64 y Node ≥ 23.6.0. No aísla los spawns de subagentes de dynamic-workflows (ver <a href="gondolin-isolation.html"><code>docs/gondolin-isolation.md</code></a>).</li>
 </ul>
 <h2 id="configuración-variables-de-entorno">Configuración (variables de entorno)</h2>
@@ -341,6 +347,12 @@ pi install ./                                                      <span class="
 <td>typescript-lsp</td>
 <td><code>on</code> / <code>advisory</code></td>
 <td>Habilita feedback de <code>tsc</code> y su modo (<code>advisory</code>/<code>autofix</code>).</td>
+</tr>
+<tr>
+<td><code>PI_PODMAN_TIMEOUT_MS</code></td>
+<td>pandi-podman</td>
+<td><code>120000</code></td>
+<td>Timeout de llamadas a Podman; subilo para pulls o comandos legítimamente largos.</td>
 </tr>
 <tr>
 <td><code>PI_PLAN_NONINTERACTIVE</code></td>

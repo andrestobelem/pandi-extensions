@@ -99,6 +99,7 @@
 			"./extensions/pandi-worktree/index.ts",
 			"./extensions/pandi-kitty/index.ts",
 			"./extensions/pandi-container/index.ts",
+			"./extensions/pandi-podman/index.ts",
 			"./extensions/pandi-typescript-lsp/index.ts",
 			"./extensions/pandi-rename/index.ts",
 			"./extensions/pandi-btw/index.ts",

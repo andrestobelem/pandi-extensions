@@ -153,7 +153,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	<header>
 		<div class="kicker">pandi-extensions</div>
 		<h1>pandi-extensions</h1>
-		<p class="lede"><strong>Un libro de patrones agénticos que se ejecuta.</strong> Este repo destila los patrones multi-agente de la literatura (Tree of Thoughts, Reflexion, orchestrator-workers…) en <strong>25 scaffolds corribles de JavaScript</strong>. <strong>Una suite de 24 extensiones más un tema para <a href="https://www.npmjs.com/package/@earendil-works/pi-coding-agent">Pi</a></strong> — el CLI de coding agent <code>@earendil-works/pi-coding-agent</code> — convierte a Pi en el laboratorio donde correrlos: graficarlos antes, inspeccionar journal y artifacts después, y verificar con evidencia en vez de fe.</p>
+		<p class="lede"><strong>Un libro de patrones agénticos que se ejecuta.</strong> Este repo destila los patrones multi-agente de la literatura (Tree of Thoughts, Reflexion, orchestrator-workers…) en <strong>25 scaffolds corribles de JavaScript</strong>. <strong>Una suite de 25 extensiones más un tema para <a href="https://www.npmjs.com/package/@earendil-works/pi-coding-agent">Pi</a></strong> — el CLI de coding agent <code>@earendil-works/pi-coding-agent</code> — convierte a Pi en el laboratorio donde correrlos: graficarlos antes, inspeccionar journal y artifacts después, y verificar con evidencia en vez de fe.</p>
 	</header>
 	<main>
 <nav class="toc">
@@ -204,7 +204,7 @@ pi install ./                       <span class="hljs-comment"># local al proyec
 <span class="hljs-comment">#   dentro de Pi:  /trust  y luego  /reload</span>
 <span class="hljs-comment">#   /effort status      (router de ultracode)</span>
 <span class="hljs-comment">#   /workflows          (dashboard TUI)  o  /workflow patterns</span></code></pre>
-<p>Los extras opcionales (web search para subagentes, docs de Context7, gráficos PNG, sandboxes Apple <code>container</code>, micro-VMs de Gondolin) y la skill externa <code>karpathy-guidelines</code> están cubiertos en <a href="setup.html"><code>docs/setup.md</code></a>.</p>
+<p>Los extras opcionales (web search para subagentes, docs de Context7, gráficos PNG, sandboxes Apple <code>container</code> y Podman, micro-VMs de Gondolin) y la skill externa <code>karpathy-guidelines</code> están cubiertos en <a href="setup.html"><code>docs/setup.md</code></a>.</p>
 <h2 id="cómo-leer-este-repo">Cómo leer este repo</h2>
 <p>Este repo funciona como <strong>paquete instalable</strong> y como <strong>libro práctico</strong>. Elegí la ruta más chica que te lleve al próximo experimento verificable:</p>
 <div class="table-scroll"><table>
@@ -316,7 +316,7 @@ pi install ./                       <span class="hljs-comment"># local al proyec
 </ul>
 <p>Usalos como patterns, no como ceremonia: cada rama necesita una razón, un contrato y una condición de parada.</p>
 <h2 id="catálogo-de-extensiones">Catálogo de extensiones</h2>
-<p>Las 24 extensiones se cargan por defecto desde el campo <code>pi.extensions</code> de <code>package.json</code> cuando corrés <code>pi install ./</code>; <code>pandi-theme</code> se registra a través de <code>pi.themes</code>. Cada extensión también se puede instalar por separado con <code>pi install ./extensions/&lt;name&gt;</code>.</p>
+<p>Las 25 extensiones se cargan por defecto desde el campo <code>pi.extensions</code> de <code>package.json</code> cuando corrés <code>pi install ./</code>; <code>pandi-theme</code> se registra a través de <code>pi.themes</code>. Cada extensión también se puede instalar por separado con <code>pi install ./extensions/&lt;name&gt;</code>.</p>
 <div class="table-scroll"><table>
 <thead>
 <tr>
@@ -397,6 +397,12 @@ pi install ./                       <span class="hljs-comment"># local al proyec
 <td><code>/container</code> · <code>container_sandbox</code></td>
 <td>Ejecuta comandos Linux aislados en micro-VMs Apple <code>container</code>, sin tocar el host.</td>
 <td>macOS Apple Silicon + <code>container</code></td>
+</tr>
+<tr>
+<td><strong>pandi-podman</strong></td>
+<td><code>/podman</code> · <code>podman_sandbox</code></td>
+<td>Corre sandboxes Podman efímeros y restringidos, sin mounts, puertos ni privilegios.</td>
+<td>Podman; en macOS/Windows usa una Podman machine</td>
 </tr>
 <tr>
 <td><strong>pandi-bg</strong></td>
@@ -486,7 +492,7 @@ pi install ./                       <span class="hljs-comment"># local al proyec
 /loop fix the failing tests             # loop iterativo con cadencia dinámica
 /goal make npm test pass                # goal loop con verificación independiente
 /bg start npm test                      # background job humano de una sola vez (ver extensions/pandi-bg/README.md)</code></pre>
-<p>Algunas extensiones también exponen tools que <strong>Pi decide usar por su cuenta</strong> (no como slash commands humanos): <code>enter_plan_mode</code>/<code>submit_plan</code> (planificar antes de cambios riesgosos; solo vos aprobás), <code>remember</code> (persistir notas durables en <code>.pi/memory/</code>), <code>git_worktree</code>, <code>container_sandbox</code>, <code>typescript_diagnostics</code>, <code>ask_choice</code>/<code>ask_confirm</code>, <code>loop_schedule</code>/<code>loop_stop</code> y <code>goal_progress</code>. El README de cada extensión documenta su surface.</p>
+<p>Algunas extensiones también exponen tools que <strong>Pi decide usar por su cuenta</strong> (no como slash commands humanos): <code>enter_plan_mode</code>/<code>submit_plan</code> (planificar antes de cambios riesgosos; solo vos aprobás), <code>remember</code> (persistir notas durables en <code>.pi/memory/</code>), <code>git_worktree</code>, <code>container_sandbox</code>, <code>podman_sandbox</code>, <code>typescript_diagnostics</code>, <code>ask_choice</code>/<code>ask_confirm</code>, <code>loop_schedule</code>/<code>loop_stop</code> y <code>goal_progress</code>. El README de cada extensión documenta su surface.</p>
 <h2 id="documentación">Documentación</h2>
 <p>El README raíz es la puerta de entrada; <code>docs/</code> es el libro completo; <code>docs/html/</code> es el espejo HTML navegable y generado por <code>npm run sync:docs:html</code>.</p>
 <ul>

@@ -26,6 +26,7 @@
 			"skills": []
 		},
 		"../extensions/pandi-container",
+		"../extensions/pandi-podman",
 		"../extensions/pandi-typescript-lsp",
 		"../extensions/pandi-rename",
 		"../extensions/pandi-btw",

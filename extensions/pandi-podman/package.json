@@ -1,0 +1,38 @@
+{
+	"name": "@pandi-coding-agent/pandi-podman",
+	"version": "0.1.0",
+	"description": "Extensión de Pi para ejecutar sandboxes efímeros y restringidos con Podman mediante /podman y la tool podman_sandbox.",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/andrestobelem/pandi-extensions.git",
+		"directory": "extensions/pandi-podman"
+	},
+	"type": "module",
+	"keywords": [
+		"pi-package",
+		"pi",
+		"pi-extension",
+		"podman",
+		"container",
+		"sandbox"
+	],
+	"files": [
+		"index.ts",
+		"podman.ts",
+		"command.ts",
+		"command-menu.ts",
+		"notify.ts",
+		"README.md"
+	],
+	"pi": {
+		"extensions": [
+			"./index.ts"
+		]
+	},
+	"peerDependencies": {
+		"@earendil-works/pi-ai": "^0.80.3",
+		"@earendil-works/pi-coding-agent": "^0.80.3",
+		"typebox": "^1.1.38"
+	}
+}
