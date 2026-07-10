@@ -51,6 +51,8 @@ Este repo funciona como **paquete instalable** y como **libro práctico**. Eleg�
 | --- | --- | --- |
 | Instalar y probar Pandi | [`docs/setup.md`](docs/setup.md) | `/effort status`, `/workflow patterns` |
 | Usar Ultracode desde Cursor | [`pandi-ultracode-cursor`](https://github.com/andrestobelem/pandi-extensions/tree/main/extensions/pandi-ultracode-cursor) | `/ultracode <tarea>` |
+| Usar el runner externo de Claude Code | [`pandi-ultracode-claude`](https://github.com/andrestobelem/pandi-extensions/tree/main/extensions/pandi-ultracode-claude) | `/ultracode-run <tarea>`; `/ultracode` nativo se preserva |
+| Usar Ultracode desde Codex CLI | [`pandi-ultracode-codex`](https://github.com/andrestobelem/pandi-extensions/tree/main/extensions/pandi-ultracode-codex) | `pandi-ultracode-codex run codex-ultracode` |
 | Entender Dynamic Workflows | [`docs/dynamic-workflows.md`](docs/dynamic-workflows.md) | [`docs/scaffolds/`](docs/scaffolds/index.md) |
 | Aprender patrones agénticos | [`docs/scaffolds/`](docs/scaffolds/index.md) | [`docs/research/`](docs/research/index.md) |
 | Entender el código top-down | [`docs/handbooks/top-down-onboarding.md`](docs/handbooks/top-down-onboarding.md) | `extensions/<name>/README.md` + tests de integración |

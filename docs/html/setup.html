@@ -251,6 +251,16 @@ pi install ./                                                      <span class="
 <td>Instalá el paquete en el proyecto y el plugin local explícito; ver el <a href="https://github.com/andrestobelem/pandi-extensions/tree/main/extensions/pandi-ultracode-cursor">README del host</a>.</td>
 </tr>
 <tr>
+<td>Runner externo desde Claude Code</td>
+<td>Claude Code CLI autenticado + <code>@pandi-coding-agent/pandi-ultracode-claude</code></td>
+<td>Cargá el plugin por sesión con <code>claude --plugin-dir …/claude-plugin</code>; <code>/ultracode-run</code> exige confirmar <code>--trust-workspace</code>. <code>/ultracode</code> nativo se preserva.</td>
+</tr>
+<tr>
+<td>Ultracode desde Codex CLI</td>
+<td>Codex CLI autenticado + <code>@pandi-coding-agent/pandi-ultracode-codex</code></td>
+<td>Instalá el paquete en el proyecto y corré el host de terminal; la primera entrega no instala plugins ni toca <code>~/.codex</code>.</td>
+</tr>
+<tr>
 <td>Aislamiento por micro-VM (Gondolin)</td>
 <td><code>@earendil-works/gondolin</code> (darwin-arm64 / linux-x64, Node ≥ 23.6.0)</td>
 <td><code>npm run setup:gondolin</code>, después <code>pi -e .pi/tools/gondolin</code></td>
@@ -402,6 +412,16 @@ pi install ./                                                      <span class="
 <td><strong>Host Cursor local</strong></td>
 <td><code>npm install -D @pandi-coding-agent/pandi-ultracode-cursor</code> + symlink de plugin</td>
 <td>El host autónomo no se instala con <code>pi install</code>; seguí el <a href="https://github.com/andrestobelem/pandi-extensions/tree/main/extensions/pandi-ultracode-cursor">README del paquete</a> para activar <code>/ultracode</code> en Cursor.</td>
+</tr>
+<tr>
+<td><strong>Host Claude externo</strong></td>
+<td><code>npm install -D @pandi-coding-agent/pandi-ultracode-claude</code> + <code>claude --plugin-dir …/claude-plugin</code></td>
+<td>Carga <code>/ultracode-run</code> solo para la sesión actual; el runner exige <code>--trust-workspace</code> y no reemplaza <code>/ultracode</code> nativo.</td>
+</tr>
+<tr>
+<td><strong>Host Codex local</strong></td>
+<td><code>npm install -D @pandi-coding-agent/pandi-ultracode-codex</code></td>
+<td>Host de terminal; no instala plugins ni modifica <code>~/.codex</code>.</td>
 </tr>
 </tbody></table></div>
 <p>Cada <code>extensions/pandi-&lt;ext&gt;/package.json</code> lleva su identidad pública <code>@pandi-coding-agent/pandi-&lt;ext&gt;</code> (npm workspaces; <code>npm pack -w @pandi-coding-agent/pandi-&lt;ext&gt;</code> para probar el tarball). El manifiesto raíz de <code>pi</code> se <strong>genera</strong> desde los subpackages (<code>npm run sync:manifest</code>); un test de paridad falla si hay drift. Horizonte: <strong>Pandi</strong> como distro sobre Pi (extensiones + theme + persona), no como un fork del CLI.</p>
