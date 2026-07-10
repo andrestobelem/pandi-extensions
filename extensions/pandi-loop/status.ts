@@ -1,14 +1,15 @@
 /** Formateador puro de la línea usada por /loop status y la status bar. */
 
 import { formatLoopInterval } from "./interval.js";
+import type { LoopMode, LoopStatus } from "./state.js";
 import { formatEta } from "./time.js";
 
 /** Subconjunto de LoopState que formatStatus necesita. */
 export interface LoopStatusInput {
 	loopId: string;
 	task: string;
-	status: string;
-	mode: "dynamic" | "fixed";
+	status: LoopStatus;
+	mode: LoopMode;
 	intervalMs?: number;
 	iteration: number;
 	maxIterations: number;
