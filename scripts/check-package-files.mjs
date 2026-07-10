@@ -9,7 +9,22 @@ import { fileURLToPath } from "node:url";
 
 export const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-const SHIPPABLE_DIRS = new Set(["primitives", "scaffolds", "scripts", "skills", "themes"]);
+// Directorios que viajan en el tarball además de los `*.ts` de la raíz.
+// Incluye deep modules de pandi-dynamic-workflows (ver ARCHITECTURE.md).
+const SHIPPABLE_DIRS = new Set([
+	"primitives",
+	"scaffolds",
+	"scripts",
+	"skills",
+	"themes",
+	"runtime",
+	"lifecycle",
+	"surface",
+	"observe",
+	"tui",
+	"ultracode",
+	"lib",
+]);
 const IGNORED_DIRS = new Set(["node_modules", "tests"]);
 
 function slash(relativePath) {

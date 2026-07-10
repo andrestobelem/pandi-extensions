@@ -154,11 +154,33 @@ test("suite contamination report is distinct from suite failures", () => {
 
 test("path matchers pin the runner discovery and contamination conventions", () => {
 	assert.equal(isIntegrationSuitePath("extensions/pandi/tests/integration/face.test.mjs"), true);
+	assert.equal(isIntegrationSuitePath("extensions/pandi/tests/integration/ultracode/border.test.mjs"), true);
 	assert.equal(isIntegrationSuitePath("extensions/pandi/tests/unit/face.test.mjs"), false);
 	assert.equal(isIntegrationSuitePath("scripts/test/unit/run-all.test.mjs"), false);
 	assert.equal(isRunnerInfluencingPath("extensions/pandi/index.ts"), true);
 	assert.equal(isRunnerInfluencingPath("scripts/test/run-all.mjs"), true);
 	assert.equal(isRunnerInfluencingPath(".pi/tmp/scratch.mjs"), false);
+});
+
+test("discoverSuites finds nested deep-module suites under integration/", () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "run-all-nested-"));
+	try {
+		touch(path.join(root, "extensions", "alpha", "tests", "integration", "flat.test.mjs"));
+		touch(path.join(root, "extensions", "alpha", "tests", "integration", "ultracode", "nested.test.mjs"));
+		touch(path.join(root, "extensions", "alpha", "tests", "integration", "fixtures", "not-a-suite.test.mjs"));
+		assert.deepEqual(discoverSuites(root, new Set()), {
+			suites: [
+				"extensions/alpha/tests/integration/flat.test.mjs",
+				"extensions/alpha/tests/integration/ultracode/nested.test.mjs",
+			],
+			unregisteredSuites: [],
+			ignoredSuiteFiles: [],
+			contaminatingFiles: [],
+			ignoredExisting: [],
+		});
+	} finally {
+		fs.rmSync(root, { recursive: true, force: true });
+	}
 });
 
 test("suiteLabel matches the runner status precedence", () => {

@@ -33,6 +33,8 @@ Ese es el loop completo: escribí un archivo `.js`, validalo opcionalmente con `
 - Comandos de routing Ultracode y un Contract Gate que revisa el contrato de la tarea antes de orquestar en grande.
 - Un catálogo compacto de scaffolds: 12 primarios, 7 de composición y 6 orientados a casos de uso, sin aliases de patterns.
 
+La forma interna del paquete (deep modules: `runtime`, `lifecycle`, `surface`, `observe`, `tui`, `ultracode`) está en [ARCHITECTURE.md](./ARCHITECTURE.md).
+
 ## Instalar
 
 Desde npm:

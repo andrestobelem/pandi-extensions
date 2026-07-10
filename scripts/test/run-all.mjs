@@ -3,8 +3,9 @@
  * Corre secuencialmente todas las suites de integración durables de paquetes Pi.
  *
  * Fuente de verdad = DISCOVERY por convención: se corre cada
- * `extensions/<ext>/tests/integration/*.test.mjs` registrado en Git. Cada extensión trae sus propias
- * suites, así que agregar una no exige editar nada acá — este runner solo orquesta y agrega.
+ * `extensions/<ext>/tests/integration/` suite `*.test.mjs` registrada en Git (plana o anidada
+ * por deep module). Cada extensión trae sus propias suites, así que agregar una no exige editar
+ * nada acá — este runner solo orquesta y agrega.
  * Una suite que todavía no se espera que esté verde se excluye SOLO listándola explícitamente
  * en `ignoredDraftSuites` (con una razón); nunca se saltea nada en silencio.
  *
@@ -69,14 +70,31 @@ function toPosixPath(file) {
 
 export function isIntegrationSuitePath(file) {
 	const parts = toPosixPath(file).split("/");
+	// extensions/<ext>/tests/integration/<suite>.test.mjs
+	// o extensions/<ext>/tests/integration/<deep-module>/.../<suite>.test.mjs
 	return (
-		parts.length === 5 &&
+		parts.length >= 5 &&
 		parts[0] === EXTENSIONS_DIR &&
 		parts[1].length > 0 &&
 		parts[2] === "tests" &&
 		parts[3] === "integration" &&
-		parts[4].endsWith(".test.mjs")
+		parts[parts.length - 1].endsWith(".test.mjs")
 	);
+}
+
+/** Lista recursiva de `*.test.mjs` bajo un dir de suites (omite `fixtures/`). */
+export function listIntegrationTestFiles(absDir, posixDir) {
+	if (!fs.existsSync(absDir)) return [];
+	const out = [];
+	for (const entry of fs.readdirSync(absDir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+		if (entry.isDirectory()) {
+			if (entry.name === "fixtures" || entry.name === "node_modules") continue;
+			out.push(...listIntegrationTestFiles(path.join(absDir, entry.name), path.posix.join(posixDir, entry.name)));
+			continue;
+		}
+		if (entry.isFile() && entry.name.endsWith(".test.mjs")) out.push(path.posix.join(posixDir, entry.name));
+	}
+	return out;
 }
 
 export function isRunnerInfluencingPath(file) {
@@ -199,15 +217,8 @@ export function discoverSuites(
 		.filter((dir) => fs.existsSync(path.join(repoRoot, dir)))
 		.sort();
 
-	// Descubre las suites: cada *.test.mjs bajo esos directorios.
-	const discoveredSuites = suiteDirs
-		.flatMap((dir) =>
-			fs
-				.readdirSync(path.join(repoRoot, dir))
-				.filter((name) => name.endsWith(".test.mjs"))
-				.map((name) => path.posix.join(dir, name)),
-		)
-		.sort();
+	// Descubre las suites: cada *.test.mjs bajo esos directorios (incluye subcarpetas de deep module).
+	const discoveredSuites = suiteDirs.flatMap((dir) => listIntegrationTestFiles(path.join(repoRoot, dir), dir)).sort();
 
 	return {
 		...classifyDiscoveredSuites(discoveredSuites, ignoredSuites, gitState),
