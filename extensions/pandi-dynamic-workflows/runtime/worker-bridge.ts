@@ -9,7 +9,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { Worker } from "node:worker_threads";
 import { abortReasonMessage, type CombinedSignal, combineSignal, throwIfAborted } from "../lib/concurrency.js";
-import { transformWorkflowCode } from "../surface/index.js";
+import { transformWorkflowCode } from "../lib/transform.js";
 import type { RunLimits, WorkflowDefinition } from "../types.js";
 import { WORKFLOW_WORKER_SOURCE } from "./worker-source.js";
 

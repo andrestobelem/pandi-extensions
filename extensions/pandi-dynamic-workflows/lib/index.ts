@@ -57,3 +57,4 @@ export {
 } from "./rainbow.js";
 export { formatRunSummary } from "./run-summary.js";
 export { renderSafeInline, stripAnsiCodes } from "./text-sanitize.js";
+export { transformWorkflowCode } from "./transform.js";

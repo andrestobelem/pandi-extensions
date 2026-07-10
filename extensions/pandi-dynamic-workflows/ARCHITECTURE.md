@@ -6,10 +6,10 @@ En 30 segundos: `pandi-dynamic-workflows` se organiza en **pocos módulos profun
 
 | Módulo | Carpeta | Fachada (lo que el resto ve) | Esconde |
 | --- | --- | --- | --- |
-| **lib** | `lib/` | format, concurrency, path safety, notify, presentation, **graph model**, … | helpers transversales puros (sin activación) |
+| **lib** | `lib/` | format, concurrency, path safety, notify, presentation, **graph model**, **transformWorkflowCode**, … | helpers transversales puros (sin activación) |
 | **runtime** | `runtime/` | `runWorkflow`, `WorkflowRuntimeApi` | engine, make-api, subagent, agents/race, journal, host, worker |
-| **lifecycle** | `lifecycle/` | start / resume / cancel / delete / cleanup / notify / registry | start, resume, cleanup, notify, reload-handoff |
-| **surface** | `surface/` | resolve, preflight, transform, tool + slash commands | resolve, scaffolds, tool-handler, command-browse/lifecycle |
+| **lifecycle** | `lifecycle/` | start / resume / cancel / delete / cleanup / notify / registry / **refreshActiveWorkflowStatus** | start, resume, cleanup, notify, reload-handoff, status |
+| **surface** | `surface/` | resolve, preflight, tool + slash commands | resolve, scaffolds, tool-handler, command-browse/lifecycle |
 | **observe** | `observe/` | `collectRunReport`, `writeRunReport`, `readRunEvents` | report html/md/io, event parse/read, focus metrics; **Mermaid del report** |
 | **tui** | `tui/` | `openWorkflowDashboard`, `showLiveAgentView`, `showWorkflowGraph` | dashboard, agent-view, **graph interactivo** (`tui/graph/`) |
 | **ultracode** | `ultracode/` | register* + extractUltracodeTask | router, mode, toggles, input events, runtime state |
@@ -73,6 +73,7 @@ Condición de stop por paso: `npm run typecheck` + suites del módulo en verde; 
 
 ## Post-migración / deuda conocida
 
-- **lifecycle / surface → tui (UI ops):** arranque, comandos slash y la tool `dynamic_workflow` siguen llamando a tui para dashboard, status widget y `runWorkflowWithUi`. Listado/resolución de runs (`listRuns`, `resolveRun`, `selectRunByKey`, `formatRunList`) vive en `runtime/runs.ts`; lifecycle inventory/cleanup/resume ya no importan tui para eso. El acoplamiento lifecycle→tui restante es status widget + `runWorkflowWithUi` únicamente.
+- **lifecycle → tui (UI ops, residual):** arranque, comandos slash y la tool `dynamic_workflow` siguen llamando a tui para dashboard, status widget y `runWorkflowWithUi`. Listado/resolución de runs (`listRuns`, `resolveRun`, `selectRunByKey`, `formatRunList`) vive en `runtime/runs.ts`; lifecycle inventory/cleanup/resume ya no importan tui para eso. `refreshActiveWorkflowStatus` vive en `lifecycle/status.ts` (usa `activeRunCount` de registry); tui reexporta para back-compat. El acoplamiento lifecycle→tui restante es **`runWorkflowWithUi` únicamente** (resume).
+- **transformWorkflowCode en lib/:** el compilador puro del contrato de autoría vive en `lib/transform.ts` y se reexporta desde `lib/index.ts` y `surface/index.js` (API pública). `runtime/snapshots`, `runtime/journal` y `runtime/worker-bridge` importan desde lib — ya no hay RUN→SURF por transform.
 - **Graph model en lib/graph/:** el model builder (`buildWorkflowGraphModel`, `buildWorkflowGraphModelWithSubworkflows`) vive en `lib/graph/` sin importar `surface`. La expansión de sub-workflows recibe `ResolveWorkflowFn` inyectado: `surface/preflight` y `tui/graph/render` pasan `resolveWorkflow` local; `runtime/snapshots` acepta `resolveWorkflow` opcional en opciones y `runtime/engine` lo inyecta (engine ya importaba surface para preflight). Sin resolver, snapshots escribe un model shallow (sin expansión). El render interactivo permanece en `tui/graph/`.
 - **Tests:** no quedan suites planas bajo `tests/integration/*.test.mjs`; las 19 restantes se movieron a carpetas espejo (`runtime/`, `surface/`, `tui/`, `observe/`, `guards/`). `fixtures/` y `worker-source-test-support.mjs` permanecen en la raíz de integración como soporte.

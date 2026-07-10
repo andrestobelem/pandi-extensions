@@ -7,7 +7,7 @@
  * para journaling, y las derivaciones agent-id / artifact-number que mantienen
  * resume idempotente. Movido verbatim desde index.ts (behavior-preserving).
  *
- * El transform de workflow vive en workflow-transform.ts, y los budgets JOURNAL_FILE / MAX_*
+ * El transform de workflow vive en lib/transform.ts, y los budgets JOURNAL_FILE / MAX_*
  * vienen de runtime-constants.ts. Types vienen via `import type` (erased). Sibling a profundidad uno
  * así se incluye bajo el glob `files`.
  */
@@ -17,7 +17,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { appendJsonLine } from "../lib/file-append.js";
 import { truncate } from "../lib/format.js";
-import { transformWorkflowCode } from "../surface/index.js";
+import { transformWorkflowCode } from "../lib/transform.js";
 import type { AskResult, BashResult, JournalCache, JournalRecord, SubagentResult } from "../types.js";
 import { JOURNAL_FILE, MAX_AGENT_OUTPUT_IN_RESULT, MAX_JOURNALED_STREAM } from "./constants.js";
 

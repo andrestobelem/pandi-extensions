@@ -6,7 +6,7 @@ import {
 	buildWorkflowGraphModelWithSubworkflows,
 	type ResolveWorkflowFn,
 } from "../lib/graph/index.js";
-import { transformWorkflowCode } from "../surface/index.js";
+import { transformWorkflowCode } from "../lib/transform.js";
 import type { WorkflowDefinition } from "../types.js";
 import { writeJsonFile } from "./store.js";
 

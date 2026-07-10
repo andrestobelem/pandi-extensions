@@ -9,9 +9,9 @@
  */
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { notify } from "../lib/notify.js";
-import { refreshActiveWorkflowStatus } from "../tui/index.js";
 import type { ActiveWorkflowRun, RunLimits, WorkflowRunResult } from "../types.js";
 import { clearActiveRuns, listActiveRuns } from "./registry.js";
+import { refreshActiveWorkflowStatus } from "./status.js";
 
 const RELOAD_INTERRUPT_REASON =
 	"Workflow interrupted by /reload; the new extension instance will resume this run from the journal.";

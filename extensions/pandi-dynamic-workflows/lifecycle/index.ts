@@ -43,3 +43,8 @@ export {
 } from "./reload-handoff.js";
 export { resumeWorkflow } from "./resume.js";
 export { formatBackgroundStart, shouldLaunchWorkflowInBackground, startWorkflowBackground } from "./start.js";
+export {
+	refreshActiveWorkflowStatus,
+	setWorkflowIdleStatus,
+	WORKFLOW_STATUS_KEY,
+} from "./status.js";

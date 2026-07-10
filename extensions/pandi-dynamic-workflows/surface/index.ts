@@ -3,6 +3,7 @@
  * Call sites externos importan desde aquí; el interior queda escondido.
  */
 
+export { transformWorkflowCode } from "../lib/transform.js";
 export type { WorkflowPattern } from "./catalog.js";
 export { getPatternUseCases, resolveWorkflowPattern, WORKFLOW_PATTERN_CATALOG } from "./catalog.js";
 export type { WorkflowCommandParsed } from "./command-browse.js";
@@ -67,4 +68,3 @@ export {
 	type WorkflowRunToolAction,
 	type WorkflowRunToolRequest,
 } from "./tool-request.js";
-export { transformWorkflowCode } from "./transform.js";

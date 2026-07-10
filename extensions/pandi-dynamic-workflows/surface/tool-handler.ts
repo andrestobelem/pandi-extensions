@@ -5,6 +5,7 @@ import { buildLimits, limitParamsFromInput, normalizeWorkflowInput } from "../li
 import { text } from "../lib/format.js";
 import { formatWorkflowList } from "../lib/presentation.js";
 import { formatRunSummary } from "../lib/run-summary.js";
+import { transformWorkflowCode } from "../lib/transform.js";
 import {
 	cancelWorkflowRun,
 	formatBackgroundStart,
@@ -27,7 +28,6 @@ import {
 import { formatWorkflowPreflightSummary, preflightWorkflowLaunch } from "./preflight.js";
 import { ensureDir, listWorkflows, resolveWorkflow } from "./resolve.js";
 import { classifyDynamicWorkflowRequest } from "./tool-request.js";
-import { transformWorkflowCode } from "./transform.js";
 
 // Centraliza el preview de las últimas N líneas de log, formateadas como HH:MM:SS + mensaje.
 function formatLogPreview(logs: WorkflowLogEntry[], max = 8): string {

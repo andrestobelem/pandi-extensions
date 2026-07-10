@@ -4,10 +4,9 @@
  * por el engine y los command handlers (showWorkflowGraph queda en index.ts con los tipos de graph
  * que renderiza).
  *
- * Ciclo diferido: refreshActiveWorkflowStatus usa lifecycle/registry dentro de su cuerpo y el engine
- * llama de vuelta a los helpers setWorkflow*Status; los siblings importan desde acá
- * los helpers de resumen/status de run. Es dueño de sus dos consts de status-key del host. Los tipos Record
- * cruzan como import type. Extraído byte-idéntico.
+ * refreshActiveWorkflowStatus vive en lifecycle/status (registry + status key); se reexporta acá
+ * para back-compat de la fachada tui. Los setters de progreso/fin/error usan WORKFLOW_STATUS_KEY
+ * compartido desde lifecycle.
  */
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -19,12 +18,14 @@ import {
 	workflowProgress,
 	workflowProgressLabel,
 } from "../lib/presentation.js";
-import { activeRunCount, hasActiveRun } from "../lifecycle/index.js";
+import { hasActiveRun } from "../lifecycle/index.js";
+import { refreshActiveWorkflowStatus, setWorkflowIdleStatus, WORKFLOW_STATUS_KEY } from "../lifecycle/status.js";
 import { formatParallelAgentsCompact, getRunState } from "../runtime/index.js";
 import type { WorkflowLogEntry, WorkflowRunRecord, WorkflowRunResult, WorkflowRunStatus } from "../types.js";
 import { renderSafeInline } from "./render-utils.js";
 
-const WORKFLOW_STATUS_KEY = "dynamic-workflows";
+export { refreshActiveWorkflowStatus, setWorkflowIdleStatus };
+
 const WORKFLOW_WIDGET_KEY = "dynamic-workflows";
 
 export { formatRunSummary } from "../lib/run-summary.js";
@@ -47,11 +48,6 @@ export function isActiveRunRecord(run: WorkflowRunRecord): boolean {
 
 export function canCancelRun(run: WorkflowRunRecord): boolean {
 	return isActiveRunRecord(run);
-}
-
-export function setWorkflowIdleStatus(ctx: ExtensionContext): void {
-	if (!ctx.hasUI) return;
-	ctx.ui.setStatus(WORKFLOW_STATUS_KEY, ctx.ui.theme.fg("dim", "wf · /workflows"));
 }
 
 export function setWorkflowRunningStatus(
@@ -91,20 +87,6 @@ export function setWorkflowErrorStatus(ctx: ExtensionContext, workflowName: stri
 	ctx.ui.setStatus(
 		WORKFLOW_STATUS_KEY,
 		`${ctx.ui.theme.fg("error", "✗ wf")} ${ctx.ui.theme.fg("dim", `${shortWorkflowName(workflowName)} ${workflowDashboardHint()}`)}`,
-	);
-}
-
-export function refreshActiveWorkflowStatus(ctx: ExtensionContext): void {
-	if (!ctx.hasUI) return;
-	const count = activeRunCount();
-	if (count === 0) {
-		setWorkflowIdleStatus(ctx);
-		return;
-	}
-	const theme = ctx.ui.theme;
-	ctx.ui.setStatus(
-		WORKFLOW_STATUS_KEY,
-		`${theme.fg("accent", "▶ wf")} ${theme.fg("dim", `${count} bg ${workflowDashboardHint()}`)}`,
 	);
 }
 

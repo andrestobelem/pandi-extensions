@@ -14,7 +14,6 @@ import {
 	writeRunStatus,
 } from "../runtime/index.js";
 import { preflightWorkflowLaunch } from "../surface/index.js";
-import { refreshActiveWorkflowStatus } from "../tui/index.js";
 import type {
 	ActiveWorkflowRun,
 	PreparedWorkflowRun,
@@ -26,6 +25,7 @@ import type {
 import { notifyWorkflowResult } from "./notify.js";
 import { registerActiveRun, unregisterActiveRun } from "./registry.js";
 import { shouldSuppressReloadHandoffResult } from "./reload-handoff.js";
+import { refreshActiveWorkflowStatus } from "./status.js";
 
 function initialRunStatus(
 	workflow: WorkflowDefinition,
