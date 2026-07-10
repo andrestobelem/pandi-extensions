@@ -67,12 +67,11 @@ import type {
 } from "./types.js";
 import { buildAgentProcess, hostBinName, sanitizeAgentOpts } from "./workflow-agent-process.js";
 import { currentWorkflowDepth, WORKFLOW_DEPTH_ENV } from "./workflow-depth.js";
-import { buildWorkflowGraphModelWithSubworkflows } from "./workflow-graph.js";
 import { preflightWorkflowLaunch } from "./workflow-preflight.js";
 import { ensureDir, resolveWorkflow, slugify } from "./workflow-resolve.js";
 import { prepareWorkflowRun } from "./workflow-run-prepare.js";
+import { writeWorkflowRunSnapshots } from "./workflow-run-snapshots.js";
 import { makeModelArg, TIER_ALIASES, tierModelTable } from "./workflow-tier-models.js";
-import { transformWorkflowCode } from "./workflow-transform.js";
 import { callSignal, executeWorkflowCode } from "./workflow-worker-bridge.js";
 
 const MAX_AGENT_PROMPT_COPY_IN_EVENT = 16_000;
@@ -146,25 +145,6 @@ interface WorkflowRuntimeApi {
 }
 
 let tierEnvWarned = false;
-
-async function writeWorkflowRunSnapshots(
-	ctx: ExtensionContext,
-	workflowDefinition: WorkflowDefinition,
-	code: string,
-	runDir: string,
-): Promise<void> {
-	await fs.writeFile(path.join(runDir, "workflow-source.js"), code, "utf8");
-	await fs.writeFile(path.join(runDir, "workflow-transformed.cjs"), transformWorkflowCode(code), "utf8");
-	try {
-		const graph = await buildWorkflowGraphModelWithSubworkflows(ctx, workflowDefinition, code);
-		await writeJsonFile(path.join(runDir, "workflow-graph.json"), graph);
-	} catch (err) {
-		await writeJsonFile(path.join(runDir, "workflow-graph.json"), {
-			workflow: { name: workflowDefinition.name, scope: workflowDefinition.scope, path: workflowDefinition.path },
-			error: err instanceof Error ? err.message : String(err),
-		});
-	}
-}
 
 export async function runWorkflow(
 	pi: ExtensionAPI,
