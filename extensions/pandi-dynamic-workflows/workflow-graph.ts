@@ -4,8 +4,9 @@
  * Construye el workflow graph model desde un parsed workflow (static JS introspection),
  * lo renderiza como Markdown/overview/mermaid lines, y renderiza un PNG via el mermaid
  * CLI (mmdc). Consume el graph-parse sibling para source-introspection helpers y el
- * process-spawn sibling (runProcess) para el mmdc subprocess. Los tipos WorkflowGraph
- * model y WorkflowGraphImageRender/Attempt se poseen aquí.
+ * process-spawn sibling (runProcess) para el mmdc subprocess. Los tipos del modelo
+ * viven en workflow-graph-types.js (reexportados aquí por back-compat);
+ * WorkflowGraphImageRender/Attempt se poseen aquí junto al render PNG.
  *
  * Deferred cycle con index.ts: resolveWorkflow se lee solo dentro de bodies; los types
  * model cruzan como import type (erased). index.ts importa los externally-consumed
@@ -38,7 +39,26 @@ import { padRightVisible } from "./render-utils.js";
 import { EXTENSION_ROOT } from "./runtime-constants.js";
 import type { WorkflowDefinition } from "./types.js";
 import { WorkflowGraphComponent } from "./workflow-graph-component.js";
+import type {
+	WorkflowGraphCall,
+	WorkflowGraphChildCall,
+	WorkflowGraphFanoutInfo,
+	WorkflowGraphFanoutUnit,
+	WorkflowGraphModel,
+	WorkflowGraphRenderTheme,
+	WorkflowGraphStep,
+} from "./workflow-graph-types.js";
 import { ensureDir, getGraphRoot, resolveWorkflow, slugify } from "./workflow-resolve.js";
+
+export type {
+	WorkflowGraphCall,
+	WorkflowGraphChildCall,
+	WorkflowGraphFanoutInfo,
+	WorkflowGraphFanoutUnit,
+	WorkflowGraphModel,
+	WorkflowGraphRenderTheme,
+	WorkflowGraphStep,
+} from "./workflow-graph-types.js";
 
 function buildWorkflowGraphModel(workflow: WorkflowDefinition, code: string): WorkflowGraphModel {
 	// Detect BOTH authoring styles the runtime supports: the ctx-legacy form (`ctx.agents(...)`) and
@@ -605,83 +625,10 @@ export async function makeWorkflowGraphForContext(
 }
 
 /**
- * Workflow graph model types + the showWorkflowGraph view opener, consolidated here with the
- * graph builders/renderers that own them. graph-parse.js and workflow-graph-component.js
- * import these types from here; command handlers open the view via showWorkflowGraph.
- * Deferred cycle with workflow-graph-component.js (WorkflowGraphComponent used only inside
- * showWorkflowGraph's body). Moved byte-identically from index.ts.
+ * showWorkflowGraph view opener. Model types live in workflow-graph-types.js
+ * (reexported above). Deferred cycle with workflow-graph-component.js
+ * (WorkflowGraphComponent used only inside showWorkflowGraph's body).
  */
-type WorkflowGraphStepKind =
-	| "agent"
-	| "artifact"
-	| "barrier"
-	| "fanout"
-	| "file"
-	| "pipeline"
-	| "shell"
-	| "subworkflow";
-
-export type WorkflowGraphFanoutUnit = "agents" | "branches" | "lanes";
-
-export interface WorkflowGraphFanoutInfo {
-	unit: WorkflowGraphFanoutUnit;
-	countLabel: string;
-	count?: number;
-	many: boolean;
-	phaseLabel?: string;
-	concurrency?: string;
-	settle?: boolean;
-	stages?: number;
-}
-
-export interface WorkflowGraphChildCall {
-	method: string;
-	/** Call-syntax prefix used in source: "ctx." for ctx-legacy calls, "" for globals-style. */
-	prefix?: string;
-	kind: WorkflowGraphStepKind;
-	symbol: string;
-	title: string;
-	label: string;
-	line: number;
-	firstArg?: string;
-}
-
-export interface WorkflowGraphStep {
-	index: number;
-	method: string;
-	/** Call-syntax prefix used in source: "ctx." for ctx-legacy calls, "" for globals-style. */
-	prefix?: string;
-	kind: WorkflowGraphStepKind;
-	symbol: string;
-	title: string;
-	label: string;
-	line: number;
-	firstArg?: string;
-	children: WorkflowGraphChildCall[];
-	fanout?: WorkflowGraphFanoutInfo;
-	subworkflow?: WorkflowGraphModel;
-	subworkflowError?: string;
-}
-
-export interface WorkflowGraphCall extends WorkflowGraphChildCall {
-	start: number;
-	end: number;
-	snippet: string;
-}
-
-export interface WorkflowGraphModel {
-	workflow: WorkflowDefinition;
-	steps: WorkflowGraphStep[];
-	notes: string[];
-}
-
-export interface WorkflowGraphRenderTheme {
-	accent(text: string): string;
-	muted(text: string): string;
-	success(text: string): string;
-	warning(text: string): string;
-}
-
 export async function showWorkflowGraph(
 	ctx: ExtensionContext,
 	workflow: WorkflowDefinition,

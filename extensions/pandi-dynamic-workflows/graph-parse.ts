@@ -6,11 +6,11 @@
  * inferencia de fanout/cardinalidad que convierte llamadas ctx.* en metadata de pasos del graph.
  *
  * Dependencia runtime unidireccional: importa renderSafeInline desde la hoja render-utils;
- * la referencia de vuelta a index.ts es SOLO DE TIPOS (import type, borrada en build), así
- * no hay ciclo runtime. Extraído byte-idéntico desde index.ts.
+ * los tipos del modelo viven en workflow-graph-types.js (import type, borrados en build).
+ * Extraído byte-idéntico desde index.ts.
  */
 import { renderSafeInline } from "./render-utils.js";
-import type { WorkflowGraphChildCall, WorkflowGraphFanoutInfo, WorkflowGraphStep } from "./workflow-graph.js";
+import type { WorkflowGraphChildCall, WorkflowGraphFanoutInfo, WorkflowGraphStep } from "./workflow-graph-types.js";
 
 export function mermaidLabel(value: string): string {
 	return (
