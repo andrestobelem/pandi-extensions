@@ -28,7 +28,7 @@ Run flags:
   --allow-workflow-write      Allow workflow writeFile/appendFile
   --allow-workflow-shell      Allow workflow bash()
 
-Safety: Cursor agents use --mode plan and --sandbox enabled by default. Mutating
+Safety: Cursor agents use --mode ask and --sandbox enabled by default. Mutating
 capabilities require their corresponding explicit flag. Per-agent tools, skills,
 extensions and environment grants are rejected because Cursor CLI cannot enforce
 them independently per worker.

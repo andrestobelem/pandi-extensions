@@ -41,7 +41,8 @@ export function buildCursorCommand({
 		// Cursor's default mode permits actions; the runner separately requires an explicit workspace-trust decision.
 		args.push("--sandbox", "disabled", "--force");
 	} else {
-		args.push("--mode", "plan", "--sandbox", "enabled");
+		// Ask es el modo documentado por Cursor para exploración sin ediciones.
+		args.push("--mode", "ask", "--sandbox", "enabled");
 	}
 	args.push("--workspace", cwd);
 	if (trustWorkspace) args.push("--trust");

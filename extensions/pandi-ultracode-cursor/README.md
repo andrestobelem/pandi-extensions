@@ -60,14 +60,16 @@ La seguridad predeterminada es deliberadamente conservadora:
 
 | Superficie | Default | Para habilitarla |
 | --- | --- | --- |
-| Workers de Cursor | `--mode plan` y `--sandbox enabled` | Un nodo debe pedir `allowWrite: true` **y** el comando debe llevar `--allow-agent-write --trust-workspace`. |
+| Workers de Cursor | `--mode ask` y `--sandbox enabled` | `ask` es el modo read-only documentado por Cursor. Un nodo debe pedir `allowWrite: true` **y** el comando debe llevar `--allow-agent-write --trust-workspace`. |
 | Workspace que Cursor aún no conoce | No se fuerza su confianza | Decidila interactivamente en Cursor o pasá `--trust-workspace` de forma explícita. |
 | `writeFile` / `appendFile` del workflow | Rechazado | `--allow-workflow-write` |
 | `bash()` del workflow | Rechazado | `--allow-workflow-shell` |
 | `ask()` sin TTY | Rechazado | Pasá `default` en el workflow. |
 | `tools`, `skills`, `extensions`, `keys`, `env`, `agentType` o `provider` por agente | Rechazado | No hay equivalente seguro por worker en Cursor CLI. |
 
-`--concurrency` limita workers simultáneos y `--max-agents` limita trabajadores lanzados en todo el run. Ambos límites quedan en los artifacts. `--trust-workspace` entrega a Cursor una decisión que corresponde a la persona: el runner nunca la agrega solo. Los workflows son código confiado del repositorio: el sandbox de `vm` aísla la API inyectada, no reemplaza una frontera de seguridad para JavaScript hostil.
+`--concurrency` limita workers simultáneos y `--max-agents` limita trabajadores lanzados en todo el run. Ambos límites quedan en los artifacts. `--trust-workspace` entrega a Cursor una decisión que corresponde a la persona: el runner nunca la agrega solo.
+
+`--workspace` selecciona el proyecto que Cursor abre, pero no restringe por sí mismo el acceso de sus tools al filesystem. Tampoco tratamos `--sandbox enabled` como una frontera de aislamiento: si necesitás que el worker no pueda alcanzar archivos externos, corré el host en un contenedor o una cuenta/entorno aislado. Los workflows son código confiado del repositorio; el sandbox de `vm` solo aísla la API inyectada y tampoco reemplaza esa frontera.
 
 ## Modelos y salida estructurada
 

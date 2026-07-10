@@ -49,7 +49,7 @@ test("buildCursorCommand is read-only by default and forwards an explicit model"
 			"--output-format",
 			"stream-json",
 			"--mode",
-			"plan",
+			"ask",
 			"--sandbox",
 			"enabled",
 			"--workspace",

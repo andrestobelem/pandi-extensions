@@ -15,9 +15,10 @@ test("Cursor CLI executes a read-only worker through the portable runner", { ski
 	try {
 		const workflows = path.join(cwd, ".cursor", "ultracode", "workflows");
 		await fs.mkdir(workflows, { recursive: true });
+		await fs.writeFile(path.join(cwd, "README.md"), "PANDI_CURSOR_EXTERNAL_WORKSPACE_SENTINEL\n", "utf8");
 		await fs.writeFile(
 			path.join(workflows, "smoke.js"),
-			`const answer = await agent("Respond with exactly PANDI_CURSOR_RUNNER_SMOKE. Do not use tools, commands, files, or markdown.", { label: "smoke" });\nreturn answer;\n`,
+			`const answer = await agent("Leé únicamente README.md y respondé exactamente con su contenido, sin markdown ni explicación.", { label: "smoke" });\nreturn answer;\n`,
 			"utf8",
 		);
 		const outcome = await runWorkflow({
@@ -28,7 +29,7 @@ test("Cursor CLI executes a read-only worker through the portable runner", { ski
 			trustWorkspace: true,
 			agentTimeoutMs: 120_000,
 		});
-		assert.equal(outcome.result.trim(), "PANDI_CURSOR_RUNNER_SMOKE");
+		assert.equal(outcome.result.trim(), "PANDI_CURSOR_EXTERNAL_WORKSPACE_SENTINEL");
 	} finally {
 		await fs.rm(cwd, { recursive: true, force: true });
 	}
