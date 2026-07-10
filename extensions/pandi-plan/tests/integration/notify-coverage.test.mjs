@@ -22,7 +22,7 @@ const TARGETS = [
 	"extensions/pandi-plan/notify.ts",
 	"extensions/pandi-goal/notify.ts",
 	"extensions/pandi-loop/notify.ts",
-	"extensions/pandi-dynamic-workflows/notify.ts",
+	"extensions/pandi-dynamic-workflows/lib/notify.ts",
 ];
 const PROBLEM_TYPES = ["warning", "error"];
 const { check, counts } = createChecker();
