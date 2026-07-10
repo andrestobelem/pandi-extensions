@@ -47,7 +47,6 @@ import {
 	DEFAULT_CLEANUP_KEEP,
 	deleteWorkflowRun,
 	formatBackgroundStart,
-	resumeWorkflow,
 	shouldLaunchWorkflowInBackground,
 	startWorkflowBackground,
 } from "./run-lifecycle.js";
@@ -55,11 +54,12 @@ import { writeRunReport } from "./run-report-writer.js";
 import { getRunState, getRunStatusLabel } from "./run-state.js";
 import { canCancelRun, clearWorkflowWidget, formatRunSummary, showText } from "./run-status-ui.js";
 import { formatRunList, formatRunView, listRuns, resolveRun, showRunView } from "./run-view.js";
-import type { DynamicWorkflowToolParams, WorkflowLogEntry, WorkflowRunResult, WorkflowRunStatus } from "./types.js";
+import type { DynamicWorkflowToolParams, WorkflowLogEntry } from "./types.js";
 import { currentWorkflowDepth, maxWorkflowDepth } from "./workflow-depth.js";
 import { makeWorkflowGraphForContext, showWorkflowGraph } from "./workflow-graph.js";
 import { formatWorkflowPreflightSummary, preflightWorkflowLaunch } from "./workflow-preflight.js";
 import { ensureDir, listWorkflows, parsePatternFlag, resolveWorkflow, WORKFLOW_DRAFT_DIR } from "./workflow-resolve.js";
+import { resumeWorkflowForCaller } from "./workflow-resume-usecase.js";
 import { classifyDynamicWorkflowRequest } from "./workflow-tool-request.js";
 import { transformWorkflowCode } from "./workflow-transform.js";
 
@@ -137,28 +137,25 @@ export async function handleTool(
 	}
 
 	if (request.kind === "run" && action === "resume") {
-		const resumeInBackground = shouldLaunchWorkflowInBackground(ctx);
-		const record = await resumeWorkflow(
+		// limitParamsFromInput extrae solo los parámetros de límite numérico pasados explícitamente
+		// (concurrency/maxAgents/timeoutMs/agentTimeoutMs) de params, así que
+		// reanudar los honra como start en lugar de ignorarlos silenciosamente.
+		const presentation = await resumeWorkflowForCaller(
 			pi,
 			ctx,
 			request.runId,
-			// limitParamsFromInput extrae solo los parámetros de límite numérico pasados explícitamente
-			// (concurrency/maxAgents/timeoutMs/agentTimeoutMs) de params, así que
-			// reanudar los honra como start en lugar de ignorarlos silenciosamente.
-			{ background: resumeInBackground, force: !!params.force, limits: limitParamsFromInput(params) },
+			{ force: !!params.force, limits: limitParamsFromInput(params) },
 			signal,
 			(logs) => {
 				const preview = formatLogPreview(logs);
 				onUpdate?.({ content: [text(preview)], details: { action, logCount: logs.length } });
 			},
 		);
-		if (resumeInBackground) {
-			const status = record as WorkflowRunStatus;
-			return { content: [text(formatBackgroundStart(status))], details: { action, status } };
+		if (presentation.kind === "background") {
+			return { content: [text(presentation.message)], details: { action, status: presentation.status } };
 		}
-		const result = record as WorkflowRunResult;
-		if (!result.ok) throw new Error(formatRunSummary(result));
-		return { content: [text(formatRunSummary(result))], details: { action, result } };
+		if (!presentation.ok) throw new Error(presentation.message);
+		return { content: [text(presentation.message)], details: { action, result: presentation.result } };
 	}
 
 	if (request.kind === "workflow-definition" && action === "read") {
@@ -617,15 +614,13 @@ export async function handleWorkflowCommand(pi: ExtensionAPI, args: string, ctx:
 			// --force. Las sesiones persistentes se reanudan en segundo plano por defecto; print/json
 			// retrocede a primer plano porque ninguna ejecución en segundo plano puede permanecer viva.
 			const tokens = afterAction.split(/\s+/).filter(Boolean);
-			const background = shouldLaunchWorkflowInBackground(ctx);
 			const force = tokens.some((t) => t === "--force" || t === "-f");
 			const runId = tokens.find((t) => !t.startsWith("-"));
-			const record = await resumeWorkflow(pi, ctx, runId, { background, force });
-			if (background) {
-				notify(ctx, formatBackgroundStart(record as WorkflowRunStatus), "info");
+			const presentation = await resumeWorkflowForCaller(pi, ctx, runId, { force });
+			if (presentation.kind === "background") {
+				notify(ctx, presentation.message, "info");
 			} else {
-				const result = record as WorkflowRunResult;
-				notify(ctx, formatRunSummary(result), result.ok ? "info" : "error");
+				notify(ctx, presentation.message, presentation.ok ? "info" : "error");
 			}
 			return;
 		}
