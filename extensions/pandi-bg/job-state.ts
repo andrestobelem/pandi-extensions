@@ -3,9 +3,9 @@
 // de pid; nunca persiste ni envía señales. Proyección pura (sin fs); el escaneo I/O
 // (listJobs/eachProjectRunDir/reconcileInterruptedJobs) queda en index.ts y alimenta esto.
 
-import type { JobState } from "./index.js";
 import { probeProcessAlive, verifyProcessIdentity } from "./process-liveness.js";
 import { activeJobs, asNumber, asString } from "./runtime-state.js";
+import type { JobState } from "./types.js";
 
 // Proyección read-time única del estado persistido (los únicos estados que un writer puede
 // conocer: starting/running/completed/failed/cancelled). Cuando un job está persistido como

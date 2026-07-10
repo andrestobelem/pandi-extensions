@@ -6,13 +6,12 @@
  * Extraído verbatim de index.ts (preserva comportamiento). El Map `activeJobs`
  * es una única instancia compartida importada de vuelta en index.ts para que todo
  * call site get/set/has/delete/values opere sobre la misma identidad. El tipo
- * RuntimeJob sigue declarado en index.ts (el hub de runner/jobs) y se importa acá
- * solo como tipo, así que no hay ciclo de import runtime.
+ * RuntimeJob vive en types.ts (hoja sin runtime) para evitar ciclos con index.
  */
 
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import type { RuntimeJob } from "./index.js";
+import type { RuntimeJob } from "./types.js";
 
 export const activeJobs = new Map<string, RuntimeJob>();
 

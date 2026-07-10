@@ -6,8 +6,8 @@
  * sin tool LLM mutante.
  */
 
-import { type ChildProcess, spawn } from "node:child_process";
-import { createWriteStream, type WriteStream } from "node:fs";
+import { spawn } from "node:child_process";
+import { createWriteStream } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -38,6 +38,7 @@ import {
 	removeRunDir,
 	validJobId,
 } from "./storage.js";
+import type { JobState, JobStatus, RuntimeJob } from "./types.js";
 
 // El ciclo de vida de child-process + log-stream vive en ./job-runtime.ts; se reexportan
 // porque la suite de integración los importa desde el bundle generado.
@@ -50,22 +51,13 @@ export {
 	writeStatus,
 } from "./job-runtime.js";
 export { probeProcessAlive, readProcessStartId, verifyProcessIdentity } from "./process-liveness.js";
+// Tipos en types.ts; reexport para callers del bundle (misma superficie pública).
+export type { JobState, JobStatus, RuntimeJob } from "./types.js";
 export { atomicWriteJson, dirSizeBytes, parsePruneFlags, removeRunDir };
 
 const MAX_LOG_BYTES = 20_000;
 const CANCEL_GRACE_MS = 750;
 const PLAN_MODE_GUARD_SYMBOL = Symbol.for("pandi-plan.plan-mode.guard");
-
-export type JobState =
-	| "starting"
-	| "running"
-	| "completed"
-	| "failed"
-	| "cancelled"
-	| "orphaned"
-	| "interrupted"
-	| "stale"
-	| "unknown";
 
 interface PlanModeGuard {
 	isActive(): boolean;
@@ -78,36 +70,6 @@ interface JobSummary {
 	createdAt?: string;
 	updatedAt?: string;
 	artifactsDir: string;
-}
-
-export interface JobStatus {
-	jobId: string;
-	state: JobState;
-	pid?: number;
-	startId?: string;
-	startedAt?: string;
-	updatedAt: string;
-	completedAt?: string;
-	exitCode?: number | null;
-	signal?: string | null;
-	cancelRequested?: boolean;
-	active?: boolean;
-	persistedState?: string;
-	error?: string;
-}
-
-export interface RuntimeJob {
-	jobId: string;
-	runDir: string;
-	command: string;
-	child: ChildProcess;
-	status: JobStatus;
-	stdoutStream: WriteStream;
-	stderrStream: WriteStream;
-	combinedStream: WriteStream;
-	cancelTimer?: ReturnType<typeof setTimeout>;
-	statusWriteChain?: Promise<void>;
-	finalized: boolean;
 }
 
 interface BgResponse {
