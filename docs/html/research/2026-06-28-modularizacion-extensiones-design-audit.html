@@ -191,7 +191,7 @@ Si vas a tocar una extensión grande o a mover código compartido, empezá por a
 </li>
 <li><p><strong>Design Audit</strong> (9 analizadores por extensión + 4 transversales + síntesis-as-judge),
 ejecutado como dynamic workflow read-only.</p>
-<p>Artefactos del run:</p>
+<p>Artifacts del run:</p>
 <ul>
 <li><code>.pi/workflows/drafts/modularizar-extensiones-design-audit.js</code> →</li>
 <li><code>.pi/workflows/runs/2026-06-28T06-02-42-987Z-drafts-modularizar-extensiones-design-audit-a6e2980c/</code></li>
@@ -258,7 +258,7 @@ ejecutado como dynamic workflow read-only.</p>
 <li>Principio: &quot;Make complexity earn its place&quot; — el costo supera el payoff.</li>
 </ul>
 <blockquote>
-<p><strong>Artefacto de DESIGN-AUDIT (synthesis-as-judge)</strong></p>
+<p><strong>Artifact de DESIGN-AUDIT (synthesis-as-judge)</strong></p>
 <ul>
 <li><strong>Fuente de verdad:</strong> únicamente los analizadores verificados (8 por extensión + 4 transversales).</li>
 <li><strong>Cobertura:</strong> <code>ext=8 válidos</code>, <code>cross=4 válidos</code>, <code>1 analizador por extensión fallido</code> (ver §9).</li>
@@ -660,7 +660,7 @@ ejecutado como dynamic workflow read-only.</p>
 <td><strong>No DRY cruzado</strong>: packaging (profundidad uno, sin carpeta común en <code>files</code> para README) lo desaconseja</td>
 </tr>
 </tbody></table></div>
-<p>Regla general: el único trabajo de prompts en Fase 1 es <strong>añadir guardianes</strong> (no reescribir wording). Solo si más adelante se quiere reducir LOC, generar las secciones markdown desde <code>formatWorkflowPatternCatalog()</code> en un paso de build, dejando los <code>.md</code> como artefactos derivados.</p>
+<p>Regla general: el único trabajo de prompts en Fase 1 es <strong>añadir guardianes</strong> (no reescribir wording). Solo si más adelante se quiere reducir LOC, generar las secciones markdown desde <code>formatWorkflowPatternCatalog()</code> en un paso de build, dejando los <code>.md</code> como artifacts derivados.</p>
 <hr>
 <h2 id="5-plan-de-modularización-de-tests">5. Plan de modularización de tests</h2>
 <p><strong>Estado verificado:</strong> <strong>no existe</strong> harness compartido; cada una de las 24 suites reimplementa el bootstrap esbuild→tempdir→<code>pathToFileURL</code> con variantes incompatibles:</p>

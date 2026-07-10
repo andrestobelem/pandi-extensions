@@ -1,6 +1,6 @@
 # `~/.claude/workflows` — el catálogo de workflows
 
-> **Procedencia.** Los archivos `*.js` de este directorio son **artefactos generados**: NO los edites a mano. `.claude/scripts/generate-claude-workflows.mjs` los genera a partir de los scaffolds canónicos de pi (`extensions/pandi-dynamic-workflows/scaffolds/`), byte-idénticos al catálogo `.claude/workflows/` del repo, y el test `claude-parity` controla el drift en ambos destinos. La copia vive dentro del skill para que siga siendo autocontenida cuando el skill se instala standalone. pi **no** carga estos archivos: sus propios scaffolds de pi se leen desde disco on demand (servidos por `dynamic_workflow action=scaffold`). Estos usan paths de Claude y la forma `return` a nivel superior.
+> **Procedencia.** Los archivos `*.js` de este directorio son **artifacts generados**: NO los edites a mano. `.claude/scripts/generate-claude-workflows.mjs` los genera a partir de los scaffolds canónicos de pi (`extensions/pandi-dynamic-workflows/scaffolds/`), byte-idénticos al catálogo `.claude/workflows/` del repo, y el test `claude-parity` controla el drift en ambos destinos. La copia vive dentro del skill para que siga siendo autocontenida cuando el skill se instala standalone. pi **no** carga estos archivos: sus propios scaffolds de pi se leen desde disco on demand (servidos por `dynamic_workflow action=scaffold`). Estos usan paths de Claude y la forma `return` a nivel superior.
 
 **Qué son.** Cada archivo `*.js` de este directorio es un **script de orquestación** que ejecuta la **Workflow tool**. Un script es JavaScript plano que llama a unos pocos **helper-globals** inyectados (`agent`, `parallel`, `pipeline`, `workflow`, `phase`, `log`, más `args`) para abrir subagentes, iterar, verificar y componer; no hay `import`, ni `require`, ni `ctx.*`. Le pasás un objeto JSON `args`; el script devuelve un valor. Este catálogo tiene **25** workflows.
 
@@ -190,7 +190,7 @@ Workflow({ name: 'contract-gate', args: { request: 'Make the streaming faster.' 
 //                 { question:'What is the acceptance bar / target?', rationale:'...' } ] }   // STOP — no rewrite, no handoff
 ```
 
-**Cómo pasar `rewrittenPrompt` aguas abajo** — es el artefacto durable del handoff:
+**Cómo pasar `rewrittenPrompt` aguas abajo** — es el artifact durable del handoff:
 ```js
 const gate = Workflow({ name: 'contract-gate', args: { request: rawAsk } });
 if (gate.status === 'PROCEED') {

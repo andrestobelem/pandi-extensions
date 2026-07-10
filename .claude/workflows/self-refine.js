@@ -33,7 +33,7 @@ export const meta = {
 		{ name: "adversarial-verify", role: "composed-via (optional jury critic)" },
 	],
 	description:
-		"Bucle acotado generate->critique->refine in-place con memoria verbal; `adversarial-verify` opcional como jurado crítico (arXiv:2303.17651)",
+		"Loop acotado generate->critique->refine in-place con memoria verbal; `adversarial-verify` opcional como jurado crítico (arXiv:2303.17651)",
 	phases: [{ title: "Generate" }, { title: "Critique" }, { title: "Refine" }],
 };
 

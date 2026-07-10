@@ -195,7 +195,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
     F --&gt;|descubrir entre muchos ítems| H[Discover &amp; fan-out]
     F --&gt;|hay hallazgos, hace falta confianza| I[Verify]
     F --&gt;|hay que elegir lo mejor entre varias opciones| J[Generate &amp; select]
-    F --&gt;|pulir un solo artefacto| K[Iterate &amp; refine]
+    F --&gt;|pulir un solo artifact| K[Iterate &amp; refine]
     F --&gt;|aplicar cambios en una codebase| L[Migrate]</pre>
 <div class="table-scroll"><table>
 <thead>
@@ -246,7 +246,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td><code>tournament</code></td>
 </tr>
 <tr>
-<td>Un artefacto necesita pulido, no una ronda nueva de generación</td>
+<td>Un artifact necesita pulido, no una ronda nueva de generación</td>
 <td>Iterate &amp; refine</td>
 <td><code>self-refine</code></td>
 </tr>
@@ -357,7 +357,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </tr>
 <tr>
 <td><a href="../scaffolds/react-scout.html"><code>react-scout</code></a></td>
-<td>Bucle ReAct reason → act → observe: cada paso ancla un pensamiento en una observación real de solo lectura.</td>
+<td>Loop ReAct reason → act → observe: cada paso ancla un pensamiento en una observación real de solo lectura.</td>
 <td>Investigación basada en evidencia antes de comprometerte o hacer fan-out.</td>
 <td>Necesitás evidencia <em>antes</em> de comprometerte con un fan-out, no cobertura de una lista.</td>
 </tr>
@@ -387,7 +387,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <tr>
 <td><a href="../scaffolds/bug-verify.html"><code>bug-verify</code></a></td>
 <td>Confirma bugs sospechados por <strong>reproducción</strong>: solo son reales si una corrida falla en el código actual; chequeo opcional FAIL→PASS y minimización. Secuencial.</td>
-<td>Confirmar leads de <code>repo-bug-hunt</code>; bucle reproducir-y-corregir.</td>
+<td>Confirmar leads de <code>repo-bug-hunt</code>; loop reproducir-y-corregir.</td>
 <td>Tenés que probarlo con una corrida fallida (por ejemplo, confirmando leads de <code>repo-bug-hunt</code>), no argumentarlo.</td>
 </tr>
 <tr>
@@ -400,7 +400,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td><a href="../scaffolds/adversarial-plan-review.html"><code>adversarial-plan-review</code></a></td>
 <td>N revisores con ángulos fijos (correctness, security, maintainability, scope) sintetizan un plan revisado.</td>
 <td>Revisión de diseño/RFC; compuerta pre-implementación.</td>
-<td>El artefacto bajo revisión es un <em>plan</em>, no código ni afirmaciones — usalo antes de empezar a implementar.</td>
+<td>El artifact bajo revisión es un <em>plan</em>, no código ni afirmaciones — usalo antes de empezar a implementar.</td>
 </tr>
 </tbody></table></div>
 <h2 id="generate--select">🎯 Generate &amp; select</h2>
@@ -450,13 +450,13 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </thead>
 <tbody><tr>
 <td><a href="../scaffolds/self-refine.html"><code>self-refine</code></a></td>
-<td>Bucle acotado in-place de generar → criticar → refinar con memoria verbal; se detiene en silencio cuando el crítico queda conforme.</td>
-<td>Pulir un artefacto (doc/spec/code) hasta calidad.</td>
-<td>Un solo artefacto necesita pulido y la crítica puede ser intrínseca — no hace falta un oráculo externo.</td>
+<td>Loop acotado in-place de generar → criticar → refinar con memoria verbal; se detiene en silencio cuando el crítico queda conforme.</td>
+<td>Pulir un artifact (doc/spec/code) hasta calidad.</td>
+<td>Un solo artifact necesita pulido y la crítica puede ser intrínseca — no hace falta un oráculo externo.</td>
 </tr>
 <tr>
 <td><a href="../scaffolds/reflexion.html"><code>reflexion</code></a></td>
-<td>Bucle outer trial de verbal-RL: reintenta cada trial llevando auto-reflexiones; el evaluador puede estar anclado externamente (<code>verifyCmd</code>).</td>
+<td>Loop outer trial de verbal-RL: reintenta cada trial llevando auto-reflexiones; el evaluador puede estar anclado externamente (<code>verifyCmd</code>).</td>
 <td>Code-with-tests; tareas con oráculo pass/fail; reset-and-re-attempt en vez de editar in place.</td>
 <td>Tenés un oráculo pass/fail (por ejemplo, tests) y un reintento fresco gana a editar en el lugar.</td>
 </tr>

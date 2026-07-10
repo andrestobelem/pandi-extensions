@@ -169,7 +169,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	</ol>
 </nav>
 <blockquote>
-<p>Bucle de reintentos con RL verbal: en cada trial reintenta la tarea completa con lecciones acumuladas; el evaluador puede estar fundamentado externamente (<code>verifyCmd</code>).</p>
+<p>Loop de reintentos con RL verbal: en cada trial reintenta la tarea completa con lecciones acumuladas; el evaluador puede estar fundamentado externamente (<code>verifyCmd</code>).</p>
 </blockquote>
 <h2 id="en-30-segundos">En 30 segundos</h2>
 <p><code>reflexion</code> implementa Reflexion (arXiv:2303.11366): un agente resuelve la tarea completa desde cero en cada trial, un evaluador separado le asigna <code>pass/fail</code> + <code>score</code>, y un tercer agente convierte cada fallo en una lección corta para el siguiente intento. Elegilo cuando tenés un oráculo objetivo — tests, build o un comando <code>verifyCmd</code> — y empezar de nuevo rinde mejor que parchear el mismo borrador.</p>
@@ -222,7 +222,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
     Z --&gt; AA["finalAttempt = passed ? último history.attempt : best.attempt"]
     AA --&gt; AB["return { result, passed, trials, maxTrials, verifyCmd, grounded, bestTrial, bestScore, lessons, history }"]</pre>
 <h2 id="qué-hace">Qué hace</h2>
-<p><code>reflexion</code> implementa el patrón de <em>verbal reinforcement learning</em> del paper original: un loop externo de trials que reintenta la tarea completa desde cero, en lugar de refinar el mismo artefacto in-place. Separa explícitamente tres roles fieles al paper — Actor (M_a), Evaluador (M_e) y Auto-Reflexión (M_sr) — y cada uno corre como una llamada distinta a <code>agent</code>, no como un único modelo que se evalúa a sí mismo.</p>
+<p><code>reflexion</code> implementa el patrón de <em>verbal reinforcement learning</em> del paper original: un loop externo de trials que reintenta la tarea completa desde cero, en lugar de refinar el mismo artifact in-place. Separa explícitamente tres roles fieles al paper — Actor (M_a), Evaluador (M_e) y Auto-Reflexión (M_sr) — y cada uno corre como una llamada distinta a <code>agent</code>, no como un único modelo que se evalúa a sí mismo.</p>
 <p>La fortaleza del diseño es que el grounding se puede falsar. Cuando se pasa <code>verifyCmd</code>, el Evaluador debe correr ese comando de verdad con la tool de bash en un directorio scratch aislado, y citar el output real en <code>evidence</code>. El código no confía en lo que el modelo diga: si <code>verifyCmd</code> fue pedido pero el Evaluador no citó output no vacío, <code>grounded</code> se degrada a <code>false</code> y un <code>pass</code> reclamado sin evidencia NO se acepta como éxito. Eso imita la regla de <em>no reproduced without quoted output</em> de <code>bug-verify.js</code>.</p>
 <p>La memoria episódica es un buffer acotado (<code>memoryCap</code>, default 3, siguiendo el paper que usa 1-3 lecciones para entrar en contexto): cada lección de un trial fallido se agrega al final y, si se excede el cap, se descarta la más vieja. El loop está acotado en ambos extremos: se detiene en el primer <code>pass</code> aceptable, o cuando se agota <code>maxTrials</code>. Si se agota el presupuesto sin pasar, devuelve el mejor intento observado (<code>best</code>, por <code>score</code>, con desempate hacia el más reciente).</p>
 <h2 id="cuándo-usarlo">Cuándo usarlo</h2>
@@ -238,7 +238,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td><code>reflexion</code></td>
 </tr>
 <tr>
-<td>Preferís editar UN borrador in-place con crítica y refinamiento sobre el mismo artefacto</td>
+<td>Preferís editar UN borrador in-place con crítica y refinamiento sobre el mismo artifact</td>
 <td><code>self-refine</code> (una sola cadena, sin reset, sin evaluador separado)</td>
 </tr>
 <tr>

@@ -172,11 +172,11 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <p>Tripwire barato de input/output que HALTA ante una violación clara; puede envolver cualquier workflow vía <code>protect:{name,args}</code>.</p>
 </blockquote>
 <h2 id="en-30-segundos">En 30 segundos</h2>
-<p><code>guardrails</code> pone un tripwire barato alrededor de un workflow o de un artefacto ya generado. Cada regla se evalúa con un agente chico y acotado; si una regla viola algo con evidencia clara, el flujo se detiene ahí mismo. Elegilo cuando querés imponer límites duros sin pagar el costo de correr todo el trabajo antes de descubrir el problema.</p>
+<p><code>guardrails</code> pone un tripwire barato alrededor de un workflow o de un artifact ya generado. Cada regla se evalúa con un agente chico y acotado; si una regla viola algo con evidencia clara, el flujo se detiene ahí mismo. Elegilo cuando querés imponer límites duros sin pagar el costo de correr todo el trabajo antes de descubrir el problema.</p>
 <h2 id="cómo-lanzarlo">Cómo lanzarlo</h2>
 <pre><code class="hljs language-text">/workflow new mi-run --pattern=guardrails
 /workflow run mi-run {&quot;protect&quot;:{&quot;name&quot;:&quot;deep-research&quot;,&quot;args&quot;:{&quot;request&quot;:&quot;...&quot;}},&quot;inputRules&quot;:[&quot;no pedir generar malware&quot;],&quot;outputRules&quot;:[&quot;no filtrar secretos/API keys&quot;]}</code></pre>
-<p>Modo validador (sin <code>protect</code>, solo chequea un artefacto ya generado):</p>
+<p>Modo validador (sin <code>protect</code>, solo chequea un artifact ya generado):</p>
 <pre><code class="hljs language-text">/workflow run mi-run {&quot;content&quot;:&quot;&lt;texto a validar&gt;&quot;,&quot;rules&quot;:[&quot;no contiene PII sin redactar&quot;]}</code></pre>
 <p><code>content</code>/<code>protect</code> son mutuamente relevantes según el modo — ver <a href="#input-y-output">Input y output</a>.</p>
 <h2 id="diagrama">Diagrama</h2>
@@ -242,7 +242,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <tr>
 <td>Validador</td>
 <td><code>content</code> + <code>rules</code> (o <code>inputRules</code>/<code>outputRules</code>)</td>
-<td>para gatear un artefacto ya generado y devolver <code>PASS</code> o <code>TRIPPED</code></td>
+<td>para gatear un artifact ya generado y devolver <code>PASS</code> o <code>TRIPPED</code></td>
 </tr>
 </tbody></table></div>
 <p>En modo <strong>wrapper</strong> primero corren los guards de INPUT sobre la solicitud; si alguno trippea, el workflow protegido no se ejecuta. Si pasan, corre el workflow real y luego se validan los guards de OUTPUT sobre el resultado.</p>

@@ -169,10 +169,10 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	</ol>
 </nav>
 <blockquote>
-<p>Bucle acotado de generar → criticar → refinar en el mismo artefacto, con memoria verbal; quiet-stop cuando el crítico queda conforme (arXiv:2303.17651).</p>
+<p>Loop acotado de generar → criticar → refinar en el mismo artifact, con memoria verbal; quiet-stop cuando el crítico queda conforme (arXiv:2303.17651).</p>
 </blockquote>
 <h2 id="en-30-segundos">En 30 segundos</h2>
-<p>Es un patrón para pulir un solo artefacto (un texto, un doc o una sección de spec) por rondas: un agente genera un borrador, otro lo critica de forma adversarial y localizada, y un tercer paso incorpora esa crítica. El loop se corta por <code>satisfied</code>, cuando ya no queda nada accionable; por <code>maxRounds</code>, cuando se llega al tope; por <code>draft</code> inicial <code>null</code>; por <code>critique</code> <code>null</code>; o por una excepción. Usalo cuando la señal de mejora puede salir de otro LLM leyendo el mismo texto; si necesitás un oráculo externo y reintentos desde cero, elegí <code>reflexion</code>.</p>
+<p>Es un patrón para pulir un solo artifact (un texto, un doc o una sección de spec) por rondas: un agente genera un borrador, otro lo critica de forma adversarial y localizada, y un tercer paso incorpora esa crítica. El loop se corta por <code>satisfied</code>, cuando ya no queda nada accionable; por <code>maxRounds</code>, cuando se llega al tope; por <code>draft</code> inicial <code>null</code>; por <code>critique</code> <code>null</code>; o por una excepción. Usalo cuando la señal de mejora puede salir de otro LLM leyendo el mismo texto; si necesitás un oráculo externo y reintentos desde cero, elegí <code>reflexion</code>.</p>
 <h2 id="cómo-lanzarlo">Cómo lanzarlo</h2>
 <pre><code class="hljs language-text">/workflow new mi-run --pattern=self-refine
 /workflow run mi-run {&quot;task&quot;:&quot;Escribí la sección de migración del changelog v2.&quot;, &quot;maxRounds&quot;:4, &quot;useJury&quot;:true}</code></pre>
@@ -219,8 +219,8 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
         CX --&gt; CY["failureNote = round N failed: msg\nbreak: return último draft bueno"]
     end</pre>
 <h2 id="qué-hace">Qué hace</h2>
-<p><code>self-refine</code> implementa el patrón Self-Refine (Madaan et al., arXiv:2303.17651): un mismo artefacto se produce, se critica y se revisa en un ciclo, en vez de generarse una sola vez. La crítica se acumula como &quot;memoria verbal&quot; — cada ronda ve TODAS las críticas anteriores, no solo la última — así el refine no repite errores ya señalados ni pierde contexto de por qué se cambió algo.</p>
-<p>El bucle está acotado en ambos extremos, que es la parte que las implementaciones ingenuas de &quot;seguir mejorando&quot; suelen fallar: un tope duro <code>maxRounds</code> (el paper reporta retornos decrecientes después de ~4 rondas) y un &quot;quiet stop&quot; cuando el crítico declara <code>satisfied</code> (sin issues accionables). Para que el quiet-stop sea confiable, al crítico se le exige ser específico y localizado (apuntar a spans concretos con un fix concreto), y se le pide una postura adversarial — nunca acordar mansamente con el propio draft.</p>
+<p><code>self-refine</code> implementa el patrón Self-Refine (Madaan et al., arXiv:2303.17651): un mismo artifact se produce, se critica y se revisa en un ciclo, en vez de generarse una sola vez. La crítica se acumula como &quot;memoria verbal&quot; — cada ronda ve TODAS las críticas anteriores, no solo la última — así el refine no repite errores ya señalados ni pierde contexto de por qué se cambió algo.</p>
+<p>El loop está acotado en ambos extremos, que es la parte que las implementaciones ingenuas de &quot;seguir mejorando&quot; suelen fallar: un tope duro <code>maxRounds</code> (el paper reporta retornos decrecientes después de ~4 rondas) y un &quot;quiet stop&quot; cuando el crítico declara <code>satisfied</code> (sin issues accionables). Para que el quiet-stop sea confiable, al crítico se le exige ser específico y localizado (apuntar a spans concretos con un fix concreto), y se le pide una postura adversarial — nunca acordar mansamente con el propio draft.</p>
 <p>La corrección puramente intrínseca (el crítico es, en esencia, el mismo generador acordando consigo mismo) puede degradar el output en vez de mejorarlo (Huang et al., arXiv:2310.01798). El scaffold mitiga esto de dos formas: (1) el crítico es una instancia de agente separada con un brief explícitamente adversarial, y (2) opcionalmente (<code>useJury: true</code>) reemplaza al crítico único por una COMPOSICIÓN con el workflow <code>adversarial-verify</code> — un jurado de escépticos que refuta por mayoría las afirmaciones del draft, un oráculo más fuerte e independiente que evalúa antes de confiar en un &quot;satisfied&quot;.</p>
 <h2 id="cuándo-usarlo">Cuándo usarlo</h2>
 <div class="table-scroll"><table>
@@ -231,7 +231,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </tr>
 </thead>
 <tbody><tr>
-<td>pulir un solo artefacto in-place con crítica intrínseca</td>
+<td>pulir un solo artifact in-place con crítica intrínseca</td>
 <td><code>self-refine</code></td>
 </tr>
 <tr>

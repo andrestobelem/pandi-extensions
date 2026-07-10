@@ -132,7 +132,7 @@ flowchart TD
   D -- cubrir un repo/corpus --> E[fan-out / scout-fanout / repo-bug-hunt / map-reduce]
   D -- ganar confianza --> F[adversarial-verify / bug-verify / self-consistency]
   D -- elegir el mejor de N --> G[judge-escalate / tournament / tree-of-thoughts]
-  D -- mejorar un artefacto --> H[self-refine / reflexion / large-migration]
+  D -- mejorar un artifact --> H[self-refine / reflexion / large-migration]
   D -- descomponer un objetivo --> I[orchestrator-workers]
   D -- crear un workflow nuevo --> J[workflow-factory]
 ```
@@ -188,7 +188,7 @@ Workflow({ name: 'contract-gate', args: { request: 'Make the streaming faster.' 
 //                 { question:'What is the acceptance bar / target?', rationale:'...' } ] }   // STOP — no rewrite, no handoff
 ```
 
-**Pasar `rewrittenPrompt` aguas abajo** — es el artefacto durable de transferencia:
+**Pasar `rewrittenPrompt` aguas abajo** — es el artifact durable de transferencia:
 ```js
 const gate = Workflow({ name: 'contract-gate', args: { request: rawAsk } });
 if (gate.status === 'PROCEED') {
