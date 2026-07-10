@@ -4,6 +4,7 @@ import * as path from "node:path";
 import { CONFIG_DIR_NAME, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { parseCliJsonOrText } from "../lib/config.js";
 import { notify } from "../lib/notify.js";
+import { ensureDir, WORKFLOW_DRAFT_DIR } from "../lib/paths.js";
 import { formatDraftUsageIndex, formatWorkflowList } from "../lib/presentation.js";
 import { writeRunReport } from "../observe/index.js";
 import { collectPiSessions, formatPiSessionList } from "../pi-session.js";
@@ -25,7 +26,7 @@ import {
 	WORKFLOW_PATTERN_CATALOG,
 } from "./pattern-scaffolds.js";
 import { formatWorkflowPreflightSummary, preflightWorkflowLaunch } from "./preflight.js";
-import { ensureDir, listWorkflows, parsePatternFlag, resolveWorkflow, WORKFLOW_DRAFT_DIR } from "./resolve.js";
+import { listWorkflows, parsePatternFlag, resolveWorkflow } from "./resolve.js";
 
 export type WorkflowCommandParsed = {
 	action: string;

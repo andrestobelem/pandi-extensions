@@ -20,8 +20,8 @@ import * as path from "node:path";
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { safeJson } from "../lib/format.js";
+import { getRunRoots } from "../lib/paths.js";
 import { hasActiveRun } from "../lifecycle/index.js";
-import { getRunRoots } from "../surface/index.js";
 import type { WorkflowRunRecord, WorkflowRunResult, WorkflowRunStatus } from "../types.js";
 
 export async function getRunDirs(ctx: ExtensionContext): Promise<string[]> {

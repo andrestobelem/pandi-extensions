@@ -40,6 +40,18 @@ export { notify } from "./notify.js";
 export { OccurrenceCounter } from "./occurrence-counter.js";
 export { resolveArtifactPath, resolveCwdPath, resolveInsideRoot } from "./path-safety.js";
 export {
+	createRunDirectory,
+	ensureDir,
+	getGraphRoot,
+	getRunRoots,
+	projectHash,
+	slugify,
+	WORKFLOW_DIR,
+	WORKFLOW_DRAFT_DIR,
+	WORKFLOW_GRAPH_DIR,
+	WORKFLOW_RUN_DIR,
+} from "./paths.js";
+export {
 	compactInline,
 	formatDraftUsageIndex,
 	formatElapsedMs,

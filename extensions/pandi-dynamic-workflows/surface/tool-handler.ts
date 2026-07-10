@@ -3,6 +3,7 @@ import * as path from "node:path";
 import type { AgentToolUpdateCallback, ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { buildLimits, limitParamsFromInput, normalizeWorkflowInput } from "../lib/config.js";
 import { text } from "../lib/format.js";
+import { ensureDir } from "../lib/paths.js";
 import { formatWorkflowList } from "../lib/presentation.js";
 import { formatRunSummary } from "../lib/run-summary.js";
 import { transformWorkflowCode } from "../lib/transform.js";
@@ -27,7 +28,7 @@ import {
 	WORKFLOW_PATTERN_CATALOG,
 } from "./pattern-scaffolds.js";
 import { formatWorkflowPreflightSummary, preflightWorkflowLaunch } from "./preflight.js";
-import { ensureDir, listWorkflows, resolveWorkflow } from "./resolve.js";
+import { listWorkflows, resolveWorkflow } from "./resolve.js";
 import { classifyDynamicWorkflowRequest } from "./tool-request.js";
 
 // Centraliza el preview de las últimas N líneas de log, formateadas como HH:MM:SS + mensaje.

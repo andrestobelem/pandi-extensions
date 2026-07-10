@@ -7,6 +7,7 @@ import * as path from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { buildLimits, limitParamsFromInput } from "../lib/config.js";
 import { notify } from "../lib/notify.js";
+import { ensureDir } from "../lib/paths.js";
 import {
 	computeCodeHash,
 	getRunPeakParallelAgents,
@@ -16,7 +17,7 @@ import {
 	maxJournalAgentId,
 	resolveRun,
 } from "../runtime/index.js";
-import { ensureDir, resolveWorkflow } from "../surface/index.js";
+import { resolveWorkflow } from "../surface/index.js";
 import type {
 	DynamicWorkflowToolParams,
 	PreparedWorkflowRun,

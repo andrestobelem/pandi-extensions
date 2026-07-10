@@ -4,7 +4,7 @@
  *
  * PiSessionRecord/LivePiSessionRuntime son module-internal; PiSessionModel (el enriched
  * record que el dashboard renderiza) se exporta, así como los live-session path helpers.
- * Deferred cycle: los heartbeat/root helpers leen ensureDir/projectHash desde workflow-resolve.ts
+ * Deferred cycle: los heartbeat/root helpers leen ensureDir/projectHash desde lib/paths.ts
  * y el contador de runs activos desde lifecycle/registry solo dentro de sus bodies; PI_SESSION_HEARTBEAT_MS
  * viene de runtime-constants.ts, e index.ts importa los session helpers de vuelta (invocados solo en session_start/session_end handlers y
  * dashboard body). Extraído byte-idénticamente (cluster + los cuatro live-session symbols
@@ -17,10 +17,10 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
+import { ensureDir, projectHash } from "./lib/paths.js";
 import { formatElapsedMs } from "./lib/presentation.js";
 import { activeRunCount } from "./lifecycle/index.js";
 import { PI_SESSION_HEARTBEAT_MS, writeJsonFile } from "./runtime/index.js";
-import { ensureDir, projectHash } from "./surface/index.js";
 
 const PI_LIVE_SESSION_DIR = "live-sessions";
 const PI_SESSION_STALE_MS = 20_000;

@@ -1,6 +1,6 @@
 import * as path from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { createRunDirectory, ensureDir } from "../surface/index.js";
+import { createRunDirectory, ensureDir } from "../lib/paths.js";
 import type { PreparedWorkflowRun } from "../types.js";
 
 export async function prepareWorkflowRun(

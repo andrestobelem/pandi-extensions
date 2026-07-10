@@ -4,9 +4,10 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { AsyncMutex, abortReasonMessage, combineSignal, createSemaphore } from "../lib/concurrency.js";
 import { safeJson } from "../lib/format.js";
 import { OccurrenceCounter } from "../lib/occurrence-counter.js";
+import { ensureDir } from "../lib/paths.js";
 import { formatRunSummary } from "../lib/run-summary.js";
 import { type AgentFocusMetrics, aggregateRunFocusMetrics, formatFocusMetricsMarkdown } from "../observe/index.js";
-import { ensureDir, preflightWorkflowLaunch, resolveWorkflow } from "../surface/index.js";
+import { preflightWorkflowLaunch, resolveWorkflow } from "../surface/index.js";
 import type {
 	PreparedWorkflowRun,
 	RunLimits,

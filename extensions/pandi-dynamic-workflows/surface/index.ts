@@ -3,6 +3,18 @@
  * Call sites externos importan desde aquí; el interior queda escondido.
  */
 
+export {
+	createRunDirectory,
+	ensureDir,
+	getGraphRoot,
+	getRunRoots,
+	projectHash,
+	slugify,
+	WORKFLOW_DIR,
+	WORKFLOW_DRAFT_DIR,
+	WORKFLOW_GRAPH_DIR,
+	WORKFLOW_RUN_DIR,
+} from "../lib/paths.js";
 export { transformWorkflowCode } from "../lib/transform.js";
 export type { WorkflowPattern } from "./catalog.js";
 export { getPatternUseCases, resolveWorkflowPattern, WORKFLOW_PATTERN_CATALOG } from "./catalog.js";
@@ -37,22 +49,7 @@ export {
 	preflightWorkflowLaunch,
 	type WorkflowPreflightResult,
 } from "./preflight.js";
-export {
-	createRunDirectory,
-	ensureDir,
-	getGraphRoot,
-	getRunRoots,
-	listWorkflows,
-	parsePatternFlag,
-	projectHash,
-	resolveWorkflow,
-	resolveWorkflowForRun,
-	slugify,
-	WORKFLOW_DIR,
-	WORKFLOW_DRAFT_DIR,
-	WORKFLOW_GRAPH_DIR,
-	WORKFLOW_RUN_DIR,
-} from "./resolve.js";
+export { listWorkflows, parsePatternFlag, resolveWorkflow, resolveWorkflowForRun } from "./resolve.js";
 export { registerWorkflowRoutingCommands } from "./routing-commands.js";
 export { registerWorkflowShellCommands } from "./shell-commands.js";
 export { makeWorkflowPromptGuidelines, TOOL_ACTIONS, workflowToolSchema } from "./tool-contract.js";
