@@ -1,4 +1,4 @@
-/** Formateador puro de la línea usada por /loop status y la status bar. */
+/** Formateador puro de la línea usada por `/loop status` y la barra de estado. */
 
 import { formatLoopInterval } from "./interval.js";
 import type { LoopMode, LoopStatus } from "./state.js";
