@@ -17,7 +17,6 @@ import {
 	maxJournalAgentId,
 	resolveRun,
 } from "../runtime/index.js";
-import { resolveWorkflow } from "../surface/index.js";
 import type {
 	DynamicWorkflowToolParams,
 	PreparedWorkflowRun,
@@ -27,6 +26,7 @@ import type {
 } from "../types.js";
 import { hasActiveRun } from "./registry.js";
 import { runWorkflowWithUi } from "./run-with-ui.js";
+import { runtimeWorkflowDeps } from "./runtime-deps.js";
 import { shouldLaunchWorkflowInBackground, startWorkflowBackground } from "./start.js";
 
 // Reserva síncrona para reanudaciones en vuelo: resumeWorkflow espera varios
@@ -84,7 +84,7 @@ async function resumeReservedRun(
 	onProgress?: (logs: WorkflowLogEntry[], status?: WorkflowRunStatus) => void,
 	limitOverrides?: Partial<DynamicWorkflowToolParams>,
 ): Promise<WorkflowRunRecord> {
-	const workflow = await resolveWorkflow(ctx, record.workflow, record.scope);
+	const workflow = await runtimeWorkflowDeps.resolveWorkflow(ctx, record.workflow, record.scope);
 	const code = await fs.readFile(workflow.path, "utf8");
 	const codeHash = computeCodeHash(code);
 	const journal = await loadJournal(record.runDir);
