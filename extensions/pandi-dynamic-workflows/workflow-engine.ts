@@ -1,12 +1,11 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { AsyncMutex, abortReasonMessage, combineSignal, createSemaphore, sleep } from "./concurrency-primitives.js";
+import { AsyncMutex, abortReasonMessage, combineSignal, createSemaphore } from "./concurrency-primitives.js";
 import { type AgentFocusMetrics, aggregateRunFocusMetrics, formatFocusMetricsMarkdown } from "./focus-metrics.js";
-import { MAX_TOOL_TEXT, safeJson, stringify } from "./format.js";
+import { safeJson } from "./format.js";
 import { computeCodeHash } from "./journal.js";
 import { OccurrenceCounter } from "./occurrence-counter.js";
-import { resolveCwdPath } from "./path-safety.js";
 import { formatRunSummary } from "./run-status-ui.js";
 import { writeJsonFile, writeRunStatus } from "./run-store.js";
 import type {
@@ -19,10 +18,10 @@ import type {
 	WorkflowRunState,
 	WorkflowRunStatus,
 } from "./types.js";
-import { type BashAskContext, runAsk, runBash } from "./workflow-bash-ask.js";
+import type { BashAskContext } from "./workflow-bash-ask.js";
+import { makeApi } from "./workflow-make-api.js";
 import { preflightWorkflowLaunch } from "./workflow-preflight.js";
 import { ensureDir } from "./workflow-resolve.js";
-import { makeRunAgents } from "./workflow-run-agents.js";
 import { createWorkflowRunHost } from "./workflow-run-host.js";
 import { prepareWorkflowRun } from "./workflow-run-prepare.js";
 import { writeWorkflowRunSnapshots } from "./workflow-run-snapshots.js";
@@ -32,7 +31,6 @@ import {
 	runSubagent as runSubagentImpl,
 } from "./workflow-run-subagent.js";
 import { runSubworkflow as runSubworkflowImpl } from "./workflow-run-subworkflow.js";
-import type { WorkflowRuntimeApi } from "./workflow-runtime-api.js";
 import { callSignal, executeWorkflowCode } from "./workflow-worker-bridge.js";
 
 let tierEnvWarned = false;
@@ -192,6 +190,31 @@ export async function runWorkflow(
 		appendEvent,
 	};
 
+	function makeApiLocal(workflowNamespace: string | undefined, allowWorkflow: boolean, apiInput: unknown) {
+		return makeApi(
+			{
+				ctx,
+				runId,
+				runDir,
+				runLimits,
+				runSignal,
+				agent,
+				getAgentPhaseCount: () => agentPhaseCount,
+				bumpAgentPhaseCount: () => ++agentPhaseCount,
+				getFanoutSignal: () => callSignal.getStore() ?? runSignal.signal,
+				runSubworkflow: runSubworkflowLocal,
+				bashAsk,
+				log,
+				phase,
+				writeArtifact,
+				appendArtifact,
+			},
+			workflowNamespace,
+			allowWorkflow,
+			apiInput,
+		);
+	}
+
 	async function runSubworkflowLocal(name: string, workflowInput: unknown = {}): Promise<unknown> {
 		return runSubworkflowImpl(
 			{
@@ -203,97 +226,14 @@ export async function runWorkflow(
 				getAgentCount: () => agentCount,
 				appendEvent,
 				log,
-				makeApi,
+				makeApi: makeApiLocal,
 			},
 			name,
 			workflowInput,
 		);
 	}
 
-	function makeApi(
-		workflowNamespace: string | undefined,
-		allowWorkflow: boolean,
-		apiInput: unknown,
-	): WorkflowRuntimeApi {
-		const namespacedAgent = (prompt: string, options: InternalAgentOptions = {}) =>
-			agent(prompt, {
-				...options,
-				...(workflowNamespace ? { __workflowNamespace: workflowNamespace } : {}),
-			});
-		return {
-			cwd: ctx.cwd,
-			runId,
-			runDir,
-			input: apiInput,
-			limits: runLimits,
-			log,
-			phase,
-			agent: namespacedAgent,
-			agents: makeRunAgents(
-				{
-					getConcurrencyCap: () => runLimits.concurrency,
-					nextPhaseId: () => ++agentPhaseCount,
-					getFanoutSignal: () => callSignal.getStore() ?? runSignal.signal,
-				},
-				namespacedAgent,
-			),
-			workflow: allowWorkflow
-				? runSubworkflowLocal
-				: async () => {
-						throw new Error(
-							"workflow() composition depth limit is 1: sub-workflows cannot call other sub-workflows.",
-						);
-					},
-			ask: async (question, options = {}) =>
-				await runAsk(bashAsk, question, {
-					...options,
-					...(workflowNamespace ? { __workflowNamespace: workflowNamespace } : {}),
-				}),
-			bash: async (command, options = {}) =>
-				await runBash(bashAsk, command, {
-					...options,
-					...(workflowNamespace ? { __workflowNamespace: workflowNamespace } : {}),
-				}),
-			readFile: async (filePath, encoding = "utf8") =>
-				await fs.readFile(resolveCwdPath(ctx.cwd, filePath), encoding),
-			writeFile: async (filePath, data) => {
-				const file = resolveCwdPath(ctx.cwd, filePath);
-				await ensureDir(path.dirname(file));
-				await fs.writeFile(file, data);
-				return { path: file };
-			},
-			appendFile: async (filePath, data) => {
-				const file = resolveCwdPath(ctx.cwd, filePath);
-				await ensureDir(path.dirname(file));
-				await fs.appendFile(file, data);
-				return { path: file };
-			},
-			listFiles: async (dir = ".", options = {}) => {
-				const root = resolveCwdPath(ctx.cwd, dir);
-				const maxFiles = options.maxFiles ?? 10_000;
-				const files: string[] = [];
-				async function walk(current: string): Promise<void> {
-					if (files.length >= maxFiles) return;
-					for (const entry of await fs.readdir(current, { withFileTypes: true })) {
-						if (entry.name === "node_modules" || entry.name === ".git") continue;
-						const full = path.join(current, entry.name);
-						if (entry.isDirectory()) await walk(full);
-						else if (entry.isFile()) files.push(path.relative(ctx.cwd, full).replaceAll(path.sep, "/"));
-						if (files.length >= maxFiles) return;
-					}
-				}
-				await walk(root);
-				return files;
-			},
-			writeArtifact,
-			appendArtifact,
-			sleep: async (ms) => await sleep(ms, runSignal.signal),
-			json: (value, maxChars = MAX_TOOL_TEXT) => stringify(value, maxChars),
-			compact: (value, maxChars = MAX_TOOL_TEXT) => stringify(value, maxChars),
-		};
-	}
-
-	const api = makeApi(undefined, true, input);
+	const api = makeApiLocal(undefined, true, input);
 
 	let output: unknown;
 	let error: string | undefined;
