@@ -71,7 +71,6 @@ import type {
 	ToolCallEventResult,
 } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import { isCurrentPlanApproval, presentPlanForApproval } from "./approval-handshake.js";
 import { parsePlanCommandIntent } from "./command-intent.js";
 import { buildPlanDashboardMarkdown, renderPlanDashboardOverlay } from "./dashboard.js";
 import {
@@ -82,22 +81,16 @@ import {
 	setSessionFlagDefault,
 } from "./flags.js";
 import { blockedReason } from "./gate.js";
-import {
-	markPlanApproved,
-	markPlanExited,
-	markPlanOnlyRecorded,
-	markPlanRejected,
-	recordPlanSubmission,
-} from "./lifecycle.js";
+import { markPlanExited } from "./lifecycle.js";
 import { notify } from "./notify.js";
-import { writeAndOpenPlanHtmlArtifact } from "./plan-html.js";
 import type { PlanFlags } from "./posture.js";
 import { forceInteractiveApprovalPosture } from "./posture.js";
-import { makeImplementPrompt, makePlanningPrompt } from "./prompts.js";
+import { makePlanningPrompt } from "./prompts.js";
 import { findActivePlan, findLastPlan, hasActivePlan, overlayRuntimePlans, restoreActivePlans } from "./registry.js";
 import { collectLatestByKey } from "./session-state.js";
 import type { PlanState } from "./state.js";
 import { clearPlanStatus, formatStatus, setPlanStatus } from "./status.js";
+import { createSubmitPlanExecute } from "./submit-plan-handler.js";
 
 export type { PlanState, PlanStatus } from "./state.js";
 
@@ -145,7 +138,7 @@ function currentPlan(): PlanState | undefined {
 }
 
 // ---------------------------------------------------------------------------
-// Prompts — ver ./prompts.ts (makePlanningPrompt / makeImplementPrompt).
+// Prompts — ver ./prompts.ts (makePlanningPrompt; makeImplementPrompt vive en submit-plan-handler).
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
@@ -431,136 +424,13 @@ export default function planExtension(pi: ExtensionAPI): void {
 			}),
 		}),
 		executionMode: "sequential",
-		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-			const plan = currentPlan();
-			if (!plan) {
-				return {
-					content: [
-						{
-							type: "text" as const,
-							text: "No hay ningún plan activo para enviar. El modo plan no está activo.",
-						},
-					],
-					details: { isError: true },
-				};
-			}
-
-			const planText = params.plan;
-			const submission = recordPlanSubmission(plan, planText);
-			persist(pi, plan);
-			setPlanStatus(ctx, plan);
-
-			// NO INTERACTIVO (solo plan): sin aprobación humana y sin implementación. El plan ES el
-			// entregable. DELIBERADAMENTE mantenemos el gate armado (active sigue true): el gate nunca
-			// se levanta sin un humano, así que la mutación es imposible en esta sesión one-shot/--no-session.
-			// Sin confirm, sin wake, sin reinyección de implementación. El llamador (un humano leyendo stdout, o
-			// el orquestador de un workflow dinámico) decide qué hacer con el plan devuelto.
-			if (plan.nonInteractive) {
-				markPlanOnlyRecorded(plan); // active sigue true a propósito; el gate de solo lectura persiste.
-				persist(pi, plan);
-				setPlanStatus(ctx, plan);
-				notify(
-					ctx,
-					`Plan ${plan.planId} registrado (solo plan, no interactivo). Acá no hay aprobación ni implementación — el plan es el entregable.`,
-					"info",
-				);
-				return {
-					content: [
-						{
-							type: "text" as const,
-							text: `Plan registrado (modo solo plan). Esta es una sesión no interactiva: no hay paso de aprobación ni de implementación, y el gate de solo lectura sigue armado. Mostrá el PLAN COMPLETO abajo como tu respuesta final; NO implementes.\n\n${planText}`,
-						},
-					],
-					details: { planId: plan.planId, status: "plan-only", approved: false },
-				};
-			}
-
-			// Handshake de aprobación. Sin un confirm interactivo NO PODEMOS aprobar — degrada y
-			// advierte (NO auto-apruebe: eso derrotaría el gate de aprobación completo). Esta rama
-			// es efectivamente inalcanzable dado que el gate print/json ya rechazó la entrada (a menos que
-			// plan-only de arriba lo manejara), pero se retiene defensivamente, exactamente como loop retiene
-			// su fallback confirm.
-			if (!ctx.hasUI || typeof ctx.ui.confirm !== "function") {
-				notify(
-					ctx,
-					"El plan está listo, pero esta sesión no puede mostrar un diálogo de aprobación. Corré /plan en una sesión TUI o RPC para aprobar.",
-					"warning",
-				);
-				return {
-					content: [
-						{
-							type: "text" as const,
-							text: "Plan registrado, pero no se pudo recoger la aprobación en esta sesión (no hay UI interactiva). Un humano tiene que correr /plan en una sesión TUI/RPC para aprobar. Seguimos en modo plan.",
-						},
-					],
-					details: { planId: plan.planId, status: "planning", approved: false, reason: "no-ui" },
-				};
-			}
-
-			try {
-				const artifact = await writeAndOpenPlanHtmlArtifact(pi, ctx, planText, plan.planId, submission);
-				if (!artifact.opened) {
-					notify(
-						ctx,
-						`Se guardó el artifact HTML del plan, pero no se pudo abrir el navegador automáticamente: ${artifact.htmlPath}`,
-						"warning",
-					);
-				}
-			} catch (error) {
-				notify(
-					ctx,
-					`No se pudo crear/abrir la vista previa HTML del plan: ${(error as Error).message}. Seguimos con la aprobación en Markdown.`,
-					"warning",
-				);
-			}
-
-			const approved = await presentPlanForApproval(ctx, planText, plan.planId, {
-				autoSubmit: plan.autoSubmit === true,
-				timeoutMs: 60_000,
-			});
-			const livePlan = currentPlan();
-			if (!isCurrentPlanApproval(livePlan, plan.planId, submission)) {
-				return {
-					content: [
-						{
-							type: "text" as const,
-							text: "El resultado de la aprobación del plan quedó obsoleto; el modo plan cambió. No se tomó ninguna acción.",
-						},
-					],
-					details: { isError: true, planId: plan.planId, status: "stale" },
-				};
-			}
-
-			if (approved) {
-				// APRUEBA: levanta el gate (desactiva así que el tool_call handler devuelve temprano),
-				// persiste, luego despierta el mensaje de implementación.
-				markPlanApproved(livePlan);
-				persist(pi, livePlan);
-				refreshPlanStatus(ctx);
-				wake(pi, ctx, makeImplementPrompt(planText, { ultracodeSteps: livePlan.ultracodeSteps }));
-				notify(ctx, `Plan ${livePlan.planId} aprobado. Saliendo del modo plan e implementando. 🐼`, "info");
-				return {
-					content: [{ type: "text" as const, text: "Plan aprobado — implementando ahora." }],
-					details: { planId: livePlan.planId, status: "approved" },
-				};
-			}
-
-			// RECHAZA: sigue en modo plan (gate sigue armado), cuéntalo, persiste, y devuelve al
-			// modelo para que revise y reenvíe en el mismo turno. Sin wake.
-			markPlanRejected(livePlan); // sigue activo; el status refleja que aún estamos planificando.
-			persist(pi, livePlan);
-			setPlanStatus(ctx, livePlan);
-			notify(ctx, `Plan ${livePlan.planId} rechazado. Seguimos en modo plan; el agente va a revisar.`, "info");
-			return {
-				content: [
-					{
-						type: "text" as const,
-						text: "Plan rechazado. Seguís en modo plan (solo lectura). Revisá el plan para atender las inquietudes del usuario y volvé a llamar a submit_plan.",
-					},
-				],
-				details: { planId: livePlan.planId, status: "rejected", rejections: livePlan.rejections },
-			};
-		},
+		execute: createSubmitPlanExecute({
+			pi,
+			currentPlan,
+			persist,
+			refreshPlanStatus,
+			wake,
+		}),
 	});
 
 	// Entrada AUTÓNOMA llamable por modelo al modo plan (≈ Claude solicitando el modo plan mismo).
