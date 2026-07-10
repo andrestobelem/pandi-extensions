@@ -16,7 +16,7 @@
  *     byte-idéntica entre las tabs Monitor y Agents.
  *
  * Ejecutalo:
- *   node extensions/pandi-dynamic-workflows/tests/integration/agent-model-effort.test.mjs
+ *   node extensions/pandi-dynamic-workflows/tests/integration/runtime/agent-model-effort.test.mjs
  */
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
@@ -27,10 +27,10 @@ import {
 	loadModule,
 	sdkStub,
 	buildExtension as sharedBuildExtension,
-} from "../../../shared/test/harness.mjs";
+} from "../../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
+const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 const { check, counts } = createChecker();
 
 const MODEL = "prov/mod-x";

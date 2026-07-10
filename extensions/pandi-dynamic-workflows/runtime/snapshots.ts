@@ -2,7 +2,8 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { transformWorkflowCode } from "../surface/index.js";
-// Model builder only (no TUI render); graph model will move to lib/ later.
+// Model builder only (no TUI render). Cannot live in lib/ yet: model.ts imports
+// resolveWorkflow from surface/ — lib→surface would violate the dependency rule.
 import { buildWorkflowGraphModelWithSubworkflows } from "../tui/graph/model.js";
 import type { WorkflowDefinition } from "../types.js";
 import { writeJsonFile } from "./store.js";

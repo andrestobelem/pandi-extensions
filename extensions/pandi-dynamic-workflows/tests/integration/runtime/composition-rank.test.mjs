@@ -17,17 +17,17 @@
  * que emite una línea `message_update` JSON-mode), así no se llama ningún modelo.
  *
  * Ejecutalo:
- *   node extensions/pandi-dynamic-workflows/tests/integration/composition-rank.test.mjs
+ *   node extensions/pandi-dynamic-workflows/tests/integration/runtime/composition-rank.test.mjs
  */
 
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createChecker, sdkStub, buildExtension as sharedBuildExtension } from "../../../shared/test/harness.mjs";
+import { createChecker, sdkStub, buildExtension as sharedBuildExtension } from "../../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
+const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 
 const { check, counts } = createChecker();
 
@@ -114,7 +114,7 @@ async function makeProject() {
 // template literals, igual que los ~/.claude/workflows globales y nuestros scaffolds/*.js), así
 // Biome las lintea como código en vez de disparar noTemplateCurlyInString sobre strings de fuente
 // inline.
-const FIXTURES_DIR = path.join(__dirname, "fixtures");
+const FIXTURES_DIR = path.join(__dirname, "..", "fixtures");
 
 // Instalá archivos de workflow fixture en el dir de workflows del proyecto, preservando lib/.
 async function installCompositionFixtures(project, { flattenLib = false } = {}) {

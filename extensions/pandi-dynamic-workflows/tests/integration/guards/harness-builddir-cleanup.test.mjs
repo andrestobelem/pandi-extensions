@@ -11,7 +11,7 @@
  *   - el dir DESAPARECE después de que el proceso sale normalmente.
  *
  * Corrida:
- *   node extensions/pandi-dynamic-workflows/tests/integration/harness-builddir-cleanup.test.mjs
+ *   node extensions/pandi-dynamic-workflows/tests/integration/guards/harness-builddir-cleanup.test.mjs
  */
 
 import { spawnSync } from "node:child_process";
@@ -19,10 +19,10 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createChecker } from "../../../shared/test/harness.mjs";
+import { createChecker } from "../../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
+const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 const HARNESS = path.join(REPO_ROOT, "extensions", "shared", "test", "harness.mjs");
 
 const { check, counts } = createChecker();

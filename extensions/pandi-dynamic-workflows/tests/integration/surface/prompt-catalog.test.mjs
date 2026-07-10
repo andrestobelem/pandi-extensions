@@ -23,16 +23,16 @@
  * juntas y esto queda verde.
  *
  * Corrida directa:
- *   node extensions/pandi-dynamic-workflows/tests/integration/prompt-catalog-single-source.test.mjs
+ *   node extensions/pandi-dynamic-workflows/tests/integration/surface/prompt-catalog.test.mjs
  */
 
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildExtension as sharedBuildExtension } from "../../../shared/test/harness.mjs";
+import { buildExtension as sharedBuildExtension } from "../../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
+const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 
 const HEADING = "Plantillas apoyadas en research";
 const CLOSING = "Usalos como patterns, no como ceremonia";

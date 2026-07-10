@@ -4,6 +4,7 @@ import type { AgentToolUpdateCallback, ExtensionAPI, ExtensionContext } from "@e
 import { buildLimits, limitParamsFromInput, normalizeWorkflowInput } from "../lib/config.js";
 import { text } from "../lib/format.js";
 import { formatWorkflowList } from "../lib/presentation.js";
+import { formatRunSummary } from "../lib/run-summary.js";
 import {
 	cancelWorkflowRun,
 	formatBackgroundStart,
@@ -13,14 +14,7 @@ import {
 import { writeRunReport } from "../observe/index.js";
 import { currentWorkflowDepth, maxWorkflowDepth } from "../runtime/index.js";
 import { makeWorkflowGraphForContext } from "../tui/graph/index.js";
-import {
-	formatRunList,
-	formatRunSummary,
-	formatRunView,
-	listRuns,
-	resolveRun,
-	runWorkflowWithUi,
-} from "../tui/index.js";
+import { formatRunList, formatRunView, listRuns, resolveRun, runWorkflowWithUi } from "../tui/index.js";
 import type { DynamicWorkflowToolParams, WorkflowLogEntry } from "../types.js";
 import { resumeWorkflowForCaller } from "../workflow-resume-usecase.js";
 import {

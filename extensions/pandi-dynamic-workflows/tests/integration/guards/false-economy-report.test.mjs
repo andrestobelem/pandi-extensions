@@ -6,7 +6,7 @@
  * un rol low-effort tiene al menos dos señales recientes de false-economy.
  *
  * Corrida:
- *   node extensions/pandi-dynamic-workflows/tests/integration/false-economy-report.test.mjs
+ *   node extensions/pandi-dynamic-workflows/tests/integration/guards/false-economy-report.test.mjs
  */
 
 import { spawnSync } from "node:child_process";
@@ -14,10 +14,10 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createChecker } from "../../../shared/test/harness.mjs";
+import { createChecker } from "../../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
+const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 const SCRIPT = path.join(REPO_ROOT, "scripts", "report-false-economy.mjs");
 
 const { check, counts } = createChecker();

@@ -18,7 +18,7 @@
  * Sin build de extensión / sin modelo: test puro de filesystem + proceso de script.
  *
  * Ejecutalo:
- *   node extensions/pandi-dynamic-workflows/tests/integration/sync-claude-global.test.mjs
+ *   node extensions/pandi-dynamic-workflows/tests/integration/guards/sync-claude-global.test.mjs
  */
 
 import { spawnSync } from "node:child_process";
@@ -26,10 +26,10 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createChecker } from "../../../shared/test/harness.mjs";
+import { createChecker } from "../../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
+const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 const SYNC = path.join(REPO_ROOT, "scripts", "sync-claude-global.mjs");
 
 // Skills commiteadas que el sync siempre debe publicar. Las skills EXTERNAS (p. ej. karpathy-guidelines, de

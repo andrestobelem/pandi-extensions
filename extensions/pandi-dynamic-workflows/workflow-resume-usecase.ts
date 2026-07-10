@@ -9,8 +9,8 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { formatRunSummary } from "./lib/run-summary.js";
 import { formatBackgroundStart, resumeWorkflow, shouldLaunchWorkflowInBackground } from "./lifecycle/index.js";
-import { formatRunSummary } from "./tui/index.js";
 import type { DynamicWorkflowToolParams, WorkflowLogEntry, WorkflowRunResult, WorkflowRunStatus } from "./types.js";
 
 export type ResumePresentation =

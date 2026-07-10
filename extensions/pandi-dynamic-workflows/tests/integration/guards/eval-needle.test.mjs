@@ -17,8 +17,8 @@ import {
 	lexicalOverlap,
 	literalGrade,
 	tokenize,
-} from "../../../shared/test/eval-needle.mjs";
-import { createChecker } from "../../../shared/test/harness.mjs";
+} from "../../../../shared/test/eval-needle.mjs";
+import { createChecker } from "../../../../shared/test/harness.mjs";
 
 const { check, counts } = createChecker();
 

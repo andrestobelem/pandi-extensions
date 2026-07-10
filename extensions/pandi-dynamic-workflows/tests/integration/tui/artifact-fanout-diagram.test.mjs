@@ -10,10 +10,10 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { createChecker } from "../../../shared/test/harness.mjs";
+import { createChecker } from "../../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
+const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 const CONTRACT_GATE = path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "scaffolds", "contract-gate.js");
 const ARTIFACT_LIB = path.join(REPO_ROOT, ".claude", "scripts", "lib", "artifact.mjs");
 const { buildArtifact } = await import(pathToFileURL(ARTIFACT_LIB).href);

@@ -66,5 +66,12 @@ flowchart TB
 2. Un deep module por commit atómico (código + tests + imports): `ultracode/` → `lifecycle/` → `observe/` (hecho) → `tui/` (hecho) → `surface/` (hecho) → `runtime/` (hecho) → `lib/` (hecho).
 3. Achicar `workflow-public-api.ts` a reexports de fachadas — hecho (solo fachadas + types + lib file-append vía `./lib/index.js`).
 4. Mover transversales a `lib/` — hecho; raíz limpia (activación + contratos).
+5. Polish post-migración — hecho: imports de `formatRunSummary` desde `lib/`, suites planas reubicadas bajo `tests/integration/<módulo>/` y `guards/`.
 
 Condición de stop por paso: `npm run typecheck` + suites del módulo en verde; sin cambio de comportamiento.
+
+## Post-migración / deuda conocida
+
+- **lifecycle / surface → tui (UI ops):** arranque, comandos slash y la tool `dynamic_workflow` siguen llamando a tui para dashboard, status widget, `listRuns`, `runWorkflowWithUi`, etc. Es acoplamiento intencional a la superficie host por ahora; no es deuda de `formatRunSummary` (ese helper ya vive en `lib/run-summary.ts`).
+- **runtime/snapshots y surface/preflight → tui/graph/model:** el model builder depende de `surface/resolve` (`resolveWorkflow`). Moverlo a `lib/` crearía `lib → surface`; hasta tener un resolver inyectable, el acoplamiento queda documentado en `runtime/snapshots.ts`.
+- **Tests:** no quedan suites planas bajo `tests/integration/*.test.mjs`; las 19 restantes se movieron a carpetas espejo (`runtime/`, `surface/`, `tui/`, `observe/`, `guards/`). `fixtures/` y `worker-source-test-support.mjs` permanecen en la raíz de integración como soporte.

@@ -27,10 +27,10 @@
  * tokenizer del handler, con punteros a la fuente de verdad arriba.
  *
  * Ejecutalo:
- *   node extensions/pandi-dynamic-workflows/tests/integration/switch-session-arg-roundtrip.test.mjs
+ *   node extensions/pandi-dynamic-workflows/tests/integration/tui/switch-session-arg-roundtrip.test.mjs
  */
 import * as path from "node:path";
-import { buildExtension, createChecker, loadModule, REPO_ROOT } from "../../../shared/test/harness.mjs";
+import { buildExtension, createChecker, loadModule, REPO_ROOT } from "../../../../shared/test/harness.mjs";
 
 const { check, counts } = createChecker();
 

@@ -7,10 +7,10 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildExtension, createChecker, loadModule, sdkStub } from "../../../shared/test/harness.mjs";
+import { buildExtension, createChecker, loadModule, sdkStub } from "../../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
+const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 const EXT_DIR = path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows");
 const { check, counts } = createChecker();
 

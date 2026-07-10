@@ -17,10 +17,10 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import * as vm from "node:vm";
-import { sdkStub, buildExtension as sharedBuildExtension } from "../../../shared/test/harness.mjs";
+import { sdkStub, buildExtension as sharedBuildExtension } from "../../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
+const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 
 let passed = 0;
 let failed = 0;

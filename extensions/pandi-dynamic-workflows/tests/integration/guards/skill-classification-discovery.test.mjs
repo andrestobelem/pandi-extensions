@@ -3,10 +3,10 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createChecker } from "../../../shared/test/harness.mjs";
+import { createChecker } from "../../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
+const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 const LIVE_SKILLS_ROOT = path.join(REPO_ROOT, ".pi", "skills");
 const CLASSIFICATION = path.join(REPO_ROOT, "scripts", "skill-classification.mjs");
 const MIRRORS = path.join(REPO_ROOT, "scripts", "sync-skill-mirrors.mjs");
