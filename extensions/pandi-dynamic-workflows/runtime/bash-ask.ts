@@ -128,15 +128,15 @@ export async function runBash(
 // grabada y nunca vuelva a preguntar. La cancelación reutiliza el puente de señal por llamada de race():
 // el dispatcher envuelve ask en callSignal ALS, así un abort-call (perdedor de race) o run-abort descarta
 // el diálogo vía { signal }, y el guard post-abort lanza SIN journalizar (deja un hueco, consistente con race).
-export async function runAsk(
-	context: BashAskContext,
-	question: string,
-	options: AskOptions = {},
-): Promise<string | boolean> {
-	const { ctx, journal, occurrences, runSignal, log, appendEvent } = context;
-	const effectiveSignal = callSignal.getStore() ?? runSignal.signal;
-	throwIfAborted(effectiveSignal);
-	// Eager validation (cheap synchronous guards inside ask()'s own surface) before any UI/journal:
+
+// Resolución + validación pura del kind de ask(): deriva kind desde options (select/confirm/input) y
+// rechaza combinaciones ambiguas o inválidas con errores accionables. Extraída de runAsk para nombrar
+// el contrato y poder caracterizarlo.
+export function resolveAskKind(options: AskOptions): {
+	kind: "input" | "confirm" | "select";
+	hasChoices: boolean;
+	hasDefault: boolean;
+} {
 	const hasChoices = options.choices !== undefined;
 	if (options.kind === undefined && hasChoices && typeof options.default === "boolean") {
 		throw new Error(
@@ -152,6 +152,19 @@ export async function runAsk(
 	if (kind === "select" && hasDefault && !(options.choices as string[]).includes(options.default as string)) {
 		throw new Error("ask(): options.default for a select must be one of options.choices.");
 	}
+	return { kind, hasChoices, hasDefault };
+}
+
+export async function runAsk(
+	context: BashAskContext,
+	question: string,
+	options: AskOptions = {},
+): Promise<string | boolean> {
+	const { ctx, journal, occurrences, runSignal, log, appendEvent } = context;
+	const effectiveSignal = callSignal.getStore() ?? runSignal.signal;
+	throwIfAborted(effectiveSignal);
+	// Eager validation (cheap synchronous guards inside ask()'s own surface) before any UI/journal:
+	const { kind, hasDefault } = resolveAskKind(options);
 	const secret = options.secret === true;
 	// Una respuesta secreta nunca puede tocar disco: desactiva forzosamente el journal, así no se escribe
 	// en journal.jsonl ni se reproduce al reanudar, y se redacta en el event + log vivo de abajo. El valor
