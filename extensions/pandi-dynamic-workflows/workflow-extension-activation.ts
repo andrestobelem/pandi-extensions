@@ -1,5 +1,10 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { setWorkflowWidgetDeps } from "./lib/workflow-widget-deps.js";
 import "./lifecycle/runtime-deps.js";
+import { clearWorkflowWidget, setWorkflowWidget } from "./tui/workflow-widget.js";
+
+setWorkflowWidgetDeps({ setWorkflowWidget, clearWorkflowWidget });
+
 import {
 	registerDynamicWorkflowTool,
 	registerWorkflowRoutingCommands,
