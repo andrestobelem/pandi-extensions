@@ -1,12 +1,11 @@
 /**
  * Construcción del workflow graph model desde introspección estática de fuente.
- * Tipos en workflow-graph-types.js (reexportados desde workflow-graph.js por back-compat).
+ * La expansión de sub-workflows requiere un resolver inyectado (sin importar surface).
  */
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { resolveWorkflow } from "../../surface/index.js";
-import type { WorkflowDefinition } from "../../types.js";
+import type { WorkflowDefinition, WorkflowScopeInput } from "../../types.js";
 import {
 	extractDirectStringLiteralArgument,
 	extractFirstStringLiteral,
@@ -21,7 +20,13 @@ import {
 } from "./parse.js";
 import type { WorkflowGraphCall, WorkflowGraphChildCall, WorkflowGraphModel, WorkflowGraphStep } from "./types.js";
 
-function buildWorkflowGraphModel(workflow: WorkflowDefinition, code: string): WorkflowGraphModel {
+export type ResolveWorkflowFn = (
+	ctx: ExtensionContext,
+	name: string,
+	scope?: WorkflowScopeInput,
+) => Promise<WorkflowDefinition>;
+
+export function buildWorkflowGraphModel(workflow: WorkflowDefinition, code: string): WorkflowGraphModel {
 	// Detect BOTH authoring styles the runtime supports: the ctx-legacy form (`ctx.agents(...)`) and
 	// the globals form (bare `agents(...)`, no ctx.*). `(?<![\w.])` rejects a method glued to another
 	// identifier or a property access on a different object (`fs.readFile`, `myagents(`); the optional
@@ -114,6 +119,7 @@ export async function buildWorkflowGraphModelWithSubworkflows(
 	ctx: ExtensionContext,
 	workflow: WorkflowDefinition,
 	code: string,
+	resolveWorkflow: ResolveWorkflowFn,
 	depth = 0,
 	seen = new Set<string>(),
 ): Promise<WorkflowGraphModel> {
@@ -148,6 +154,7 @@ export async function buildWorkflowGraphModelWithSubworkflows(
 				ctx,
 				subWorkflow,
 				subCode,
+				resolveWorkflow,
 				depth + 1,
 				nextSeen,
 			);

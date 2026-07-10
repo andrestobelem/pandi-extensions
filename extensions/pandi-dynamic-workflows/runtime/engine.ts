@@ -6,7 +6,7 @@ import { safeJson } from "../lib/format.js";
 import { OccurrenceCounter } from "../lib/occurrence-counter.js";
 import { formatRunSummary } from "../lib/run-summary.js";
 import { type AgentFocusMetrics, aggregateRunFocusMetrics, formatFocusMetricsMarkdown } from "../observe/index.js";
-import { ensureDir, preflightWorkflowLaunch } from "../surface/index.js";
+import { ensureDir, preflightWorkflowLaunch, resolveWorkflow } from "../surface/index.js";
 import type {
 	PreparedWorkflowRun,
 	RunLimits,
@@ -238,7 +238,7 @@ export async function runWorkflow(
 		// is written (resumes pass it in; fresh runs derive it here).
 		const code = await fs.readFile(workflowDefinition.path, "utf8");
 		if (!codeHash) codeHash = computeCodeHash(code);
-		await writeWorkflowRunSnapshots(ctx, workflowDefinition, code, runDir);
+		await writeWorkflowRunSnapshots(ctx, workflowDefinition, code, runDir, { resolveWorkflow });
 		await persistStatus();
 		await log(`workflow start: ${workflowDefinition.name}`, {
 			file: workflowDefinition.path,

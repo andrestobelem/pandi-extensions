@@ -56,3 +56,4 @@ export {
 	detectColorMode,
 } from "./rainbow.js";
 export { formatRunSummary } from "./run-summary.js";
+export { renderSafeInline, stripAnsiCodes } from "./text-sanitize.js";

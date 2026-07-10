@@ -6,7 +6,7 @@ En 30 segundos: `pandi-dynamic-workflows` se organiza en **pocos módulos profun
 
 | Módulo | Carpeta | Fachada (lo que el resto ve) | Esconde |
 | --- | --- | --- | --- |
-| **lib** | `lib/` | format, concurrency, path safety, notify, presentation, … | helpers transversales puros (sin activación) |
+| **lib** | `lib/` | format, concurrency, path safety, notify, presentation, **graph model**, … | helpers transversales puros (sin activación) |
 | **runtime** | `runtime/` | `runWorkflow`, `WorkflowRuntimeApi` | engine, make-api, subagent, agents/race, journal, host, worker |
 | **lifecycle** | `lifecycle/` | start / resume / cancel / delete / cleanup / notify / registry | start, resume, cleanup, notify, reload-handoff |
 | **surface** | `surface/` | resolve, preflight, transform, tool + slash commands | resolve, scaffolds, tool-handler, command-browse/lifecycle |
@@ -47,6 +47,7 @@ flowchart TB
 2. **Fachada = `index.ts`** por deep module. Call sites externos importan `./ultracode/index.js` (o el path estable documentado), no archivos hoja.
 3. **Ultracode queda dentro del paquete** (deep module), no extensión hermana: comparte tool `dynamic_workflow`, sesión y status UI; separarlo rompería el producto sin ganar un límite de deploy real.
 4. **Graph partido con inteligencia, sin dedupe:**
+   - Model estático + expansión opcional → `lib/graph/` (`ResolveWorkflowFn` inyectado)
    - Interactivo / TUI → `tui/graph/`
    - Mermaid del HTML report → `observe/` (`observe/html-mermaid.ts`)
    - Never-touch: no unificar renderers TUI↔HTML.
@@ -73,5 +74,5 @@ Condición de stop por paso: `npm run typecheck` + suites del módulo en verde; 
 ## Post-migración / deuda conocida
 
 - **lifecycle / surface → tui (UI ops):** arranque, comandos slash y la tool `dynamic_workflow` siguen llamando a tui para dashboard, status widget y `runWorkflowWithUi`. Listado/resolución de runs (`listRuns`, `resolveRun`, `selectRunByKey`, `formatRunList`) vive en `runtime/runs.ts`; lifecycle inventory/cleanup/resume ya no importan tui para eso. El acoplamiento lifecycle→tui restante es status widget + `runWorkflowWithUi` únicamente.
-- **runtime/snapshots y surface/preflight → tui/graph/model:** el model builder depende de `surface/resolve` (`resolveWorkflow`). Moverlo a `lib/` crearía `lib → surface`; hasta tener un resolver inyectable, el acoplamiento queda documentado en `runtime/snapshots.ts`.
+- **Graph model en lib/graph/:** el model builder (`buildWorkflowGraphModel`, `buildWorkflowGraphModelWithSubworkflows`) vive en `lib/graph/` sin importar `surface`. La expansión de sub-workflows recibe `ResolveWorkflowFn` inyectado: `surface/preflight` y `tui/graph/render` pasan `resolveWorkflow` local; `runtime/snapshots` acepta `resolveWorkflow` opcional en opciones y `runtime/engine` lo inyecta (engine ya importaba surface para preflight). Sin resolver, snapshots escribe un model shallow (sin expansión). El render interactivo permanece en `tui/graph/`.
 - **Tests:** no quedan suites planas bajo `tests/integration/*.test.mjs`; las 19 restantes se movieron a carpetas espejo (`runtime/`, `surface/`, `tui/`, `observe/`, `guards/`). `fixtures/` y `worker-source-test-support.mjs` permanecen en la raíz de integración como soporte.

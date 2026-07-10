@@ -4,19 +4,24 @@
  */
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth } from "@earendil-works/pi-tui";
-import { notify } from "../../lib/notify.js";
-import type { WorkflowDefinition } from "../../types.js";
-import { padRightVisible } from "../render-utils.js";
-import { WorkflowGraphComponent } from "./component.js";
-import { workflowGraphStats, workflowGraphVisibleFanoutSlots } from "./image.js";
-import { buildWorkflowGraphModelWithSubworkflows } from "./model.js";
+import {
+	buildWorkflowGraphModelWithSubworkflows,
+	type WorkflowGraphModel,
+	type WorkflowGraphRenderTheme,
+	type WorkflowGraphStep,
+} from "../../lib/graph/index.js";
 import {
 	formatWorkflowGraphFanoutSummary,
 	graphTextLabel,
 	mermaidLabel,
 	summarizeWorkflowGraphChildren,
-} from "./parse.js";
-import type { WorkflowGraphModel, WorkflowGraphRenderTheme, WorkflowGraphStep } from "./types.js";
+} from "../../lib/graph/parse.js";
+import { notify } from "../../lib/notify.js";
+import { resolveWorkflow } from "../../surface/index.js";
+import type { WorkflowDefinition } from "../../types.js";
+import { padRightVisible } from "../render-utils.js";
+import { WorkflowGraphComponent } from "./component.js";
+import { workflowGraphStats, workflowGraphVisibleFanoutSlots } from "./image.js";
 
 function renderWorkflowGraphStepDetail(step: WorkflowGraphStep): string[] {
 	const lines: string[] = [];
@@ -255,7 +260,7 @@ export async function makeWorkflowGraphForContext(
 	code: string,
 ): Promise<string> {
 	return renderWorkflowGraphDocumentLines(
-		await buildWorkflowGraphModelWithSubworkflows(ctx, workflow, code),
+		await buildWorkflowGraphModelWithSubworkflows(ctx, workflow, code, resolveWorkflow),
 		120,
 	).join("\n");
 }
@@ -269,7 +274,7 @@ export async function showWorkflowGraph(
 	workflow: WorkflowDefinition,
 	code: string,
 ): Promise<void> {
-	const model = await buildWorkflowGraphModelWithSubworkflows(ctx, workflow, code);
+	const model = await buildWorkflowGraphModelWithSubworkflows(ctx, workflow, code, resolveWorkflow);
 	if (ctx.mode === "print") {
 		console.log(renderWorkflowGraphDocumentLines(model, 120).join("\n"));
 		return;

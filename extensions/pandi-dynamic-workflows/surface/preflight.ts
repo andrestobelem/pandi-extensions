@@ -1,9 +1,9 @@
 import * as fs from "node:fs/promises";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { buildWorkflowGraphModelWithSubworkflows, type WorkflowGraphModel } from "../lib/graph/index.js";
 import { computeCodeHash } from "../runtime/index.js";
-import type { WorkflowGraphModel } from "../tui/graph/index.js";
-import { buildWorkflowGraphModelWithSubworkflows } from "../tui/graph/index.js";
 import type { WorkflowDefinition } from "../types.js";
+import { resolveWorkflow } from "./resolve.js";
 import { transformWorkflowCode } from "./transform.js";
 
 export interface WorkflowPreflightResult {
@@ -196,7 +196,7 @@ export async function preflightWorkflowLaunch(
 		);
 	}
 
-	const graph = await buildWorkflowGraphModelWithSubworkflows(ctx, workflow, code);
+	const graph = await buildWorkflowGraphModelWithSubworkflows(ctx, workflow, code, resolveWorkflow);
 	const subworkflowError = firstBlockingSubworkflowError(graph);
 	if (subworkflowError) {
 		throw workflowPreflightError(

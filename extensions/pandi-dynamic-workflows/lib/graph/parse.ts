@@ -9,7 +9,7 @@
  * los tipos del modelo viven en workflow-graph-types.js (import type, borrados en build).
  * Extraído byte-idéntico desde index.ts.
  */
-import { renderSafeInline } from "../render-utils.js";
+import { renderSafeInline } from "../text-sanitize.js";
 import type { WorkflowGraphChildCall, WorkflowGraphFanoutInfo, WorkflowGraphStep } from "./types.js";
 
 export function mermaidLabel(value: string): string {

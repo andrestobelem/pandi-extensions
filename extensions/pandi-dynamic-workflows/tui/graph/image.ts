@@ -8,10 +8,10 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { getCapabilities } from "@earendil-works/pi-tui";
+import type { WorkflowGraphFanoutInfo, WorkflowGraphFanoutUnit, WorkflowGraphModel } from "../../lib/graph/types.js";
 import type { ProcessResult } from "../../runtime/index.js";
 import { EXTENSION_ROOT, runProcess } from "../../runtime/index.js";
 import { ensureDir, getGraphRoot, slugify } from "../../surface/index.js";
-import type { WorkflowGraphFanoutInfo, WorkflowGraphFanoutUnit, WorkflowGraphModel } from "./types.js";
 
 export interface WorkflowGraphImageRender {
 	base64: string;
