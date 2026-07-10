@@ -1,0 +1,32 @@
+{
+	"name": "@pandi-coding-agent/pandi-ultracode-codex",
+	"version": "0.1.0",
+	"description": "Runner autónomo de Ultracode que orquesta workflows portables mediante Codex CLI.",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/andrestobelem/pandi-extensions.git",
+		"directory": "extensions/pandi-ultracode-codex"
+	},
+	"type": "module",
+	"bin": {
+		"pandi-ultracode-codex": "./bin/pandi-ultracode-codex.mjs"
+	},
+	"keywords": [
+		"codex",
+		"codex-cli",
+		"dynamic-workflows",
+		"subagents",
+		"ultracode"
+	],
+	"files": [
+		"bin",
+		"runtime",
+		"workflows",
+		"README.md"
+	],
+	"dependencies": {
+		"@pandi-coding-agent/pandi-dynamic-workflows": "^0.4.5",
+		"ajv": "^8.18.0"
+	}
+}
