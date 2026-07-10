@@ -26,20 +26,33 @@ import * as crypto from "node:crypto";
 import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import {
-	CONFIG_DIR_NAME,
-	type ExtensionAPI,
-	type ExtensionContext,
-	getAgentDir,
-	type ToolCallEvent,
-} from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext, ToolCallEvent } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { capExceeded } from "./caps.js";
 import { parseLoopCommandIntent, parseLoopStartArgs } from "./command-intent.js";
+import {
+	GC_MAX_AGE_MS,
+	LOOP_STATE_TYPE,
+	LOOP_STATUS_KEY,
+	MAX_CONCURRENT_LOOPS,
+	MAX_DELAY_SECONDS,
+	MIN_DELAY_SECONDS,
+	SAFETY_NET_DELAY_SECONDS,
+	STATE_FILE,
+	WATCHDOG_HARD_DEADLINE_MS,
+} from "./constants.js";
 import { destructiveReason } from "./gate.js";
 import { formatLoopInterval } from "./interval.js";
 import { resolveLoop } from "./loop-resolve.js";
 import { notify } from "./notify.js";
+import {
+	currentOwnerSessionId,
+	discoverSidecarLoopIds,
+	loopStateRoot,
+	newerState,
+	persist,
+	readSidecar,
+} from "./persistence.js";
 import { makeLoopIterationPrompt } from "./prompt.js";
 import { collectLatestByKey } from "./session-state.js";
 import {
@@ -49,27 +62,10 @@ import {
 	type LoopState,
 	type LoopStatus,
 	shouldRehydrateLoopForSession,
-	snapshot,
 } from "./state.js";
 import { formatStatus } from "./status.js";
 import { formatEta } from "./time.js";
 import { toolError, toolResult } from "./tool-results.js";
-
-const LOOP_STATE_TYPE = "loop-state";
-const LOOP_STATUS_KEY = "loop";
-const LOOP_DIR = "loops";
-const STATE_FILE = "state.json";
-// Límite de runtime: cada loop activo posee timer, estado mutable y posible sidecar.
-// La rehidratación queda exenta para no perder loops ya creados.
-const MAX_CONCURRENT_LOOPS = 20;
-const MIN_DELAY_SECONDS = 60;
-const MAX_DELAY_SECONDS = 3600;
-// Fallback cuando el modelo cierra un turno dinámico sin llamar loop_schedule.
-const SAFETY_NET_DELAY_SECONDS = 1500;
-// GC solo para sidecars terminales; estados vivos nunca se barren por edad.
-const GC_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 días.
-// Deadline de respaldo, deliberadamente mayor al wall-clock default, para capturar zombies.
-const WATCHDOG_HARD_DEADLINE_MS = 25 * 60 * 60 * 1000; // 25h.
 
 // Fuente de verdad de los loops vivos en este proceso.
 const activeLoops = new Map<string, ActiveLoop>();
@@ -132,89 +128,6 @@ function refreshLoopStatus(ctx: ExtensionContext): void {
 		}
 	}
 	clearLoopStatus(ctx);
-}
-
-// ---------------------------------------------------------------------------
-// Persistencia
-// ---------------------------------------------------------------------------
-
-/**
- * Persiste una transición de loop. Marca `updatedAt` (para resolver conflictos
- * JSONL vs sidecar por recencia), agrega al JSONL de sesión (NO va al LLM), y
- * dispara sin esperar una escritura sidecar ATOMIC que cubre un crash duro donde
- * el JSONL podría perder el último append.
- */
-function currentOwnerSessionId(ctx: ExtensionContext): string | undefined {
-	try {
-		const id = ctx.sessionManager?.getSessionId?.();
-		return typeof id === "string" && id.trim() ? id : undefined;
-	} catch {
-		return undefined;
-	}
-}
-
-function persist(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): void {
-	loop.updatedAt = new Date().toISOString();
-	const snap = snapshot(loop);
-	pi.appendEntry<LoopState>(LOOP_STATE_TYPE, snap);
-	// Sidecar atómico best-effort (nunca lanza al engine).
-	void writeSidecar(ctx, snap).catch(() => {});
-}
-
-// --- Sidecar atómico ------------------------------------------------------------
-
-/** Root que guarda los sidecars del proyecto actual (trusted vs agentDir). */
-function loopStateRoot(ctx: ExtensionContext): string {
-	if (ctx.isProjectTrusted()) return path.join(ctx.cwd, CONFIG_DIR_NAME, LOOP_DIR);
-	const projectHash = crypto.createHash("sha1").update(ctx.cwd).digest("hex").slice(0, 12);
-	return path.join(getAgentDir(), LOOP_DIR, projectHash);
-}
-
-/**
- * Dir de estado dual-root, reflejando dynamic-workflows getRunRoot:
- * - proyecto trusted → <cwd>/.pi/loops/<id>
- * - si no            → <agentDir>/loops/<projectHash>/<id>
- */
-function loopStateDir(ctx: ExtensionContext, loopId: string): string {
-	return path.join(loopStateRoot(ctx), loopId);
-}
-
-/** Escritura atómica: temp file y rename, para que un crash a mitad de escritura no trunque state.json. */
-async function writeSidecar(ctx: ExtensionContext, state: LoopState): Promise<void> {
-	const dir = loopStateDir(ctx, state.loopId);
-	await fs.mkdir(dir, { recursive: true });
-	const file = path.join(dir, STATE_FILE);
-	const temp = `${file}.${crypto.randomBytes(6).toString("hex")}.tmp`;
-	await fs.writeFile(temp, `${JSON.stringify(state, null, 2)}\n`, "utf8");
-	try {
-		await fs.rename(temp, file);
-	} catch (err) {
-		await fs.rm(temp, { force: true }).catch(() => {});
-		throw err;
-	}
-}
-
-/** Lee un sidecar state.json para un loopId, o undefined si falta o está corrupto. */
-async function readSidecar(ctx: ExtensionContext, loopId: string): Promise<LoopState | undefined> {
-	try {
-		const file = path.join(loopStateDir(ctx, loopId), STATE_FILE);
-		const body = await fs.readFile(file, "utf8");
-		const data = JSON.parse(body) as LoopState;
-		if (!data || typeof data.loopId !== "string") return undefined;
-		return data;
-	} catch {
-		return undefined;
-	}
-}
-
-/** Descubrimiento best-effort de loopIds que existen solo en estado sidecar. */
-async function discoverSidecarLoopIds(ctx: ExtensionContext): Promise<string[]> {
-	try {
-		const dirents = await fs.readdir(loopStateRoot(ctx), { withFileTypes: true });
-		return dirents.filter((dirent) => dirent.isDirectory()).map((dirent) => dirent.name);
-	} catch {
-		return [];
-	}
 }
 
 // ---------------------------------------------------------------------------
@@ -596,19 +509,6 @@ function resumeLoop(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): 
 // ---------------------------------------------------------------------------
 // Rehidratación (session_start)
 // ---------------------------------------------------------------------------
-
-/**
- * Elige el más nuevo de dos snapshots por updatedAt (los strings ISO comparan léxicamente
- * porque comparten formato; updatedAt ausente se trata como lo más viejo). Usado para resolver
- * conflictos JSONL-vs-sidecar: gana el que se escribió último.
- */
-function newerState(a: LoopState | undefined, b: LoopState | undefined): LoopState | undefined {
-	if (!a) return b;
-	if (!b) return a;
-	const ta = a.updatedAt ?? "";
-	const tb = b.updatedAt ?? "";
-	return tb > ta ? b : a;
-}
 
 /**
  * Reconstruye estado de loop y rearma. La fuente de verdad por loopId es el MÁS NUEVO

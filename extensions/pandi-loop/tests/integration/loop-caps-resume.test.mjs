@@ -910,7 +910,7 @@ async function concurrentLoopCap(url) {
 	loopExtension(pi);
 	const ctx = makeCtx({ mode: "tui", hasUI: true, isIdle: true });
 
-	const CAP = 20; // refleja MAX_CONCURRENT_LOOPS en index.ts
+	const CAP = 20; // refleja MAX_CONCURRENT_LOOPS en constants.ts
 	const started = [];
 	for (let i = 0; i < CAP; i++) {
 		const id = await startLoopCmd(commands, entries, `cap task ${i}`, ctx);
