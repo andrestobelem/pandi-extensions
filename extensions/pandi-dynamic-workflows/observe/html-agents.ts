@@ -1,6 +1,6 @@
-import { formatElapsedMs } from "./presentation.js";
-import type { RunReportAgent, RunReportModel } from "./run-report-html.js";
-import { artifactViewerHref, escapeHtml, safeRelativeHref } from "./run-report-safe-html.js";
+import { formatElapsedMs } from "../presentation.js";
+import type { RunReportAgent, RunReportModel } from "./html.js";
+import { artifactViewerHref, escapeHtml, safeRelativeHref } from "./safe-html.js";
 
 export function pillClass(state: string, ok?: boolean): string {
 	if (state === "completed" && ok !== false) return "ok";

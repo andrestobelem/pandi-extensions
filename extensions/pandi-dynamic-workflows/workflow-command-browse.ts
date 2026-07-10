@@ -5,6 +5,7 @@ import { CONFIG_DIR_NAME, type ExtensionAPI, type ExtensionContext } from "@eare
 import { parseCliJsonOrText } from "./config.js";
 import { openWorkflowDashboard, parseWorkflowCommandArgument, switchToPiSession } from "./dashboard-orchestration.js";
 import { notify } from "./notify.js";
+import { writeRunReport } from "./observe/index.js";
 import {
 	formatWorkflowPatternCatalog,
 	getDefaultScaffold,
@@ -14,7 +15,6 @@ import {
 } from "./pattern-scaffolds.js";
 import { collectPiSessions, formatPiSessionList } from "./pi-session.js";
 import { formatDraftUsageIndex, formatWorkflowList } from "./presentation.js";
-import { writeRunReport } from "./run-report-writer.js";
 import { getRunState } from "./run-state.js";
 import { showText } from "./run-status-ui.js";
 import { formatRunList, listRuns, resolveRun, showRunView } from "./run-view.js";

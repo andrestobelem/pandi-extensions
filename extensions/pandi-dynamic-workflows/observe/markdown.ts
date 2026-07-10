@@ -1,7 +1,7 @@
 import { Marked } from "marked";
 import sanitizeHtml from "sanitize-html";
 
-import { escapeHtml, safeRelativeHref } from "./run-report-safe-html.js";
+import { escapeHtml, safeRelativeHref } from "./safe-html.js";
 
 function safeMarkdownHref(raw: string | undefined): string | undefined {
 	if (!raw) return undefined;

@@ -1,5 +1,5 @@
-import { mermaidLabel } from "./graph-parse.js";
-import type { RunReportAgent, RunReportModel } from "./run-report-html.js";
+import { mermaidLabel } from "../graph-parse.js";
+import type { RunReportAgent, RunReportModel } from "./html.js";
 
 export const MERMAID_CDN_VERSION = "11.15.0";
 export const MERMAID_CDN_URL = `https://cdn.jsdelivr.net/npm/mermaid@${MERMAID_CDN_VERSION}/dist/mermaid.min.js`;
@@ -33,7 +33,7 @@ const MAX_DETAILED_MERMAID_AGENTS_PER_GROUP = 12;
  * coloreados por estado. Complementa — no reemplaza — el grafo estático de workflow-graph.ts
  * (que dibuja la ESTRUCTURA del código, no una corrida). La fuente se escapa como texto antes
  * de llegar al contenedor `.mermaid` y también queda disponible como fallback colapsable; el
- * render client-side está pineado por run-report-security.test.mjs (CDN exacta + SRI + sandbox).
+ * render client-side está pineado por observe/security.test.mjs (CDN exacta + SRI + sandbox).
  */
 interface RunMermaidGroup {
 	label: string;

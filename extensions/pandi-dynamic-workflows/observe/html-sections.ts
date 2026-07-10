@@ -1,14 +1,7 @@
-import type { RunReportAgent, RunReportModel } from "./run-report-html.js";
-import {
-	agentAccessMeta,
-	agentFailed,
-	link,
-	type ProgressSummary,
-	pillClass,
-	plural,
-} from "./run-report-html-agents.js";
-import { prettyJsonOutput, textBlock } from "./run-report-html-text.js";
-import { escapeHtml } from "./run-report-safe-html.js";
+import type { RunReportAgent, RunReportModel } from "./html.js";
+import { agentAccessMeta, agentFailed, link, type ProgressSummary, pillClass, plural } from "./html-agents.js";
+import { prettyJsonOutput, textBlock } from "./html-text.js";
+import { escapeHtml } from "./safe-html.js";
 
 export function openingText(model: RunReportModel, summary: ProgressSummary): string {
 	const totalAgents = summary.observed;

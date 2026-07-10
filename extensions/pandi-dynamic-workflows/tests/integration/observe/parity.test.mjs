@@ -12,10 +12,10 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildExtension, createChecker, loadModule, sdkStub } from "../../../shared/test/harness.mjs";
+import { buildExtension, createChecker, loadModule, sdkStub } from "../../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
+const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 const { check, counts } = createChecker();
 
 async function buildModule(src, outName, name) {
@@ -89,7 +89,7 @@ async function makeRunDir() {
 
 async function main() {
 	const collector = await buildModule(
-		"run-report-collector.ts",
+		"observe/collector.ts",
 		"run-report-collector.mjs",
 		"run-report-parity-collector",
 	);

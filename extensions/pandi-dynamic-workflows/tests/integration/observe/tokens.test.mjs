@@ -1,5 +1,5 @@
 /**
- * run-report-tokens — parity pin: the pandi token CSS inlined in run-report-html.ts
+ * run-report-tokens — parity pin: the pandi token CSS inlined in observe/html.ts
  * (per-extension duplication is intentional; no cross-boundary import is allowed)
  * must stay semantically identical to the canonical
  * .pi/skills/pandi-artifact-style/reference/pandi-tokens.css: same custom-property
@@ -10,10 +10,10 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { createChecker, buildExtension as sharedBuildExtension } from "../../../shared/test/harness.mjs";
+import { createChecker, buildExtension as sharedBuildExtension } from "../../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
+const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 const CANONICAL = path.join(REPO_ROOT, ".pi", "skills", "pandi-artifact-style", "reference", "pandi-tokens.css");
 
 const { check, counts } = createChecker();
@@ -42,7 +42,7 @@ function diffTokens(label, a, b) {
 async function main() {
 	const { url } = await sharedBuildExtension({
 		name: "pi-run-report-tokens",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "run-report-html.ts"),
+		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "observe/html.ts"),
 		outName: "run-report-html.mjs",
 	});
 	const mod = await import(url);

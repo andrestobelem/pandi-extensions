@@ -1,6 +1,6 @@
-import type { RunReportText } from "./run-report-html.js";
-import { renderRunReportMarkdown } from "./run-report-markdown.js";
-import { escapeHtml } from "./run-report-safe-html.js";
+import type { RunReportText } from "./html.js";
+import { renderRunReportMarkdown } from "./markdown.js";
+import { escapeHtml } from "./safe-html.js";
 
 export function chip(label: string, value: string | number | undefined): string {
 	if (value === undefined || value === "") return "";

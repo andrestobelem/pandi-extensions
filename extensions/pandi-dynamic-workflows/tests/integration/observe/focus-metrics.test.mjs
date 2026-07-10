@@ -1,28 +1,28 @@
 #!/usr/bin/env node
 /**
- * Tests de funciones puras para focus-metrics.ts (research §4 focus observability).
+ * Tests de funciones puras para observe/focus-metrics.ts (research §4 focus observability).
  *
  * parseAgentFocusMetrics pliega un stream stdout de Pi JSON-mode en métricas por agente
  * (crecimiento de tokens, tasa de tool-error, retries); aggregateRunFocusMetrics las agrega.
  * Contar usage SOLO desde message_end evita doble conteo del mensaje assistant repetido
  * que turn_end/agent_end también llevan. Todo es tolerante + fail-safe.
  *
- * focus-metrics.ts no tiene imports, así que bundlea standalone (sin stubs necesarios).
+ * observe/focus-metrics.ts no tiene imports, así que bundlea standalone (sin stubs necesarios).
  */
 
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildExtension, createChecker } from "../../../shared/test/harness.mjs";
+import { buildExtension, createChecker } from "../../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
+const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 
 const { check, counts } = createChecker();
 
 async function loadModule() {
 	const { url } = await buildExtension({
 		name: "pi-dwf-focus-metrics",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "focus-metrics.ts"),
+		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "observe", "focus-metrics.ts"),
 		outName: "focus-metrics.mjs",
 		npx: "--no-install",
 	});

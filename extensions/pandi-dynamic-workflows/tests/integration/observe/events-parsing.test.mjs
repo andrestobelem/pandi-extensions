@@ -14,17 +14,17 @@
  * subprocess de agente — cada función bajo test es sincrónica o lee un directorio fixture en disco.
  *
  * Ejecutalo:
- *   node extensions/pandi-dynamic-workflows/tests/integration/run-events-parsing.test.mjs
+ *   node extensions/pandi-dynamic-workflows/tests/integration/observe/events-parsing.test.mjs
  */
 
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createChecker, sdkStub, buildExtension as sharedBuildExtension } from "../../../shared/test/harness.mjs";
+import { createChecker, sdkStub, buildExtension as sharedBuildExtension } from "../../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
+const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 
 const { check, counts } = createChecker();
 

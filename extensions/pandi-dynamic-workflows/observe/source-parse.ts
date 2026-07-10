@@ -4,7 +4,7 @@
  * en el colector.
  */
 
-import type { RunReportBasedOn } from "./run-report-html.js";
+import type { RunReportBasedOn } from "./html.js";
 
 function readJsStringLiteral(source: string, start: number): { value: string; end: number } | undefined {
 	const quote = source[start];

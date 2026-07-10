@@ -5,7 +5,7 @@
  */
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { notify } from "../notify.js";
-import { writeRunReport } from "../run-report-writer.js";
+import { writeRunReport } from "../observe/index.js";
 import { getRunState, getRunStatusLabel } from "../run-state.js";
 import type { WorkflowRunResult } from "../types.js";
 

@@ -6,7 +6,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
-import type { RunReportText } from "./run-report-html.js";
+import type { RunReportText } from "./html.js";
 
 /** Límites — anclados a constantes runtime existentes (registro de diseño §4). */
 export const REPORT_BOUNDS = {

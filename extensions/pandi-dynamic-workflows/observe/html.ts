@@ -1,7 +1,7 @@
 /**
  * Builder puro model→HTML para el reporte de run de workflow (registro de diseño, run bd039ef9).
  *
- * Contrato (pineado por run-report-security.test.mjs):
+ * Contrato (pineado por observe/security.test.mjs):
  * - Cada string del modelo es UNTRUSTED DATA: la mayoría de strings renderiza vía el escaper de 5 chars;
  *   las salidas de agentes renderizan como Markdown solo vía marked + sanitize-html con allowlist estricta.
  * - La página emite EXACTAMENTE dos bloques <script>, ambos literales fijos para el
@@ -21,14 +21,14 @@
  *   así la regeneración desde un modelo fijo es byte-stable.
  */
 
-import { pillClass, renderWorkflowMonitor, summarizeProgress } from "./run-report-html-agents.js";
-import { LAYOUT_CSS, PANDI_TOKENS_CSS } from "./run-report-html-css.js";
-import { buildRunMermaidSource, MERMAID_CDN_INTEGRITY, MERMAID_CDN_URL } from "./run-report-html-mermaid.js";
-import { openingText, renderAgent, renderTimeline } from "./run-report-html-sections.js";
-import { chip, textBlock } from "./run-report-html-text.js";
-import { artifactViewerHref, escapeHtml, safeRelativeHref } from "./run-report-safe-html.js";
+import { pillClass, renderWorkflowMonitor, summarizeProgress } from "./html-agents.js";
+import { LAYOUT_CSS, PANDI_TOKENS_CSS } from "./html-css.js";
+import { buildRunMermaidSource, MERMAID_CDN_INTEGRITY, MERMAID_CDN_URL } from "./html-mermaid.js";
+import { openingText, renderAgent, renderTimeline } from "./html-sections.js";
+import { chip, textBlock } from "./html-text.js";
+import { artifactViewerHref, escapeHtml, safeRelativeHref } from "./safe-html.js";
 
-export { buildRunMermaidSource } from "./run-report-html-mermaid.js";
+export { buildRunMermaidSource } from "./html-mermaid.js";
 export { escapeHtml, PANDI_TOKENS_CSS, safeRelativeHref };
 
 export interface RunReportText {

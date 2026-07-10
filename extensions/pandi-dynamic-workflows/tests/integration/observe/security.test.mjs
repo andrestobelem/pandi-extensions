@@ -12,22 +12,22 @@
  * los scripts puede interpolar strings originados en modelo (la CDN URL, el integrity hash
  * y la init call son todos literales fijos).
  *
- * Suite de módulo puro: bundlea run-report-html.ts standalone (sin imports SDK).
+ * Suite de módulo puro: bundlea observe/html.ts standalone (sin imports SDK).
  */
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { createChecker, buildExtension as sharedBuildExtension } from "../../../shared/test/harness.mjs";
+import { createChecker, buildExtension as sharedBuildExtension } from "../../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
+const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 
 const { check, counts } = createChecker();
 
 async function buildBuilder() {
 	const { url } = await sharedBuildExtension({
 		name: "pi-run-report-security",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "run-report-html.ts"),
+		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "observe/html.ts"),
 		outName: "run-report-html.mjs",
 	});
 	return await import(url);

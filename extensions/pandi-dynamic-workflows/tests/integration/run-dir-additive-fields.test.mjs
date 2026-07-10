@@ -109,7 +109,7 @@ async function main() {
 	try {
 		const mod = await buildExtension("index.ts", "dynamic-workflows.mjs", "run-dir-additive-index");
 		const collector = await buildExtension(
-			"run-report-collector.ts",
+			"observe/collector.ts",
 			"run-report-collector.mjs",
 			"run-dir-additive-collector",
 		);

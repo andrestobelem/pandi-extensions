@@ -1,18 +1,5 @@
 export { liveAgentHeaderStatus } from "./agent-view.js";
 export { countRunArtifacts } from "./dashboard-collectors.js";
-export {
-	booleanValue,
-	formatAgentPhase,
-	getAgentElapsedMs,
-	isAgentMonitorState,
-	mergeAgentMonitor,
-	numberValue,
-	phaseEventFields,
-	readRunEvents,
-	recordValue,
-	stringArrayValue,
-	stringValue,
-} from "./event-parser.js";
 export { appendFileMutexCount, appendJsonLine } from "./file-append.js";
 export {
 	activeRunCount,
@@ -25,6 +12,19 @@ export {
 	settleWithinTimeout,
 	unregisterActiveRun,
 } from "./lifecycle/index.js";
+export {
+	booleanValue,
+	formatAgentPhase,
+	getAgentElapsedMs,
+	isAgentMonitorState,
+	mergeAgentMonitor,
+	numberValue,
+	phaseEventFields,
+	readRunEvents,
+	recordValue,
+	stringArrayValue,
+	stringValue,
+} from "./observe/index.js";
 export { runProcess, runStreamingAgentProcess } from "./process-spawn.js";
 export { estimatePeakParallelAgents } from "./run-state.js";
 export { selectRunByKey } from "./run-view.js";

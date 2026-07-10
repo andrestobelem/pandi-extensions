@@ -10,6 +10,7 @@ import {
 	shouldLaunchWorkflowInBackground,
 	startWorkflowBackground,
 } from "./lifecycle/index.js";
+import { writeRunReport } from "./observe/index.js";
 import {
 	formatWorkflowPatternCatalog,
 	getDefaultScaffold,
@@ -18,7 +19,6 @@ import {
 	WORKFLOW_PATTERN_CATALOG,
 } from "./pattern-scaffolds.js";
 import { formatWorkflowList } from "./presentation.js";
-import { writeRunReport } from "./run-report-writer.js";
 import { formatRunSummary } from "./run-status-ui.js";
 import { formatRunList, formatRunView, listRuns, resolveRun } from "./run-view.js";
 import type { DynamicWorkflowToolParams, WorkflowLogEntry } from "./types.js";

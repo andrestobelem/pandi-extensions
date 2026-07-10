@@ -3,9 +3,9 @@
  */
 
 import { throwIfAborted } from "./concurrency-primitives.js";
-import type { AgentFocusMetrics } from "./focus-metrics.js";
 import { safeJson, truncate } from "./format.js";
 import { appendJournalRecord, makeJournalRecord, normalizeSubagentResultForJournal } from "./journal.js";
+import type { AgentFocusMetrics } from "./observe/index.js";
 import type { StreamingProcessResult } from "./process-spawn.js";
 import { MAX_AGENT_OUTPUT_IN_RESULT, MAX_JOURNALED_STREAM } from "./runtime-constants.js";
 import type { SubagentResult } from "./types.js";

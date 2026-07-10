@@ -1,12 +1,12 @@
 /**
  * CSS inline del reporte HTML de run (tokens Pandi + layout).
- * Extraído de run-report-html.ts para mantener el builder enfocado en model→HTML.
- * PANDI_TOKENS_CSS se re-exporta desde run-report-html.ts (tests de paridad lo importan ahí).
+ * Extraído de html.ts para mantener el builder enfocado en model→HTML.
+ * PANDI_TOKENS_CSS se re-exporta desde html.ts (tests de paridad lo importan ahí).
  */
 
 /* Tokens de artifact Pandi — inlineados por la regla de extensión autocontenida (la duplicación
  * por extensión es intencional). Pineados contra el canónico
- * .pi/skills/pandi-artifact-style/reference/pandi-tokens.css por el test de paridad run-report-tokens. */
+ * .pi/skills/pandi-artifact-style/reference/pandi-tokens.css por el test de paridad observe/tokens. */
 export const PANDI_TOKENS_CSS = `:root {
   --bg: #242526;
   --paper: #292A2B;

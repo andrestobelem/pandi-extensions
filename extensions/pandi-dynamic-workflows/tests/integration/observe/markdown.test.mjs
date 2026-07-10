@@ -9,16 +9,16 @@
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { createChecker, buildExtension as sharedBuildExtension } from "../../../shared/test/harness.mjs";
+import { createChecker, buildExtension as sharedBuildExtension } from "../../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
+const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 const { check, counts } = createChecker();
 
 async function buildRenderer() {
 	const { url } = await sharedBuildExtension({
 		name: "pi-run-report-markdown",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "run-report-markdown.ts"),
+		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "observe/markdown.ts"),
 		outName: "run-report-markdown.mjs",
 	});
 	return await import(url);

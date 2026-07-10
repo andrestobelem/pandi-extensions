@@ -10,17 +10,17 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { createChecker, sdkStub, buildExtension as sharedBuildExtension } from "../../../shared/test/harness.mjs";
+import { createChecker, sdkStub, buildExtension as sharedBuildExtension } from "../../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
+const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 
 const { check, counts } = createChecker();
 
 async function buildCollector() {
 	const { url } = await sharedBuildExtension({
 		name: "pi-run-report-bounds",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "run-report-collector.ts"),
+		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "observe/collector.ts"),
 		outName: "run-report-collector.mjs",
 		stubs: {
 			typebox: true,

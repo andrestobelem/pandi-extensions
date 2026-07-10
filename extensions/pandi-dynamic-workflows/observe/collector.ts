@@ -23,10 +23,12 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
-import { extractMarkdownSection } from "./agent-view.js";
+import { extractMarkdownSection } from "../agent-view.js";
+import { computeCodeHash } from "../journal.js";
+import { getRunState } from "../run-state.js";
+import type { WorkflowLogEntry, WorkflowRunResult, WorkflowRunStatus } from "../types.js";
 import { readRunEvents } from "./event-parser.js";
-import { computeCodeHash } from "./journal.js";
-import { buildRunReportHtml, type RunReportAgent, type RunReportModel, type RunReportText } from "./run-report-html.js";
+import { buildRunReportHtml, type RunReportAgent, type RunReportModel, type RunReportText } from "./html.js";
 import {
 	boundedText,
 	containedRelative,
@@ -37,10 +39,8 @@ import {
 	readBounded,
 	readJsonBounded,
 	readTail,
-} from "./run-report-io.js";
-import { extractRunReportBasedOn } from "./run-report-source-parse.js";
-import { getRunState } from "./run-state.js";
-import type { WorkflowLogEntry, WorkflowRunResult, WorkflowRunStatus } from "./types.js";
+} from "./io.js";
+import { extractRunReportBasedOn } from "./source-parse.js";
 
 export type { RunReportModel };
 export { buildRunReportHtml, REPORT_BOUNDS };

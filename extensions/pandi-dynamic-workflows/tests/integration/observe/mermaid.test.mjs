@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * buildRunMermaidSource (run-report-html.ts): el reporte de un run textual no traía ningún
+ * buildRunMermaidSource (observe/html.ts): el reporte de un run textual no traía ningún
  * diagrama del run concreto (fases → agentes con su estado). El viewer estático ya tiene un
  * generador Mermaid para el GRAFO ESTÁTICO del código del workflow (workflow-graph.ts); esto
  * cubre el caso distinto — un flowchart de LA CORRIDA real, agrupado por fase, coloreado por
@@ -12,10 +12,10 @@
 
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildExtension, createChecker, loadModule } from "../../../shared/test/harness.mjs";
+import { buildExtension, createChecker, loadModule } from "../../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
+const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 
 const { check, counts } = createChecker();
 
@@ -39,7 +39,7 @@ function baseModel(overrides = {}) {
 async function main() {
 	const { url } = await buildExtension({
 		name: "pi-dwf-run-report-mermaid",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "run-report-html.ts"),
+		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "observe/html.ts"),
 		outName: "run-report-html.mjs",
 	});
 	const { buildRunMermaidSource } = await loadModule(url);

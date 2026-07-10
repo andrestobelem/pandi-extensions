@@ -5,7 +5,7 @@
  * modelo cruzan desde types.ts como import type.
  */
 import { existsSync } from "node:fs";
-import { readRunEvents, readRunLogEvents } from "./event-parser.js";
+import { readRunEvents, readRunLogEvents } from "./observe/index.js";
 import type { WorkflowPattern } from "./pattern-scaffolds.js";
 import type { PiSessionModel } from "./pi-session.js";
 import { workflowProgress } from "./presentation.js";

@@ -10,7 +10,7 @@
  *
  * Los contratos de workflow cruzan desde types.ts como import type (borrados en build).
  */
-import type { AgentMonitorModel, AgentMonitorState, AgentPhaseInfo, SubagentResult } from "./types.js";
+import type { AgentMonitorModel, AgentMonitorState, AgentPhaseInfo, SubagentResult } from "../types.js";
 
 export interface ParsedPhaseEvent {
 	id: number;

@@ -17,11 +17,11 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { formatAgentPhase, readRunEvents } from "./event-parser.js";
 import { MAX_TOOL_TEXT, stringify } from "./format.js";
 import { computeCodeHash } from "./journal.js";
 import { pickViewerForPath, showMarkdown } from "./markdown-view.js";
 import { notify } from "./notify.js";
+import { formatAgentPhase, readRunEvents } from "./observe/index.js";
 import { compactInline, formatElapsedMs } from "./presentation.js";
 import {
 	formatParallelAgents,

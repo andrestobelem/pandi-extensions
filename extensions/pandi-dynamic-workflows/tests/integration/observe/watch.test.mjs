@@ -10,10 +10,10 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { createChecker, sdkStub, buildExtension as sharedBuildExtension } from "../../../shared/test/harness.mjs";
+import { createChecker, sdkStub, buildExtension as sharedBuildExtension } from "../../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
+const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 const { check, counts } = createChecker();
 
 async function buildModule(src, outName, name) {
@@ -73,8 +73,8 @@ async function readStatusFile(runDir) {
 }
 
 async function main() {
-	const htmlMod = await buildModule("run-report-html.ts", "run-report-html.mjs", "run-report-watch-html");
-	const writer = await buildModule("run-report-writer.ts", "run-report-writer.mjs", "run-report-watch-writer");
+	const htmlMod = await buildModule("observe/html.ts", "run-report-html.mjs", "run-report-watch-html");
+	const writer = await buildModule("observe/writer.ts", "run-report-writer.mjs", "run-report-watch-writer");
 	const handlers = await buildModule("command-handlers.ts", "command-handlers.mjs", "run-report-watch-handlers");
 
 	check("buildRunReportHtml exported", typeof htmlMod.buildRunReportHtml === "function");

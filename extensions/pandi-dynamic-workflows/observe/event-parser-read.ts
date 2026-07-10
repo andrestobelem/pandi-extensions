@@ -6,7 +6,9 @@
  */
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { extractMarkdownSection } from "./agent-view.js";
+import { extractMarkdownSection } from "../agent-view.js";
+import { renderSafeInline } from "../render-utils.js";
+import type { AgentMonitorModel, WorkflowLogEntry } from "../types.js";
 import {
 	booleanValue,
 	isAgentMonitorState,
@@ -18,8 +20,6 @@ import {
 	stringArrayValue,
 	stringValue,
 } from "./event-parser.js";
-import { renderSafeInline } from "./render-utils.js";
-import type { AgentMonitorModel, WorkflowLogEntry } from "./types.js";
 
 export interface ParsedRunEvents {
 	logs: WorkflowLogEntry[];

@@ -22,7 +22,7 @@ const { check, counts } = createChecker();
 async function main() {
 	const { url } = await buildExtension({
 		name: "pi-dwf-artifact-viewer-jsonl-pretty",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "run-report-artifact-viewer.ts"),
+		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "observe", "artifact-viewer.ts"),
 		outName: "run-report-artifact-viewer.mjs",
 	});
 	const { formatArtifactPreviewText } = await loadModule(url);

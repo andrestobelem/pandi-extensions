@@ -14,11 +14,10 @@ import {
 } from "./agent-env-persona.js";
 import { parsePiJsonModeOutput, parsePiJsonModeOutputLenient } from "./agent-output.js";
 import { type AsyncMutex, type createSemaphore, throwIfAborted } from "./concurrency-primitives.js";
-import { phaseEventFields } from "./event-parser.js";
-import { type AgentFocusMetrics, parseAgentFocusMetrics } from "./focus-metrics.js";
 import { truncate } from "./format.js";
 import { computeCallKey } from "./journal.js";
 import { extractJsonCandidate } from "./json-extract.js";
+import { type AgentFocusMetrics, parseAgentFocusMetrics, phaseEventFields } from "./observe/index.js";
 import type { OccurrenceCounter } from "./occurrence-counter.js";
 import { runStreamingAgentProcess, type StreamingProcessResult } from "./process-spawn.js";
 import { MAX_AGENT_OUTPUT_IN_RESULT } from "./runtime-constants.js";

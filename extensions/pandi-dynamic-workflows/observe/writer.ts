@@ -9,11 +9,11 @@
 
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { ARTIFACT_VIEWER_FILE, buildRunArtifactViewerHtml } from "./run-report-artifact-viewer.js";
-import { collectRunReport } from "./run-report-collector.js";
-import { buildRunReportHtml } from "./run-report-html.js";
-import { readRunStatus, writeTextFileAtomic } from "./run-store.js";
-import type { WorkflowRunRecord, WorkflowRunStatus } from "./types.js";
+import { readRunStatus, writeTextFileAtomic } from "../run-store.js";
+import type { WorkflowRunRecord, WorkflowRunStatus } from "../types.js";
+import { ARTIFACT_VIEWER_FILE, buildRunArtifactViewerHtml } from "./artifact-viewer.js";
+import { collectRunReport } from "./collector.js";
+import { buildRunReportHtml } from "./html.js";
 
 export const RUN_REPORT_WATCH_INTERVAL_MS = 2000;
 

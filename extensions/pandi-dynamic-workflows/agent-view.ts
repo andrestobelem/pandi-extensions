@@ -18,10 +18,10 @@ import {
 	formatAgentView,
 	resolveAgentArtifactPath,
 } from "./agent-view-format.js";
-import { readRunEvents } from "./event-parser.js";
 import { truncate } from "./format.js";
 import { computeCodeHash } from "./journal.js";
 import { notify } from "./notify.js";
+import { readRunEvents } from "./observe/event-parser.js";
 import { formatRunView, pickAndOpenRunArtifact } from "./run-view.js";
 import type { AgentMonitorModel, WorkflowRunRecord } from "./types.js";
 

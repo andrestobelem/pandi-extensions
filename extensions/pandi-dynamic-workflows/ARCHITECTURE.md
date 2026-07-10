@@ -41,7 +41,7 @@ flowchart TB
 3. **Ultracode queda dentro del paquete** (deep module), no extensión hermana: comparte tool `dynamic_workflow`, sesión y status UI; separarlo rompería el producto sin ganar un límite de deploy real.
 4. **Graph partido con inteligencia, sin dedupe:**
    - Interactivo / TUI → `tui/graph/`
-   - Mermaid del HTML report → `observe/` (hoy `run-report-html-mermaid.ts`)
+   - Mermaid del HTML report → `observe/` (`observe/html-mermaid.ts`)
    - Never-touch: no unificar renderers TUI↔HTML.
 5. **Tests espejo:** `tests/integration/<módulo>/…` con el mismo vocabulario. El prefijo de archivo se acorta dentro de la carpeta (`ultracode/border-status.test.mjs`). Suites transversales (parity, doctor, boundaries) viven en `tests/integration/guards/`.
 
@@ -56,7 +56,7 @@ flowchart TB
 ## Migración
 
 1. Doc + discovery recursivo de suites + `files` del package — hecho.
-2. Un deep module por commit atómico (código + tests + imports): `ultracode/` → `lifecycle/` → `observe/` → `tui/` → `surface/` → `runtime/` → `lib/`.
+2. Un deep module por commit atómico (código + tests + imports): `ultracode/` → `lifecycle/` → `observe/` (hecho) → `tui/` → `surface/` → `runtime/` → `lib/`.
 3. Achicar `workflow-public-api.ts` a reexports de fachadas.
 4. Mover transversales a `lib/` al final.
 

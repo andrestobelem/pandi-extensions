@@ -3,8 +3,8 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
-import type { RunReportModel } from "./run-report-html.js";
-import { artifactViewerAnchor, escapeHtml, safeRelativeHref } from "./run-report-safe-html.js";
+import type { RunReportModel } from "./html.js";
+import { artifactViewerAnchor, escapeHtml, safeRelativeHref } from "./safe-html.js";
 
 export const ARTIFACT_VIEWER_FILE = "artifact-viewer.html";
 const ARTIFACT_PREVIEW_BYTES = 160_000;

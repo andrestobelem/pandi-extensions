@@ -5,8 +5,8 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { parsePiJsonModeOutput, parsePiJsonModeOutputLenient } from "./agent-output.js";
-import { formatAgentPhase } from "./event-parser.js";
 import { MAX_TOOL_TEXT, truncate } from "./format.js";
+import { formatAgentPhase } from "./observe/index.js";
 import { formatElapsedMs } from "./presentation.js";
 import type { AgentMonitorModel, WorkflowRunRecord } from "./types.js";
 

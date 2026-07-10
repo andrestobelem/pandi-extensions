@@ -114,12 +114,12 @@ async function main() {
 	try {
 		const mod = await buildModule("index.ts", "dynamic-workflows.mjs", "workflow-result-integrity-index");
 		const collector = await buildModule(
-			"run-report-collector.ts",
+			"observe/collector.ts",
 			"run-report-collector.mjs",
 			"workflow-result-integrity-collector",
 		);
 		const reportHtml = await buildModule(
-			"run-report-html.ts",
+			"observe/html.ts",
 			"run-report-html.mjs",
 			"workflow-result-integrity-report-html",
 		);

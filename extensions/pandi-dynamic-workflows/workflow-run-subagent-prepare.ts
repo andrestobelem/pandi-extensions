@@ -4,8 +4,8 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { normalizeAgentEnvAccess } from "./agent-env-persona.js";
-import { phaseEventFields } from "./event-parser.js";
 import { lookupJournalRecord } from "./journal.js";
+import { phaseEventFields } from "./observe/index.js";
 import type { AgentOptions, AgentPhaseInfo, JournalCache, SubagentResult } from "./types.js";
 import { makeModelArg, TIER_ALIASES, tierModelTable } from "./workflow-tier-models.js";
 
