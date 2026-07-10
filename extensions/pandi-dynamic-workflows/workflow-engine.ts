@@ -33,7 +33,6 @@ import {
 	computeCodeHash,
 	lookupJournalRecord,
 	makeJournalRecord,
-	normalizeBashResultForJournal,
 	normalizeSubagentResultForJournal,
 } from "./journal.js";
 import { extractJsonCandidate } from "./json-extract.js";
@@ -53,7 +52,6 @@ import {
 import type {
 	AgentOptions,
 	AgentPhaseInfo,
-	AskResult,
 	BashResult,
 	PreparedWorkflowRun,
 	RunLimits,
@@ -66,6 +64,7 @@ import type {
 	WorkflowRunStatus,
 } from "./types.js";
 import { buildAgentProcess, hostBinName, sanitizeAgentOpts } from "./workflow-agent-process.js";
+import { type AskOptions, type BashAskContext, type BashOptions, runAsk, runBash } from "./workflow-bash-ask.js";
 import { currentWorkflowDepth, WORKFLOW_DEPTH_ENV } from "./workflow-depth.js";
 import { preflightWorkflowLaunch } from "./workflow-preflight.js";
 import { ensureDir, resolveWorkflow, slugify } from "./workflow-resolve.js";
@@ -91,26 +90,6 @@ interface InternalAgentOptions extends AgentOptions {
 
 interface AgentSpec extends InternalAgentOptions {
 	prompt: string;
-}
-
-interface BashOptions {
-	cwd?: string;
-	timeoutMs?: number;
-	throwOnError?: boolean;
-	cache?: boolean;
-	__workflowNamespace?: string;
-}
-
-interface AskOptions {
-	kind?: "input" | "confirm" | "select";
-	choices?: string[];
-	placeholder?: string;
-	default?: string | boolean;
-	timeoutMs?: number;
-	cache?: boolean;
-	/** La respuesta es secreta: nunca la persistas (events/journal) ni la reproduzcas al reanudar. */
-	secret?: boolean;
-	__workflowNamespace?: string;
 }
 
 interface WorkflowRuntimeApi {
@@ -898,205 +877,6 @@ export async function runWorkflow(
 		return runAgents as WorkflowRuntimeApi["agents"];
 	}
 
-	async function runBash(command: string, options: BashOptions = {}): Promise<BashResult> {
-		throwIfAborted(runSignal.signal);
-		// bash caching is opt-in: bash(cmd, { cache: true }). occ assigned
-		// synchronously before any await for deterministic ordering.
-		const cacheEnabled = options.cache === true;
-		const key = computeCallKey("bash", [
-			command,
-			{
-				cwd: options.cwd ?? ctx.cwd,
-				...(options.__workflowNamespace ? { workflowNamespace: options.__workflowNamespace } : {}),
-			},
-		]);
-		const occ = occurrences.next(key);
-		if (cacheEnabled) {
-			const hit = lookupJournalRecord(journal, key, occ);
-			// "code" present + no artifactPath => BashResult (not a SubagentResult or AskResult). Keys never
-			// collide across methods (computeCallKey namespaces by method), so this only narrows the type.
-			if (hit && "code" in hit && !("artifactPath" in hit)) {
-				cachedCalls++;
-				await log(`bash cached: ${command.slice(0, 80)}`, {
-					key: key.slice(0, 12),
-					occ,
-					...(options.__workflowNamespace ? { workflowNamespace: options.__workflowNamespace } : {}),
-				});
-				if (options.throwOnError && !hit.ok) {
-					throw new Error(`Command failed (${hit.code}): ${command}\n${hit.stderr || hit.stdout}`);
-				}
-				return hit;
-			}
-		}
-		const startedAt = Date.now();
-		await log(
-			`bash start: ${command.slice(0, 120)}`,
-			options.__workflowNamespace ? { workflowNamespace: options.__workflowNamespace } : undefined,
-		);
-		const result = await pi.exec("bash", ["-lc", command], {
-			cwd: options.cwd ?? ctx.cwd,
-			timeout: options.timeoutMs ?? runLimits.agentTimeoutMs,
-			signal: runSignal.signal,
-		});
-		throwIfAborted(runSignal.signal);
-		const rawBashResult: BashResult = {
-			ok: result.code === 0 && !result.killed,
-			code: result.code,
-			killed: result.killed,
-			elapsedMs: Date.now() - startedAt,
-			stdout: result.stdout,
-			stderr: result.stderr,
-		};
-		const bashResult = cacheEnabled ? normalizeBashResultForJournal(rawBashResult) : rawBashResult;
-		await appendEvent({
-			type: "bash",
-			command,
-			...bashResult,
-			...(options.__workflowNamespace ? { workflowNamespace: options.__workflowNamespace } : {}),
-		});
-		if (cacheEnabled) {
-			await appendJournalRecord(
-				runDir,
-				makeJournalRecord({ key, occ, method: "bash", codeHash, result: bashResult }),
-			);
-		}
-		await log(`bash end: ${command.slice(0, 120)}`, {
-			ok: bashResult.ok,
-			code: bashResult.code,
-			...(options.__workflowNamespace ? { workflowNamespace: options.__workflowNamespace } : {}),
-		});
-		if (options.throwOnError && !bashResult.ok) {
-			throw new Error(`Command failed (${bashResult.code}): ${command}\n${bashResult.stderr || bashResult.stdout}`);
-		}
-		return bashResult;
-	}
-
-	// ask(question, options?) -> the human's answer via ctx.ui. Resume-safe: cached by default and
-	// journaled by (key, occ) with method "ask", so a resumed run REPLAYS the recorded answer and never
-	// re-prompts. Cancellation reuses the race() per-call signal bridge: the dispatcher wraps ask in the
-	// callSignal ALS, so an abort-call (race loser) or run-abort dismisses the dialog via { signal } and
-	// the post-abort guard throws WITHOUT journaling (leaving a hole, consistent with race semantics).
-	async function runAsk(question: string, options: AskOptions = {}): Promise<string | boolean> {
-		const effectiveSignal = callSignal.getStore() ?? runSignal.signal;
-		throwIfAborted(effectiveSignal);
-		// Eager validation (cheap synchronous guards inside ask()'s own surface) before any UI/journal:
-		const hasChoices = options.choices !== undefined;
-		if (options.kind === undefined && hasChoices && typeof options.default === "boolean") {
-			throw new Error(
-				"ask(): ambiguous kind — both choices and a boolean default were given; pass options.kind explicitly.",
-			);
-		}
-		const kind: "input" | "confirm" | "select" =
-			options.kind ?? (hasChoices ? "select" : typeof options.default === "boolean" ? "confirm" : "input");
-		if (kind === "select" && (!Array.isArray(options.choices) || options.choices.length === 0)) {
-			throw new Error("ask(): kind 'select' requires a non-empty options.choices array.");
-		}
-		const hasDefault = options.default !== undefined;
-		if (kind === "select" && hasDefault && !(options.choices as string[]).includes(options.default as string)) {
-			throw new Error("ask(): options.default for a select must be one of options.choices.");
-		}
-		const secret = options.secret === true;
-		// A secret answer must never touch disk: force-disable the journal so it is neither written
-		// to journal.jsonl nor replayed on resume, and redact it in the live event + log below. The
-		// real value is still returned to the workflow.
-		const cacheEnabled = !secret && options.cache !== false;
-		const redactedAnswer = secret ? "[redacted]" : undefined;
-		const namespace = options.__workflowNamespace;
-		const key = computeCallKey("ask", [
-			question,
-			{
-				kind,
-				choices: kind === "select" ? (options.choices ?? []) : undefined,
-				placeholder: options.placeholder,
-				default: options.default,
-				...(namespace ? { workflowNamespace: namespace } : {}),
-			},
-		]);
-		const occ = occurrences.next(key);
-		if (cacheEnabled) {
-			const hit = lookupJournalRecord(journal, key, occ) as AskResult | undefined;
-			if (hit && "answer" in hit) {
-				cachedCalls++;
-				await appendEvent({
-					type: "ask",
-					kind: hit.kind,
-					question,
-					answer: hit.answer,
-					state: "cached",
-					...(namespace ? { workflowNamespace: namespace } : {}),
-				});
-				await log(`ask cached: ${question.slice(0, 80)}`, { key: key.slice(0, 12), occ, answer: hit.answer });
-				return hit.answer;
-			}
-		}
-		const startedAt = Date.now();
-		const dialogOpts = {
-			signal: effectiveSignal,
-			...(typeof options.timeoutMs === "number" ? { timeout: options.timeoutMs } : {}),
-		};
-		await log(`ask: ${question.slice(0, 120)}`, { kind, ...(namespace ? { workflowNamespace: namespace } : {}) });
-
-		let answer: string | boolean;
-		let dismissed = false;
-		let defaulted = false;
-		if (!ctx.hasUI) {
-			if (!hasDefault) {
-				throw new Error(
-					`ask() needs a human but no UI is available (mode=${ctx.mode}); pass options.default to proceed headlessly.`,
-				);
-			}
-			answer = options.default as string | boolean;
-			defaulted = true;
-		} else {
-			let res: string | boolean | undefined;
-			if (kind === "confirm") {
-				res = await ctx.ui.confirm(
-					question,
-					typeof options.placeholder === "string" ? options.placeholder : "",
-					dialogOpts,
-				);
-			} else if (kind === "select") {
-				res = await ctx.ui.select(question, options.choices ?? [], dialogOpts);
-			} else {
-				res = await ctx.ui.input(question, options.placeholder, dialogOpts);
-			}
-			// Post-abort guard: a race loser / run abort dismisses the dialog -> throw WITHOUT journaling.
-			throwIfAborted(effectiveSignal);
-			if (res === undefined) {
-				// confirm never returns undefined; input/select return undefined on dismiss/timeout.
-				if (!hasDefault)
-					throw new Error(`ask() was dismissed and no options.default was provided: ${question.slice(0, 80)}`);
-				answer = options.default as string | boolean;
-				dismissed = true;
-				defaulted = true;
-			} else {
-				answer = res;
-			}
-		}
-		throwIfAborted(effectiveSignal);
-		const result: AskResult = {
-			kind,
-			answer,
-			...(dismissed ? { dismissed: true } : {}),
-			...(defaulted ? { defaulted: true } : {}),
-			elapsedMs: Date.now() - startedAt,
-		};
-		await appendEvent({
-			type: "ask",
-			kind,
-			question,
-			answer: redactedAnswer ?? answer,
-			...(dismissed ? { dismissed: true } : {}),
-			...(defaulted ? { defaulted: true } : {}),
-			...(namespace ? { workflowNamespace: namespace } : {}),
-		});
-		if (cacheEnabled) {
-			await appendJournalRecord(runDir, makeJournalRecord({ key, occ, method: "ask", codeHash, result }));
-		}
-		await log(`ask answered: ${question.slice(0, 80)}`, { answer: redactedAnswer ?? answer, defaulted });
-		return answer;
-	}
-
 	async function runSubworkflow(name: string, workflowInput: unknown = {}): Promise<unknown> {
 		throwIfAborted(runSignal.signal);
 		const subWorkflow = await resolveWorkflow(ctx, name, "auto");
@@ -1167,6 +947,22 @@ export async function runWorkflow(
 		}
 	}
 
+	const bashAsk: BashAskContext = {
+		pi,
+		ctx,
+		runDir,
+		getCodeHash: () => codeHash,
+		journal,
+		occurrences,
+		runLimits,
+		runSignal,
+		bumpCachedCalls: () => {
+			cachedCalls++;
+		},
+		log,
+		appendEvent,
+	};
+
 	function makeApi(
 		workflowNamespace: string | undefined,
 		allowWorkflow: boolean,
@@ -1195,12 +991,12 @@ export async function runWorkflow(
 						);
 					},
 			ask: async (question, options = {}) =>
-				await runAsk(question, {
+				await runAsk(bashAsk, question, {
 					...options,
 					...(workflowNamespace ? { __workflowNamespace: workflowNamespace } : {}),
 				}),
 			bash: async (command, options = {}) =>
-				await runBash(command, {
+				await runBash(bashAsk, command, {
 					...options,
 					...(workflowNamespace ? { __workflowNamespace: workflowNamespace } : {}),
 				}),
