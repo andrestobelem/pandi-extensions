@@ -12,9 +12,16 @@ cambió.
 
 ```bash
 npm test
+npm run release:flow
 npm run release:prepare
 node scripts/release-contract.mjs --expect-tag v0.3.9
-node scripts/publish-npm.mjs
+node scripts/publish-npm.mjs --plan-file .release-plan.json
+```
+
+`release:flow` orquesta los pasos en dry-run. Para preparar y validar en un solo comando:
+
+```bash
+node scripts/release-flow.mjs --prepare --write --sync-docs --test --contract
 ```
 
 Si `release:prepare` lista paquetes `BUMP?`, aplicá el bump automático y repetí los checks:
@@ -81,7 +88,7 @@ Los peers se mantienen pinneados al piso soportado por el repo:
 4. Revisá npm sin publicar:
 
    ```bash
-   node scripts/publish-npm.mjs
+   node scripts/publish-npm.mjs --plan-file .release-plan.json
    ```
 
    - `PUBLISH`: versión todavía no existe en npm; está lista para publicar.
@@ -90,7 +97,9 @@ Los peers se mantienen pinneados al piso soportado por el repo:
 
 ## Publish en GitHub Actions
 
-El workflow publica desde tags `v*` y también puede correrse manualmente en modo dry-run.
+El workflow publica desde tags `v*` y también puede correrse manualmente en modo dry-run. El dry-run
+escribe `.release-plan.json`; el paso de publish reutiliza ese plan con `--from-plan` para no reclasificar
+los 29 workspaces.
 
 Requisitos del repo en GitHub:
 

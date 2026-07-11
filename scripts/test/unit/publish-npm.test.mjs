@@ -5,11 +5,16 @@ import * as path from "node:path";
 import { test } from "node:test";
 import {
 	buildPublishArgs,
+	buildPublishPlanDocument,
 	classify,
+	classifyWorkspaces,
 	isNpmMissingVersionError,
 	loadPublishWorkspaces,
 	parsePackShasum,
 	parsePublishOptions,
+	parsePublishPlanDocument,
+	renderPublishPlanText,
+	summarizePublishPlan,
 	withSafeNpmConfig,
 } from "../../publish-npm.mjs";
 
@@ -68,13 +73,78 @@ test("parsePublishOptions: publish flags and tag spellings", () => {
 		provenance: true,
 		otp: "123456",
 		tag: "beta",
+		concurrency: 8,
+		publishConcurrency: 1,
+		planFile: undefined,
+		fromPlan: undefined,
+		jsonOnly: false,
 	});
 	assert.deepEqual(parsePublishOptions(["--tag=next"]), {
 		doPublish: false,
 		provenance: false,
 		otp: undefined,
 		tag: "next",
+		concurrency: 8,
+		publishConcurrency: 1,
+		planFile: undefined,
+		fromPlan: undefined,
+		jsonOnly: false,
 	});
+});
+
+test("parsePublishOptions: plan cache and concurrency flags", () => {
+	assert.deepEqual(parsePublishOptions(["--plan-file=plan.json", "--from-plan=other.json", "--concurrency", "4"]), {
+		doPublish: false,
+		provenance: false,
+		otp: undefined,
+		tag: undefined,
+		concurrency: 4,
+		publishConcurrency: 1,
+		planFile: "plan.json",
+		fromPlan: "other.json",
+		jsonOnly: false,
+	});
+});
+
+test("publish plan document round-trips and renders legacy text", () => {
+	const document = buildPublishPlanDocument([
+		{ dir: "/a", relDir: "extensions/pandi-a", name: "@pandi/a", version: "1.0.0", action: "publish" },
+		{ dir: "/b", relDir: "extensions/pandi-b", name: "@pandi/b", version: "1.0.0", action: "bump" },
+	]);
+	assert.deepEqual(summarizePublishPlan(document.packages), { total: 2, publish: 1, unchanged: 0, bump: 1 });
+	const roundTrip = parsePublishPlanDocument(JSON.stringify(document));
+	assert.deepEqual(roundTrip.summary, document.summary);
+	assert.match(renderPublishPlanText(document), /PUBLISH\s+@pandi\/a@1\.0\.0/);
+	assert.match(renderPublishPlanText(document), /BUMP\?\s+@pandi\/b@1\.0\.0/);
+});
+
+test("classifyWorkspaces: classifies with injected npm shims", async () => {
+	const workspaces = [
+		{ dir: "/a", relDir: "extensions/pandi-a", pkg: { name: "@pandi/a", version: "1.0.0" } },
+		{ dir: "/b", relDir: "extensions/pandi-b", pkg: { name: "@pandi/b", version: "2.0.0" } },
+	];
+	const npm = async (args) => {
+		if (args[0] === "view") return args[1] === "@pandi/a@1.0.0" ? "" : "remote-sha";
+		if (args[0] === "pack") return args.includes("--json") ? '[{"shasum":"local-a"}]' : "";
+		throw new Error(`unexpected npm call: ${args.join(" ")}`);
+	};
+	const packages = await classifyWorkspaces(workspaces, {
+		concurrency: 2,
+		npm: async (args, opts) => {
+			if (args[0] === "pack") {
+				const dir = opts.cwd;
+				return dir === "/a" ? '[{"shasum":"local-a"}]' : '[{"shasum":"other-local"}]';
+			}
+			return npm(args);
+		},
+	});
+	assert.deepEqual(
+		packages.map(({ name, action }) => ({ name, action })),
+		[
+			{ name: "@pandi/a", action: "publish" },
+			{ name: "@pandi/b", action: "bump" },
+		],
+	);
 });
 
 function writePackage(root, dir, pkg) {

@@ -3,12 +3,14 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { test } from "node:test";
+import { buildPublishPlanDocument } from "../../publish-npm.mjs";
 import {
 	applyVersionBumps,
 	bumpPatch,
 	parsePrepareOptions,
 	parsePublishPlan,
 	planVersionBumps,
+	publishPlanToLegacyShape,
 } from "../../release-prepare.mjs";
 
 function writeJson(file, value) {
@@ -17,14 +19,20 @@ function writeJson(file, value) {
 }
 
 test("release-prepare: parse options keeps dry-run as the default", () => {
-	assert.deepEqual(parsePrepareOptions([]), { write: false, publishOutputFile: undefined });
+	assert.deepEqual(parsePrepareOptions([]), {
+		write: false,
+		publishOutputFile: undefined,
+		publishPlanFile: undefined,
+	});
 	assert.deepEqual(parsePrepareOptions(["--write", "--publish-output", "plan.txt"]), {
 		write: true,
 		publishOutputFile: "plan.txt",
+		publishPlanFile: undefined,
 	});
-	assert.deepEqual(parsePrepareOptions(["--publish-output=plan.txt"]), {
+	assert.deepEqual(parsePrepareOptions(["--publish-plan=plan.json"]), {
 		write: false,
-		publishOutputFile: "plan.txt",
+		publishOutputFile: undefined,
+		publishPlanFile: "plan.json",
 	});
 });
 
@@ -37,6 +45,17 @@ PUBLISH  @pandi-coding-agent/new-one@0.1.0 (version not on npm)
 `);
 	assert.deepEqual(plan.bumps, [{ name: "@pandi-coding-agent/pandi-bg", version: "0.1.5" }]);
 	assert.deepEqual(plan.publishes, [{ name: "@pandi-coding-agent/new-one", version: "0.1.0" }]);
+});
+
+test("release-prepare: converts JSON publish plan into legacy bump list", () => {
+	const legacy = publishPlanToLegacyShape(
+		buildPublishPlanDocument([
+			{ name: "@pandi-coding-agent/pandi-bg", version: "0.1.5", action: "bump" },
+			{ name: "@pandi-coding-agent/pandi-plan", version: "0.1.4", action: "publish" },
+		]),
+	);
+	assert.deepEqual(legacy.bumps, [{ name: "@pandi-coding-agent/pandi-bg", version: "0.1.5" }]);
+	assert.deepEqual(legacy.publishes, [{ name: "@pandi-coding-agent/pandi-plan", version: "0.1.4" }]);
 });
 
 test("release-prepare: patch-bumps semver versions only", () => {

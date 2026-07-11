@@ -13,14 +13,20 @@
  * no de cambios reales de contenido.
  *
  * Uso:
- *   node scripts/publish-npm.mjs            # dry run: muestra solo el plan
- *   node scripts/publish-npm.mjs --publish  # ejecuta de verdad `npm publish --access public`
- *                                           # (con 2FA, npm pide OTP por package)
+ *   node scripts/publish-npm.mjs                              # dry run
+ *   node scripts/publish-npm.mjs --plan-file .release-plan.json
+ *   node scripts/publish-npm.mjs --from-plan .release-plan.json --publish
+ *   node scripts/publish-npm.mjs --publish                    # publica (con 2FA, npm pide OTP por package)
  */
-import { execFileSync } from "node:child_process";
-import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { execFile, execFileSync } from "node:child_process";
+import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
+import { mapPool } from "./lib/pool.mjs";
+import { loadPublicWorkspaces } from "./lib/release-workspaces.mjs";
+
+const execFileAsync = promisify(execFile);
+export const PUBLISH_PLAN_VERSION = 1;
 
 /** Decide la acción para un package: "publish" | "unchanged" | "bump". */
 export function classify(remoteShasum, localShasum) {
@@ -39,6 +45,20 @@ export function buildPublishArgs({ otp, provenance = false, tag = "latest" } = {
 	return withSafeNpmConfig(args);
 }
 
+function valueAfter(args, flag) {
+	const eq = args.find((arg) => arg.startsWith(`${flag}=`));
+	if (eq) return eq.slice(flag.length + 1);
+	const i = args.indexOf(flag);
+	return i >= 0 ? args[i + 1] : undefined;
+}
+
+function parsePositiveInt(raw, fallback) {
+	if (raw === undefined) return fallback;
+	const value = Number(raw);
+	if (!Number.isInteger(value) || value < 1) throw new Error(`invalid positive integer: ${raw}`);
+	return value;
+}
+
 export function parsePublishOptions(args) {
 	const tagIndex = args.indexOf("--tag");
 	return {
@@ -46,30 +66,26 @@ export function parsePublishOptions(args) {
 		provenance: args.includes("--provenance"),
 		otp: args.find((a) => a.startsWith("--otp="))?.slice(6),
 		tag: args.find((a) => a.startsWith("--tag="))?.slice(6) || (tagIndex >= 0 ? args[tagIndex + 1] : undefined),
+		concurrency: parsePositiveInt(valueAfter(args, "--concurrency"), 8),
+		publishConcurrency: parsePositiveInt(valueAfter(args, "--publish-concurrency"), 1),
+		planFile: valueAfter(args, "--plan-file"),
+		fromPlan: valueAfter(args, "--from-plan"),
+		jsonOnly: args.includes("--json"),
 	};
 }
 
+/** @deprecated Usá loadPublicWorkspaces desde release-workspaces.mjs */
 export function loadPublishWorkspaces(root) {
-	const extDir = join(root, "extensions");
-	return readdirSync(extDir)
-		.filter((d) => d === "pandi" || d.startsWith("pandi-"))
-		.map((d) => join(extDir, d))
-		.map((dir) => {
-			try {
-				return { dir, pkg: JSON.parse(readFileSync(join(dir, "package.json"), "utf8")) };
-			} catch {
-				return null; // no es un workspace (package.json faltante o inválido)
-			}
-		})
-		.filter((w) => w !== null && !w.pkg.private);
+	return loadPublicWorkspaces(root).map(({ dir, pkg }) => ({ dir, pkg }));
 }
 
-function npm(cmdArgs, opts = {}) {
-	return execFileSync("npm", withSafeNpmConfig(cmdArgs), {
+async function npmAsync(cmdArgs, opts = {}) {
+	const { stdout } = await execFileAsync("npm", withSafeNpmConfig(cmdArgs), {
 		encoding: "utf8",
 		...opts,
 		env: { ...process.env, ...opts.env, npm_config_loglevel: "error" },
-	}).trim();
+	});
+	return stdout.trim();
 }
 
 function npmErrorText(err) {
@@ -83,13 +99,13 @@ export function isNpmMissingVersionError(err) {
 }
 
 /** dist.shasum publicado para name@version, o null si esa versión no está en npm. */
-function publishedShasum(name, version) {
+export async function publishedShasum(name, version, { npm = npmAsync } = {}) {
 	try {
-		const out = npm(["view", `${name}@${version}`, "dist.shasum"], { stdio: ["ignore", "pipe", "pipe"] });
-		return out === "" ? null : out; // en algunas versiones de npm: versión faltante = exit 0, stdout vacío
+		const out = await npm(["view", `${name}@${version}`, "dist.shasum"], { stdio: ["ignore", "pipe", "pipe"] });
+		return out === "" ? null : out;
 	} catch (err) {
 		const msg = npmErrorText(err);
-		if (isNpmMissingVersionError(err)) return null; // versión no publicada
+		if (isNpmMissingVersionError(err)) return null;
 		throw new Error(`npm view failed for ${name}@${version} (not a 404 — refusing to guess):\n${msg}`);
 	}
 }
@@ -110,8 +126,8 @@ export function parsePackShasum(output) {
 	return shasum;
 }
 
-function localShasum(dir) {
-	const out = npm(["pack", "--dry-run", "--json"], { cwd: dir, stdio: ["ignore", "pipe", "pipe"] });
+export async function localShasum(dir, { npm = npmAsync } = {}) {
+	const out = await npm(["pack", "--dry-run", "--json"], { cwd: dir, stdio: ["ignore", "pipe", "pipe"] });
 	try {
 		return parsePackShasum(out);
 	} catch {
@@ -119,42 +135,78 @@ function localShasum(dir) {
 	}
 }
 
-function main() {
-	const root = fileURLToPath(new URL("..", import.meta.url));
-	const { doPublish, provenance, otp, tag } = parsePublishOptions(process.argv.slice(2));
-	const workspaces = loadPublishWorkspaces(root);
+export function summarizePublishPlan(packages) {
+	const summary = { total: packages.length, publish: 0, unchanged: 0, bump: 0 };
+	for (const entry of packages) summary[entry.action]++;
+	return summary;
+}
 
-	const toPublish = [];
-	const needsBump = [];
-	let unchanged = 0;
+export function buildPublishPlanDocument(packages) {
+	return {
+		version: PUBLISH_PLAN_VERSION,
+		generatedAt: new Date().toISOString(),
+		summary: summarizePublishPlan(packages),
+		packages,
+	};
+}
 
-	for (const { dir, pkg } of workspaces) {
-		const action = classify(publishedShasum(pkg.name, pkg.version), localShasum(dir));
-		if (action === "publish") {
-			toPublish.push({ dir, name: pkg.name, version: pkg.version });
-			console.log(`PUBLISH  ${pkg.name}@${pkg.version} (version not on npm)`);
-		} else if (action === "unchanged") {
-			unchanged++;
-		} else {
-			needsBump.push(pkg.name);
-			console.log(`BUMP?    ${pkg.name}@${pkg.version} (published but content differs — bump the version first)`);
-		}
+export function parsePublishPlanDocument(raw) {
+	const plan = typeof raw === "string" ? JSON.parse(raw) : raw;
+	if (!plan || plan.version !== PUBLISH_PLAN_VERSION || !Array.isArray(plan.packages)) {
+		throw new Error("invalid publish plan document");
 	}
+	return plan;
+}
 
-	console.log(
-		`\n${workspaces.length} workspaces: ${toPublish.length} to publish, ${unchanged} unchanged, ${needsBump.length} need a version bump.`,
+export function renderPublishPlanLine(entry) {
+	if (entry.action === "publish") {
+		return `PUBLISH  ${entry.name}@${entry.version} (version not on npm)`;
+	}
+	if (entry.action === "bump") {
+		return `BUMP?    ${entry.name}@${entry.version} (published but content differs — bump the version first)`;
+	}
+	return `UNCHANGED ${entry.name}@${entry.version}`;
+}
+
+export function renderPublishPlanText(plan) {
+	const lines = plan.packages.map(renderPublishPlanLine);
+	const { total, publish, unchanged, bump } = plan.summary;
+	lines.push(`\n${total} workspaces: ${publish} to publish, ${unchanged} unchanged, ${bump} need a version bump.`);
+	return `${lines.join("\n")}\n`;
+}
+
+export async function classifyWorkspaces(workspaces, { concurrency = 8, npm = npmAsync } = {}) {
+	const remoteShasums = await mapPool(workspaces, concurrency, async ({ pkg }) =>
+		publishedShasum(pkg.name, pkg.version, { npm }),
 	);
+	const localShasums = await mapPool(workspaces, concurrency, async ({ dir }) => localShasum(dir, { npm }));
 
-	// Sale con 1 siempre que quede trabajo pendiente (needsBump), incluso después de publishes exitosos.
-	if (needsBump.length > 0) process.exitCode = 1;
+	return workspaces.map(({ dir, relDir, pkg }, index) => ({
+		dir,
+		relDir,
+		name: pkg.name,
+		version: pkg.version,
+		action: classify(remoteShasums[index], localShasums[index]),
+	}));
+}
 
-	if (!doPublish) {
-		if (toPublish.length > 0) console.log("Dry run. Re-run with --publish to publish.");
-		return;
-	}
+export async function buildPublishPlan(root, options = {}) {
+	const workspaces = loadPublicWorkspaces(root);
+	const packages = await classifyWorkspaces(workspaces, options);
+	return buildPublishPlanDocument(packages);
+}
 
+function readPublishPlan(fromPlan) {
+	return parsePublishPlanDocument(readFileSync(fromPlan, "utf8"));
+}
+
+function writePublishPlan(planFile, plan) {
+	writeFileSync(planFile, `${JSON.stringify(plan, null, "\t")}\n`);
+}
+
+async function publishPackages(toPublish, { provenance, otp, tag, publishConcurrency }) {
 	const failed = [];
-	for (const { dir, name, version } of toPublish) {
+	await mapPool(toPublish, publishConcurrency, async ({ dir, name, version }) => {
 		console.log(`\n→ npm publish ${name}@${version}`);
 		const publishArgs = buildPublishArgs({ otp, provenance, tag: tag || "latest" });
 		try {
@@ -162,8 +214,41 @@ function main() {
 		} catch {
 			failed.push(`${name}@${version}`);
 		}
+	});
+	return failed;
+}
+
+async function main() {
+	const root = fileURLToPath(new URL("..", import.meta.url));
+	const opts = parsePublishOptions(process.argv.slice(2));
+	if (opts.planFile && opts.fromPlan) {
+		throw new Error("use either --plan-file or --from-plan, not both");
 	}
 
+	const plan = opts.fromPlan
+		? readPublishPlan(opts.fromPlan)
+		: await buildPublishPlan(root, { concurrency: opts.concurrency });
+
+	if (opts.planFile && !opts.fromPlan) writePublishPlan(opts.planFile, plan);
+
+	const text = renderPublishPlanText(plan);
+	if (opts.jsonOnly) {
+		process.stdout.write(`${JSON.stringify(plan, null, "\t")}\n`);
+	} else {
+		process.stdout.write(text);
+	}
+
+	const needsBump = plan.packages.filter((entry) => entry.action === "bump");
+	const toPublish = plan.packages.filter((entry) => entry.action === "publish");
+
+	if (needsBump.length > 0) process.exitCode = 1;
+
+	if (!opts.doPublish) {
+		if (toPublish.length > 0 && !opts.jsonOnly) console.log("Dry run. Re-run with --publish to publish.");
+		return;
+	}
+
+	const failed = await publishPackages(toPublish, opts);
 	if (failed.length > 0) {
 		console.error(
 			`\n${failed.length} publish(es) FAILED (OTP expiry?): ${failed.join(", ")} — re-run; already-published packages are skipped.`,
@@ -175,5 +260,8 @@ function main() {
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-	main();
+	main().catch((err) => {
+		console.error(err instanceof Error ? err.message : err);
+		process.exit(1);
+	});
 }

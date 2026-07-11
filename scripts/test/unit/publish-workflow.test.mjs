@@ -41,9 +41,18 @@ test("publish workflow is tag-gated and verifies before publishing", () => {
 	assert.ok(commands.includes("npm ci"));
 	assert.ok(commands.includes("npm test"));
 	assert.ok(commands.some((command) => command.includes("node scripts/release-contract.mjs --expect-tag")));
-	assert.ok(commands.includes("node scripts/publish-npm.mjs"));
-	assert.ok(commands.includes("node scripts/publish-npm.mjs --publish --provenance"));
-	assert.ok(commands.indexOf("npm test") < commands.indexOf("node scripts/publish-npm.mjs --publish --provenance"));
+	assert.ok(commands.includes("node scripts/publish-npm.mjs --plan-file .release-plan.json"));
+	assert.ok(
+		commands.includes(
+			"node scripts/publish-npm.mjs --from-plan .release-plan.json --publish --provenance --publish-concurrency 3",
+		),
+	);
+	assert.ok(
+		commands.indexOf("npm test") <
+			commands.indexOf(
+				"node scripts/publish-npm.mjs --from-plan .release-plan.json --publish --provenance --publish-concurrency 3",
+			),
+	);
 	assert.match(yml, /^\s+NODE_AUTH_TOKEN:\s*\$\{\{ secrets\.NPM_TOKEN \}\}$/m);
 	assert.match(yml, /^\s+id-token:\s*write$/m);
 });

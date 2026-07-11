@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { loadPublicWorkspaces } from "./lib/release-workspaces.mjs";
 
 export const EXPECTED_PEER_RANGES = Object.freeze({
 	"@earendil-works/pi-ai": "^0.80.3",
@@ -19,13 +20,7 @@ function readJson(file) {
 }
 
 export function loadWorkspacePackages(root) {
-	const extDir = join(root, "extensions");
-	return readdirSync(extDir)
-		.filter((name) => name === "pandi" || name.startsWith("pandi-"))
-		.sort()
-		.map((name) => ({ dir: join(extDir, name), file: join(extDir, name, "package.json") }))
-		.map(({ dir, file }) => ({ dir, file, pkg: readJson(file) }))
-		.filter(({ pkg }) => !pkg.private);
+	return loadPublicWorkspaces(root).map(({ dir, file, pkg }) => ({ dir, file, pkg }));
 }
 
 export function isSemverSuiteTag(tag) {

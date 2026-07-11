@@ -5,9 +5,12 @@
  * contrato de release valida. Seguro por defecto: sin `--write` solo muestra el plan.
  */
 import { spawnSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { loadPublicWorkspaces } from "./lib/release-workspaces.mjs";
+import { parsePublishPlanDocument } from "./publish-npm.mjs";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 
@@ -15,6 +18,7 @@ export function parsePrepareOptions(args) {
 	return {
 		write: args.includes("--write"),
 		publishOutputFile: valueAfter(args, "--publish-output"),
+		publishPlanFile: valueAfter(args, "--publish-plan"),
 	};
 }
 
@@ -53,20 +57,22 @@ export function parsePublishPlan(output) {
 	return plan;
 }
 
+export function publishPlanToLegacyShape(document) {
+	const plan = parsePublishPlanDocument(document);
+	return {
+		bumps: plan.packages.filter((entry) => entry.action === "bump").map(({ name, version }) => ({ name, version })),
+		publishes: plan.packages
+			.filter((entry) => entry.action === "publish")
+			.map(({ name, version }) => ({ name, version })),
+		unchanged: plan.packages
+			.filter((entry) => entry.action === "unchanged")
+			.map(({ name, version }) => ({ name, version })),
+	};
+}
+
+/** @deprecated Usá loadPublicWorkspaces desde release-workspaces.mjs */
 export function loadWorkspacePackages(root) {
-	const extDir = join(root, "extensions");
-	return readdirSync(extDir)
-		.filter((dir) => dir === "pandi" || dir.startsWith("pandi-"))
-		.map((dir) => {
-			const file = join(extDir, dir, "package.json");
-			if (!existsSync(file)) return null;
-			try {
-				return { dir: join("extensions", dir), file, pkg: JSON.parse(readFileSync(file, "utf8")) };
-			} catch {
-				return null;
-			}
-		})
-		.filter((entry) => entry?.pkg?.name && !entry.pkg.private);
+	return loadPublicWorkspaces(root).map(({ relDir, file, pkg }) => ({ dir: relDir, file, pkg }));
 }
 
 export function planVersionBumps({ rootPkg, workspaces, packageNames }) {
@@ -99,7 +105,7 @@ export function applyVersionBumps(root, plan) {
 
 	const workspaceVersions = new Map(plan.workspaces.map((bump) => [bump.name, bump.to]));
 	const workspaceDirs = new Set(plan.workspaces.map((bump) => bump.dir));
-	for (const { dir, file } of loadWorkspacePackages(root)) {
+	for (const { relDir: dir, file } of loadPublicWorkspaces(root)) {
 		const pkg = readJson(file);
 		if (workspaceDirs.has(dir)) pkg.version = workspaceVersions.get(pkg.name);
 		updateInternalWorkspaceRanges(pkg, workspaceVersions);
@@ -140,16 +146,23 @@ export function updateTagReferences(root, oldTag, newTag) {
 }
 
 function runPublishDryRun(root) {
-	const result = spawnSync(process.execPath, [join(root, "scripts", "publish-npm.mjs")], {
-		cwd: root,
-		encoding: "utf8",
-	});
-	const output = `${result.stdout || ""}${result.stderr || ""}`;
-	if (result.error) throw result.error;
-	if (result.status !== 0 && !output.includes("BUMP?")) {
-		throw new Error(`publish dry-run failed without a version-bump plan:\n${output}`);
+	const tempDir = mkdtempSync(join(tmpdir(), "release-prepare-"));
+	const planFile = join(tempDir, "publish-plan.json");
+	try {
+		const result = spawnSync(
+			process.execPath,
+			[join(root, "scripts", "publish-npm.mjs"), "--plan-file", planFile, "--json"],
+			{ cwd: root, encoding: "utf8" },
+		);
+		const output = `${result.stdout || ""}${result.stderr || ""}`;
+		if (result.error) throw result.error;
+		if (result.status !== 0 && !output.includes("BUMP?") && !output.includes('"action": "bump"')) {
+			throw new Error(`publish dry-run failed without a version-bump plan:\n${output}`);
+		}
+		return { planFile, publishPlan: publishPlanToLegacyShape(readFileSync(planFile, "utf8")) };
+	} finally {
+		rmSync(tempDir, { recursive: true, force: true });
 	}
-	return output;
 }
 
 function renderPlan(plan) {
@@ -162,8 +175,15 @@ function renderPlan(plan) {
 function main() {
 	const opts = parsePrepareOptions(process.argv.slice(2));
 	const root = ROOT;
-	const publishOutput = opts.publishOutputFile ? readFileSync(opts.publishOutputFile, "utf8") : runPublishDryRun(root);
-	const publishPlan = parsePublishPlan(publishOutput);
+	let publishPlan;
+	if (opts.publishPlanFile) {
+		publishPlan = publishPlanToLegacyShape(readFileSync(opts.publishPlanFile, "utf8"));
+	} else if (opts.publishOutputFile) {
+		publishPlan = parsePublishPlan(readFileSync(opts.publishOutputFile, "utf8"));
+	} else {
+		publishPlan = runPublishDryRun(root).publishPlan;
+	}
+
 	if (publishPlan.bumps.length === 0) {
 		console.log("No BUMP? packages found. Nothing to version-bump.");
 		return;

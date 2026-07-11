@@ -91,6 +91,7 @@ extensions/pandi/*.local.json
 # Pi project-local scratch space.
 .pi/tmp/
 **/.pi/tmp/
+.release-plan.json
 
 # Pi project-local notes.
 .pi/notes/

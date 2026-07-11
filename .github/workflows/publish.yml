@@ -41,9 +41,9 @@ jobs:
             node scripts/release-contract.mjs
           fi
       - name: Publish dry run
-        run: node scripts/publish-npm.mjs
+        run: node scripts/publish-npm.mjs --plan-file .release-plan.json
       - name: Publish to npm
         if: ${{ github.ref_type == 'tag' || inputs.publish }}
-        run: node scripts/publish-npm.mjs --publish --provenance
+        run: node scripts/publish-npm.mjs --from-plan .release-plan.json --publish --provenance --publish-concurrency 3
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
