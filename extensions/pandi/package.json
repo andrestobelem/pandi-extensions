@@ -17,10 +17,7 @@
 		"panda"
 	],
 	"files": [
-		"index.ts",
-		"face.ts",
-		"moods.ts",
-		"persona.ts",
+		"*.ts",
 		"README.md"
 	],
 	"pi": {
