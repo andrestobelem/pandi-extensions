@@ -29,10 +29,10 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildExtension as sharedBuildExtension } from "../../../../shared/test/harness.mjs";
+
+import { buildDwfModule, REPO_ROOT } from "../dwf-test-support.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 
 const HEADING = "Plantillas apoyadas en research";
 const CLOSING = "Usalos como patterns, no como ceremonia";
@@ -40,9 +40,9 @@ const CLOSING = "Usalos como patterns, no como ceremonia";
 // pattern-scaffolds.ts NO tiene imports externos, así que bundlea standalone (sin stubs).
 async function buildTemplates() {
 	// pattern-scaffolds.ts no tiene imports de peer-dependency, así que no hacen falta stubs.
-	const { url } = await sharedBuildExtension({
+	const { url } = await buildDwfModule({
 		name: "pi-dwf-prompt-ssot",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "surface", "pattern-scaffolds.ts"),
+		relPath: "surface/pattern-scaffolds.ts",
 		outName: "pattern-scaffolds.mjs",
 	});
 	return url;

@@ -1,7 +1,6 @@
-import * as path from "node:path";
-import { REPO_ROOT, buildExtension as sharedBuildExtension } from "../../../shared/test/harness.mjs";
+import { buildDwfModule, EXT_DIR } from "./dwf-test-support.mjs";
 
-export const EXT_DIR = path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows");
+export { EXT_DIR };
 
 /** Extrae el set de globals inyectados: `sandbox.<name> = …`, excluyendo internos con prefijo `_`. */
 export function injectedGlobals(source) {
@@ -11,9 +10,9 @@ export function injectedGlobals(source) {
 }
 
 export async function loadWorkerSource(name) {
-	const { url } = await sharedBuildExtension({
+	const { url } = await buildDwfModule({
 		name,
-		src: path.join(EXT_DIR, "runtime", "worker-source.ts"),
+		relPath: "runtime/worker-source.ts",
 		outName: "worker-source.mjs",
 	});
 	const mod = await import(url);

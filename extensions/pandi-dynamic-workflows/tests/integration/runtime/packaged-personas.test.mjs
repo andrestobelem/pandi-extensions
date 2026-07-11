@@ -6,12 +6,9 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { fileURLToPath } from "node:url";
-import { buildExtension, createChecker, loadModule, sdkStub } from "../../../../shared/test/harness.mjs";
+import { createChecker, loadModule } from "../../../../shared/test/harness.mjs";
+import { buildDwfModule } from "../dwf-test-support.mjs";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
-const EXT_DIR = path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows");
 const { check, counts } = createChecker();
 
 function writeJson(file, value) {
@@ -20,11 +17,10 @@ function writeJson(file, value) {
 }
 
 async function loadPersonaModule() {
-	const { url } = await buildExtension({
+	const { url } = await buildDwfModule({
 		name: "pi-dw-packaged-personas",
-		src: path.join(EXT_DIR, "runtime", "agent-env-persona.ts"),
+		relPath: "runtime/agent-env-persona.ts",
 		outName: "agent-env-persona.mjs",
-		stubs: { sdk: (dir) => sdkStub(dir) },
 	});
 	return await loadModule(url);
 }

@@ -1,31 +1,15 @@
 #!/usr/bin/env node
-/**
- * Test de contrato para la política de SELECCIÓN de run-cleanup (run-state.ts, selectRunsForCleanup).
- *
- * `/workflow cleanup runs` debe ser seguro por construcción: borra solo directorios de run
- * TERMINALES y nunca un run que sigue corriendo o trackeado como activo en memoria, y siempre
- * retiene los `keep` runs más recientes para que un cleanup masivo no borre la historia más fresca.
- * El wrapper IO (lifecycle/cleanup.ts, cleanupWorkflowRuns) hace el `fs.rm` real;
- * esto pinea la decisión pura para que un refactor futuro del wrapper no empiece silenciosamente
- * a seleccionar un run running/active ni a soltar la ventana de retención.
- *
- * Puro + offline: bundlea run-state.ts (dep type-only en index.ts) con stubs estándar y
- * llama el selector exportado en memoria. No toca run dirs.
- *
- * Corrélo:
- *   node extensions/pandi-dynamic-workflows/tests/integration/cleanup-runs-select.test.mjs
- */
-import * as path from "node:path";
-import { buildExtension, createChecker, REPO_ROOT } from "../../../../shared/test/harness.mjs";
+import { createChecker } from "../../../../shared/test/harness.mjs";
+import { buildDwfModule } from "../dwf-test-support.mjs";
 
 const { check, counts } = createChecker();
 
 async function loadModule() {
-	const { url } = await buildExtension({
+	const { url } = await buildDwfModule({
 		name: "pi-dwf-cleanup-runs-select",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "lib", "run-state.ts"),
+		relPath: "lib/run-state.ts",
 		outName: "state.mjs",
-		stubs: { typebox: true, typeboxValue: true, ai: true, tui: true, sdk: (dir) => dir && "" },
+		stubs: { sdk: (dir) => dir && "" },
 	});
 	return await import(url);
 }

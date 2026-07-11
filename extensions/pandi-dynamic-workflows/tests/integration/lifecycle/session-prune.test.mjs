@@ -1,28 +1,6 @@
 #!/usr/bin/env node
-/**
- * Test de contrato para la política PRUNE de sesiones Pi stale (pi-session.ts,
- * classifySessionFilesForPrune).
- *
- * `collectPiSessions` ya computa un `staleReason` para records de sesión muertos, pero el archivo
- * `.pi/live-sessions/*.json` en disco nunca se elimina — queda ahí hasta que algo
- * lo barre (hoy, a mano). `/workflow cleanup sessions` elimina esos archivos, y esto
- * pinea la decisión safe-by-default para que el barrido nunca pueda borrar un archivo de sesión
- * LIVE ni CURRENT:
- *
- *   - pid exited (proceso ausente)       → remove (definitivamente seguro)
- *   - live (pid vivo + fresco)          → keep, siempre
- *   - archivo de la sesión current      → keep, siempre
- *   - heartbeat-stale (pid vivo)        → keep por default; remove solo con includeHeartbeatStale
- *   - record malformed / no parseable   → keep (seguro: nunca borrar lo que no podemos clasificar)
- *
- * `now` e `isPidAlive` se inyectan para que el classifier sea puro y offline; el wrapper IO
- * (prunePiSessionFiles) hace el readdir + fs.unlink y no se ejercita acá.
- *
- * Corrélo:
- *   node extensions/pandi-dynamic-workflows/tests/integration/lifecycle/session-prune.test.mjs
- */
-import * as path from "node:path";
-import { buildExtension, createChecker, REPO_ROOT, sdkStub } from "../../../../shared/test/harness.mjs";
+import { createChecker } from "../../../../shared/test/harness.mjs";
+import { buildDwfModule } from "../dwf-test-support.mjs";
 
 const { check, counts } = createChecker();
 
@@ -31,17 +9,10 @@ const STALE_MS = 20_000;
 const NOW = Date.parse("2026-07-01T00:00:00Z");
 
 async function loadModule() {
-	const { url } = await buildExtension({
+	const { url } = await buildDwfModule({
 		name: "pi-dwf-cleanup-session-prune",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "pi-session.ts"),
+		relPath: "pi-session.ts",
 		outName: "pi-session.mjs",
-		stubs: {
-			typebox: true,
-			typeboxValue: true,
-			ai: true,
-			tui: true,
-			sdk: (dir) => sdkStub(dir, { customEditor: "render" }),
-		},
 	});
 	return await import(url);
 }

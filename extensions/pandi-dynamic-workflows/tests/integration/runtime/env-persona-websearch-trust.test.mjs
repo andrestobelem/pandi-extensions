@@ -18,21 +18,17 @@
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import {
-	createChecker,
-	REPO_ROOT,
-	sdkStub,
-	buildExtension as sharedBuildExtension,
-} from "../../../../shared/test/harness.mjs";
+
+import { createChecker } from "../../../../shared/test/harness.mjs";
+import { buildDwfModule } from "../dwf-test-support.mjs";
 
 const { check, counts } = createChecker();
 
 async function main() {
-	const { url } = await sharedBuildExtension({
+	const { url } = await buildDwfModule({
 		name: "pi-dw-env-persona-trust",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "runtime", "agent-env-persona.ts"),
+		relPath: "runtime/agent-env-persona.ts",
 		outName: "agent-env-persona.mjs",
-		stubs: { sdk: (dir) => sdkStub(dir) },
 	});
 	const mod = await import(url);
 	const { applyDefaultAgentAccess, DEFAULT_WEB_SEARCH_EXTENSION_PACKAGE } = mod;

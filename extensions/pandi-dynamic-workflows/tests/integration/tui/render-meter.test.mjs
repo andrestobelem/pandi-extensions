@@ -17,10 +17,11 @@
 
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildExtension, createChecker, loadModule } from "../../../../shared/test/harness.mjs";
+import { createChecker, loadModule } from "../../../../shared/test/harness.mjs";
+import { buildDwfModule } from "../dwf-test-support.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
+const _REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 
 const { check, counts } = createChecker();
 
@@ -28,11 +29,10 @@ const FILLED = "█";
 const EMPTY = "░";
 
 async function main() {
-	const { url } = await buildExtension({
+	const { url } = await buildDwfModule({
 		name: "pi-dwf-render-meter",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "tui/render-utils.ts"),
+		relPath: "tui/render-utils.ts",
 		outName: "render-utils.mjs",
-		stubs: { tui: true },
 	});
 	const { renderMeter } = await loadModule(url);
 	check("renderMeter is exported", typeof renderMeter === "function");

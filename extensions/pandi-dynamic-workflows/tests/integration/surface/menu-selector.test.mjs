@@ -15,31 +15,16 @@
 
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-	createChecker,
-	loadModule,
-	sdkStub,
-	buildExtension as sharedBuildExtension,
-} from "../../../../shared/test/harness.mjs";
+
+import { createChecker, loadModule } from "../../../../shared/test/harness.mjs";
+import { buildDwfExtension } from "../dwf-test-support.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 
 const { check, counts } = createChecker();
 
 async function buildExtension() {
-	return await sharedBuildExtension({
-		name: "pi-dwf-workflow-menu-selector",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "index.ts"),
-		outName: "dynamic-workflows.mjs",
-		stubs: {
-			typebox: true,
-			typeboxValue: true,
-			ai: true,
-			tui: true,
-			sdk: (dir) => sdkStub(dir, { customEditor: "full" }),
-		},
-	});
+	return await buildDwfExtension({ name: "pi-dwf-workflow-menu-selector", customEditor: "full" });
 }
 
 function makeCtx({ hasUI = true, selectResult } = {}) {

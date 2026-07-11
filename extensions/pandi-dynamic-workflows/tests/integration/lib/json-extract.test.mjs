@@ -1,26 +1,12 @@
-/**
- * Guard durable para el fallback balanced-substring de extractJsonCandidate.
- *
- * Reproduce el bug multi-segmento (json-extract.ts): el scanner antes sembraba starts de
- * candidatos SOLO desde el primer '{' y el primer '['. Cuando llaves/corchetes anteriores
- * formaban un segmento balanceado-pero-no-JSON, nunca se alcanzaba el valor JSON real
- * posterior en el output, así que la extracción fallaba aunque siguiera un objeto/array válido.
- *
- * Puro: bundlea la entry self-contained json-extract.ts (sin stubs) y llama la función
- * exportada en memoria.
- *
- * Corrida:
- *   node extensions/pandi-dynamic-workflows/tests/integration/json-extract-multi-segment.test.mjs
- */
-import * as path from "node:path";
-import { buildExtension, createChecker, loadModule, REPO_ROOT } from "../../../../shared/test/harness.mjs";
+import { createChecker, loadModule } from "../../../../shared/test/harness.mjs";
+import { buildDwfModule } from "../dwf-test-support.mjs";
 
 const { check, counts } = createChecker();
 
 async function loadRuntime() {
-	const { url } = await buildExtension({
+	const { url } = await buildDwfModule({
 		name: "pi-dw-json-extract",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "lib", "json-extract.ts"),
+		relPath: "lib/json-extract.ts",
 		outName: "json-extract.mjs",
 	});
 	return await loadModule(url);

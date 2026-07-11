@@ -17,10 +17,11 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildExtension, createChecker, loadModule, sdkStub } from "../../../../shared/test/harness.mjs";
+import { createChecker, loadModule } from "../../../../shared/test/harness.mjs";
+import { buildDwfModule } from "../dwf-test-support.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
+const _REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 
 const { check, counts } = createChecker();
 
@@ -43,20 +44,10 @@ async function scenarioLookup(url) {
 }
 
 async function main() {
-	const built = await buildExtension({
+	const built = await buildDwfModule({
 		name: "pi-dw-journal-lookup",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "runtime", "journal.ts"),
+		relPath: "runtime/journal.ts",
 		outName: "journal.mjs",
-		// journal.ts tiene un ciclo de imports runtime con index.ts, así que bundlearlo arrastra todo
-		// el grafo de la extensión. Stubbeá las deps pesadas del runtime pi (mismo set que engine-smoke)
-		// para que el bundle cargue sin el require dinámico de child_process que hace cross-spawn.
-		stubs: {
-			typebox: true,
-			typeboxValue: true,
-			ai: true,
-			tui: true,
-			sdk: (dir) => sdkStub(dir, { customEditor: "render" }),
-		},
 	});
 	try {
 		await scenarioLookup(built.url);

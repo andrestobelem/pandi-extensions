@@ -23,10 +23,11 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createChecker, sdkStub, buildExtension as sharedBuildExtension } from "../../../../shared/test/harness.mjs";
+
+import { createChecker } from "../../../../shared/test/harness.mjs";
+import { buildDwfModule, REPO_ROOT } from "../dwf-test-support.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 const EXT_DIR = path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows");
 const SKILL_DIR = path.join(REPO_ROOT, ".pi", "skills", "ultracode");
 
@@ -72,11 +73,10 @@ const { check, counts } = createChecker();
 const read = (p) => (fs.existsSync(p) ? fs.readFileSync(p, "utf8") : "");
 
 async function loadBuiltInPersonas() {
-	const { url } = await sharedBuildExtension({
+	const { url } = await buildDwfModule({
 		name: "pi-dw-persona-catalog-parity",
-		src: path.join(EXT_DIR, "runtime", "agent-env-persona.ts"),
+		relPath: "runtime/agent-env-persona.ts",
 		outName: "agent-env-persona.mjs",
-		stubs: { sdk: (dir) => sdkStub(dir) },
 	});
 	const mod = await import(url);
 	return Object.entries(mod.BUILTIN_AGENT_PERSONAS ?? {}).map(([name, options]) => ({ name, options }));

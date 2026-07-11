@@ -15,23 +15,16 @@
  * Corrélo:
  *   node extensions/pandi-dynamic-workflows/tests/integration/lifecycle/cleanup-command-parse.test.mjs
  */
-import * as path from "node:path";
-import { buildExtension, createChecker, REPO_ROOT, sdkStub } from "../../../../shared/test/harness.mjs";
+import { createChecker } from "../../../../shared/test/harness.mjs";
+import { buildDwfModule } from "../dwf-test-support.mjs";
 
 const { check, counts } = createChecker();
 
 async function loadModule() {
-	const { url } = await buildExtension({
+	const { url } = await buildDwfModule({
 		name: "pi-dwf-cleanup-command-parse",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "surface", "command-handlers.ts"),
+		relPath: "surface/command-handlers.ts",
 		outName: "command-handlers.mjs",
-		stubs: {
-			typebox: true,
-			typeboxValue: true,
-			ai: true,
-			tui: true,
-			sdk: (dir) => sdkStub(dir, { customEditor: "render" }),
-		},
 	});
 	return await import(url);
 }

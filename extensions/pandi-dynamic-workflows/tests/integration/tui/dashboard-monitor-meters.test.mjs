@@ -16,10 +16,11 @@
 
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildExtension, createChecker, loadModule } from "../../../../shared/test/harness.mjs";
+import { createChecker, loadModule } from "../../../../shared/test/harness.mjs";
+import { buildDwfModule } from "../dwf-test-support.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
+const _REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 
 const { check, counts } = createChecker();
 
@@ -95,11 +96,11 @@ function build(models) {
 let WorkflowDashboard;
 
 async function main() {
-	const { url } = await buildExtension({
+	const { url } = await buildDwfModule({
 		name: "pi-dwf-monitor-meters",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "tui/dashboard.ts"),
+		relPath: "tui/dashboard.ts",
 		outName: "workflow-dashboard.mjs",
-		stubs: { typebox: true, typeboxValue: true, ai: true, tui: true, sdk: (dir) => dir && "" },
+		stubs: { sdk: (dir) => dir && "" },
 	});
 	({ WorkflowDashboard } = await loadModule(url));
 

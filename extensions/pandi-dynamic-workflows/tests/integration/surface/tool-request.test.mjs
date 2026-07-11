@@ -1,22 +1,15 @@
 #!/usr/bin/env node
-/**
- * Contract test for the pure DynamicWorkflowToolParams -> DynamicWorkflowRequest classifier.
- *
- * The public tool keeps the legacy `name` field for compatibility, but inside the
- * extension it should be interpreted as exactly one domain target: workflow definition,
- * run, pattern scaffold, or collection action.
- */
-import * as path from "node:path";
-import { buildExtension, createChecker, REPO_ROOT } from "../../../../shared/test/harness.mjs";
+import { createChecker } from "../../../../shared/test/harness.mjs";
+import { buildDwfModule } from "../dwf-test-support.mjs";
 
 const { check, counts } = createChecker();
 
 async function loadModule() {
-	const { url } = await buildExtension({
+	const { url } = await buildDwfModule({
 		name: "pandi-dwf-workflow-tool-request",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "surface", "tool-request.ts"),
+		relPath: "surface/tool-request.ts",
 		outName: "workflow-tool-request.mjs",
-		stubs: { typebox: true, typeboxValue: true, ai: true, tui: true, sdk: (dir) => dir && "" },
+		stubs: { sdk: (dir) => dir && "" },
 	});
 	return await import(url);
 }

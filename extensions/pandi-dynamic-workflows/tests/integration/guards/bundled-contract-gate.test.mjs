@@ -11,29 +11,18 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createChecker, sdkStub, buildExtension as sharedBuildExtension } from "../../../../shared/test/harness.mjs";
+
+import { createChecker } from "../../../../shared/test/harness.mjs";
+import { buildDwfExtension, REPO_ROOT } from "../dwf-test-support.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 const EXTENSION_ROOT = path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows");
 const SCAFFOLDS_DIR = path.join(EXTENSION_ROOT, "scaffolds");
 const CANONICAL_CONTRACT_GATE = path.join(SCAFFOLDS_DIR, "contract-gate.js");
 const { check, counts } = createChecker();
 
 async function buildExtension() {
-	return await sharedBuildExtension({
-		name: "pandi-dwf-scaffold-contract-gate",
-		src: path.join(EXTENSION_ROOT, "index.ts"),
-		outName: "dynamic-workflows.mjs",
-		copyDirs: { scaffolds: SCAFFOLDS_DIR },
-		stubs: {
-			typebox: true,
-			typeboxValue: true,
-			ai: true,
-			tui: true,
-			sdk: (dir) => sdkStub(dir, { customEditor: "render" }),
-		},
-	});
+	return await buildDwfExtension({ name: "pandi-dwf-scaffold-contract-gate", copyScaffolds: true });
 }
 
 function makePi() {

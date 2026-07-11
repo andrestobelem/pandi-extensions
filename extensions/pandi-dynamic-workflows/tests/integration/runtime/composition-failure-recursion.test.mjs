@@ -39,10 +39,10 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { sdkStub, buildExtension as sharedBuildExtension } from "../../../../shared/test/harness.mjs";
+
+import { buildDwfExtension } from "../dwf-test-support.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 
 let passed = 0;
 let failed = 0;
@@ -59,18 +59,7 @@ function check(label, cond, detail) {
 }
 
 async function buildExtension() {
-	return await sharedBuildExtension({
-		name: "pi-dwf-fail-integration",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "index.ts"),
-		outName: "dynamic-workflows.mjs",
-		stubs: {
-			typebox: true,
-			typeboxValue: true,
-			ai: true,
-			tui: true,
-			sdk: (dir) => sdkStub(dir, { customEditor: "render" }),
-		},
-	});
+	return await buildDwfExtension({ name: "pi-dwf-fail-integration" });
 }
 
 let instance = 0;

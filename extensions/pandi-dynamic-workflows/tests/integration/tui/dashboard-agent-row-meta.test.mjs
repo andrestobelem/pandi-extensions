@@ -23,10 +23,11 @@
 
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildExtension, createChecker, loadModule } from "../../../../shared/test/harness.mjs";
+import { createChecker, loadModule } from "../../../../shared/test/harness.mjs";
+import { buildDwfModule } from "../dwf-test-support.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
+const _REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 
 const { check, counts } = createChecker();
 
@@ -119,11 +120,11 @@ function rowPrefix(row) {
 }
 
 async function main() {
-	const { url } = await buildExtension({
+	const { url } = await buildDwfModule({
 		name: "pi-dwf-agent-row-meta",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "tui/dashboard.ts"),
+		relPath: "tui/dashboard.ts",
 		outName: "workflow-dashboard.mjs",
-		stubs: { typebox: true, typeboxValue: true, ai: true, tui: true, sdk: (dir) => dir && "" },
+		stubs: { sdk: (dir) => dir && "" },
 	});
 	const { WorkflowDashboard } = await loadModule(url);
 	check("WorkflowDashboard class is exported", typeof WorkflowDashboard === "function");

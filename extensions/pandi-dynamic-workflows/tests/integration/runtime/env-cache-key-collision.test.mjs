@@ -1,34 +1,13 @@
-/**
- * sanitizeEnvForCache debe DISTINGUIR valores env distintos sin FILTRARLOS.
- *
- * El env sanitizado se pliega dentro de la key de cache/journal del agente (vía sanitizeAgentOpts ->
- * computeCallKey), y esa key se escribe a disco. Los valores raw (que pueden ser secretos) no deben
- * aparecer ahí — pero colapsar TODOS los valores a la constante "[set]" hacía que dos valores
- * distintos de la misma var produjeran la MISMA key, así que al resume se reproducía el resultado
- * journaled (stale) en vez de re-ejecutar. El fix hashea el valor: sin leak de plaintext, pero
- * valores distintos producen keys distintas.
- *
- * Test de función pura: bundlea agent-env-persona.ts y llama el sanitizeEnvForCache exportado.
- *
- * Corrida:
- *   node extensions/pandi-dynamic-workflows/tests/integration/env-cache-key-collision.test.mjs
- */
-import * as path from "node:path";
-import {
-	createChecker,
-	REPO_ROOT,
-	sdkStub,
-	buildExtension as sharedBuildExtension,
-} from "../../../../shared/test/harness.mjs";
+import { createChecker } from "../../../../shared/test/harness.mjs";
+import { buildDwfModule } from "../dwf-test-support.mjs";
 
 const { check, counts } = createChecker();
 
 async function main() {
-	const { url } = await sharedBuildExtension({
+	const { url } = await buildDwfModule({
 		name: "pi-dw-env-cache-key",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "runtime", "agent-env-persona.ts"),
+		relPath: "runtime/agent-env-persona.ts",
 		outName: "agent-env-persona.mjs",
-		stubs: { sdk: (dir) => sdkStub(dir) },
 	});
 	const { sanitizeEnvForCache } = await import(url);
 

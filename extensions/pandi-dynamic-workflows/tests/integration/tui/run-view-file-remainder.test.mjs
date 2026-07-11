@@ -20,10 +20,11 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildExtension, createChecker, loadModule, sdkStub } from "../../../../shared/test/harness.mjs";
+import { createChecker, loadModule } from "../../../../shared/test/harness.mjs";
+import { buildDwfModule } from "../dwf-test-support.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
+const _REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 const { check, counts } = createChecker();
 
 async function makeOverflowRunDir() {
@@ -37,17 +38,10 @@ async function makeOverflowRunDir() {
 }
 
 async function main() {
-	const { url } = await buildExtension({
+	const { url } = await buildDwfModule({
 		name: "pi-dwf-file-remainder",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "tui/run-view.ts"),
+		relPath: "tui/run-view.ts",
 		outName: "run-view.mjs",
-		stubs: {
-			typebox: true,
-			typeboxValue: true,
-			ai: true,
-			tui: true,
-			sdk: (dir) => sdkStub(dir, { customEditor: "render" }),
-		},
 	});
 	const { listRunFiles, formatRunView } = await loadModule(url);
 	check("listRunFiles is exported", typeof listRunFiles === "function");

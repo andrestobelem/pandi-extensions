@@ -1,36 +1,6 @@
 #!/usr/bin/env node
-/**
- * Guard de contrato durable para quoting/parsing de argumentos del comando session-switch.
- *
- * El dashboard entrega un archivo de sesión Pi al prompt como slash command
- * (dashboard-orchestration.ts, switchToPiSession):
- *
- *     options.submitCommand(`/workflow switch-session ${quoteWorkflowCommandArgument(sessionFile)}`)
- *
- * donde `quoteWorkflowCommandArgument(value) === JSON.stringify(value)`. Luego el command
- * handler tokeniza los args con `/^(\S+)(?:\s+([\s\S]*))?$/` para separar la action
- * de su argumento y recupera el path con el helper EXPORTADO
- * `parseWorkflowCommandArgument` (command-handlers.ts, action === "switch-session").
- *
- * El invariante no-obvio que hace funcionar session switching para paths del mundo real —
- * con espacios, unicode, quotes embebidas o backslashes — es:
- *
- *     parseWorkflowCommandArgument(JSON.stringify(path)) === path
- *
- * y el split del handler por whitespace no debe corromper ese argumento quoted.
- * NO había cobertura en esta ruta. Una "simplificación" tentadora del quoting a un
- * string pelado (o del parser a un quote-strip / space-split ingenuo) rompería silenciosamente
- * cualquier archivo de sesión con un espacio. Esto pinea el round-trip observable.
- *
- * Puro: bundlea dashboard-orchestration.ts con los stubs client compartidos y llama el
- * parser exportado en memoria. Reproduce localmente el producer (JSON.stringify) y el split
- * tokenizer del handler, con punteros a la fuente de verdad arriba.
- *
- * Ejecutalo:
- *   node extensions/pandi-dynamic-workflows/tests/integration/tui/switch-session-arg-roundtrip.test.mjs
- */
-import * as path from "node:path";
-import { buildExtension, createChecker, loadModule, REPO_ROOT } from "../../../../shared/test/harness.mjs";
+import { createChecker, loadModule } from "../../../../shared/test/harness.mjs";
+import { buildDwfModule } from "../dwf-test-support.mjs";
 
 const { check, counts } = createChecker();
 
@@ -44,11 +14,11 @@ function handlerAfterAction(submittedArgs) {
 }
 
 async function loadRuntime() {
-	const { url } = await buildExtension({
+	const { url } = await buildDwfModule({
 		name: "pi-dw-switch-session-arg",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "tui/orchestration.ts"),
+		relPath: "tui/orchestration.ts",
 		outName: "dashboard-orchestration.mjs",
-		stubs: { typebox: true, typeboxValue: true, ai: true, tui: true, sdk: (dir) => dir && "" },
+		stubs: { sdk: (dir) => dir && "" },
 	});
 	return await loadModule(url);
 }

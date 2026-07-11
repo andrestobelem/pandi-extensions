@@ -22,15 +22,11 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-	createChecker,
-	loadModule,
-	sdkStub,
-	buildExtension as sharedBuildExtension,
-} from "../../../../shared/test/harness.mjs";
+
+import { createChecker, loadModule } from "../../../../shared/test/harness.mjs";
+import { buildDwfExtension, buildDwfModule } from "../dwf-test-support.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 const { check, counts } = createChecker();
 
 const MODEL = "prov/mod-x";
@@ -58,18 +54,7 @@ const WORKFLOW = [
 ].join("\n");
 
 async function buildEngine() {
-	return await sharedBuildExtension({
-		name: "pi-dw-model-effort",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "index.ts"),
-		outName: "dynamic-workflows.mjs",
-		stubs: {
-			typebox: true,
-			typeboxValue: true,
-			ai: true,
-			tui: true,
-			sdk: (dir) => sdkStub(dir, { customEditor: "render" }),
-		},
-	});
+	return await buildDwfExtension({ name: "pi-dw-model-effort" });
 }
 
 function makePi() {
@@ -352,11 +337,10 @@ function detailField(lines, label) {
 }
 
 async function scenarioDashboard() {
-	const { url } = await sharedBuildExtension({
+	const { url } = await buildDwfModule({
 		name: "pi-dwf-model-effort-dashboard",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "tui/dashboard.ts"),
+		relPath: "tui/dashboard.ts",
 		outName: "workflow-dashboard.mjs",
-		stubs: { typebox: true, typeboxValue: true, ai: true, tui: true, sdk: (dir) => dir && "" },
 	});
 	const { WorkflowDashboard } = await loadModule(url);
 	check("dashboard: WorkflowDashboard class is exported", typeof WorkflowDashboard === "function");

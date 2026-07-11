@@ -10,10 +10,10 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { createChecker, sdkStub, buildExtension as sharedBuildExtension } from "../../../../shared/test/harness.mjs";
+import { createChecker } from "../../../../shared/test/harness.mjs";
+import { buildDwfExtension } from "../dwf-test-support.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 
 const { check, counts } = createChecker();
 
@@ -100,18 +100,7 @@ const settle = (p) =>
 	);
 
 async function main() {
-	const { url } = await sharedBuildExtension({
-		name: "pi-run-report-adapters",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "index.ts"),
-		outName: "dynamic-workflows.mjs",
-		stubs: {
-			typebox: true,
-			typeboxValue: true,
-			ai: true,
-			tui: true,
-			sdk: (dir) => sdkStub(dir, { customEditor: "render" }),
-		},
-	});
+	const { url } = await buildDwfExtension({ name: "pi-run-report-adapters" });
 	const mod = await import(url);
 	const project = await fs.mkdtemp(path.join(os.tmpdir(), "pi-run-report-adapters-"));
 	const { pi, tools, commands } = makePi();

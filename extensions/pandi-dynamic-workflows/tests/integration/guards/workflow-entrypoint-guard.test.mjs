@@ -7,23 +7,13 @@
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { buildExtension, createChecker, REPO_ROOT, sdkStub } from "../../../../shared/test/harness.mjs";
+import { createChecker } from "../../../../shared/test/harness.mjs";
+import { buildDwfExtension } from "../dwf-test-support.mjs";
 
 const { check, counts } = createChecker();
 
 async function buildDynamicWorkflows() {
-	return await buildExtension({
-		name: "pi-dwf-entrypoint-guard",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "index.ts"),
-		outName: "dynamic-workflows.mjs",
-		stubs: {
-			typebox: true,
-			typeboxValue: true,
-			ai: true,
-			tui: true,
-			sdk: (dir) => sdkStub(dir, { customEditor: "render" }),
-		},
-	});
+	return await buildDwfExtension({ name: "pi-dwf-entrypoint-guard" });
 }
 
 function makePi() {

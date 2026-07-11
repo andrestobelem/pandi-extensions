@@ -11,26 +11,13 @@
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { fileURLToPath } from "node:url";
-import { buildExtension, createChecker, loadModule, sdkStub } from "../../../../shared/test/harness.mjs";
+import { createChecker, loadModule } from "../../../../shared/test/harness.mjs";
+import { buildDwfModule } from "../dwf-test-support.mjs";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 const { check, counts } = createChecker();
 
-async function buildModule(src, outName, name) {
-	const { url } = await buildExtension({
-		name,
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", src),
-		outName,
-		stubs: {
-			typebox: true,
-			typeboxValue: true,
-			ai: true,
-			tui: true,
-			sdk: (dir) => sdkStub(dir, { customEditor: "render" }),
-		},
-	});
+async function buildModule(relPath, outName, name) {
+	const { url } = await buildDwfModule({ name, relPath, outName });
 	return loadModule(url);
 }
 

@@ -12,17 +12,18 @@
 
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildExtension, createChecker } from "../../../../shared/test/harness.mjs";
+import { createChecker } from "../../../../shared/test/harness.mjs";
+import { buildDwfModule } from "../dwf-test-support.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
+const _REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 
 const { check, counts } = createChecker();
 
 async function loadModule() {
-	const { url } = await buildExtension({
+	const { url } = await buildDwfModule({
 		name: "pi-dwf-focus-metrics",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "observe", "focus-metrics.ts"),
+		relPath: "observe/focus-metrics.ts",
 		outName: "focus-metrics.mjs",
 		npx: "--no-install",
 	});

@@ -15,19 +15,17 @@
 
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildExtension, createChecker, sdkStub } from "../../../../shared/test/harness.mjs";
+import { createChecker } from "../../../../shared/test/harness.mjs";
+import { buildDwfExtension } from "../dwf-test-support.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const { check, counts } = createChecker();
 
 async function buildUltracodePrompts() {
-	const src = path.join(__dirname, "ultracode-prompt-keys-entry.ts");
-	const { url } = await buildExtension({
+	const { url } = await buildDwfExtension({
 		name: "pi-dwf-ultracode-keys",
-		src,
-		outName: "ultracode-prompt-keys.mjs",
-		stubs: { sdk: (dir) => sdkStub(dir) },
+		src: path.join(__dirname, "ultracode-prompt-keys-entry.ts"),
 	});
 	return import(url);
 }

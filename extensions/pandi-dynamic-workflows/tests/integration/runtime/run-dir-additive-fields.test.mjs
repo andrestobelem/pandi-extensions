@@ -6,10 +6,11 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createChecker, sdkStub, buildExtension as sharedBuildExtension } from "../../../../shared/test/harness.mjs";
+
+import { createChecker } from "../../../../shared/test/harness.mjs";
+import { buildDwfModule } from "../dwf-test-support.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 const { check, counts } = createChecker();
 
 const LONG_PROMPT_SENTINEL = `PROMPT-SENTINEL-${"x".repeat(20_000)}`;
@@ -21,18 +22,7 @@ const WORKFLOW = [
 ].join("\n");
 
 async function buildExtension(src, outName, name) {
-	const { url } = await sharedBuildExtension({
-		name,
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", src),
-		outName,
-		stubs: {
-			typebox: true,
-			typeboxValue: true,
-			ai: true,
-			tui: true,
-			sdk: (dir) => sdkStub(dir, { customEditor: "render" }),
-		},
-	});
+	const { url } = await buildDwfModule({ name, relPath: src, outName });
 	return import(url);
 }
 

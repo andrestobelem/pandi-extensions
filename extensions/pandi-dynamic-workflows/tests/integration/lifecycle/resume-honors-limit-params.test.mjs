@@ -23,10 +23,11 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildExtension, createChecker, sdkStub } from "../../../../shared/test/harness.mjs";
+import { createChecker } from "../../../../shared/test/harness.mjs";
+import { buildDwfExtension } from "../dwf-test-support.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
+const _REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 const { check, counts } = createChecker();
 
 const WORKFLOW = [
@@ -96,18 +97,7 @@ async function seedFailedRun(run, project, name, input) {
 }
 
 async function main() {
-	const { url } = await buildExtension({
-		name: "pi-dwf-resume-limits",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "index.ts"),
-		outName: "dynamic-workflows.mjs",
-		stubs: {
-			typebox: true,
-			typeboxValue: true,
-			ai: true,
-			tui: true,
-			sdk: (dir) => sdkStub(dir, { customEditor: "render" }),
-		},
-	});
+	const { url } = await buildDwfExtension({ name: "pi-dwf-resume-limits" });
 	const mod = await import(url);
 	const ext = mod.default;
 	const project = await fs.mkdtemp(path.join(os.tmpdir(), "pi-dw-resume-limits-"));

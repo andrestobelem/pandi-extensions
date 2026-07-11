@@ -19,12 +19,11 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import { createChecker, sdkStub, buildExtension as sharedBuildExtension } from "../../../../shared/test/harness.mjs";
+import { fileURLToPath } from "node:url";
+import { bundle, createChecker, makeBuildDir } from "../../../../shared/test/harness.mjs";
+import { buildDwfExtension, EXT_DIR, REPO_ROOT, SCAFFOLDS_DIR } from "../dwf-test-support.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
-const SCAFFOLDS_DIR = path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "scaffolds");
 
 // Leé el set completo de fuentes de scaffolds directo desde disco: el set exacto que pattern-scaffolds.ts
 // sirve en runtime (reemplaza el readSources() del gen-scaffolds.mjs eliminado).
@@ -39,18 +38,7 @@ function readSources() {
 const { check, counts } = createChecker();
 
 async function buildExtension() {
-	return await sharedBuildExtension({
-		name: "pi-dwf-integration",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "index.ts"),
-		outName: "dynamic-workflows.mjs",
-		stubs: {
-			typebox: true,
-			typeboxValue: true,
-			ai: true,
-			tui: true,
-			sdk: (dir) => sdkStub(dir, { customEditor: "render" }),
-		},
-	});
+	return await buildDwfExtension({ name: "pi-dwf-integration" });
 }
 
 let instance = 0;
@@ -943,20 +931,20 @@ async function scenarioResolveRunExactMatchFirst(url) {
 // pattern-scaffolds.ts importa sus siblings catalog/pattern-format, así que esbuild --bundle
 // arrastra todo el graph de módulos de pattern a un bundle que podemos importar in-process.
 async function buildScaffolds() {
-	const outDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-dwf-scaffolds-"));
-	const src = path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "surface", "pattern-scaffolds.ts");
+	const { outDir, aliases } = await makeBuildDir("pi-dwf-scaffolds", {});
+	const src = path.join(EXT_DIR, "surface", "pattern-scaffolds.ts");
 	if (!existsSync(src)) throw new Error(`missing source: ${src}`);
-	const out = path.join(outDir, "pattern-scaffolds.mjs");
-	const r = spawnSync(
-		"npx",
-		["--yes", "esbuild", src, "--bundle", "--platform=node", "--format=esm", `--outfile=${out}`],
-		{ cwd: REPO_ROOT, encoding: "utf8" },
-	);
-	if (r.status !== 0) throw new Error(`esbuild pattern-scaffolds failed: ${r.stderr || r.stdout}`);
+	const url = await bundle({
+		src,
+		outDir,
+		outName: "pattern-scaffolds.mjs",
+		aliases,
+		npx: "--yes",
+	});
 	// El módulo bundleado lee scaffolds/*.js relativo a su propio import.meta.url (= outDir),
 	// así que copiá las fuentes junto al bundle. Producción (sin bundle) las lee in place.
 	await fs.cp(SCAFFOLDS_DIR, path.join(outDir, "scaffolds"), { recursive: true });
-	return pathToFileURL(out).href;
+	return url;
 }
 
 // Encontrá un scaffold embebido por contenido (robusto ante renombres de pattern-key).

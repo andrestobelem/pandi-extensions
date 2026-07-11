@@ -1,44 +1,11 @@
-/**
- * Durable guard for transformWorkflowCode — the compiler for the SINGLE workflow
- * authoring contract (top-level script + injected globals + `export const meta` +
- * top-level `return`). Asserts:
- *   - a new top-level script is wrapped in `module.exports = async function workflowMain`
- *     so its top-level `await`/`return` are legal;
- *   - `export const meta = { ... }` is lifted OUT of the wrapper and re-attached to the
- *     exported function (string-aware brace matching, so braces inside strings don't fool it);
- *   - `import` is rejected;
- *   - the legacy `export default async function workflow(ctx, input)` form still transforms
- *     (transitional — removed once all scaffolds/tests use the single interface).
- *
- * Mutation-free: imports the bundled runtime and calls the pure function in memory.
- *
- * Run it:
- *   node extensions/pandi-dynamic-workflows/tests/integration/transform-contract.test.mjs
- */
-import * as path from "node:path";
-import {
-	createChecker,
-	REPO_ROOT,
-	sdkStub,
-	buildExtension as sharedBuildExtension,
-} from "../../../../shared/test/harness.mjs";
+import { createChecker } from "../../../../shared/test/harness.mjs";
+import { buildDwfExtension } from "../dwf-test-support.mjs";
 
 const { check, counts } = createChecker();
 
 let instance = 0;
 async function loadRuntime() {
-	const { url } = await sharedBuildExtension({
-		name: "pi-dw-transform-contract",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "index.ts"),
-		outName: "dynamic-workflows.mjs",
-		stubs: {
-			typebox: true,
-			typeboxValue: true,
-			ai: true,
-			tui: true,
-			sdk: (dir) => sdkStub(dir, { customEditor: "render" }),
-		},
-	});
+	const { url } = await buildDwfExtension({ name: "pi-dw-transform-contract" });
 	return await import(`${url}?i=${instance++}`);
 }
 

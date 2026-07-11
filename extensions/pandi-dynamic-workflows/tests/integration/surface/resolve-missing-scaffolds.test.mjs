@@ -9,26 +9,16 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createChecker, sdkStub, buildExtension as sharedBuildExtension } from "../../../../shared/test/harness.mjs";
+
+import { createChecker } from "../../../../shared/test/harness.mjs";
+import { buildDwfExtension, REPO_ROOT } from "../dwf-test-support.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
-const EXTENSION_ROOT = path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows");
+const _EXTENSION_ROOT = path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows");
 const { check, counts } = createChecker();
 
-async function buildExtensionWithoutScaffolds() {
-	return await sharedBuildExtension({
-		name: "pandi-dwf-no-scaffolds",
-		src: path.join(EXTENSION_ROOT, "index.ts"),
-		outName: "dynamic-workflows.mjs",
-		stubs: {
-			typebox: true,
-			typeboxValue: true,
-			ai: true,
-			tui: true,
-			sdk: (dir) => sdkStub(dir, { customEditor: "full" }),
-		},
-	});
+async function _buildExtensionWithoutScaffolds() {
+	return await buildDwfExtension({ name: "pandi-dwf-no-scaffolds", customEditor: "full" });
 }
 
 function makePi() {
@@ -88,7 +78,7 @@ function makeCtx(cwd) {
 }
 
 async function main() {
-	const { url } = await buildExtensionWithoutScaffolds();
+	const { url } = await buildDwfExtension({ name: "pandi-dwf-no-scaffolds", customEditor: "full" });
 	const mod = await import(url);
 	const { pi, commands, handlers, tools } = makePi();
 	mod.default(pi);

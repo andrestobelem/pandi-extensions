@@ -1,31 +1,16 @@
 #!/usr/bin/env node
-/**
- * Contrato puro para el inventario de `/workflow cleanup`.
- *
- * El comando destructivo debe explicar cada decisión antes de borrar: runs
- * terminales fuera de retención, drafts viejos no usados y entradas antiguas
- * de .pi/tmp pueden borrarse; running/active, drafts referenciados, INDEX.md y
- * recientes se conservan con razón.
- */
-import * as path from "node:path";
-import { buildExtension, createChecker, REPO_ROOT, sdkStub } from "../../../../shared/test/harness.mjs";
+import { createChecker } from "../../../../shared/test/harness.mjs";
+import { buildDwfModule } from "../dwf-test-support.mjs";
 
 const { check, counts } = createChecker();
 const NOW = Date.parse("2026-07-01T00:00:00Z");
 const hour = 60 * 60 * 1000;
 
 async function loadModule() {
-	const { url } = await buildExtension({
+	const { url } = await buildDwfModule({
 		name: "pi-dwf-cleanup-inventory",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "lifecycle", "inventory.ts"),
+		relPath: "lifecycle/inventory.ts",
 		outName: "inventory.mjs",
-		stubs: {
-			typebox: true,
-			typeboxValue: true,
-			ai: true,
-			tui: true,
-			sdk: (dir) => sdkStub(dir, { customEditor: "render" }),
-		},
 	});
 	return await import(url);
 }

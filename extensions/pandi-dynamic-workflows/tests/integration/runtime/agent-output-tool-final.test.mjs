@@ -23,10 +23,11 @@
 
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildExtension, createChecker, loadModule } from "../../../../shared/test/harness.mjs";
+import { createChecker, loadModule } from "../../../../shared/test/harness.mjs";
+import { buildDwfModule } from "../dwf-test-support.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
+const _REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 
 const { check, counts } = createChecker();
 
@@ -40,11 +41,10 @@ const stream = (...events) => `${events.map(line).join("\n")}\n`;
 const assistantEvent = (type, message) => ({ type, message });
 
 async function main() {
-	const { url } = await buildExtension({
+	const { url } = await buildDwfModule({
 		name: "pi-dwf-agent-output-tool-final",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "runtime", "agent-output.ts"),
+		relPath: "runtime/agent-output.ts",
 		outName: "agent-output.mjs",
-		stubs: { tui: true },
 	});
 	const { parsePiJsonModeOutput, parsePiJsonModeOutputLenient } = await loadModule(url);
 	check("parsePiJsonModeOutput exported", typeof parsePiJsonModeOutput === "function");

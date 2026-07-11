@@ -13,10 +13,11 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createChecker, sdkStub, buildExtension as sharedBuildExtension } from "../../../../shared/test/harness.mjs";
+
+import { createChecker } from "../../../../shared/test/harness.mjs";
+import { buildDwfExtension, buildDwfModule } from "../dwf-test-support.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 const { check, counts } = createChecker();
 
 const BARRIER_STARTED = "barrier-started";
@@ -41,32 +42,14 @@ return { runId, first: first.stdout };
 `;
 
 async function buildExtension() {
-	return await sharedBuildExtension({
-		name: "pi-dw-reload-handoff",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "index.ts"),
-		outName: "dynamic-workflows.mjs",
-		stubs: {
-			typebox: true,
-			typeboxValue: true,
-			ai: true,
-			tui: true,
-			sdk: (dir) => sdkStub(dir, { customEditor: "render" }),
-		},
-	});
+	return await buildDwfExtension({ name: "pi-dw-reload-handoff" });
 }
 
-async function buildLifecycleModule() {
-	return await sharedBuildExtension({
+async function _buildLifecycleModule() {
+	return await buildDwfModule({
 		name: "pi-dw-reload-lifecycle",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "lifecycle", "index.ts"),
+		relPath: "lifecycle/index.ts",
 		outName: "lifecycle.mjs",
-		stubs: {
-			typebox: true,
-			typeboxValue: true,
-			ai: true,
-			tui: true,
-			sdk: (dir) => sdkStub(dir, { customEditor: "render" }),
-		},
 	});
 }
 
@@ -563,7 +546,11 @@ async function scenarioQuitDoesNotAutoResume(url) {
 
 async function main() {
 	const { url } = await buildExtension();
-	const { url: lifecycleUrl } = await buildLifecycleModule();
+	const { url: lifecycleUrl } = await buildDwfModule({
+		name: "pi-dw-reload-lifecycle",
+		relPath: "lifecycle/index.ts",
+		outName: "lifecycle.mjs",
+	});
 	await scenarioReloadAutoResume(url);
 	await scenarioMultipleReloadAutoResume(url);
 	await scenarioReloadHandoffRequiresReloadStartAndMatchingCwd(url);

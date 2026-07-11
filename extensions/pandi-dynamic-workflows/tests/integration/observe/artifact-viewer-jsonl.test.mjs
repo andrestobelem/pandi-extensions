@@ -12,17 +12,18 @@
 
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildExtension, createChecker, loadModule } from "../../../../shared/test/harness.mjs";
+import { createChecker, loadModule } from "../../../../shared/test/harness.mjs";
+import { buildDwfModule } from "../dwf-test-support.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
+const _REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 
 const { check, counts } = createChecker();
 
 async function main() {
-	const { url } = await buildExtension({
+	const { url } = await buildDwfModule({
 		name: "pi-dwf-artifact-viewer-jsonl-pretty",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "observe", "artifact-viewer.ts"),
+		relPath: "observe/artifact-viewer.ts",
 		outName: "run-report-artifact-viewer.mjs",
 	});
 	const { formatArtifactPreviewText } = await loadModule(url);

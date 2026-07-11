@@ -18,25 +18,19 @@
 
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createChecker, sdkStub, buildExtension as sharedBuildExtension } from "../../../../shared/test/harness.mjs";
+
+import { createChecker } from "../../../../shared/test/harness.mjs";
+import { buildDwfModule } from "../dwf-test-support.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 
 const { check, counts } = createChecker();
 
 async function buildExtension() {
-	return await sharedBuildExtension({
+	return await buildDwfModule({
 		name: "pi-agent-artifact-path-integration",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "tui/agent-view.ts"),
+		relPath: "tui/agent-view.ts",
 		outName: "agent-view.mjs",
-		stubs: {
-			typebox: true,
-			typeboxValue: true,
-			ai: true,
-			tui: true,
-			sdk: (dir) => sdkStub(dir, { customEditor: "render" }),
-		},
 	});
 }
 

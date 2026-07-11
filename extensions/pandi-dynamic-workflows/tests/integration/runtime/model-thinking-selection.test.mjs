@@ -27,10 +27,10 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createChecker, sdkStub, buildExtension as sharedBuildExtension } from "../../../../shared/test/harness.mjs";
+import { createChecker } from "../../../../shared/test/harness.mjs";
+import { buildDwfExtension } from "../dwf-test-support.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 
 // Workflow bajo test: hace cuatro llamadas de agente con intención model/thinking distinta.
 // Cada prompt lleva un marcador CALL_* que el `pi` fake usa para nombrar su record argv.
@@ -51,18 +51,7 @@ const WORKFLOW = [
 const { check, counts } = createChecker();
 
 async function buildExtension() {
-	return await sharedBuildExtension({
-		name: "pi-model-thinking-integration",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "index.ts"),
-		outName: "dynamic-workflows.mjs",
-		stubs: {
-			typebox: true,
-			typeboxValue: true,
-			ai: true,
-			tui: true,
-			sdk: (dir) => sdkStub(dir, { customEditor: "render" }),
-		},
-	});
+	return await buildDwfExtension({ name: "pi-model-thinking-integration" });
 }
 
 let instance = 0;

@@ -13,10 +13,11 @@
 
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildExtension, createChecker, loadModule } from "../../../../shared/test/harness.mjs";
+import { createChecker, loadModule } from "../../../../shared/test/harness.mjs";
+import { buildDwfModule } from "../dwf-test-support.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
+const _REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 
 const { check, counts } = createChecker();
 
@@ -26,11 +27,11 @@ function makeTheme() {
 }
 
 async function main() {
-	const { url } = await buildExtension({
+	const { url } = await buildDwfModule({
 		name: "pi-dwf-agent-open-files",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "tui/agent-live-view.ts"),
+		relPath: "tui/agent-live-view.ts",
 		outName: "agent-live-view.mjs",
-		stubs: { typebox: true, typeboxValue: true, ai: true, tui: true, sdk: (dir) => dir && "" },
+		stubs: { sdk: (dir) => dir && "" },
 	});
 	const { AgentLiveViewComponent } = await loadModule(url);
 	check("AgentLiveViewComponent is exported", typeof AgentLiveViewComponent === "function");

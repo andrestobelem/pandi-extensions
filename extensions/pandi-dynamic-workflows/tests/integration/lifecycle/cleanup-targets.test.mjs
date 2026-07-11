@@ -6,23 +6,17 @@
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { buildExtension, createChecker, REPO_ROOT, sdkStub } from "../../../../shared/test/harness.mjs";
+import { createChecker } from "../../../../shared/test/harness.mjs";
+import { buildDwfModule } from "../dwf-test-support.mjs";
 
 const { check, counts } = createChecker();
 const oldDate = new Date("2026-06-01T00:00:00Z");
 
 async function loadHandlers() {
-	const { url } = await buildExtension({
+	const { url } = await buildDwfModule({
 		name: "pi-dwf-cleanup-command-targets",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "surface", "command-handlers.ts"),
+		relPath: "surface/command-handlers.ts",
 		outName: "command-handlers.mjs",
-		stubs: {
-			typebox: true,
-			typeboxValue: true,
-			ai: true,
-			tui: true,
-			sdk: (dir) => sdkStub(dir, { customEditor: "render" }),
-		},
 	});
 	return await import(url);
 }

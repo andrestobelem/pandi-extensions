@@ -10,42 +10,29 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { createChecker, sdkStub, buildExtension as sharedBuildExtension } from "../../../../shared/test/harness.mjs";
+import { createChecker } from "../../../../shared/test/harness.mjs";
+import { buildDwfExtension } from "../dwf-test-support.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 const { check, counts } = createChecker();
 
 const WORKFLOW = String.raw`
 export const meta = {
 	name: "final-handoff",
 	description: "final HTML handoff probe",
-	basedOn: [{ name: "fan-out-and-synthesize", role: "scatter-gather base" }],
-};
+	basedOn: [{ name: "fan-out-and-synthesize", role: "scatter-gather base" }] };
 phase("Gather");
 const worker = await agent("Summarize in Markdown", {
 	name: "handoff-worker",
 	model: "anthropic/claude-sonnet-5",
 	effort: "medium",
 	tools: ["read"],
-	skills: ["karpathy-guidelines"],
-});
+	skills: ["karpathy-guidelines"] });
 return "## Final synthesis\n\n**done** from " + worker.output;
 `;
 
 async function buildExtension() {
-	return await sharedBuildExtension({
-		name: "pi-dw-final-handoff",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "index.ts"),
-		outName: "dynamic-workflows.mjs",
-		stubs: {
-			typebox: true,
-			typeboxValue: true,
-			ai: true,
-			tui: true,
-			sdk: (dir) => sdkStub(dir, { customEditor: "render" }),
-		},
-	});
+	return await buildDwfExtension({ name: "pi-dw-final-handoff" });
 }
 
 function makePi({ execFails = false } = {}) {

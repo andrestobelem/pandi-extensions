@@ -21,10 +21,11 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildExtension, createChecker, loadModule, sdkStub } from "../../../../shared/test/harness.mjs";
+import { createChecker, loadModule } from "../../../../shared/test/harness.mjs";
+import { buildDwfModule } from "../dwf-test-support.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
+const _REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 const { check, counts } = createChecker();
 
 async function makeRun(runsRoot, runId, startedAt) {
@@ -51,17 +52,10 @@ async function makeRun(runsRoot, runId, startedAt) {
 }
 
 async function main() {
-	const { url } = await buildExtension({
+	const { url } = await buildDwfModule({
 		name: "pi-dwf-latest-started-at",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "runtime/runs.ts"),
+		relPath: "runtime/runs.ts",
 		outName: "runs.mjs",
-		stubs: {
-			typebox: true,
-			typeboxValue: true,
-			ai: true,
-			tui: true,
-			sdk: (dir) => sdkStub(dir, { customEditor: "render" }),
-		},
 	});
 	const { listRuns, resolveRun } = await loadModule(url);
 	check("listRuns exported", typeof listRuns === "function");

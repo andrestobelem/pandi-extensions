@@ -13,23 +13,16 @@
 
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { sdkStub, buildExtension as sharedBuildExtension } from "../../../../shared/test/harness.mjs";
+import { buildDwfExtension, REPO_ROOT } from "../dwf-test-support.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 
 async function buildExtension() {
-	return await sharedBuildExtension({
+	return await buildDwfExtension({
 		name: "pi-dwf-scaffold-payload",
-		src: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "index.ts"),
-		outName: "dynamic-workflows.mjs",
-		copyDirs: { scaffolds: path.join(REPO_ROOT, "extensions", "pandi-dynamic-workflows", "scaffolds") },
+		customEditor: "full",
+		copyScaffolds: true,
 		stubs: {
-			typebox: true,
-			typeboxValue: true,
-			ai: true,
-			tui: true,
-			sdk: (dir) => sdkStub(dir, { customEditor: "full" }),
 			sanitizeHtml: "export default function sanitizeHtml(html) { return String(html); }\n",
 		},
 	});
