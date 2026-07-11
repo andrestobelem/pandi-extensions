@@ -4,9 +4,9 @@
 //
 // El skill ultracode de .pi ya describe por sí mismo AMBOS runtimes (Claude Code + pi) en su
 // sección "Platform reference", así que su contenido de Claude ya es válido y completo tal cual.
-// Desde ahí emitimos dos skills de Claude con una transformación MÍNIMA: solo se renombran el
-// campo `name:` del frontmatter y el heading H1 `# `; todo lo demás (prosa, tablas, links) y
-// todo el árbol reference/ se copia VERBATIM:
+// Desde ahí emitimos dos skills de Claude. `ultracode` conserva el routing model-invoked;
+// `dynamic-workflows` es un alias de invocación explícita para no duplicar el mismo selector en
+// contexto. El cuerpo y todo el árbol reference/ se copian VERBATIM:
 //
 //   .pi/skills/ultracode/  ->  .claude/skills/ultracode/         (nombre idéntico)
 //                          ->  .claude/skills/dynamic-workflows/ (renombrado)
@@ -30,15 +30,40 @@ const OUT_DIR = join(REPO, ".claude", "skills");
 
 // Nombres de skill emitidos desde la única fuente canónica.
 export const TARGETS = ["ultracode", "dynamic-workflows"];
+const DYNAMIC_WORKFLOWS_DESCRIPTION =
+	"Orquestá manualmente tareas multiagente con los gates y patrones de Ultracode en Claude Code o Pi.";
 
 export function parseCheckOnly(args = process.argv.slice(2)) {
 	return args.includes("--check");
 }
 
-// Transformación mínima pi->claude para SKILL.md: renombra solo el `name:` del frontmatter y el H1.
-// Para el target "ultracode" esto es la identidad (el nombre y el heading ya son `ultracode`).
+function makeExplicitOnly(skill) {
+	return skill.replace(/^---\n([\s\S]*?)\n---/u, (_match, rawFrontmatter) => {
+		const lines = rawFrontmatter.split("\n").filter((line) => !line.startsWith("disable-model-invocation:"));
+		const descriptionStart = lines.findIndex((line) => line.startsWith("description:"));
+		if (descriptionStart < 0) throw new Error("ultracode SKILL.md is missing description frontmatter");
+
+		let descriptionEnd = descriptionStart + 1;
+		if (lines[descriptionStart] === "description:") {
+			while (descriptionEnd < lines.length && lines[descriptionEnd].startsWith("  ")) descriptionEnd++;
+		}
+		lines.splice(
+			descriptionStart,
+			descriptionEnd - descriptionStart,
+			`description: ${DYNAMIC_WORKFLOWS_DESCRIPTION}`,
+			"disable-model-invocation: true",
+		);
+		return `---\n${lines.join("\n")}\n---`;
+	});
+}
+
+// Para `ultracode`, la transformación solo normaliza nombre y H1. El alias
+// `dynamic-workflows` recibe frontmatter humano y queda fuera del prompt del modelo.
 export function transformSkill(src, targetName) {
-	return src.replace(/^name: ultracode$/m, `name: ${targetName}`).replace(/^# ultracode$/m, `# ${targetName}`);
+	const renamed = src
+		.replace(/^name: ultracode$/m, `name: ${targetName}`)
+		.replace(/^# ultracode$/m, `# ${targetName}`);
+	return targetName === "dynamic-workflows" ? makeExplicitOnly(renamed) : renamed;
 }
 
 export function targetRoots(targets = TARGETS, outDir = OUT_DIR) {

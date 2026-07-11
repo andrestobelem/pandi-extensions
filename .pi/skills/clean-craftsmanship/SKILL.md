@@ -1,9 +1,8 @@
 ---
 name: clean-craftsmanship
 description:
-  Aplicá clean craftsmanship al escribir o revisar código por legibilidad, diagnosticar rigidez, fragilidad, inmovilidad
-  o viscosidad, revisar la Dependency Rule y justificar límites o abstracciones. Usá también para estimaciones,
-  compromisos y limpieza profesional bajo presión.
+  Aplicá clean craftsmanship al revisar legibilidad, diagnosticar rigidez, fragilidad, inmovilidad o viscosidad,
+  evaluar la Dependency Rule, justificar límites o abstracciones y gestionar compromisos profesionales bajo presión.
 ---
 
 # Clean craftsmanship

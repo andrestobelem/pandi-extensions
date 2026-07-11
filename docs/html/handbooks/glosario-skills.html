@@ -203,14 +203,14 @@ GitHub.</li>
 <td><code>.pi/skills/ultracode/SKILL.md</code>, <code>name: ultracode</code></td>
 </tr>
 <tr>
-<td>Skill Claude</td>
-<td>Frontmatter, invocación en Claude Code</td>
+<td>Skill Claude explícito</td>
+<td>Alias manual en Claude Code</td>
 <td><code>dynamic-workflows</code></td>
-<td><code>.claude/skills/dynamic-workflows/SKILL.md</code>; mirror de ultracode con <code>name</code>/H1 distintos</td>
+<td>Mismo cuerpo que ultracode; frontmatter con <code>disable-model-invocation: true</code></td>
 </tr>
 <tr>
-<td>Skill Claude (alias)</td>
-<td>Mismo contenido, nombre idéntico a pi</td>
+<td>Skill Claude model-invoked</td>
+<td>Mismo contenido y selector que pi</td>
 <td><code>ultracode</code></td>
 <td><code>.claude/skills/ultracode/</code> — generado desde la fuente pi</td>
 </tr>
@@ -258,9 +258,9 @@ GitHub.</li>
 </tr>
 <tr>
 <td>Descripción de skill (frontmatter)</td>
-<td>Cuándo activar el skill</td>
-<td><code>Activar cuando la persona usuaria…</code> · <code>Usá cuando…</code> · <code>Usá para…</code></td>
-<td>No <code>Usar cuando</code> (infinitivo impersonal); la descripción no lleva 🐼</td>
+<td>Routing model-invoked o etiqueta manual</td>
+<td>Acción + una cláusula por rama genuina</td>
+<td>Sin mecánica ni comandos; la descripción no lleva 🐼</td>
 </tr>
 <tr>
 <td>Cuenta / identidad técnica</td>
@@ -449,7 +449,7 @@ tres pipelines distintos (clasificación en <code>scripts/skill-classification.m
 <td><code>npm run sync:claude:ultracode</code></td>
 <td><code>.pi/skills/ultracode/</code></td>
 <td><code>.claude/skills/{ultracode,dynamic-workflows}/</code></td>
-<td><code>SKILL.md</code> con rename mínimo de <code>name</code>/H1 + <code>reference/</code> verbatim</td>
+<td><code>ultracode</code> model-invoked; <code>dynamic-workflows</code> manual; body + <code>reference/</code> verbatim</td>
 </tr>
 <tr>
 <td><strong>Vendor extensión</strong></td>

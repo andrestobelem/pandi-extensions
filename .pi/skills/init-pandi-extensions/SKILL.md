@@ -1,10 +1,8 @@
 ---
 name: init-pandi-extensions
 description:
-  Inicializá un clon nuevo de `pandi-extensions` con onboarding idempotente y consciente de plataforma para Pi o Claude
-  Code. Usá para instalar o configurar desde cero extensiones, skills y dynamic workflows; resolver sync drift detectado
-  por `doctor`, incluido `~/.claude`; o configurar extras de web_search, Context7, PNG-graph o sandbox. Excluye crear
-  extensiones y el `npm install` genérico.
+  Inicializá `pandi-extensions` cuando haya que preparar un clon nuevo para Pi o Claude Code, reparar drift detectado
+  por `doctor` o habilitar integraciones opcionales del entorno.
 ---
 
 # Inicializar este harness (`pandi-extensions`)

@@ -1,9 +1,8 @@
 ---
 name: ai-assisted-engineering
 description:
-  Decidí cómo usar IA o agentes para construir software sin delegar la corrección. Usá cuando haya que elegir entre
-  prototipo y producción, delimitar autonomía, diseñar prompts/context/tools como programa, evaluar un output generado o
-  decidir si un dynamic workflow justifica su costo.
+  Decidí cómo delegar a IA o agentes cuando el trabajo requiera fijar autonomía, distinguir prototipo de producción,
+  programar prompts/context/tools o evaluar un output generado.
 ---
 
 # Ingeniería asistida por IA

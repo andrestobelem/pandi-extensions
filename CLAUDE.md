@@ -126,12 +126,17 @@ sin commitear y un error de carga puede tumbar la sesión. Loop seguro:
 - Ajustá la prosa Markdown a un máximo de 120 caracteres por línea y mantené una sola línea en blanco entre bloques.
   `MD013` exige 120 también en headings, pero exceptúa tablas y bloques de código; pasá ejemplos indivisibles a un
   bloque de código cuando envolverlos reduzca legibilidad o exactitud. `MD012` limita los blancos repetidos a uno.
+- Antes de escribir un skill, decidí su modo de invocación. Para model-invoked, omití `disable-model-invocation` y tratá
+  `description` como regla de routing. Para user-invoked, usá `disable-model-invocation: true` y una descripción humana
+  de una línea, sin catálogo de triggers.
 - Encabezado YAML de los skills: escribí `description` como texto simple, sin comillas ni bloques `>-` / `|`. Dejá que
-  Prettier use una línea o varias según el largo. Limitá la descripción a 60 palabras, empezá con una acción y separá
-  con claridad cada caso de uso.
+  Prettier use una línea o varias según el largo. Limitá la descripción a 60 palabras, empezá con una acción y expresá
+  una sola vez cada rama genuina de activación. Dejá comandos, mecánica y cualidades del output en el cuerpo.
 - Cuerpo de los skills: usá `## En 30 segundos` como primer H2 y dejá los casos de uso sólo en `description`. En los
   skills con pasos, indicá cómo comprobar que cada tramo terminó bien. En los skills de consulta, agrupá la información
   relacionada y enlazá los detalles sólo cuando hagan falta.
+- Para cambios de routing, evaluá prompts positivos, near-misses negativos y colisiones entre skills. Los checks
+  deterministas validan inventario y frontmatter; la selección semántica se forward-testea con el host/modelo real.
 - Comentarios de código: explicá intención, contrato, invariantes o límites de responsabilidad; no narres lo obvio ni
   línea por línea. Preferí comentarios breves en español que digan qué se preserva o por qué existe la abstracción.
 - `docs/html/` es generado: regeneralo con `npm run sync:docs:html`; no lo edites a mano.

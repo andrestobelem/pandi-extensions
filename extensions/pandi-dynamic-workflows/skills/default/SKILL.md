@@ -1,6 +1,7 @@
 ---
 name: default
-description: Enrutá la intención legacy `default` de dynamic workflows al patrón `fan-out-and-synthesize`.
+description: Enrutá manualmente la intención legacy `default` al patrón `fan-out-and-synthesize`.
+disable-model-invocation: true
 ---
 
 # Default de dynamic workflows

@@ -1,8 +1,7 @@
 ---
 name: deep-research
 description:
-  Enrutá investigaciones profundas o respaldadas por fuentes, incluida la intención legacy `deep-research`, al patrón
-  `complex-research` de dynamic workflows.
+  Enrutá a `complex-research` cuando la persona pida una investigación profunda, multiagente y respaldada por fuentes.
 ---
 
 # Investigación profunda

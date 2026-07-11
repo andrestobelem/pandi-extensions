@@ -2,8 +2,8 @@
  * Test durable de paridad: los skills de orquestación Claude son artifacts GENERADOS, no
  * mantenidos a mano. La SOURCE OF TRUTH canónica es el skill pi dual-platform
  * `.pi/skills/ultracode/` (SKILL.md + reference/). `scripts/generate-claude-ultracode-skills.mjs`
- * emite dos skills Claude desde ahí con una transform MINIMAL (solo se renombran el campo
- * frontmatter `name:` y el heading H1 `# `; reference/ se copia verbatim):
+ * emite dos skills Claude desde ahí. `ultracode` conserva el selector model-invoked;
+ * `dynamic-workflows` recibe frontmatter de invocación explícita; reference/ se copia verbatim:
  *
  *   .pi/skills/ultracode/  ->  .claude/skills/ultracode/         (nombre identity)
  *                          ->  .claude/skills/dynamic-workflows/ (renombrado)
@@ -12,7 +12,7 @@
  *   - En sync: `generate-claude-ultracode-skills.mjs --check` sale 0 (ambos skills .claude
  *     coinciden con lo que el generador emitiría desde la fuente .pi canónica). Falla ante hand-edit.
  *   - El target ultracode es byte-identical al SKILL.md .pi canónico (identity transform).
- *   - El target dynamic-workflows difiere SOLO por name/heading renombrados (minimal transform).
+ *   - El target dynamic-workflows difiere solo en name/heading y el frontmatter explícito esperado.
  *   - reference/ se copia verbatim (una muestra canónica es byte-identical en ambos targets).
  *   - Sensibilidad (negative control): un tweak de un char en un archivo generado se detecta como drift.
  *
@@ -71,18 +71,29 @@ async function main() {
 		);
 	}
 
-	// 3) target dynamic-workflows = canónico con SOLO name/heading renombrados.
+	// 3) target dynamic-workflows = body canónico con alias y frontmatter de invocación explícita.
 	const dwSkill = path.join(CLAUDE_SKILLS, "dynamic-workflows", "SKILL.md");
 	check(".claude/skills/dynamic-workflows/SKILL.md exists", fs.existsSync(dwSkill));
 	if (fs.existsSync(dwSkill)) {
 		const dw = fs.readFileSync(dwSkill, "utf8");
 		check("dynamic-workflows target renamed the frontmatter name", /^name: dynamic-workflows$/m.test(dw));
 		check("dynamic-workflows target renamed the H1 heading", /^# dynamic-workflows$/m.test(dw));
-		// Revertí la transform minimal y confirmá que nada más cambió.
+		check("dynamic-workflows target is explicit-only", /^disable-model-invocation: true$/m.test(dw));
+		check(
+			"dynamic-workflows target has the human-facing alias description",
+			/^description: Orquestá manualmente tareas multiagente con los gates y patrones de Ultracode en Claude Code o Pi\.$/m.test(
+				dw,
+			),
+		);
+
+		const canonicalDescription = canonical.match(/^description:(?: .+|\n(?: {2}.+\n?)+)/mu)?.[0].trimEnd();
+		check("canonical ultracode description extracted", Boolean(canonicalDescription));
+		// Revertí alias + frontmatter específico y confirmá que el cuerpo no cambió.
 		const reverted = dw
 			.replace(/^name: dynamic-workflows$/m, "name: ultracode")
+			.replace(/^description: .+\ndisable-model-invocation: true$/m, canonicalDescription || "")
 			.replace(/^# dynamic-workflows$/m, "# ultracode");
-		check("dynamic-workflows target differs from canonical ONLY by name/heading", reverted === canonical);
+		check("dynamic-workflows target preserves the canonical body", reverted === canonical);
 	}
 
 	// 4) reference/ copiado verbatim: una muestra canónica es byte-identical en ambos targets.

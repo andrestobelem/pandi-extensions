@@ -1,9 +1,8 @@
 ---
 name: sync-doc-mirrors
 description:
-  Verificá y regenerá mirrors committeados Markdown ↔ HTML con el motor de `pandi-docs`. Usá después de editar un
-  Markdown espejado, para comprobar si los mirrors están sincronizados o para configurar `mirrors.json` en un repo
-  nuevo. También se invoca con `/sync-doc-mirrors`.
+  Verificá o regenerá mirrors Markdown ↔ HTML después de editar un documento espejado, resolver drift o configurar
+  pares nuevos en `mirrors.json`.
 ---
 
 # sync-doc-mirrors

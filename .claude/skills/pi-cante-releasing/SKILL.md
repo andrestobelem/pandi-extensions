@@ -1,9 +1,8 @@
 ---
 name: pi-cante-releasing
 description:
-  Publicá y mantené las distribuciones `pi-cante` / `pandi` desde el fork `~/ws/at/pi-cante`. Usá al lanzar una versión,
-  actualizar pins de extensiones después de publicarlas desde este repo, sincronizar el fork con un tag upstream de Pi o
-  agregar una distribución.
+  Publicá y mantené las distribuciones `pi-cante` / `pandi` al lanzar versiones, actualizar pins de extensiones,
+  sincronizar el fork con upstream o agregar una distribución.
 ---
 
 # Publicación de las distribuciones pi-cante / pandi

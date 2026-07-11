@@ -1,11 +1,7 @@
 ---
 name: dynamic-workflows
-description:
-  Orquestá tareas con dynamic workflows multiagente en Claude Code (`Workflow`) o Pi (`dynamic_workflow`). Usá ante
-  `ultracode` o `workflow` como pedido de orquestación; cuando exhaustividad, confianza o escala justifiquen paralelismo
-  —auditorías repo-wide, migraciones/codemods, investigación profunda, verificación adversarial, best-of-N, torneos,
-  loop-until-done, decompose-an-open-goal o corpus mayores que el contexto—; o para contract-gate, routing,
-  workflow-factory y composición protegida.
+description: Orquestá manualmente tareas multiagente con los gates y patrones de Ultracode en Claude Code o Pi.
+disable-model-invocation: true
 ---
 
 # dynamic-workflows

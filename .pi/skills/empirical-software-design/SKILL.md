@@ -1,9 +1,8 @@
 ---
 name: empirical-software-design
 description:
-  Aplicá diseño empírico dentro del loop TDD para elegir test list, step size y gear de Green; separar estructura de
-  comportamiento; decidir tidy first/after/later/never; y mantener cada cambio reversible. Usá al conducir el
-  micro-ritmo de coding o supervisar un agente implementador.
+  Aplicá diseño empírico al conducir el micro-ritmo de un loop TDD o al supervisar un agente implementador dentro de
+  ese loop.
 ---
 
 # Diseño empírico de software

@@ -1,9 +1,8 @@
 ---
 name: modern-software-engineering
 description:
-  Aplicá ingeniería de software moderna al diseñar, revisar o mejorar arquitectura, refactors, tests, delivery o dynamic
-  workflows. Usá para formular una hipótesis, elegir TDD o evidencia equivalente, controlar complejidad y evaluar una
-  decisión por estabilidad y throughput.
+  Aplicá ingeniería de software moderna al diseñar arquitectura, planear refactors, revisar código, definir una
+  estrategia de tests o mejorar delivery mediante feedback ejecutable.
 ---
 
 # Ingeniería de software moderna

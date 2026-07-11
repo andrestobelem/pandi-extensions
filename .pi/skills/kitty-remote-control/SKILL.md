@@ -1,9 +1,8 @@
 ---
 name: kitty-remote-control
 description:
-  Controlá kitty desde el shell con remote control (`kitty @`) para abrir tabs, ventanas o splits, y consultar o
-  administrar la instancia activa. Usá cuando pidan operar o automatizar kitty desde una sesión en curso. Si
-  `pandi-kitty` está instalada, preferí `/kitty` o `kitty_remote`.
+  Controlá la instancia activa de kitty desde el shell cuando haya que abrir tabs, ventanas o splits, consultar su
+  estado o automatizar remote control.
 ---
 
 # Control remoto de kitty

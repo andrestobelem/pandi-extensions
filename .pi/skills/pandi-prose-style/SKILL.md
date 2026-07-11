@@ -1,10 +1,8 @@
 ---
 name: pandi-prose-style
 description:
-  Dosificá según la superficie la personalidad Pandi —didáctica, concisa, cálida-zen y con 🐼 ocasional— al escribir,
-  editar o revisar la prosa del repo —docs, skills, comentarios de código, mensajes de usuario y prompts de
-  subagentes/workflows— a mano o vía workflows. El código queda fuera. Deferí docs Markdown a `didactic-docs-style` y
-  artifacts HTML a `pandi-artifact-style`.
+  Dosificá la voz Pandi al crear o revisar prosa de docs, skills, comentarios, mensajes y prompts. Deferí estructura
+  Markdown a `didactic-docs-style` y artifacts HTML a `pandi-artifact-style`.
 ---
 
 # Estilo de prosa de Pandi: matriz de dosis

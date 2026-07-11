@@ -183,6 +183,9 @@ read-only y muestra el comando de arreglo cuando detecta drift.
 | Personas README                   | `.pi/personas/*.json`                                           | `.pi/personas/README.md` y HTML                  | `npm run sync:personas:check`         | `npm run sync:personas`         |
 | Personas empaquetadas             | `.pi/personas/*.json`                                           | `extensions/pandi-personas/personas/*.json`      | `npm run sync:personas:package:check` | `npm run sync:personas:package` |
 
+En los aliases generados, el cuerpo puede ser byte-idéntico y el frontmatter variar por modo de invocación:
+`ultracode` queda model-invoked y `dynamic-workflows`, manual. Entre los skills Pi, `default` también es manual.
+
 Los fixes de la tabla son locales, idempotentes y commiteables. Estado global del usuario (por ejemplo `~/.claude` o
 instalaciones Pi globales) se reporta como diagnóstico/propose-only: `doctor` te dice qué correr, pero no lo muta por
 vos.

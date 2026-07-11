@@ -29,22 +29,51 @@ test("generate-claude-ultracode helpers expose target and check-mode contracts",
 	assert.deepEqual(targetRoots(["alpha"], "/out"), [{ target: "alpha", outRoot: path.join("/out", "alpha") }]);
 });
 
-test("transformSkill only renames the frontmatter name and H1 heading", () => {
+test("transformSkill preserves the model-invoked ultracode target", () => {
 	assert.equal(
-		transformSkill("---\nname: ultracode\n---\n# ultracode\nbody ultracode\n", "dynamic-workflows"),
-		"---\nname: dynamic-workflows\n---\n# dynamic-workflows\nbody ultracode\n",
+		transformSkill("---\nname: ultracode\n---\n# ultracode\nbody ultracode\n", "ultracode"),
+		"---\nname: ultracode\n---\n# ultracode\nbody ultracode\n",
+	);
+});
+
+test("transformSkill makes the dynamic-workflows alias explicit-only", () => {
+	const source = `---
+name: ultracode
+description:
+  Orquestá tareas multiagente cuando la escala exija paralelismo.
+---
+# ultracode
+body ultracode
+`;
+	assert.equal(
+		transformSkill(source, "dynamic-workflows"),
+		`---
+name: dynamic-workflows
+description: Orquestá manualmente tareas multiagente con los gates y patrones de Ultracode en Claude Code o Pi.
+disable-model-invocation: true
+---
+# dynamic-workflows
+body ultracode
+`,
 	);
 });
 
 test("expectedFilesFor transforms SKILL.md and copies reference files verbatim", async () => {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "claude-ultracode-"));
 	try {
-		writeFile(root, "SKILL.md", "---\nname: ultracode\n---\n# ultracode\n");
+		writeFile(
+			root,
+			"SKILL.md",
+			"---\nname: ultracode\ndescription: Orquestá tareas multiagente.\n---\n# ultracode\n",
+		);
 		writeFile(root, path.join("reference", "notes.md"), "notes\n");
 		assert.deepEqual(
 			[...(await expectedFilesFor("dynamic-workflows", root))],
 			[
-				["SKILL.md", "---\nname: dynamic-workflows\n---\n# dynamic-workflows\n"],
+				[
+					"SKILL.md",
+					"---\nname: dynamic-workflows\ndescription: Orquestá manualmente tareas multiagente con los gates y patrones de Ultracode en Claude Code o Pi.\ndisable-model-invocation: true\n---\n# dynamic-workflows\n",
+				],
 				[path.join("reference", "notes.md"), "notes\n"],
 			],
 		);
@@ -58,7 +87,7 @@ test("syncClaudeUltracodeSkills writes generated targets and check mode accepts 
 	try {
 		const src = path.join(root, "src");
 		const outDir = path.join(root, "out");
-		writeFile(src, "SKILL.md", "---\nname: ultracode\n---\n# ultracode\n");
+		writeFile(src, "SKILL.md", "---\nname: ultracode\ndescription: Orquestá tareas multiagente.\n---\n# ultracode\n");
 		writeFile(src, path.join("reference", "notes.md"), "notes\n");
 
 		const writeLog = logs();
@@ -74,7 +103,7 @@ test("syncClaudeUltracodeSkills writes generated targets and check mode accepts 
 		);
 		assert.equal(
 			fs.readFileSync(path.join(outDir, "dynamic-workflows", "SKILL.md"), "utf8"),
-			"---\nname: dynamic-workflows\n---\n# dynamic-workflows\n",
+			"---\nname: dynamic-workflows\ndescription: Orquestá manualmente tareas multiagente con los gates y patrones de Ultracode en Claude Code o Pi.\ndisable-model-invocation: true\n---\n# dynamic-workflows\n",
 		);
 
 		const checkLog = logs();

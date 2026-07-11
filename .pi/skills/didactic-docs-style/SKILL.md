@@ -1,10 +1,8 @@
 ---
 name: didactic-docs-style
 description:
-  Aplicá el contrato didáctico del repo al escribir, editar, revisar o generar guías de dynamic workflows, páginas de
-  scaffolds, referencias de primitives y READMEs, a mano o mediante `didactic-docs` / `scaffold-docs-html`. Exigí
-  apertura en 30 segundos, disclosure progresivo, tablas o Mermaid para decisiones, ejemplos mínimos ejecutables y
-  exactitud intacta.
+  Aplicá el contrato didáctico del repo al crear o revisar guías, READMEs y referencias de dynamic workflows,
+  scaffolds o primitives, incluso cuando las produzca un workflow.
 ---
 
 # Contrato de estilo para docs didácticas

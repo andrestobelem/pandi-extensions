@@ -1,9 +1,8 @@
 ---
 name: github-project
 description:
-  Gestioná con `gh` los issues y el GitHub Project v2 `pandi` de este repo (owner `andrestobelem`, proyecto 4). Usá para
-  crear stories, tasks o bugs; agregarlos al board; cambiar Status, Priority o Size; armar epics con sub-issues nativos;
-  gestionar milestones; cerrar trabajo desde commits; o consultar el board, progreso, pendientes y prioridades.
+  Gestioná con `gh` los issues y el Project v2 `pandi` al crear o cerrar trabajo, mover items y campos, administrar
+  epics o milestones, o consultar progreso y prioridades.
 ---
 
 # GitHub Project «pandi»

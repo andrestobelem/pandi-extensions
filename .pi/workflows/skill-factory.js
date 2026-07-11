@@ -96,11 +96,38 @@ export default async function main() {
 		const problems = [];
 		const skill = files["SKILL.md"];
 		if (!skill) return ["missing ===FILE: SKILL.md=== block"];
-		if (!skill.startsWith("---\n")) problems.push("SKILL.md debe comenzar con frontmatter YAML");
-		if (!new RegExp(`^name: ${expectedName}$`, "m").test(skill)) problems.push(`el name del frontmatter debe ser '${expectedName}'`);
-		if (!/^description: >-$/m.test(skill)) problems.push("description debe usar el estilo de bloque '>-' de los ejemplos");
+		const frontmatter = skill.match(/^---\n([\s\S]*?)\n---\n/u)?.[1];
+		if (!frontmatter) problems.push("SKILL.md debe comenzar con frontmatter YAML");
+		else {
+			if (!new RegExp(`^name: ${expectedName}$`, "m").test(frontmatter)) {
+				problems.push(`el name del frontmatter debe ser '${expectedName}'`);
+			}
+			const inlineDescription = frontmatter.match(/^description: (\S.*)$/mu)?.[1];
+			const wrappedDescription = frontmatter.match(/^description:\n((?: {2}\S.*(?:\n|$))+)/mu)?.[1];
+			const descriptionLines = inlineDescription
+				? [inlineDescription]
+				: wrappedDescription
+						?.split("\n")
+						.filter(Boolean)
+						.map((line) => line.trim());
+			const description = descriptionLines?.join(" ");
+			if (!description) problems.push("description debe ser YAML plano en una línea o con continuación indentada");
+			else {
+				if (/^[>|"']/u.test(description)) problems.push("description no admite bloques ni comillas");
+				if (!/^\p{L}+[áéíóú](?:\s|$)/iu.test(description)) problems.push("description debe comenzar con una acción");
+				const words = description.split(/\s+/u).length;
+				if (words > 60) problems.push(`description tiene ${words} palabras; el máximo es 60`);
+				const sourceLines = inlineDescription
+					? [`description: ${inlineDescription}`]
+					: wrappedDescription.split("\n").filter(Boolean);
+				if (sourceLines.some((line) => line.length > 120)) {
+					problems.push("description contiene una línea de más de 120 caracteres");
+				}
+			}
+		}
 		if (skill.length < 4000 || skill.length > 12000) problems.push(`tamaño de SKILL.md ${skill.length} fuera de 4000-12000 caracteres (informativo)`);
-		if (!/^## /m.test(skill)) problems.push("SKILL.md no tiene secciones '## '");
+		const firstH2 = skill.match(/^## (.+)$/mu)?.[1];
+		if (firstH2 !== "En 30 segundos") problems.push("el primer H2 de SKILL.md debe ser 'En 30 segundos'");
 		const refKey = Object.keys(files).find((f) => f.startsWith("references/") && f.endsWith(".md"));
 		if (!refKey) problems.push("falta el bloque ===FILE: references/<name>.md===");
 		else {
@@ -173,13 +200,13 @@ export default async function main() {
 ===FILE: <references path given below>===
 <content>
 ===END===
-- SKILL.md comienza con frontmatter YAML: 'name: <skill name given below>' y 'description: >-' con el estilo de los ejemplos — en tercera persona, "Apply <figure>-style … when …. Use to/when …", enumerando condiciones concretas de activación.
-- La estructura del cuerpo refleja los skills de ejemplo: una línea introductoria ("Use this skill when …"), una línea de fuente que apunte al archivo references y luego secciones equivalentes a: lente central; metodología como pasos accionables numerados; formato de respuesta requerido al usar este skill; cómo aplicarlo; checklist de revisión; guía para dynamic workflows; antipatrones que deben señalarse; guardrails. Adaptá los nombres de las secciones a la metodología de la figura cuando realmente encaje mejor, pero mantené el skill ACCIONABLE (checklists que un agente pueda ejecutar), no biográfico.
+- SKILL.md comienza con frontmatter YAML plano: 'name: <skill name given below>' y 'description: <acción y triggers>'. La description empieza con una acción, tiene 60 palabras como máximo, respeta 120 caracteres por línea y enumera una sola vez cada condición concreta de activación. No uses comillas ni bloques YAML. Los casos de uso viven solo en la description; el cuerpo asume que el skill ya fue elegido.
+- El primer H2 es '## En 30 segundos'. Después, la estructura refleja los lens-skills de ejemplo: proceso accionable numerado; contrato de salida; criterio de cierre comprobable; fronteras y deferencias; y una referencia a sources cuando corresponda. Adaptá los nombres de las secciones a la metodología de la figura cuando realmente encaje mejor, pero mantené el skill ACCIONABLE, no biográfico.
 - Longitud de SKILL.md: 4000-12000 caracteres (los ejemplos tienen ~8000). Archivo references <= 6000 caracteres: un resumen compacto de fuentes; cada afirmación clave de la metodología vinculada a su fuente, con una sección Sources final que enumere las URLs realmente usadas en la investigación.
 - Fundamentá CADA afirmación en la investigación proporcionada; nunca inventes citas textuales (parafraseá y atribuí correctamente); sin contenido político ni controversias personales: solo metodología de ingeniería.
 - Si se proporciona una persona para la figura, el skill la complementa: la persona posee la voz/identidad y el skill posee la metodología reutilizable. No repitas el texto de voz de la persona ni contradigas la deferencia de su lane.
 - Higiene de Markdown: headings ATX, línea en blanco alrededor de headings/listas/fences, code fences con etiqueta de lenguaje si hubiera alguno y sin espacios finales (markdownlint revisa las copias espejadas).
-- Escribí en inglés, con el mismo estilo que los ejemplos.`;
+- Escribí en español, con el mismo estilo que los ejemplos.`;
 
 	// ---------- presupuesto ----------
 	const totalPlanned = FIGURES.length * ANGLES.length + FIGURES.length + 3 + FIGURES.length + 1;
@@ -389,7 +416,7 @@ Indicá también de forma explícita si a un borrador le falta un bloque de arch
 		{
 			id: "craft",
 			brief:
-				"OFICIO Y MECÁNICA: exactamente dos bloques de archivo delimitados; name/description del frontmatter bien formados (estilo '>-', condiciones de activación); cuerpo ACCIONABLE (metodología numerada, formato de respuesta, checklists que un agente pueda ejecutar), no un ensayo; longitud dentro del rango; archivo references compacto con una sección Sources de URLs reales de la investigación; higiene de Markdown (headings ATX, líneas en blanco, sin espacios finales); nada que contradiga las personas de solo lectura ni induzca al mal uso de tools.",
+				"OFICIO Y MECÁNICA: exactamente dos bloques de archivo delimitados; name/description en YAML plano, con acción inicial y condiciones de activación solo en la description; primer H2 'En 30 segundos'; cuerpo ACCIONABLE (metodología numerada, contrato de salida y criterios de cierre), no un ensayo; longitud dentro del rango; archivo references compacto con una sección Sources de URLs reales de la investigación; higiene de Markdown (headings ATX, líneas en blanco, sin espacios finales); nada que contradiga las personas de solo lectura ni induzca al mal uso de tools.",
 		},
 	];
 

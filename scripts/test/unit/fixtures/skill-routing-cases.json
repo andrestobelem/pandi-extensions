@@ -1,0 +1,236 @@
+{
+	"version": 1,
+	"cases": [
+		{
+			"id": "ai-delegation-boundary",
+			"kind": "should_trigger",
+			"prompt": "Decidí cuánta autonomía darle a un agente que pasa de prototipo a producción.",
+			"expected": ["ai-assisted-engineering"],
+			"forbidden": ["ultracode"]
+		},
+		{
+			"id": "ai-copy-lure",
+			"kind": "should_not_trigger",
+			"prompt": "Corregí un typo en una página que menciona inteligencia artificial.",
+			"expected": [],
+			"forbidden": ["ai-assisted-engineering"]
+		},
+		{
+			"id": "clean-dependency-review",
+			"kind": "should_trigger",
+			"prompt": "Revisá la legibilidad y la dirección de dependencias de este módulo rígido.",
+			"expected": ["clean-craftsmanship"],
+			"forbidden": []
+		},
+		{
+			"id": "clean-files-lure",
+			"kind": "should_not_trigger",
+			"prompt": "Limpiá los archivos temporales que dejó el test.",
+			"expected": [],
+			"forbidden": ["clean-craftsmanship"]
+		},
+		{
+			"id": "deep-research-multiagent",
+			"kind": "should_trigger",
+			"prompt": "Hacé una investigación profunda multiagente y respaldá la síntesis con fuentes.",
+			"expected": ["deep-research"],
+			"forbidden": []
+		},
+		{
+			"id": "deep-research-doc-lookup",
+			"kind": "should_not_trigger",
+			"prompt": "Buscá en la documentación oficial cuál es el flag correcto de este comando.",
+			"expected": [],
+			"forbidden": ["deep-research"]
+		},
+		{
+			"id": "didactic-readme",
+			"kind": "should_trigger",
+			"prompt": "Reescribí este README como una guía didáctica con ejemplos ejecutables.",
+			"expected": ["didactic-docs-style"],
+			"forbidden": []
+		},
+		{
+			"id": "didactic-version-lookup",
+			"kind": "should_not_trigger",
+			"prompt": "Leé el README y decime qué versión menciona.",
+			"expected": [],
+			"forbidden": ["didactic-docs-style"]
+		},
+		{
+			"id": "empirical-tdd-loop",
+			"kind": "should_trigger",
+			"prompt": "Conducí este loop TDD eligiendo el próximo paso pequeño de Red a Green.",
+			"expected": ["empirical-software-design"],
+			"forbidden": []
+		},
+		{
+			"id": "empirical-explanation-lure",
+			"kind": "should_not_trigger",
+			"prompt": "Explicame brevemente qué significa TDD.",
+			"expected": [],
+			"forbidden": ["empirical-software-design"]
+		},
+		{
+			"id": "github-project-item",
+			"kind": "should_trigger",
+			"prompt": "Creá un bug y movelo a In Progress en el Project pandi.",
+			"expected": ["github-project"],
+			"forbidden": []
+		},
+		{
+			"id": "github-actions-workflow-lure",
+			"kind": "should_not_trigger",
+			"prompt": "Corregí el workflow de GitHub Actions que falla en lint.",
+			"expected": [],
+			"forbidden": ["github-project", "ultracode"]
+		},
+		{
+			"id": "init-new-clone",
+			"kind": "should_trigger",
+			"prompt": "Prepará este clon nuevo de pandi-extensions y resolvé el drift que reporta doctor.",
+			"expected": ["init-pandi-extensions"],
+			"forbidden": []
+		},
+		{
+			"id": "init-npm-install-lure",
+			"kind": "should_not_trigger",
+			"prompt": "Instalá una dependencia npm nueva en este paquete ya configurado.",
+			"expected": [],
+			"forbidden": ["init-pandi-extensions"]
+		},
+		{
+			"id": "kitty-active-split",
+			"kind": "should_trigger",
+			"prompt": "Abrí un split horizontal en la instancia activa de kitty.",
+			"expected": ["kitty-remote-control"],
+			"forbidden": []
+		},
+		{
+			"id": "kitty-config-lure",
+			"kind": "should_not_trigger",
+			"prompt": "Editá kitty.conf para cambiar el tamaño de la fuente.",
+			"expected": [],
+			"forbidden": ["kitty-remote-control"]
+		},
+		{
+			"id": "markdownlint-edit",
+			"kind": "should_trigger",
+			"prompt": "Editá este Markdown y validalo con el linter del repo.",
+			"expected": ["markdownlint-cli2"],
+			"forbidden": []
+		},
+		{
+			"id": "markdownlint-html-lure",
+			"kind": "should_not_trigger",
+			"prompt": "Validá la semántica de este archivo HTML.",
+			"expected": [],
+			"forbidden": ["markdownlint-cli2"]
+		},
+		{
+			"id": "markdown-to-html",
+			"kind": "should_trigger",
+			"prompt": "Convertí este informe Markdown a un único HTML autocontenido con estilo Pandi.",
+			"expected": ["md-to-html"],
+			"forbidden": ["pandi-artifact-style"]
+		},
+		{
+			"id": "html-style-vs-conversion",
+			"kind": "collision",
+			"prompt": "Revisá la paleta y el layout de este HTML ya generado.",
+			"expected": ["pandi-artifact-style"],
+			"forbidden": ["md-to-html"]
+		},
+		{
+			"id": "modern-test-strategy",
+			"kind": "should_trigger",
+			"prompt": "Definí la estrategia de tests y delivery para este cambio arquitectónico.",
+			"expected": ["modern-software-engineering"],
+			"forbidden": []
+		},
+		{
+			"id": "modern-file-list-lure",
+			"kind": "should_not_trigger",
+			"prompt": "Listá los archivos TypeScript de este directorio.",
+			"expected": [],
+			"forbidden": ["modern-software-engineering"]
+		},
+		{
+			"id": "artifact-dashboard",
+			"kind": "should_trigger",
+			"prompt": "Creá un dashboard HTML autocontenido con la identidad visual Pandi.",
+			"expected": ["pandi-artifact-style"],
+			"forbidden": ["md-to-html"]
+		},
+		{
+			"id": "artifact-data-lure",
+			"kind": "should_not_trigger",
+			"prompt": "Extraé los datos de esta respuesta JSON sin producir una presentación.",
+			"expected": [],
+			"forbidden": ["pandi-artifact-style"]
+		},
+		{
+			"id": "pandi-prose-prompt",
+			"kind": "should_trigger",
+			"prompt": "Ajustá la voz Pandi de este mensaje de usuario y de este prompt.",
+			"expected": ["pandi-prose-style"],
+			"forbidden": ["didactic-docs-style"]
+		},
+		{
+			"id": "pandi-prose-code-lure",
+			"kind": "should_not_trigger",
+			"prompt": "Implementá un parser TypeScript sin tocar documentación ni mensajes.",
+			"expected": [],
+			"forbidden": ["pandi-prose-style"]
+		},
+		{
+			"id": "pi-cante-release",
+			"kind": "should_trigger",
+			"prompt": "Publicá una versión nueva de pi-cante y actualizá sus pins de extensiones.",
+			"expected": ["pi-cante-releasing"],
+			"forbidden": []
+		},
+		{
+			"id": "pi-cante-npm-lure",
+			"kind": "should_not_trigger",
+			"prompt": "Publicá solamente el paquete npm pandi-kitty.",
+			"expected": [],
+			"forbidden": ["pi-cante-releasing"]
+		},
+		{
+			"id": "sync-doc-mirrors",
+			"kind": "should_trigger",
+			"prompt": "Regenerá los mirrors HTML que quedaron desincronizados después de editar los Markdown.",
+			"expected": ["sync-doc-mirrors"],
+			"forbidden": []
+		},
+		{
+			"id": "one-off-html-vs-mirror",
+			"kind": "collision",
+			"prompt": "Convertí este Markdown suelto a HTML; no pertenece a mirrors.json.",
+			"expected": ["md-to-html"],
+			"forbidden": ["sync-doc-mirrors"]
+		},
+		{
+			"id": "sync-doc-file-copy-lure",
+			"kind": "should_not_trigger",
+			"prompt": "Copiá este PDF a la carpeta docs sin convertirlo.",
+			"expected": [],
+			"forbidden": ["sync-doc-mirrors"]
+		},
+		{
+			"id": "ultracode-repo-audit",
+			"kind": "should_trigger",
+			"prompt": "Auditá exhaustivamente todos los paquetes y verificá cada hallazgo de forma independiente.",
+			"expected": ["ultracode"],
+			"forbidden": []
+		},
+		{
+			"id": "default-plain-language-lure",
+			"kind": "should_not_trigger",
+			"prompt": "Usá la configuración default del formatter.",
+			"expected": [],
+			"forbidden": ["default"]
+		}
+	]
+}
