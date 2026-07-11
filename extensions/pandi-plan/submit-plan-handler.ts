@@ -2,7 +2,7 @@
  * Handler execute de la tool submit_plan.
  *
  * Extraído de index.ts para achicar el punto de entrada: el registro del tool
- * queda en index; acá vive el cuerpo del handshake de aprobación / plan-only.
+ * queda en plan-tools.ts; acá vive el cuerpo del handshake de aprobación / plan-only.
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";

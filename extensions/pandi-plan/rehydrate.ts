@@ -1,6 +1,6 @@
 /**
  * Rehidratación de plan-mode en session_start.
- * `index.ts` conserva activePlans; este módulo restaura el gate desde JSONL.
+ * `active-plans.ts` conserva activePlans; este módulo restaura el gate desde JSONL.
  */
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";

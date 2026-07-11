@@ -18,7 +18,7 @@ export type PlanGuardDeps = {
 
 let guardDeps: PlanGuardDeps | undefined;
 
-/** Registra el Map de planes activos que permanece bajo propiedad de index.ts. */
+/** Registra el Map de planes activos (active-plans.ts). */
 export function configurePlanGuard(deps: PlanGuardDeps): void {
 	guardDeps = deps;
 }
