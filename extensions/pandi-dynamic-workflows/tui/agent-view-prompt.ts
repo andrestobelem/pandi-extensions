@@ -5,16 +5,7 @@ import { MAX_TOOL_TEXT, truncate } from "../lib/format.js";
 import type { AgentMonitorModel } from "../types.js";
 import type { AgentPromptLinesInput, SettingRow } from "./agent-view-types.js";
 
-export function extractMarkdownSection(markdown: string, heading: string): string | undefined {
-	const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-	const knownHeadings = ["Access", "Prompt", "Structured Output", "Stdout", "Stderr"];
-	const nextHeadings = knownHeadings
-		.filter((candidate) => candidate !== heading)
-		.map((candidate) => candidate.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-	const nextPattern = nextHeadings.length ? `\\n## (?:${nextHeadings.join("|")})\\n` : "$^";
-	const match = new RegExp(`(?:^|\\n)## ${escaped}\\n\\n([\\s\\S]*?)(?=${nextPattern}|$)`).exec(markdown);
-	return match?.[1]?.trim();
-}
+export { extractMarkdownSection } from "../lib/markdown-section.js";
 
 export function fencedBlock(content: string, lang = "text"): string {
 	const fence = content.includes("```") ? "````" : "```";
