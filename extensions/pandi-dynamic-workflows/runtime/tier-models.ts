@@ -6,13 +6,13 @@ export function makeModelArg(ctx: ExtensionContext): string | undefined {
 }
 
 // Mapeo de alias de nivel (#24): los scaffolds compartidos de doble plataforma usan alias de escalera DESNUDOS
-// (haiku/sonnet/opus) para niveles económico/equilibrado/profundo. Fijados a una sesión de Anthropic se
+// (haiku/sonnet/opus/fable) para niveles económico/equilibrado/profundo. Fijados a una sesión de Anthropic se
 // resuelven de forma nativa, pero otros proveedores no tienen tales alias y la rama falla rápido
 // ("modelo no soportado"), por lo que la promesa de nivel económico muere entre proveedores. Esta tabla
 // nombra el id que personifica cada nivel por proveedor; anthropic está deliberadamente ausente
 // (pi ya resuelve los alias dentro de él). Extiende o anula por proveedor con
 // PI_DYNAMIC_WORKFLOWS_TIER_MODELS (JSON de la misma forma) ya que los catálogos cambian rápido.
-export const TIER_ALIASES = new Set(["haiku", "sonnet", "opus"]);
+export const TIER_ALIASES = new Set(["haiku", "sonnet", "opus", "fable"]);
 const BUILTIN_TIER_MODELS: Record<string, Record<string, string>> = {
 	"openai-codex": { haiku: "gpt-5.6-luna", sonnet: "gpt-5.6-terra", opus: "gpt-5.6-sol" },
 };

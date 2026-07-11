@@ -22,7 +22,7 @@ byte-idéntico y marcalo para revisión — nunca adivines.
 |---|---|---|
 | Tools y globals | `goal_progress`, `submit_plan`, `agent()`, `agents(items,{settle:true})`, `writeArtifact`, `bash` | El harness los registra por nombre exacto |
 | Campos JSON / schema keys | `successCriteria`, `assessment`, `nextStep`, `blocker`, `improvedTask`, `routingHints` | Los parsers leen la clave literal |
-| Referencias de modelos | `anthropic/claude-haiku-4-5`, `sonnet`, `opus`, `effort: "high"` | El resolver matchea el id |
+| Referencias de modelos | `anthropic/claude-sonnet-5`, `sonnet`, `opus`, `effort: "high"` | El resolver matchea el id |
 | Comandos y paths | `npm test`, `git ls-files`, `.pi/workflows/drafts/`, `dynamic_workflow action=start` | Se ejecutan tal cual |
 | Tipos de Conventional Commits | `feat`, `fix`, `style(<scope>)`, `chore` | Convención externa del repo |
 

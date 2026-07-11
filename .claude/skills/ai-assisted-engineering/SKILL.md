@@ -23,7 +23,7 @@ Es el complemento, en la era de la IA, del skill `modern-software-engineering`: 
 1. **Construí cosas pequeñas desde cero para entender.** Preferí implementaciones pequeñas, legibles y completas antes que magia oculta. Entender el sistema es el activo; el código es el medio para lograrlo (micrograd, nanoGPT, Zero to Hero).
 2. **Entendé antes de delegar.** La IA baja la fricción de *crear*; no reemplaza el juicio técnico cuando el sistema importa. Usá agentes para acelerar, nunca para saltear review, tests o evidencia.
 3. **Software 3.0: prompts/context/tools son el programa.** Los LLMs se programan con prompts, ejemplos, memoria, contexto y tools acotadas. Tratá eso como artifacts de ingeniería de primera clase — diseñados, versionados e inspeccionables — no como detalles descartables.
-4. **Hacé vibe-code en prototipos; no en producción.** La generación libre es excelente para demos, apps personales y exploración rápida. Producción necesita specifications, permissions, diff review, tests/evals, security y una persona dueña. Separá "explore/generate" de "verify/commit" y hacé visible qué fue realmente validado.
+4. **Hacé vibe-coding en prototipos; no en producción.** La generación libre es excelente para demos, apps personales y exploración rápida. Producción necesita specifications, permissions, diff review, tests/evals, security y una persona dueña. Separá "explore/generate" de "verify/commit" y hacé visible qué fue realmente validado.
 5. **Depurá de forma incremental desde baselines simples.** Inspeccioná datos/inputs, empezá simple, verificá supuestos, sobreajustá un caso mínimo y recién después agregá complejidad. Hacé cheap scout y smoke test antes de cualquier fan-out grande.
 6. **El rol de la persona experta se desplaza hacia especificar, evaluar y depurar.** A medida que la IA escribe más código, el trabajo humano se mueve hacia gestionar contexto, revisar outputs, diseñar tests/evals y *decidir si algo es correcto*.
 
@@ -82,7 +82,7 @@ Para Pi Dynamic Workflows en particular:
 
 ## Guardrails
 
-- Ajustá el rigor al nivel de riesgo: no impongas ceremonia de producción a un prototipo descartable y no hagas vibe-code en nada de lo que dependan personas o sistemas.
+- Ajustá el rigor al nivel de riesgo: no impongas ceremonia de producción a un prototipo descartable y no hagas vibe-coding en nada de lo que dependan personas o sistemas.
 - Usá la IA para acortar loops, no para saltear entendimiento, review o verificación.
 - No confundas fluidez generada con corrección; exigí evidencia ejecutable y ownership humano.
 - Si el siguiente paso más barato es una implementación pequeña y legible, un simple baseline o un único test decisivo, preferilo antes que una generación grande o una orquestación compleja.

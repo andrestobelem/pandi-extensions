@@ -82,6 +82,8 @@ Este repo puede estar instalado globalmente apuntando al mismo checkout de traba
 
 ## Ultracode / dynamic workflows
 
+Glosario de nombres (producto vs skill vs tool vs patrón): [`docs/handbooks/glosario-skills.md`](docs/handbooks/glosario-skills.md).
+
 Para tareas amplias, de alta confianza o repo-wide, usá el router de Ultracode (`/dynamic-workflow` alias `/ultracode`, `/effort ultracode`, o `dynamic_workflow`) solo cuando se gana su costo:
 
 | Gate | Decisión |

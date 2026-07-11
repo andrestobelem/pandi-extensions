@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Glosario de skills: nombres, capas y deferencia</title>
+<style>
+/* Pandi artifact tokens — derived 1:1 from extensions/pandi-theme/themes/
+ * panda-syntax-dark.json and panda-syntax-light.json (the source of truth).
+ * Dark is the base (matches the TUI default); light activates via
+ * prefers-color-scheme. Copy this block into self-contained HTML artifacts.
+ */
+
+:root {
+  /* Surfaces — theme `export` section + vars */
+  --bg: #242526;        /* export.pageBg (dark) */
+  --paper: #292A2B;     /* export.cardBg (dark) = vars.bg */
+  --info-bg: #2E2A33;   /* export.infoBg (dark) */
+  --raised: #31353A;    /* vars.seal — selected/hover surfaces */
+
+  /* Ink */
+  --ink: #E6E6E6;       /* vars.fg */
+  --ink2: #BBBBBB;      /* vars.contrast — secondary text */
+  --muted: #757575;     /* vars.lightGray — tertiary text */
+  --line: #3E4250;      /* vars.steel — subtle borders */
+  --line-strong: #676B79; /* vars.midnight — emphasized borders, hr */
+
+  /* Accents — same semantic roles as the TUI theme */
+  --accent: #FF75B5;      /* vars.pink — headings, kicker, primary accent */
+  --accent-soft: #FF9AC1; /* vars.lightPink */
+  --link: #6FC1FF;        /* vars.lightBlue — mdLink */
+  --info: #45A9F9;        /* vars.blue — titles, highlighted borders */
+  --success: #19F9D8;     /* vars.green */
+  --warning: #FFCC95;     /* vars.lightOrange */
+  --error: #FF4B82;       /* vars.lightRed */
+  --code: #19F9D8;        /* mdCode — inline code */
+  --purple: #BCAAFE;      /* vars.lightPurple — types, extras */
+
+  /* Tinted callout surfaces — theme tool backgrounds */
+  --success-bg: #1E2E2B;  /* toolSuccessBg (dark) */
+  --error-bg: #2E1E24;    /* toolErrorBg (dark) */
+  --warning-bg: #2E2A33;  /* export.infoBg reused as warm tinted surface */
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    /* Surfaces */
+    --bg: #ECECEC;        /* export.pageBg (light) */
+    --paper: #F2F1F1;     /* export.cardBg (light) */
+    --info-bg: #EDE4F8;   /* export.infoBg (light) */
+    --raised: #E6DBCB;    /* vars.sel */
+
+    /* Ink */
+    --ink: #222223;       /* vars.fg */
+    --ink2: #676B79;      /* vars.comment */
+    --muted: #8D8D8D;     /* vars.dim */
+    --line: #C9C9C9;      /* vars.borderLt */
+    --line-strong: #676B79; /* vars.comment */
+
+    /* Accents */
+    --accent: #FF0077;      /* vars.pink (light) */
+    --accent-soft: #FF629E; /* vars.pinkSoft */
+    --link: #0091FF;        /* vars.blue (light) */
+    --info: #0091FF;
+    --success: #12B69D;     /* vars.teal */
+    --warning: #FF8400;     /* vars.orange */
+    --error: #FF4B82;       /* vars.red */
+    --code: #12B69D;        /* mdCode (light) */
+    --purple: #B084EB;      /* vars.purple */
+
+    /* Tinted callout surfaces */
+    --success-bg: #DCEEEA;  /* toolSuccessBg (light) */
+    --error-bg: #F7DCE4;    /* toolErrorBg (light) */
+    --warning-bg: #EDE4F8;  /* export.infoBg (light) */
+  }
+}
+
+
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--ink);
+       font:18px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif; }
+.container { max-width:980px; margin:0 auto; padding:0 24px 80px; }
+header { padding:40px 0 8px; }
+header .kicker { font-size:14px; letter-spacing:.12em; text-transform:uppercase;
+                 color:var(--accent); font-weight:600; }
+header h1 { margin:6px 0; font-size:34px; }
+header .lede { margin:10px 0 0; font-size:20px; line-height:1.55; color:var(--ink2); max-width:64ch; }
+main h2 { font-size:24px; color:var(--ink); margin:32px 0 10px; font-weight:600; }
+main h3 { font-size:19px; color:var(--ink); margin:22px 0 8px; font-weight:600; }
+main h4 { font-size:17px; color:var(--ink); margin:18px 0 6px; font-weight:600; }
+main h5, main h6 { font-size:16px; color:var(--ink2); margin:16px 0 6px; font-weight:600; }
+main p, main li { color:var(--ink2); text-align:justify; hyphens:auto; }
+main li { margin:3px 0; }
+.mermaid p, .mermaid span, .mermaid div, .mermaid foreignObject * {
+  text-align:center !important; hyphens:none !important;
+}
+a { color:var(--link); }
+strong { color:var(--ink); }
+code { font-family:ui-monospace,Menlo,monospace; font-size:16px; color:var(--code);
+       background:var(--raised); padding:1px 6px; border-radius:5px; }
+pre { margin:16px 0; background:var(--paper); border:1px solid var(--line); border-radius:12px;
+      padding:16px; overflow:auto; font-size:16px; line-height:1.6; }
+pre code { display:block; min-width:max-content; background:none; padding:0; color:var(--ink);
+           white-space:pre; tab-size:2; }
+.hljs { background:transparent; color:var(--ink); }
+.hljs-keyword, .hljs-selector-tag, .hljs-subst { color:var(--accent); }
+.hljs-title, .hljs-section, .hljs-name, .hljs-function .hljs-title { color:var(--info); }
+.hljs-string, .hljs-doctag, .hljs-regexp { color:var(--success); }
+.hljs-number, .hljs-literal, .hljs-symbol, .hljs-bullet { color:var(--warning); }
+.hljs-type, .hljs-class .hljs-title, .hljs-built_in { color:var(--purple); }
+.hljs-comment, .hljs-quote { color:var(--line-strong); font-style:italic; }
+.hljs-attr, .hljs-attribute, .hljs-meta { color:var(--ink2); }
+.hljs-deletion { color:var(--error); }
+.hljs-addition { color:var(--success); }
+pre.mermaid { text-align:center; }
+blockquote { border-left:3px solid var(--accent); margin:8px 0; padding:2px 14px; color:var(--ink2); }
+blockquote p { margin:6px 0; }
+hr { border:none; border-top:1px solid var(--line-strong); margin:24px 0; }
+.table-scroll { overflow-x:auto; margin:12px 0; background:var(--paper);
+                border:1px solid var(--line); border-radius:12px; }
+table { border-collapse:collapse; width:100%; }
+th, td { border-bottom:1px solid var(--line); padding:8px 12px; text-align:left; font-size:16px; }
+th { font-size:14px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);
+     background:var(--raised); }
+tr:last-child td { border-bottom:none; }
+.callout { margin:12px 0; padding:10px 14px; border-radius:10px; font-size:16px;
+           border:1px solid var(--line); background:var(--paper); color:var(--ink); }
+.callout p, .callout li { margin:6px 0; color:var(--ink); max-width:none;
+                          text-align:left; hyphens:none; }
+.callout .callout-label { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                          color:var(--muted); font-weight:600; margin:0 0 4px; }
+.callout.info    { background:var(--info-bg);    border-color:var(--purple); }
+.callout.success { background:var(--success-bg); border-color:var(--success); }
+.callout.warn    { background:var(--warning-bg); border-color:var(--warning); }
+.callout.error   { background:var(--error-bg);   border-color:var(--error); }
+nav.toc { font-size:14px; border:1px solid var(--line); border-radius:12px;
+          background:var(--paper); padding:14px 18px; margin:8px 0 28px; }
+nav.toc .toc-title { font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+                     color:var(--muted); font-weight:600; margin:0 0 8px; }
+nav.toc ol { list-style:none; margin:0; padding:0; display:grid;
+             grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:2px 24px; }
+nav.toc a { color:var(--ink2); text-decoration:none; display:block; padding:2px 0; }
+nav.toc a:hover { color:var(--accent); }
+.hex-chip { display:inline-flex; align-items:center; white-space:nowrap; }
+.hex-chip .dot { display:inline-block; width:0.85em; height:0.85em; border-radius:3px;
+                 margin-right:0.4em; vertical-align:-0.08em; box-shadow:inset 0 0 0 1px var(--line-strong);
+                 flex-shrink:0; }
+footer { margin-top:40px; color:var(--muted); font-size:15px; }
+</style>
+</head>
+<body>
+<div class="container">
+	<header>
+		<div class="kicker">docs/handbooks</div>
+		<h1>Glosario de skills: nombres, capas y deferencia</h1>
+		<p class="lede">Este glosario desambigua cómo nombrar <strong>producto</strong>, <strong>skills</strong>, <strong>tools</strong>, <strong>patrones</strong> y <strong>comandos</strong>
+en prosa, docs y skills del repo. Para tokens congelados dentro de prompts (tools, schema keys,
+<code>PASS</code>/<code>NO_FINDINGS</code>, etc.), ver <a href="glosario-prompts.html"><code>glosario-prompts.md</code></a>.</p>
+	</header>
+	<main>
+<nav class="toc">
+	<p class="toc-title">Contenido</p>
+	<ol>
+		<li><a href="#en-30-segundos">En 30 segundos</a></li>
+		<li><a href="#tabla-de-decisión-qué-nombre-usar">Tabla de decisión: qué nombre usar</a></li>
+		<li><a href="#patrones-y-scaffolds">Patrones y scaffolds</a></li>
+		<li><a href="#comandos-frecuentes-pi">Comandos frecuentes (Pi)</a></li>
+		<li><a href="#lens-skills-deferencia-y-dueño">Lens skills: deferencia y dueño</a></li>
+		<li><a href="#mayúsculas-cuándo-sí">Mayúsculas: cuándo sí</a></li>
+		<li><a href="#capas-de-generación-y-sync">Capas de generación y sync</a></li>
+		<li><a href="#próximos-pasos">Próximos pasos</a></li>
+	</ol>
+</nav>
+<h2 id="en-30-segundos">En 30 segundos</h2>
+<ul>
+<li><strong>Producto en prosa:</strong> <code>dynamic workflows</code> (minúsculas).</li>
+<li><strong>Skill Pi:</strong> <code>ultracode</code> · <strong>Skill Claude:</strong> <code>dynamic-workflows</code> (mirror byte-idéntico salvo <code>name</code>/H1).</li>
+<li><strong>Tool Pi:</strong> <code>dynamic_workflow</code> · <strong>Tool Claude:</strong> <code>Workflow</code>.</li>
+<li><strong>Persona:</strong> <code>persona usuaria</code> (canónico); no <code>usuario</code> salvo cuenta técnica (<code>tu usuario</code> de Pi) o username de GitHub.</li>
+<li><strong>Concepto:</strong> <code>vibe-coding</code> (grafía canónica); en citas de fuentes externas conservá la forma original.</li>
+</ul>
+<h2 id="tabla-de-decisión-qué-nombre-usar">Tabla de decisión: qué nombre usar</h2>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Capa</th>
+<th>Cuándo</th>
+<th>Forma canónica</th>
+<th>Ejemplos / notas</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Producto (prosa)</td>
+<td>Describir la capacidad multiagente del repo</td>
+<td><code>dynamic workflows</code></td>
+<td>&quot;diseñar dynamic workflows&quot;, &quot;guía para dynamic workflows&quot;</td>
+</tr>
+<tr>
+<td>Skill Pi</td>
+<td>Frontmatter, invocación de skill en pi</td>
+<td><code>ultracode</code></td>
+<td><code>.pi/skills/ultracode/SKILL.md</code>, <code>name: ultracode</code></td>
+</tr>
+<tr>
+<td>Skill Claude</td>
+<td>Frontmatter, invocación en Claude Code</td>
+<td><code>dynamic-workflows</code></td>
+<td><code>.claude/skills/dynamic-workflows/SKILL.md</code>; mirror de ultracode con <code>name</code>/H1 distintos</td>
+</tr>
+<tr>
+<td>Skill Claude (alias)</td>
+<td>Mismo contenido, nombre idéntico a pi</td>
+<td><code>ultracode</code></td>
+<td><code>.claude/skills/ultracode/</code> — generado desde la fuente pi</td>
+</tr>
+<tr>
+<td>Tool Pi</td>
+<td>API runtime, ejemplos de código</td>
+<td><code>dynamic_workflow</code></td>
+<td><code>dynamic_workflow({ action: &#39;start&#39;, … })</code></td>
+</tr>
+<tr>
+<td>Tool Claude</td>
+<td>API runtime, ejemplos de código</td>
+<td><code>Workflow</code></td>
+<td><code>Workflow({ name: &#39;router&#39;, args: {…} })</code></td>
+</tr>
+<tr>
+<td>Patrón / scaffold</td>
+<td>Archivo ejecutable del catálogo</td>
+<td>kebab-case literal</td>
+<td><code>fan-out-and-synthesize</code>, <code>complex-research</code>, <code>contract-gate</code></td>
+</tr>
+<tr>
+<td>Comando Pi</td>
+<td>Slash commands de la extensión</td>
+<td><code>/dynamic-workflow</code>, <code>/ultracode</code>, …</td>
+<td><code>/deep-research</code>, <code>/workflow view</code>, <code>/ultracode-mode on</code></td>
+</tr>
+<tr>
+<td>Comando esfuerzo</td>
+<td>Dial de esfuerzo del orquestador</td>
+<td><code>/effort ultracode</code></td>
+<td>Activa el skill de orquestación sin renombrar el producto</td>
+</tr>
+<tr>
+<td>Extensión npm</td>
+<td>Package publicable</td>
+<td><code>pandi-dynamic-workflows</code></td>
+<td>Vendorea skills <code>ultracode</code>, <code>default</code>, <code>deep-research</code></td>
+</tr>
+<tr>
+<td>Persona usuaria</td>
+<td>Quien pide, revisa y posee el resultado</td>
+<td><code>persona usuaria</code></td>
+<td>En skills y docs de producto; no <code>usuario</code> genérico</td>
+</tr>
+<tr>
+<td>Cuenta / identidad técnica</td>
+<td>Scope de instalación o owner de GitHub</td>
+<td><code>usuario</code> permitido</td>
+<td>&quot;global para tu usuario&quot; (cuenta Pi), <code>usuario andrestobelem</code> (GitHub)</td>
+</tr>
+<tr>
+<td>Historia de producto</td>
+<td>Término ágil estándar</td>
+<td><code>historia de usuario</code></td>
+<td>No confundir con &quot;persona usuaria&quot;</td>
+</tr>
+<tr>
+<td>Concepto exploratorio</td>
+<td>Prototipado sin rigor de producción</td>
+<td><code>vibe-coding</code></td>
+<td>Adjetivo: <code>vibe-coded</code>; no <code>vibe coding</code> en prosa propia</td>
+</tr>
+<tr>
+<td>Lens skills</td>
+<td>Guías de diseño cargables por agentes</td>
+<td>ver tabla abajo</td>
+<td>Deferencia explícita; no son el producto ni la tool</td>
+</tr>
+</tbody></table></div>
+<h2 id="patrones-y-scaffolds">Patrones y scaffolds</h2>
+<p>Un <strong>patrón</strong> (o <strong>scaffold</strong>) es un archivo <code>.js</code> del catálogo, no solo un concepto:</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Contexto</th>
+<th>Ruta / invocación</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Fuente pi</td>
+<td><code>extensions/pandi-dynamic-workflows/scaffolds/&lt;pattern&gt;.js</code></td>
+</tr>
+<tr>
+<td>Inspección en pi</td>
+<td><code>dynamic_workflow action=scaffold name=&lt;pattern&gt;</code></td>
+</tr>
+<tr>
+<td>Mirror Claude</td>
+<td><code>reference/claude-workflows/&lt;pattern&gt;.js</code> en el skill</td>
+</tr>
+<tr>
+<td>Catálogo legible</td>
+<td><a href="workflow-catalog.html"><code>workflow-catalog.md</code></a>, <code>reference/scaffold-catalog.md</code></td>
+</tr>
+</tbody></table></div>
+<p>Los nombres de patrón van siempre en <strong>kebab-case</strong> y entre backticks en prosa (<code>router</code>, no Router).</p>
+<h2 id="comandos-frecuentes-pi">Comandos frecuentes (Pi)</h2>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Comando</th>
+<th>Rol</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>/dynamic-workflow &lt;task&gt;</code></td>
+<td>Router principal (alias <code>/ultracode &lt;task&gt;</code>)</td>
+</tr>
+<tr>
+<td><code>/deep-research &lt;q&gt;</code></td>
+<td>Atajo al patrón <code>complex-research</code></td>
+</tr>
+<tr>
+<td><code>/ultracode-mode status|on|off</code></td>
+<td>Modo orquestación</td>
+</tr>
+<tr>
+<td><code>/ultracode-contract status|on|off</code></td>
+<td>Contract gate</td>
+</tr>
+<tr>
+<td><code>/workflow view|runs|resume</code></td>
+<td>Inspección de corridas</td>
+</tr>
+<tr>
+<td><code>/workflows</code></td>
+<td>Dashboard</td>
+</tr>
+<tr>
+<td><code>/workflow patterns</code></td>
+<td>Lista de scaffolds</td>
+</tr>
+<tr>
+<td><code>/workflow graph &lt;name&gt;</code></td>
+<td>Grafo de un workflow</td>
+</tr>
+</tbody></table></div>
+<h2 id="lens-skills-deferencia-y-dueño">Lens skills: deferencia y dueño</h2>
+<p>Los <strong>lens skills</strong> son guías de criterio; no reemplazan al skill de orquestación ni a las tools.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Skill</th>
+<th>Rol</th>
+<th>Deferencia</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>ultracode</code> / <code>dynamic-workflows</code></td>
+<td><strong>Orquestación</strong> — gates, primitivas, scaffolds, plataforma</td>
+<td>Dueño de <em>cuándo</em> y <em>cómo</em> orquestar</td>
+</tr>
+<tr>
+<td><code>ai-assisted-engineering</code></td>
+<td><strong>Orquestador</strong> — cuánto delegar a IA/agentes</td>
+<td>Cuándo usar dynamic workflows vs inline</td>
+</tr>
+<tr>
+<td><code>modern-software-engineering</code></td>
+<td><strong>Delivery</strong> — TDD, feedback, complejidad</td>
+<td>Loop TDD por defecto; guía para dynamic workflows</td>
+</tr>
+<tr>
+<td><code>empirical-software-design</code></td>
+<td><strong>Micro-ritmo</strong> — step size, tidy first/after</td>
+<td>Ritmo fino dentro del loop de MSE</td>
+</tr>
+<tr>
+<td><code>clean-craftsmanship</code></td>
+<td><strong>Oficio</strong> — SOLID, Clean Architecture, legibilidad</td>
+<td>Límites de diseño en código y workflows</td>
+</tr>
+<tr>
+<td><code>karpathy-guidelines</code></td>
+<td><strong>Comportamiento</strong> — cambios quirúrgicos, supuestos</td>
+<td>Externo; <code>npm run doctor</code> reporta instalación</td>
+</tr>
+</tbody></table></div>
+<p>Regla práctica: <strong>orquestación</strong> → <code>ultracode</code>; <strong>criterio de delegación</strong> → <code>ai-assisted-engineering</code>; <strong>TDD y evidencia</strong> → <code>modern-software-engineering</code>; <strong>tamaño de paso</strong> → <code>empirical-software-design</code>; <strong>diseño limpio</strong> → <code>clean-craftsmanship</code>.</p>
+<h2 id="mayúsculas-cuándo-sí">Mayúsculas: cuándo sí</h2>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Caso</th>
+<th>Forma</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Prosa general, READMEs, skills</td>
+<td><code>dynamic workflows</code></td>
+</tr>
+<tr>
+<td>Título de sección que nombra el producto Pi explícitamente</td>
+<td><code>Pi Dynamic Workflows</code> (solo si el contexto es la extensión/runtime)</td>
+</tr>
+<tr>
+<td>Literales de API, tools, comandos</td>
+<td>Sin traducir: <code>dynamic_workflow</code>, <code>Workflow</code>, <code>/dynamic-workflow</code></td>
+</tr>
+<tr>
+<td>Nombres de skill en frontmatter</td>
+<td><code>ultracode</code>, <code>dynamic-workflows</code></td>
+</tr>
+</tbody></table></div>
+<h2 id="capas-de-generación-y-sync">Capas de generación y sync</h2>
+<p>Los skills <strong>no se editan en los destinos generados</strong>. La fuente canónica es siempre
+<code>.pi/skills/&lt;name&gt;/</code>. Desde ahí, tres pipelines distintos (clasificación en
+<code>scripts/skill-classification.mjs</code>):</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Pipeline</th>
+<th>Comando</th>
+<th>Origen</th>
+<th>Destino</th>
+<th>Qué copia</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Mirror Pi↔Claude</strong></td>
+<td><code>npm run sync:skills</code></td>
+<td><code>.pi/skills/&lt;name&gt;/</code></td>
+<td><code>.claude/skills/&lt;name&gt;/</code></td>
+<td>Byte-idéntico (<code>mirrored: true</code> en classification)</td>
+</tr>
+<tr>
+<td><strong>Ultracode Claude</strong></td>
+<td><code>npm run sync:claude:ultracode</code></td>
+<td><code>.pi/skills/ultracode/</code></td>
+<td><code>.claude/skills/{ultracode,dynamic-workflows}/</code></td>
+<td><code>SKILL.md</code> con rename mínimo de <code>name</code>/H1 + <code>reference/</code> verbatim</td>
+</tr>
+<tr>
+<td><strong>Vendor extensión</strong></td>
+<td><code>npm run sync:skills:vendor</code></td>
+<td><code>.pi/skills/&lt;name&gt;/</code></td>
+<td><code>extensions/&lt;ext&gt;/skills/&lt;name&gt;/</code></td>
+<td>Árbol completo (<code>vendoredBy</code> en classification)</td>
+</tr>
+</tbody></table></div>
+<p><code>npm run doctor</code> chequea drift en los tres (<code>sync:skills:check</code>, <code>sync:skills:vendor:check</code>,
+<code>sync:claude:ultracode:check</code>). Si falla, corré el fix correspondiente — <strong>no parchees a mano</strong>
+<code>.claude/skills/ultracode/</code>, <code>dynamic-workflows/</code> ni <code>extensions/*/skills/</code>.</p>
+<h3>Referencias dentro de <code>ultracode</code></h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Artifact</th>
+<th>Fuente de verdad</th>
+<th>Cómo llega al skill</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Primitivas (<code>agent</code>, <code>pipeline</code>, …)</td>
+<td><code>extensions/pandi-dynamic-workflows/primitives/*.md</code></td>
+<td>Mirror 1:1 a <code>reference/primitives/</code> (test <code>primitives-parity</code>)</td>
+</tr>
+<tr>
+<td>Scaffolds Claude (<code>.js</code>)</td>
+<td><code>extensions/pandi-dynamic-workflows/scaffolds/*.js</code></td>
+<td><code>node .claude/scripts/generate-claude-workflows.mjs</code> → <code>.claude/workflows/</code> + <code>reference/claude-workflows/</code>; luego <code>sync:claude:ultracode</code> + <code>sync:skills:vendor</code> propagan</td>
+</tr>
+<tr>
+<td>Catálogo Claude (prosa)</td>
+<td><code>.claude/workflows/README.md</code> (inglés)</td>
+<td>Snapshot manual en español: <code>reference/scaffold-catalog.md</code> y <code>reference/claude-workflows/README.md</code> — mantenerlos alineados en el mismo commit</td>
+</tr>
+<tr>
+<td>Model tiers / alias mapping</td>
+<td><code>extensions/pandi-dynamic-workflows/runtime/tier-models.ts</code></td>
+<td>Documentado en <code>reference/operational-notes.md</code> y chuleta de <code>SKILL.md</code>; aliases <code>haiku</code>/<code>sonnet</code>/<code>opus</code>/<code>fable</code>; pi acepta ids <code>anthropic/…</code> o <code>openai-codex/gpt-5.x</code></td>
+</tr>
+</tbody></table></div>
+<h3>Orden seguro tras editar skills</h3>
+<ol>
+<li>Editá <strong>solo</strong> bajo <code>.pi/skills/</code> (y fuentes de extensión si aplica: scaffolds, primitives).</li>
+<li>Si tocaste scaffolds: <code>node .claude/scripts/generate-claude-workflows.mjs</code>.</li>
+<li><code>npm run sync:claude:ultracode</code> → <code>npm run sync:skills:vendor</code> → <code>npm run sync:skills</code> (si el skill es mirrored).</li>
+<li><code>npm run doctor</code> o los tests de parity de <code>pandi-dynamic-workflows</code>.</li>
+</ol>
+<p>Skills <strong>project-local</strong> (no mirrored ni vendored): <code>didactic-docs-style</code>, <code>pandi-prose-style</code>,
+<code>markdownlint-cli2</code> — viven solo en <code>.pi/skills/</code>.</p>
+<h2 id="próximos-pasos">Próximos pasos</h2>
+<ul>
+<li>Traducís o redactás un skill → consultá esta tabla antes de elegir mayúsculas o sinónimos.</li>
+<li>Agregás un patrón al catálogo → actualizá <a href="workflow-catalog.html"><code>workflow-catalog.md</code></a> en el mismo cambio si el patrón es user-facing.</li>
+<li>Token congelado en un prompt → <a href="glosario-prompts.html"><code>glosario-prompts.md</code></a>.</li>
+</ul>
+	</main>
+	<footer>Generado con el skill pandi-artifact-style · paleta: panda-syntax dark/light</footer>
+</div>
+</body>
+</html>

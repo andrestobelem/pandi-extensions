@@ -90,6 +90,8 @@ npm run sync:docs:html            # mirror generado de docs/html
 npm run sync:personas             # README/HTML generados de personas
 ```
 
+Qué skill editar y en qué orden correr los sync: [`docs/handbooks/glosario-skills.md`](../../docs/handbooks/glosario-skills.md) (sección *Capas de generación y sync*).
+
 Después, **en el proyecto donde las quieras usar** (no necesariamente este repo):
 
 ```text

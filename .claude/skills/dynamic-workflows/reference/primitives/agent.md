@@ -5,7 +5,7 @@
 ```js
 const review = await agent(
   `Revisá este diff buscando bugs de seguridad. Devolvé JSON.\n\n<untrusted kind="diff">${diff}</untrusted>`,
-  { model: "anthropic/claude-sonnet-4-6", effort: "high", schema: reviewSchema },
+  { model: "anthropic/claude-sonnet-5", effort: "high", schema: reviewSchema },
 );
 if (review) log(`verdict: ${review.verdict}`);
 ```
@@ -41,7 +41,7 @@ El prompt es un string (`string-first` en Claude). `options` define el presupues
 ```js
 const review = await agent(
   `Revisá este diff buscando bugs de seguridad. Devolvé JSON.\n\n<untrusted kind="diff">${diff}</untrusted>`,
-  { model: "anthropic/claude-sonnet-4-6", effort: "high", schema: reviewSchema, schemaOnInvalid: "null" },
+  { model: "anthropic/claude-sonnet-5", effort: "high", schema: reviewSchema, schemaOnInvalid: "null" },
 );
 if (review) log(`verdict: ${review.verdict}`);
 ```

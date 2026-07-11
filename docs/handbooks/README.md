@@ -25,5 +25,6 @@ Cuando necesitás la respuesta ya acordada, no una captura de momento, empezá a
 
 - [Onboarding top-down para programadores](./top-down-onboarding.md) — mapa de lectura del repo, roles para repartir el trabajo y criterio para revisar comentarios/prosa traducida.
 - [Catálogo de workflows (referencia rápida)](./workflow-catalog.md) — elegí una familia de dynamic workflows con una tabla o diagrama de decisión, y después explorá los 25 scaffolds por familia (enlaces a sus páginas HTML).
+- [Glosario de skills: nombres, capas y deferencia](./glosario-skills.md) — producto vs skill vs tool vs patrón; `persona usuaria`, `vibe-coding` y lens skills.
 - [Glosario de prompts: qué queda en inglés](./glosario-prompts.md) — la lista canónica de tokens congelados (tools, campos JSON, tokens de contrato como `PASS`/`NO_FINDINGS`) que ninguna traducción de prompts debe tocar.
 - [Pandi artifact style (skill)](../../.pi/skills/pandi-artifact-style/SKILL.md) — manual de estilo para HTML artifacts, reportes y docs con estilo: layout Claude-design con la paleta Panda Syntax (tokens + template incluidos).

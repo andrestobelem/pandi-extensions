@@ -1,11 +1,11 @@
 ---
 name: default
-description: Usar cuando la persona usuaria pida el patrón legacy por defecto de Dynamic Workflows. Derivar al patrón `fan-out-and-synthesize`.
+description: Usar cuando la persona usuaria pida el patrón legacy por defecto de dynamic workflows. Derivar al patrón `fan-out-and-synthesize`.
 ---
 
 # Workflow dinámico por defecto
 
-Para esta solicitud, usá el patrón `fan-out-and-synthesize` de Dynamic Workflows.
+Para esta solicitud, usá el patrón `fan-out-and-synthesize` de dynamic workflows.
 
 1. Tratá la tarea de la persona usuaria como input de `fan-out-and-synthesize`.
 

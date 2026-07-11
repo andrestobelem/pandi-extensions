@@ -4,7 +4,7 @@ description: >-
   Controla la terminal kitty desde el shell mediante su protocolo de
   remote-control (`kitty @ ...`): abre tabs, ventanas y splits nuevos, y
   consulta/administra la instancia de kitty en ejecución. Usar cuando el
-  usuario pida abrir una tab o ventana nueva de kitty, dividir paneles
+  persona usuaria pida abrir una tab o ventana nueva de kitty, dividir paneles
   (vertical/horizontal), o scriptear kitty desde una sesión en curso. Si la
   extensión pandi-kitty está instalada, preferí su comando `/kitty` o la tool
   `kitty_remote` antes que shell ad hoc.

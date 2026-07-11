@@ -1,11 +1,11 @@
 ---
 name: deep-research
-description: Usar cuando la persona usuaria pida investigación profunda, investigación respaldada por fuentes, o invoque la intención legacy deep-research. Enrutar al patrón complex-research de Dynamic Workflows.
+description: Usar cuando la persona usuaria pida investigación profunda, investigación respaldada por fuentes, o invoque la intención legacy deep-research. Enrutar al patrón complex-research de dynamic workflows.
 ---
 
 # Investigación profunda
 
-Para esta solicitud, usá el patrón `complex-research` de Dynamic Workflows.
+Para esta solicitud, usá el patrón `complex-research` de dynamic workflows.
 
 1. Tratá la solicitud de la persona usuaria como la `question` de `complex-research`.
 
