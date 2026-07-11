@@ -116,8 +116,9 @@ actualizan en el MISMO commit que el prompt.
   `.pi/workflows/scaffold-docs-html.js` y `.pi/workflows/didactic-docs.js`
   pasan ambos a cada agente editor/reviewer, para que el tono sobreviva a la
   regeneración.
-- Sweeps: `.pi/workflows/pandi-prose-wave1.js` (fila docs/skills). Los mensajes
-  se ajustaron en la ola 2 (un commit `style(<ext>)` por extensión).
+- Sweeps: la ola 1 cubrió docs/skills; los mensajes se ajustaron en la ola 2
+  (un commit `style(<ext>)` por extensión). Esas migraciones ya terminaron: para
+  cambios nuevos, aplicá la matriz de dosis solo al alcance tocado.
 - Comentarios y prompts NO tienen sweep dedicado: aplicá su fila de manera
   oportunista, solo cuando el archivo ya se esté tocando.
 
