@@ -1,6 +1,6 @@
 {
 	"name": "@pandi-coding-agent/pandi-ultracode-cursor",
-	"version": "0.1.1",
+	"version": "0.1.2",
 	"description": "Runner trusted-workspace de Ultracode que orquesta workflows portables mediante Cursor CLI.",
 	"license": "MIT",
 	"repository": {
