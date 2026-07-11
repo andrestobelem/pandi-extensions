@@ -36,7 +36,7 @@ export function setLoopStatus(ctx: ExtensionContext, loop: LoopStatusInput): voi
 	const theme = ctx.ui.theme;
 	const paused = loop.status === "paused" ? " paused" : "";
 	const fixed = loop.mode === "fixed" && loop.intervalMs ? ` @${formatLoopInterval(loop.intervalMs)}` : "";
-	const eta = loop.status === "running" && loop.nextFireAt ? ` next ${formatEta(loop.nextFireAt)}` : "";
+	const eta = loop.status === "running" && loop.nextFireAt ? `, próximo ${formatEta(loop.nextFireAt)}` : "";
 	const reason = loop.lastReason ? ` · ${loop.lastReason}` : "";
 	ctx.ui.setStatus(
 		LOOP_STATUS_KEY,
