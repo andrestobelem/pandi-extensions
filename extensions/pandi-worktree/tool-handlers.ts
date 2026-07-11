@@ -6,7 +6,15 @@ import { StringEnum } from "@earendil-works/pi-ai";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { TOOL_ACTIONS } from "./constants.js";
-import { combinedOutput, ensureGitRepo, gitError, needsForce, repoError } from "./git-context.js";
+import {
+	combinedOutput,
+	describeOutputTruncation,
+	ensureGitRepo,
+	gitError,
+	needsForce,
+	outputTruncationDetails,
+	repoError,
+} from "./git-context.js";
 import { openWorktree } from "./open-worktree.js";
 import {
 	buildListArgs,
@@ -118,7 +126,17 @@ export async function executeGitWorktree(ctx: ExtensionContext, params: GitWorkt
 	if (params.action === "list") {
 		const result = await runGit(buildListArgs(), opts);
 		if (!result.ok) {
-			return toolError(`No se pudieron listar los worktrees: ${gitError(result)}`, { action: "list" });
+			return toolError(`No se pudieron listar los worktrees: ${gitError(result)}`, {
+				action: "list",
+				...outputTruncationDetails(result),
+			});
+		}
+		const truncation = describeOutputTruncation(result);
+		if (truncation) {
+			return toolError(`No se pudieron listar los worktrees: ${truncation}`, {
+				action: "list",
+				...outputTruncationDetails(result),
+			});
 		}
 		const entries = parseWorktreeList(result.stdout);
 		const text = entries.length ? entries.map((e) => describeWorktree(e)).join("\n") : "No se encontraron worktrees.";

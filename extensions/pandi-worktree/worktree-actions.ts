@@ -11,7 +11,7 @@ import * as fsp from "node:fs/promises";
 import * as path from "node:path";
 import { CONFIG_DIR_NAME, type ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { resolveCopyPrefs } from "./copy-prefs.js";
-import { gitError } from "./git-context.js";
+import { describeOutputTruncation, gitError } from "./git-context.js";
 import {
 	buildAddArgs,
 	buildListIgnoredArgs,
@@ -34,6 +34,8 @@ export interface CopyFilesResult {
 	ignored: number;
 	untracked: number;
 	failed: number;
+	/** Indica que una lista de git se descartó completa porque su salida llegó truncada. */
+	truncated?: boolean;
 }
 
 export interface AddOptions {
@@ -93,11 +95,21 @@ export async function copyFilesToWorktree(
 	};
 	if (opts.copyIgnored) {
 		const r = await runGit(buildListIgnoredArgs(), gitOpts);
-		if (r.ok) result.ignored = await copyEntries(filterCopyableEntries(parseLsFilesEntries(r.stdout)));
+		const truncation = describeOutputTruncation(r);
+		if (r.ok && !truncation) {
+			result.ignored = await copyEntries(filterCopyableEntries(parseLsFilesEntries(r.stdout)));
+		} else if (truncation) {
+			result.truncated = true;
+		}
 	}
 	if (opts.copyUntracked) {
 		const r = await runGit(buildListUntrackedArgs(), gitOpts);
-		if (r.ok) result.untracked = await copyEntries(filterCopyableEntries(parseLsFilesEntries(r.stdout)));
+		const truncation = describeOutputTruncation(r);
+		if (r.ok && !truncation) {
+			result.untracked = await copyEntries(filterCopyableEntries(parseLsFilesEntries(r.stdout)));
+		} else if (truncation) {
+			result.truncated = true;
+		}
 	}
 	return result;
 }
@@ -109,7 +121,8 @@ export function copyNote(opts: CopyFilesOptions, r: CopyFilesResult): string {
 	if (opts.copyIgnored) parts.push(`${r.ignored} ignorados`);
 	if (opts.copyUntracked) parts.push(`${r.untracked} sin seguimiento`);
 	const failed = r.failed ? `, ${r.failed} fallidos` : "";
-	return ` (se copiaron ${parts.join(" + ")} archivo(s)${failed})`;
+	const truncated = r.truncated ? "; salida de git truncada, no se copiaron listas parciales" : "";
+	return ` (se copiaron ${parts.join(" + ")} archivo(s)${failed}${truncated})`;
 }
 
 /**
