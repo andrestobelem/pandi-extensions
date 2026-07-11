@@ -35,18 +35,15 @@ test("release playbook documents the executable release path", () => {
 	assert.match(md, /^# Release de pandi-extensions$/m);
 	assert.match(md, /root `package\.json`/);
 	assert.match(md, /`v\$\{root\.version\}`/);
-	assert.deepEqual(commands.slice(0, 5), [
-		"npm test",
+	assert.deepEqual(commands.slice(0, 4), [
 		"npm run release:flow",
-		"npm run release:prepare",
-		`node scripts/release-contract.mjs --expect-tag ${CURRENT_TAG}`,
-		"node scripts/publish-npm.mjs --plan-file .release-plan.json",
+		"npm run release:go",
+		"node scripts/release-flow.mjs --print-confirmation",
+		`node scripts/release-flow.mjs --ship --confirm ${CURRENT_TAG}`,
 	]);
-	assert.ok(commands.includes("node scripts/release-flow.mjs --prepare --write --sync-docs --test --contract"));
-	assert.ok(commands.includes("npm run release:prepare:write"));
-	assert.ok(commands.includes(`git tag ${CURRENT_TAG}`));
-	assert.ok(commands.includes(`git push origin ${CURRENT_TAG}`));
-	assert.match(md, /`node scripts\/publish-npm\.mjs --publish --provenance`/);
+	assert.ok(commands.includes("npm run release:prepare:write -- --until-clean"));
+	assert.match(md, /--until-clean/);
+	assert.match(md, /`node scripts\/publish-npm\.mjs --from-plan \.release-plan\.json --publish --provenance`/);
 	assert.match(md, /`NPM_TOKEN`/);
 	assert.match(md, /pi-cante/);
 });

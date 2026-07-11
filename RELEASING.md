@@ -11,39 +11,20 @@ cambió.
 ## Camino rápido
 
 ```bash
-npm test
 npm run release:flow
-npm run release:prepare
-node scripts/release-contract.mjs --expect-tag v0.3.10
-node scripts/publish-npm.mjs --plan-file .release-plan.json
+npm run release:go
+node scripts/release-flow.mjs --print-confirmation
+node scripts/release-flow.mjs --ship --confirm v0.3.10
 ```
 
-`release:flow` orquesta los pasos en dry-run. Para preparar y validar en un solo comando:
+| Paso | Qué hace |
+| ---- | -------- |
+| `release:flow` | Dry-run: clasifica los 29 workspaces y muestra el tag suite actual. |
+| `release:go` | Preflight completo: bumps en loop (`--until-clean`), sync docs, `npm test`, contrato y verify plan. |
+| `--print-confirmation` | Muestra el token de ship (tag suite post-bump). Corrélo después de un `--go` verde. |
+| `--ship --confirm` | Commit, tag y push; dispara publish en GitHub Actions. |
 
-```bash
-node scripts/release-flow.mjs --prepare --write --sync-docs --test --contract
-```
-
-Si `release:prepare` lista paquetes `BUMP?`, aplicá el bump automático y repetí los checks:
-
-```bash
-npm run release:prepare:write
-npm run sync:docs:html
-npm test
-node scripts/release-contract.mjs --expect-tag v0.3.10
-node scripts/publish-npm.mjs
-```
-
-Si todo está verde y el dry-run lista solo paquetes `PUBLISH`/`unchanged` sin `BUMP?`, creá el tag de suite y dejá que
-GitHub Actions publique:
-
-```bash
-git tag v0.3.10
-git push origin v0.3.10
-```
-
-El workflow `.github/workflows/publish.yml` vuelve a correr `npm test`, valida tag↔root version y ejecuta
-`node scripts/publish-npm.mjs --publish --provenance`.
+`release:go` exige árbol limpio. Para inspeccionar con cambios locales: `node scripts/release-flow.mjs --go --allow-dirty`.
 
 ## Política de versiones
 
@@ -62,38 +43,17 @@ Los peers se mantienen pinneados al piso soportado por el repo:
 
 `node scripts/release-contract.mjs` falla si vuelve a aparecer `*` o si el tag esperado no coincide con la versión raíz.
 
-## Preflight antes de taggear
+## Comandos granulares (debug)
 
-1. Verificá el árbol:
+```bash
+npm run release:prepare
+npm run release:prepare:write -- --until-clean
+node scripts/release-contract.mjs --expect-tag v0.3.10
+node scripts/publish-npm.mjs --plan-file .release-plan.json
+```
 
-   ```bash
-   git status --short --branch
-   npm test
-   ```
-
-2. Prepará bumps pendientes de forma segura:
-
-   ```bash
-   npm run release:prepare       # dry-run: muestra root + workspaces que subirían patch
-   npm run release:prepare:write # write: actualiza package.json, package-lock y docs de release
-   npm run sync:docs:html        # si el write tocó docs/setup.md o RELEASING.md
-   ```
-
-3. Validá el contrato de release:
-
-   ```bash
-   node scripts/release-contract.mjs --expect-tag v0.3.10
-   ```
-
-4. Revisá npm sin publicar:
-
-   ```bash
-   node scripts/publish-npm.mjs --plan-file .release-plan.json
-   ```
-
-   - `PUBLISH`: versión todavía no existe en npm; está lista para publicar.
-   - `unchanged`: tarball local idéntico al publicado; se saltea.
-   - `BUMP?`: esa versión ya existe pero el contenido cambió; bump-eá el workspace antes de taggear.
+`release-prepare --until-clean` resuelve cascade bumps: si un bump actualiza pins internos, re-clasifica y sube
+workspaces dependientes sin volver a tocar la versión suite.
 
 ## Publish en GitHub Actions
 
@@ -108,6 +68,9 @@ Requisitos del repo en GitHub:
 
 Para dry-run manual, usá `workflow_dispatch` con `publish=false`. Para publicar manualmente desde un commit ya validado,
 seteá `publish=true` y, si corresponde, `expectedTag`.
+
+El workflow `.github/workflows/publish.yml` vuelve a correr `npm test`, valida tag↔root version y ejecuta
+`node scripts/publish-npm.mjs --from-plan .release-plan.json --publish --provenance`.
 
 ## Reintentos y publishes parciales
 

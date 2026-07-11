@@ -77,6 +77,7 @@
 		"release:prepare:write": "node scripts/release-prepare.mjs --write",
 		"release:contract": "node scripts/release-contract.mjs",
 		"release:flow": "node scripts/release-flow.mjs",
+		"release:go": "node scripts/release-flow.mjs --go",
 		"publish:npm": "node scripts/publish-npm.mjs",
 		"publish:npm:go": "node scripts/publish-npm.mjs --publish",
 		"doctor": "node extensions/pandi-doctor/scripts/doctor.mjs",

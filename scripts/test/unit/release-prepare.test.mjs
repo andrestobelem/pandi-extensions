@@ -11,6 +11,7 @@ import {
 	parsePublishPlan,
 	planVersionBumps,
 	publishPlanToLegacyShape,
+	runPrepareRounds,
 } from "../../release-prepare.mjs";
 
 function writeJson(file, value) {
@@ -21,16 +22,25 @@ function writeJson(file, value) {
 test("release-prepare: parse options keeps dry-run as the default", () => {
 	assert.deepEqual(parsePrepareOptions([]), {
 		write: false,
+		untilClean: false,
+		maxRounds: 5,
 		publishOutputFile: undefined,
 		publishPlanFile: undefined,
 	});
-	assert.deepEqual(parsePrepareOptions(["--write", "--publish-output", "plan.txt"]), {
-		write: true,
-		publishOutputFile: "plan.txt",
-		publishPlanFile: undefined,
-	});
+	assert.deepEqual(
+		parsePrepareOptions(["--write", "--until-clean", "--max-rounds", "3", "--publish-output", "plan.txt"]),
+		{
+			write: true,
+			untilClean: true,
+			maxRounds: 3,
+			publishOutputFile: "plan.txt",
+			publishPlanFile: undefined,
+		},
+	);
 	assert.deepEqual(parsePrepareOptions(["--publish-plan=plan.json"]), {
 		write: false,
+		untilClean: false,
+		maxRounds: 5,
 		publishOutputFile: undefined,
 		publishPlanFile: "plan.json",
 	});
@@ -92,6 +102,94 @@ test("release-prepare: plans root plus only workspaces that need BUMP", () => {
 			},
 		],
 	});
+});
+
+test("release-prepare: follow-up rounds bump workspaces without touching the suite version", () => {
+	const plan = planVersionBumps({
+		rootPkg: { version: "0.3.10" },
+		workspaces: [
+			{
+				dir: "extensions/pandi-plan",
+				file: "extensions/pandi-plan/package.json",
+				pkg: { name: "@pandi-coding-agent/pandi-plan", version: "0.1.10" },
+			},
+		],
+		packageNames: ["@pandi-coding-agent/pandi-plan"],
+		bumpRoot: false,
+	});
+	assert.deepEqual(plan.root, { from: "0.3.10", to: "0.3.10" });
+	assert.equal(plan.workspaces[0].to, "0.1.11");
+});
+
+test("release-prepare: until-clean loops until classification is clean", () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "release-prepare-rounds-"));
+	try {
+		writeJson(path.join(root, "package.json"), { name: "suite", version: "0.3.9" });
+		writeJson(path.join(root, "extensions", "pandi-docs", "package.json"), {
+			name: "@pandi-coding-agent/pandi-docs",
+			version: "0.1.8",
+		});
+		writeJson(path.join(root, "extensions", "pandi-plan", "package.json"), {
+			name: "@pandi-coding-agent/pandi-plan",
+			version: "0.1.10",
+			dependencies: { "@pandi-coding-agent/pandi-docs": "0.1.8" },
+		});
+		writeJson(path.join(root, "package-lock.json"), {
+			name: "suite",
+			version: "0.3.9",
+			packages: {
+				"": { name: "suite", version: "0.3.9" },
+				"extensions/pandi-docs": { name: "@pandi-coding-agent/pandi-docs", version: "0.1.8" },
+				"extensions/pandi-plan": {
+					name: "@pandi-coding-agent/pandi-plan",
+					version: "0.1.10",
+					dependencies: { "@pandi-coding-agent/pandi-docs": "0.1.8" },
+				},
+			},
+		});
+
+		let pass = 0;
+		const result = runPrepareRounds(root, {
+			write: true,
+			untilClean: true,
+			classify: () => {
+				pass++;
+				if (pass === 1) {
+					return {
+						publishPlan: {
+							bumps: [{ name: "@pandi-coding-agent/pandi-docs", version: "0.1.8" }],
+							publishes: [],
+							unchanged: [],
+						},
+					};
+				}
+				if (pass === 2) {
+					return {
+						publishPlan: {
+							bumps: [{ name: "@pandi-coding-agent/pandi-plan", version: "0.1.10" }],
+							publishes: [],
+							unchanged: [],
+						},
+					};
+				}
+				return { publishPlan: { bumps: [], publishes: [], unchanged: [] } };
+			},
+		});
+
+		assert.equal(result.rounds.length, 2);
+		assert.equal(result.clean, true);
+		assert.equal(JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8")).version, "0.3.10");
+		assert.equal(
+			JSON.parse(fs.readFileSync(path.join(root, "extensions", "pandi-docs", "package.json"), "utf8")).version,
+			"0.1.9",
+		);
+		assert.equal(
+			JSON.parse(fs.readFileSync(path.join(root, "extensions", "pandi-plan", "package.json"), "utf8")).version,
+			"0.1.11",
+		);
+	} finally {
+		fs.rmSync(root, { recursive: true, force: true });
+	}
 });
 
 test("release-prepare: write mode updates package files, lockfile, and release docs", () => {

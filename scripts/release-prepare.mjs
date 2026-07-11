@@ -13,10 +13,13 @@ import { loadPublicWorkspaces } from "./lib/release-workspaces.mjs";
 import { parsePublishPlanDocument } from "./publish-npm.mjs";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
+const DEFAULT_MAX_ROUNDS = 5;
 
 export function parsePrepareOptions(args) {
 	return {
 		write: args.includes("--write"),
+		untilClean: args.includes("--until-clean"),
+		maxRounds: parsePositiveInt(valueAfter(args, "--max-rounds"), DEFAULT_MAX_ROUNDS),
 		publishOutputFile: valueAfter(args, "--publish-output"),
 		publishPlanFile: valueAfter(args, "--publish-plan"),
 	};
@@ -27,6 +30,13 @@ function valueAfter(args, flag) {
 	if (eq) return eq.slice(flag.length + 1);
 	const i = args.indexOf(flag);
 	return i >= 0 ? args[i + 1] : undefined;
+}
+
+function parsePositiveInt(raw, fallback) {
+	if (raw === undefined) return fallback;
+	const value = Number(raw);
+	if (!Number.isInteger(value) || value < 1) throw new Error(`invalid positive integer: ${raw}`);
+	return value;
 }
 
 export function bumpPatch(version) {
@@ -75,7 +85,7 @@ export function loadWorkspacePackages(root) {
 	return loadPublicWorkspaces(root).map(({ relDir, file, pkg }) => ({ dir: relDir, file, pkg }));
 }
 
-export function planVersionBumps({ rootPkg, workspaces, packageNames }) {
+export function planVersionBumps({ rootPkg, workspaces, packageNames, bumpRoot = true }) {
 	const wanted = new Set(packageNames);
 	const workspaceBumps = workspaces
 		.filter(({ pkg }) => wanted.has(pkg.name))
@@ -84,7 +94,9 @@ export function planVersionBumps({ rootPkg, workspaces, packageNames }) {
 	const missing = [...wanted].filter((name) => !found.has(name));
 	if (missing.length > 0) throw new Error(`publish plan referenced unknown workspace(s): ${missing.join(", ")}`);
 	return {
-		root: { from: rootPkg.version, to: bumpPatch(rootPkg.version) },
+		root: bumpRoot
+			? { from: rootPkg.version, to: bumpPatch(rootPkg.version) }
+			: { from: rootPkg.version, to: rootPkg.version },
 		workspaces: workspaceBumps,
 	};
 }
@@ -124,7 +136,7 @@ export function applyVersionBumps(root, plan) {
 		writeJson(lockFile, lock);
 	}
 
-	updateTagReferences(root, `v${plan.root.from}`, `v${plan.root.to}`);
+	if (plan.root.from !== plan.root.to) updateTagReferences(root, `v${plan.root.from}`, `v${plan.root.to}`);
 }
 
 function updateInternalWorkspaceRanges(pkg, workspaceVersions) {
@@ -145,13 +157,14 @@ export function updateTagReferences(root, oldTag, newTag) {
 	}
 }
 
-function runPublishDryRun(root) {
+export function runPublishDryRun(root, { planFile } = {}) {
 	const tempDir = mkdtempSync(join(tmpdir(), "release-prepare-"));
-	const planFile = join(tempDir, "publish-plan.json");
+	const targetPlanFile = planFile || join(tempDir, "publish-plan.json");
+	const cleanupTemp = !planFile;
 	try {
 		const result = spawnSync(
 			process.execPath,
-			[join(root, "scripts", "publish-npm.mjs"), "--plan-file", planFile, "--json"],
+			[join(root, "scripts", "publish-npm.mjs"), "--plan-file", targetPlanFile, "--json"],
 			{ cwd: root, encoding: "utf8" },
 		);
 		const output = `${result.stdout || ""}${result.stderr || ""}`;
@@ -159,10 +172,56 @@ function runPublishDryRun(root) {
 		if (result.status !== 0 && !output.includes("BUMP?") && !output.includes('"action": "bump"')) {
 			throw new Error(`publish dry-run failed without a version-bump plan:\n${output}`);
 		}
-		return { planFile, publishPlan: publishPlanToLegacyShape(readFileSync(planFile, "utf8")) };
+		return {
+			planFile: targetPlanFile,
+			publishPlan: publishPlanToLegacyShape(readFileSync(targetPlanFile, "utf8")),
+			exitCode: result.status ?? 0,
+		};
 	} finally {
-		rmSync(tempDir, { recursive: true, force: true });
+		if (cleanupTemp) rmSync(tempDir, { recursive: true, force: true });
 	}
+}
+
+export function runPrepareRounds(root, options = {}) {
+	const {
+		write = false,
+		untilClean = false,
+		maxRounds = DEFAULT_MAX_ROUNDS,
+		publishPlanFile,
+		publishOutputFile,
+		classify = () => runPublishDryRun(root, publishPlanFile ? { planFile: publishPlanFile } : {}),
+	} = options;
+
+	let publishPlan;
+	if (publishPlanFile) {
+		publishPlan = publishPlanToLegacyShape(readFileSync(publishPlanFile, "utf8"));
+	} else if (publishOutputFile) {
+		publishPlan = parsePublishPlan(readFileSync(publishOutputFile, "utf8"));
+	} else {
+		publishPlan = classify().publishPlan;
+	}
+
+	const rounds = [];
+	const limit = untilClean ? maxRounds : 1;
+	for (let round = 0; round < limit && publishPlan.bumps.length > 0; round++) {
+		const rootPkg = readJson(join(root, "package.json"));
+		const plan = planVersionBumps({
+			rootPkg,
+			workspaces: loadWorkspacePackages(root),
+			packageNames: publishPlan.bumps.map((bump) => bump.name),
+			bumpRoot: round === 0,
+		});
+		rounds.push(plan);
+		if (write) applyVersionBumps(root, plan);
+		if (!untilClean) break;
+		publishPlan = classify().publishPlan;
+	}
+
+	return {
+		rounds,
+		remainingBumps: publishPlan.bumps,
+		clean: publishPlan.bumps.length === 0,
+	};
 }
 
 function renderPlan(plan) {
@@ -172,44 +231,57 @@ function renderPlan(plan) {
 	].join("\n");
 }
 
+function renderRounds(rounds) {
+	return rounds.map((plan, index) => `round ${index + 1}\n${renderPlan(plan)}`).join("\n\n");
+}
+
 function main() {
 	const opts = parsePrepareOptions(process.argv.slice(2));
 	const root = ROOT;
-	let publishPlan;
-	if (opts.publishPlanFile) {
-		publishPlan = publishPlanToLegacyShape(readFileSync(opts.publishPlanFile, "utf8"));
-	} else if (opts.publishOutputFile) {
-		publishPlan = parsePublishPlan(readFileSync(opts.publishOutputFile, "utf8"));
-	} else {
-		publishPlan = runPublishDryRun(root).publishPlan;
-	}
+	const result = runPrepareRounds(root, {
+		write: opts.write,
+		untilClean: opts.untilClean,
+		maxRounds: opts.maxRounds,
+		publishPlanFile: opts.publishPlanFile ? join(root, opts.publishPlanFile) : undefined,
+		publishOutputFile: opts.publishOutputFile ? join(root, opts.publishOutputFile) : undefined,
+		classify: () =>
+			runPublishDryRun(root, {
+				planFile: opts.publishPlanFile ? join(root, opts.publishPlanFile) : undefined,
+			}),
+	});
 
-	if (publishPlan.bumps.length === 0) {
+	if (result.rounds.length === 0) {
 		console.log("No BUMP? packages found. Nothing to version-bump.");
 		return;
 	}
 
-	const rootPkg = readJson(join(root, "package.json"));
-	const workspaces = loadWorkspacePackages(root);
-	const plan = planVersionBumps({
-		rootPkg,
-		workspaces,
-		packageNames: publishPlan.bumps.map((bump) => bump.name),
-	});
-
-	console.log(renderPlan(plan));
+	console.log(renderRounds(result.rounds));
 	if (!opts.write) {
 		console.log("\nDry run. Re-run with --write to update versions, lockfile and release docs.");
+		if (opts.untilClean && result.remainingBumps.length > 0) {
+			console.log(`Still pending after simulation: ${result.remainingBumps.map((bump) => bump.name).join(", ")}`);
+		}
 		return;
 	}
 
-	applyVersionBumps(root, plan);
+	if (opts.untilClean && !result.clean) {
+		throw new Error(
+			`release prepare stopped with pending BUMP? packages after ${result.rounds.length} round(s): ${result.remainingBumps.map((bump) => bump.name).join(", ")}`,
+		);
+	}
+
+	const finalTag = `v${readJson(join(root, "package.json")).version}`;
 	console.log("\nUpdated release prep files.");
 	console.log(
-		`Next checks:\n  npm run sync:docs:html\n  npm test\n  node scripts/release-contract.mjs --expect-tag v${plan.root.to}\n  npm run publish:npm`,
+		`Next checks:\n  npm run release:go\n  node scripts/release-flow.mjs --print-confirmation\n  node scripts/release-flow.mjs --ship --confirm ${finalTag}`,
 	);
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-	main();
+	try {
+		main();
+	} catch (err) {
+		console.error(err instanceof Error ? err.message : err);
+		process.exit(1);
+	}
 }
