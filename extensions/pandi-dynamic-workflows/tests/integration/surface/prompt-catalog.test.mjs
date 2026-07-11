@@ -68,12 +68,20 @@ function sliceBlock(text, heading = HEADING, closing = CLOSING) {
 	return lines.slice(start, end + 1).join("\n");
 }
 
-/** Quitá nivel de heading, trimmeá whitespace final por línea y dropeá blanks finales. */
+/** Quitá nivel de heading, uní continuaciones envueltas de Markdown y dropeá blanks finales. */
 function canonicalize(block) {
 	const lines = block.split("\n").map((l) => l.replace(/\s+$/, ""));
 	lines[0] = lines[0].replace(/^#+\s*/, "");
-	while (lines.length && lines[lines.length - 1] === "") lines.pop();
-	return lines.join("\n");
+	const folded = [];
+	for (const line of lines) {
+		if (/^ {2,}\S/.test(line) && folded.length > 0) {
+			folded[folded.length - 1] += ` ${line.trim()}`;
+			continue;
+		}
+		folded.push(line);
+	}
+	while (folded.length && folded[folded.length - 1] === "") folded.pop();
+	return folded.join("\n");
 }
 
 let failures = 0;

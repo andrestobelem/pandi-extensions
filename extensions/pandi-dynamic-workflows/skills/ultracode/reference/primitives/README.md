@@ -72,5 +72,5 @@ por primitiva de `scaffolds/` para patrones.
 
 ## Relacionado
 
-Estos globals los provee la extensión `@pandi-coding-agent/pandi-dynamic-workflows`. Dentro del monorepo, la instalación
-y la superficie completa de la extensión están documentadas en `extensions/pandi-dynamic-workflows/README.md`.
+Estos globals los provee la extensión `@pandi-coding-agent/pandi-dynamic-workflows`. Para instalación y la superficie
+completa de la extensión, mirá [`extensions/pandi-dynamic-workflows/README.md`](../README.md).

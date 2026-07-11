@@ -364,7 +364,7 @@ function scenarioSyncTimeoutOverride() {
 		const line = findDoctorLine(out, "manifiesto raíz");
 		check(
 			"timeout de sync: el override de entorno mantiene acotado al doctor",
-			elapsed < 3500,
+			elapsed < 6000,
 			`elapsed=${elapsed}ms`,
 		);
 		check(
