@@ -27,6 +27,8 @@ import type {
 	WorkflowDashboardResult,
 	WorkflowMonitorModel,
 } from "./collectors.js";
+import { activeTabNav, selectedAgent, selectedRun } from "./dashboard-nav.js";
+import { appendDashboardTabContent } from "./dashboard-render.js";
 import {
 	type DashboardSelection,
 	reselectIndexByKey,
@@ -34,24 +36,9 @@ import {
 	type WorkflowDashboardTab,
 } from "./dashboard-selection.js";
 import { type DashboardInputHost, handleDashboardInput } from "./input.js";
-import { renderAgents as renderAgentsView, renderMonitor as renderMonitorView } from "./monitor.js";
 import { renderSafeInline } from "./render-utils.js";
-import {
-	renderActivityView,
-	renderPatternsView,
-	renderRunsView,
-	renderSessionsView,
-	renderWorkflowsView,
-} from "./views.js";
 
 export type { DashboardSelection, WorkflowDashboardTab } from "./dashboard-selection.js";
-
-/** Navegación de lista por tab: longitud + índice activo (get/set). */
-interface TabNavSpec {
-	length: () => number;
-	getIndex: () => number;
-	setIndex: (value: number) => void;
-}
 
 export class WorkflowDashboard implements DashboardInputHost {
 	tab: WorkflowDashboardTab;
@@ -206,14 +193,7 @@ export class WorkflowDashboard implements DashboardInputHost {
 	}
 
 	selectedRun(): WorkflowRunRecord | undefined {
-		if (this.tab === "monitor") return this.selectedMonitor()?.run;
-		if (this.tab === "agents") return this.selectedAgentEntry()?.run;
-		if (this.tab === "runs") return this.runs[this.runIndex];
-		if (this.tab === "activity") {
-			const entry = this.activity[this.activityIndex];
-			return entry ? this.runs.find((candidate) => candidate.runId === entry.runId) : undefined;
-		}
-		return undefined;
+		return selectedRun(this.navHost(), this.tab);
 	}
 
 	private selectedAgentEntry(): WorkflowAgentEntry | undefined {
@@ -221,79 +201,59 @@ export class WorkflowDashboard implements DashboardInputHost {
 	}
 
 	selectedAgent(): AgentMonitorModel | undefined {
-		if (this.tab === "agents") return this.selectedAgentEntry()?.agent;
-		return this.selectedMonitor()?.agents[this.monitorAgentIndex];
+		return selectedAgent(this.navHost(), this.tab);
 	}
 
-	/** Mapa único de navegación por tab; monitor usa agentes del run enfocado. */
-	private tabNavSpecs(): Record<WorkflowDashboardTab, TabNavSpec> {
+	private navHost() {
 		return {
-			monitor: {
-				length: () => this.selectedMonitor()?.agents.length ?? 0,
-				getIndex: () => this.monitorAgentIndex,
-				setIndex: (value) => {
-					this.monitorAgentIndex = value;
-				},
+			tab: this.tab,
+			workflows: this.workflows,
+			runs: this.runs,
+			activity: this.activity,
+			piSessions: this.piSessions,
+			agentEntries: this.agentEntries,
+			workflowIndex: this.workflowIndex,
+			runIndex: this.runIndex,
+			activityIndex: this.activityIndex,
+			sessionIndex: this.sessionIndex,
+			agentIndex: this.agentIndex,
+			monitorAgentIndex: this.monitorAgentIndex,
+			patternIndex: this.patternIndex,
+			selectedMonitor: () => this.selectedMonitor(),
+			setWorkflowIndex: (value: number) => {
+				this.workflowIndex = value;
 			},
-			agents: {
-				length: () => this.agentEntries.length,
-				getIndex: () => this.agentIndex,
-				setIndex: (value) => {
-					this.agentIndex = value;
-				},
+			setRunIndex: (value: number) => {
+				this.runIndex = value;
 			},
-			workflows: {
-				length: () => this.workflows.length,
-				getIndex: () => this.workflowIndex,
-				setIndex: (value) => {
-					this.workflowIndex = value;
-				},
+			setActivityIndex: (value: number) => {
+				this.activityIndex = value;
 			},
-			patterns: {
-				length: () => WORKFLOW_PATTERN_CATALOG.length,
-				getIndex: () => this.patternIndex,
-				setIndex: (value) => {
-					this.patternIndex = value;
-				},
+			setSessionIndex: (value: number) => {
+				this.sessionIndex = value;
 			},
-			sessions: {
-				length: () => this.piSessions.length,
-				getIndex: () => this.sessionIndex,
-				setIndex: (value) => {
-					this.sessionIndex = value;
-				},
+			setAgentIndex: (value: number) => {
+				this.agentIndex = value;
 			},
-			runs: {
-				length: () => this.runs.length,
-				getIndex: () => this.runIndex,
-				setIndex: (value) => {
-					this.runIndex = value;
-				},
+			setMonitorAgentIndex: (value: number) => {
+				this.monitorAgentIndex = value;
 			},
-			activity: {
-				length: () => this.activity.length,
-				getIndex: () => this.activityIndex,
-				setIndex: (value) => {
-					this.activityIndex = value;
-				},
+			setPatternIndex: (value: number) => {
+				this.patternIndex = value;
 			},
 		};
 	}
 
-	private activeTabNav(): TabNavSpec {
-		return this.tabNavSpecs()[this.tab];
-	}
-
 	activeListLength(): number {
-		return this.activeTabNav().length();
+		return activeTabNav(this.navHost()).length();
 	}
 
 	getActiveIndex(): number {
-		return this.activeTabNav().getIndex();
+		return activeTabNav(this.navHost()).getIndex();
 	}
 
 	setActiveIndex(value: number): void {
-		const nav = this.activeTabNav();
+		const nav = activeTabNav(this.navHost());
 		const clamped = Math.max(0, Math.min(nav.length() - 1, value));
 		nav.setIndex(clamped);
 	}
@@ -318,122 +278,30 @@ export class WorkflowDashboard implements DashboardInputHost {
 		if ("helpOnly" in chrome) return chrome.helpOnly;
 		const { lines, theme } = chrome;
 		const { line, accent, muted, success, error, warning, dim } = theme;
-		if (this.tab === "monitor") this.renderMonitor(lines, line, accent, muted, success, error, warning, dim);
-		else if (this.tab === "agents") this.renderAgents(lines, line, accent, muted, success, error, warning, dim);
-		else if (this.tab === "sessions") this.renderSessions(lines, line, accent, muted, success, warning);
-		else if (this.tab === "runs") this.renderRuns(lines, line, accent, muted, success, error, dim);
-		else if (this.tab === "workflows") this.renderWorkflows(lines, line, accent, muted, warning);
-		else if (this.tab === "patterns") this.renderPatterns(lines, line, accent, muted, warning);
-		else this.renderActivity(lines, line, accent, muted, success, error, warning);
+		appendDashboardTabContent(
+			{
+				tab: this.tab,
+				workflows: this.workflows,
+				runs: this.runs,
+				activity: this.activity,
+				piSessions: this.piSessions,
+				agentEntries: this.agentEntries,
+				monitorModels: this.monitorModels,
+				monitorRunIndex: this.monitorRunIndex,
+				monitorAgentIndex: this.monitorAgentIndex,
+				runIndex: this.runIndex,
+				activityIndex: this.activityIndex,
+				sessionIndex: this.sessionIndex,
+				workflowIndex: this.workflowIndex,
+				patternIndex: this.patternIndex,
+				agentIndex: this.agentIndex,
+				selectedMonitor: () => this.selectedMonitor(),
+				selectedAgent: () => this.selectedAgent(),
+				selectedAgentEntry: () => this.selectedAgentEntry(),
+			},
+			lines,
+			{ line, accent, muted, success, error, warning, dim },
+		);
 		return lines;
-	}
-
-	private renderMonitor(
-		lines: string[],
-		line: (s: string) => string,
-		accent: (s: string) => string,
-		muted: (s: string) => string,
-		success: (s: string) => string,
-		error: (s: string) => string,
-		warning: (s: string) => string,
-		dim: (s: string) => string,
-	): void {
-		lines.push(
-			...renderMonitorView(
-				this.selectedMonitor(),
-				this.monitorModels,
-				this.monitorRunIndex,
-				this.monitorAgentIndex,
-				this.selectedAgent(),
-				{ line, accent, muted, success, error, warning, dim },
-			),
-		);
-	}
-
-	private renderAgents(
-		lines: string[],
-		line: (s: string) => string,
-		accent: (s: string) => string,
-		muted: (s: string) => string,
-		success: (s: string) => string,
-		error: (s: string) => string,
-		warning: (s: string) => string,
-		dim: (s: string) => string,
-	): void {
-		lines.push(
-			...renderAgentsView(this.agentEntries, this.agentIndex, this.runs, this.selectedAgentEntry(), {
-				line,
-				accent,
-				muted,
-				success,
-				error,
-				warning,
-				dim,
-			}),
-		);
-	}
-
-	private renderSessions(
-		lines: string[],
-		line: (s: string) => string,
-		accent: (s: string) => string,
-		muted: (s: string) => string,
-		success: (s: string) => string,
-		warning: (s: string) => string,
-	): void {
-		lines.push(...renderSessionsView(this.piSessions, this.sessionIndex, { line, accent, muted, success, warning }));
-	}
-
-	private renderWorkflows(
-		lines: string[],
-		line: (s: string) => string,
-		accent: (s: string) => string,
-		muted: (s: string) => string,
-		warning: (s: string) => string,
-	): void {
-		lines.push(...renderWorkflowsView(this.workflows, this.workflowIndex, { line, accent, muted, warning }));
-	}
-
-	private renderPatterns(
-		lines: string[],
-		line: (s: string) => string,
-		accent: (s: string) => string,
-		muted: (s: string) => string,
-		warning: (s: string) => string,
-	): void {
-		lines.push(...renderPatternsView(this.patternIndex, { line, accent, muted, warning }));
-	}
-
-	private renderRuns(
-		lines: string[],
-		line: (s: string) => string,
-		accent: (s: string) => string,
-		muted: (s: string) => string,
-		success: (s: string) => string,
-		error: (s: string) => string,
-		dim: (s: string) => string,
-	): void {
-		lines.push(...renderRunsView(this.runs, this.runIndex, { line, accent, muted, success, error, dim }));
-	}
-
-	private renderActivity(
-		lines: string[],
-		line: (s: string) => string,
-		accent: (s: string) => string,
-		muted: (s: string) => string,
-		success: (s: string) => string,
-		error: (s: string) => string,
-		warning: (s: string) => string,
-	): void {
-		lines.push(
-			...renderActivityView(this.runs, this.activity, this.activityIndex, {
-				line,
-				accent,
-				muted,
-				success,
-				error,
-				warning,
-			}),
-		);
 	}
 }
