@@ -22,9 +22,9 @@ Consultalo antes de empezar una tarea no trivial o cuando necesites retomar cont
 ## Convenciones del proyecto
 
 - `docs/README.md`: índice general.
-- `docs/workflows/`: documentación de workflows y ejecuciones.
-- `docs/conversaciones/`: resumen de conversaciones y decisiones.
-- `.pi/workflows/`: workflows locales/proyecto para automatizar revisiones o investigación.
+- `docs/dynamic-workflows.md` + `docs/scaffolds/`: referencia de workflows y patrones.
+- `docs/research/` + `docs/handbooks/`: investigación, decisiones y guías operativas.
+- `.pi/workflows/`: workflows locales/proyecto; los borradores viven en `.pi/workflows/drafts/`.
 
 ## Preferencias actuales
 
@@ -36,7 +36,7 @@ Consultalo antes de empezar una tarea no trivial o cuando necesites retomar cont
 - Los workflows en background deben despertar al agente al completar o fallar, enviando un follow-up automático para inspeccionar artifacts y continuar.
 - Compaction: se volvió al comportamiento original de Pi. `.pi/settings.json` no define `compaction`, por lo que Pi usa sus defaults (`reserveTokens: 16384`, `keepRecentTokens: 20000`) salvo configuración global externa.
 - Prompts de workflows: usar contratos explícitos basados en patrones agénticos—fan-out independiente, evidencia obligatoria, formato fijo, synthesis-as-judge, crítica adversarial, fallas parciales visibles y seguridad por defecto.
-- Workflows dinámicos y task-specific: para cada tarea compleja se escribe un workflow nuevo (usando ejemplos solo como referencia), idealmente bajo `generated/<task-slug>` como borrador.
+- Workflows dinámicos y task-specific: para cada tarea compleja se escribe un workflow nuevo (usando ejemplos solo como referencia), idealmente bajo `.pi/workflows/drafts/<slug>.js`.
   - Hacer scout de la tarea y medir la work-list.
   - Elegir concurrencia/fan-out según tamaño, coste, riesgo y profundidad; no hardcodear `4` salvo como fallback seguro.
   - Si al usuario le gustó, ofrecer guardarlo/promoverlo a un nombre estable y reusable.
@@ -50,12 +50,12 @@ Consultalo antes de empezar una tarea no trivial o cuando necesites retomar cont
 - Se agregó `npm test` como typecheck de las extensiones publicadas (`dynamic-workflows`, `loop`, `goal`) y pasó localmente.
 - Se smokeó `dynamic_workflow` creando un workflow generado de prueba; `action=run` completó con `parallel` (incluyendo rama fallida → `null`), `pipeline`, `bash` y artifact `smoke-result.json`.
 - Se smokeó `action=start` en sesión persistente/RPC para el mismo workflow; el run background completó y `action=view` mostró `Background: yes`, timeline y artifacts.
-- Se actualizó `extensions/dynamic-workflows.ts` para que en sesiones TUI/RPC los workflows lanzados con `run`, `start` o `resume` vayan siempre en background; `run` foreground queda solo como fallback print/json.
+- Se actualizó `extensions/pandi-dynamic-workflows/` para que en sesiones TUI/RPC los workflows lanzados con `run`, `start` o `resume` vayan siempre en background; `run` foreground queda solo como fallback print/json.
 - Se recuperó `.pi/workflows/karpathy-programming-recommendations-research.js` desde git y se integró la síntesis en `docs/research/2026-06-25-karpathy-programming-recommendations.md`.
 
 ## Registro 2026-06-26
 
 - Se implementó `/bg` M2a como runner local slash-only: `/bg start`, `/bg cancel`, `/bg list`, `/bg status`, `/bg logs`, con start solo en proyectos trusted/TUI-RPC, bloqueo en `/plan`, artifacts atómicos bajo `.pi/bg/runs/<jobId>/`, logs bounded y cancelación solo de jobs activos de la sesión.
-- Se agregó `tests/bg/integration/bg-jobs.test.mjs` para start/completion/failure/cancel/stale/mode gates y se incluyó en `scripts/test/run-all.mjs`.
+- Se agregó la suite hoy ubicada en `extensions/pandi-bg/tests/integration/` para start/completion/failure/cancel/stale/mode gates; el runner la descubre desde `scripts/test/run-all.mjs`.
 - La auditoría `generated/bg-m2a-final-audit` completó con síntesis ruidosa; se tomaron los findings de reviewers como accionables y se corrigieron symlink roots, race fast-exit→running, preservación de whitespace en comandos, cancelación Windows vía `taskkill`, y determinismo de tests de integración con `esbuild` devDependency. `npm test` quedó verde.
 - Se mantienen diferidos para planes separados: runner Supacode, tool LLM `background_job`, daemon/rehydrate automático, prune/delete y dashboard `/bg`.

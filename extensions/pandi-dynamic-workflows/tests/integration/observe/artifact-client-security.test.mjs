@@ -21,6 +21,7 @@ import { createChecker } from "../../../../shared/test/harness.mjs";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 const CLIENT_PATH = path.join(REPO_ROOT, ".claude", "scripts", "lib", "artifact-client.js");
+const CONTRACT_VIEW_PATH = path.join(REPO_ROOT, ".claude", "scripts", "lib", "contract-view.js");
 
 const { check, counts } = createChecker();
 
@@ -107,8 +108,52 @@ return { esc, escapeMarkdownHtml, linkify, mdToHtml };`);
 	return factory();
 }
 
+function renderContract(source, contract, { esc, escapeMarkdownHtml }) {
+	const contractElement = { innerHTML: "" };
+	const markedInputs = [];
+	const sanitizedInputs = [];
+	const marked = {
+		parse(md) {
+			markedInputs.push(String(md));
+			return String(md).replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '<a href="$2">$1</a>');
+		},
+	};
+	const sanitizeRenderedHtml = (html) => {
+		sanitizedInputs.push(String(html));
+		return String(html)
+			.replace(/<script\b[\s\S]*?<\/script>/gi, "")
+			.replace(/\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+			.replace(/\s+(href|src)\s*=\s*(["'])javascript:[\s\S]*?\2/gi, "");
+	};
+	const factory = new Function(
+		"D",
+		"document",
+		"window",
+		"marked",
+		"esc",
+		"escapeMarkdownHtml",
+		"sanitizeRenderedHtml",
+		"markedInputs",
+		"sanitizedInputs",
+		`${source}
+return { html: document.getElementById("contract").innerHTML, markedInputs, sanitizedInputs };`,
+	);
+	return factory(
+		{ contract },
+		{ getElementById: (id) => (id === "contract" ? contractElement : null) },
+		{ marked },
+		marked,
+		esc,
+		escapeMarkdownHtml,
+		sanitizeRenderedHtml,
+		markedInputs,
+		sanitizedInputs,
+	);
+}
+
 function main() {
 	const source = fs.readFileSync(CLIENT_PATH, "utf8");
+	const contractSource = fs.readFileSync(CONTRACT_VIEW_PATH, "utf8");
 	const { esc, escapeMarkdownHtml, linkify, mdToHtml } = loadPureFunctions(source);
 
 	// 1) El escaper debe cubrir los cinco metacaracteres, en una pasada — la variante de 3 chars
@@ -158,7 +203,34 @@ function main() {
 		renderedCode,
 	);
 
-	// 4) Guardia de regresión: una URL limpia todavía se linkifica sin cambios.
+	// 4) El contrato usa el mismo pipeline: HTML crudo se escapa antes de marked y el HTML
+	// resultante se sanitiza antes de llegar a innerHTML.
+	const contract = renderContract(
+		contractSource,
+		{
+			improvedTask: '<script>alert("task")</script><img src="x" onerror="alert(1)">',
+			successCriteria: [],
+			blockers: [{ question: '<img src="x" onerror="alert(2)">', rationale: "[bad](javascript:evil)" }],
+		},
+		{ esc, escapeMarkdownHtml },
+	);
+	check(
+		"contract escapes improvedTask and blocker HTML before marked",
+		contract.markedInputs.length === 1 &&
+			!contract.markedInputs[0].includes("<script") &&
+			!contract.markedInputs[0].includes("<img"),
+		JSON.stringify(contract.markedInputs),
+	);
+	check("contract sanitizes marked output before innerHTML", contract.sanitizedInputs.length === 1, contract.html);
+	check("contract emits no active script HTML", !/<script\b/i.test(contract.html), contract.html);
+	check("contract emits no active event handlers", !/<[^>]+\sonerror\s*=/i.test(contract.html), contract.html);
+	check(
+		"contract emits no active javascript URL",
+		!/\b(?:href|src)\s*=\s*["']?\s*javascript:/i.test(contract.html),
+		contract.html,
+	);
+
+	// 5) Guardia de regresión: una URL limpia todavía se linkifica sin cambios.
 	const cleanOut = linkify("(http://good.example/path)");
 	check("clean URL still linkified as-is", cleanOut.includes('href="http://good.example/path"'), cleanOut);
 

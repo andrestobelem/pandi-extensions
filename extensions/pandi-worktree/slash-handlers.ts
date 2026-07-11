@@ -2,9 +2,9 @@
  * Manejadores del slash command `/worktree`.
  */
 
-import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { type ParsedCommand, parseCommand } from "./command.js";
-import { HELP_TEXT, WORKTREE_SELECT_ITEMS } from "./constants.js";
+import { HELP_TEXT, WORKTREE_ARGUMENT_COMPLETIONS, WORKTREE_SELECT_ITEMS } from "./constants.js";
 import { type CopyPrefKey, resolveCopyPrefs, setSessionCopyDefault } from "./copy-prefs.js";
 import {
 	combinedOutput,
@@ -16,6 +16,7 @@ import {
 	repoError,
 } from "./git-context.js";
 import { openWorktree } from "./open-worktree.js";
+import { registerGitWorktreeTool } from "./tool-handlers.js";
 import {
 	buildPruneArgs,
 	buildRemoveArgs,
@@ -323,4 +324,21 @@ export async function runWorktreeCommand(ctx: ExtensionContext, args: string): P
 			await handlePrune(ctx, parsed, signal);
 			return;
 	}
+}
+
+export function registerWorktreeCommand(pi: ExtensionAPI): void {
+	pi.registerCommand("worktree", {
+		description: "Gestionar worktrees de git: list | add | open | remove | prune",
+		getArgumentCompletions: (prefix: string) => {
+			const tokens = prefix.split(/\s+/);
+			if (tokens.length > 1) return null;
+			const needle = (tokens[0] ?? "").toLowerCase();
+			const items = WORKTREE_ARGUMENT_COMPLETIONS.filter((item) => item.value.startsWith(needle));
+			return items.length > 0 ? items : null;
+		},
+		handler: async (args, ctx) => {
+			await runWorktreeCommand(ctx, args);
+		},
+	});
+	registerGitWorktreeTool(pi);
 }

@@ -16,8 +16,8 @@
 //   node scripts/vendor-extension-skills.mjs           # escribe copias vendorizadas desde .pi -> extensión
 //   node scripts/vendor-extension-skills.mjs --check   # solo verifica; sale con 1 si hay drift (sin writes)
 
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { listFilesRec, readMaybe } from "./lib/sync-file-tree.mjs";
 import { discoverSkillClassification, REPO, reportUnclassifiedSkills, SKILLS_ROOT } from "./skill-classification.mjs";
@@ -68,8 +68,6 @@ async function checkGeneratedTree(expected, outRoot, label, error) {
 
 async function writeGeneratedTree(expected, outRoot) {
 	let wrote = 0;
-	// Modo escritura: reescribe el target en limpio para que no queden archivos stale.
-	await rm(outRoot, { recursive: true, force: true });
 	for (const [rel, content] of expected) {
 		const dst = join(outRoot, rel);
 		await mkdir(dirname(dst), { recursive: true });
@@ -77,6 +75,70 @@ async function writeGeneratedTree(expected, outRoot) {
 		wrote++;
 	}
 	return wrote;
+}
+
+async function makeSiblingTempDir(outRoot, purpose) {
+	await mkdir(dirname(outRoot), { recursive: true });
+	return mkdtemp(join(dirname(outRoot), `${basename(outRoot)}.${purpose}-`));
+}
+
+async function removeBestEffort(removePath, target) {
+	try {
+		await removePath(target, { recursive: true, force: true });
+	} catch {
+		// El cleanup no debe ocultar el resultado del swap ni destruir la única copia recuperable.
+	}
+}
+
+export async function replaceGeneratedTree(
+	expected,
+	outRoot,
+	{ writeTree = writeGeneratedTree, renamePath = rename, removePath = rm } = {},
+) {
+	const stagingRoot = await makeSiblingTempDir(outRoot, "staging");
+	let backupRoot;
+	let preserveBackup = false;
+	try {
+		await writeTree(expected, stagingRoot);
+		const stagingDrift = await checkGeneratedTree(expected, stagingRoot, "staging", () => {});
+		if (stagingDrift > 0) {
+			throw new Error(`[vendor-extension-skills] incomplete staging tree for ${outRoot}`);
+		}
+
+		backupRoot = await makeSiblingTempDir(outRoot, "backup");
+		await removePath(backupRoot, { recursive: true, force: true });
+		try {
+			await renamePath(outRoot, backupRoot);
+		} catch (error) {
+			if (error?.code !== "ENOENT") throw error;
+			backupRoot = undefined;
+		}
+
+		try {
+			await renamePath(stagingRoot, outRoot);
+		} catch (swapError) {
+			if (backupRoot) {
+				try {
+					await renamePath(backupRoot, outRoot);
+					backupRoot = undefined;
+				} catch (rollbackError) {
+					preserveBackup = true;
+					throw new AggregateError(
+						[swapError, rollbackError],
+						`[vendor-extension-skills] swap and rollback failed; previous tree remains at ${backupRoot}`,
+					);
+				}
+			}
+			throw swapError;
+		}
+
+		return expected.size;
+	} finally {
+		await removeBestEffort(removePath, stagingRoot);
+		if (backupRoot && !preserveBackup) {
+			await removeBestEffort(removePath, backupRoot);
+		}
+	}
 }
 
 export async function syncVendorExtensionSkills({
@@ -108,7 +170,7 @@ export async function syncVendorExtensionSkills({
 			continue;
 		}
 
-		wrote += await writeGeneratedTree(expected, outRoot);
+		wrote += await replaceGeneratedTree(expected, outRoot);
 		treesWritten++;
 	}
 

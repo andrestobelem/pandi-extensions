@@ -1,7 +1,7 @@
 {
 	"name": "pandi-ultracode",
 	"version": "0.1.0",
-	"description": "Entrada explícita de Ultracode para Cursor sobre el runner verificable de Pandi.",
+	"description": "Entrada explícita trusted-workspace de Ultracode para Cursor.",
 	"author": {
 		"name": "Pandi Coding Agent"
 	}

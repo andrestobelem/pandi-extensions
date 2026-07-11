@@ -15,9 +15,10 @@ Usá como tarea el texto posterior al comando. Si falta, pedí una tarea concret
 1. Confirmá que el proyecto tiene `pandi-ultracode-claude` en
    `node_modules/.bin/`. Si falta, explicá cómo instalarlo; nunca instales nada
    ni cambies configuración por tu cuenta.
-2. Explicá que `claude --print` no muestra el diálogo de confianza del workspace.
-   Pedí una confirmación explícita de la persona antes de continuar. Sin ella,
-   detenete sin lanzar workers.
+2. Explicá que `claude --print` no muestra el diálogo de confianza y que el
+   workflow corre como código confiable con capacidades host. Pedí una
+   confirmación explícita de que el workflow y el workspace son confiables.
+   Sin ella, detenete sin lanzar workers.
 3. Con esa confirmación, corré el gateway con el binario local, JSON bien escapado
    y límites explícitos:
 
@@ -36,6 +37,8 @@ Usá como tarea el texto posterior al comando. Si falta, pedí una tarea concret
 
 - Los workers usan `--permission-mode plan`, allowlist de lectura y `--safe-mode`.
   No habilites escritura, shell, plugins, MCP, acceso adicional ni flags peligrosos.
+- `node:vm` es un contexto de evaluación, no un sandbox; no ejecutes workflows
+  no confiables.
 - No afirmes compatibilidad con opciones de Pi que el runner rechaza por no poder
   imponerlas por worker. Mostrá el error y proponé el ajuste mínimo.
 - Siempre devolvé el `runDir`, qué verificaste y las incertidumbres. Una síntesis

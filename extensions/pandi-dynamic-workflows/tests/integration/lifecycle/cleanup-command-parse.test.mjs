@@ -67,10 +67,12 @@ async function main() {
 	check("all", parseCleanupArgs("all").target === "all");
 	check("unknown token → both", parseCleanupArgs("garbage").target === "both");
 
-	// 3) --keep=N sobrescribe el default; clamp a entero >= 0.
+	// 3) --keep=N sobrescribe el default solo con un entero decimal completo >= 0.
 	check("--keep=5", parseCleanupArgs("runs --keep=5").keep === 5);
 	check("--keep=0", parseCleanupArgs("runs --keep=0").keep === 0);
-	check("--keep negative clamps to 0", parseCleanupArgs("runs --keep=-3").keep === 0);
+	check("--keep negative → default", parseCleanupArgs("runs --keep=-3").keep === 20);
+	check("--keep partial numeric → default", parseCleanupArgs("runs --keep=2oops").keep === 20);
+	check("--keep empty → default", parseCleanupArgs("runs --keep=").keep === 20);
 	check("--keep non-numeric → default", parseCleanupArgs("runs --keep=abc").keep === 20);
 
 	// 4) --older-than=N acepta unidades m/h/d; inválidos preservan el default.

@@ -3,7 +3,7 @@
 // el CLI — pueda producir un workflow artifact. json-to-markdown + el script cliente se leen de disco
 // (relativos a lib) y se inlinean en el HTML para que "what is tested is what ships".
 import { readFileSync } from "node:fs";
-import { extractStaticModel } from "./extract.mjs";
+import { extractPreviewModel } from "./extract.mjs";
 import { resolveRunDir, readRunData, mergeNodes } from "./run-merge.mjs";
 import { assembleArtifact } from "./render.mjs";
 
@@ -40,14 +40,14 @@ const contractViewSource = (() => {
   catch { return ''; }
 })();
 
-// buildArtifact({ scriptPath, raw?, argsObj?, argsJson?, runDir?, match? }) -> { html, data, runData,
+// buildArtifact({ scriptPath, raw?, argsObj?, argsJson?, runDir?, match?, evalPreview? }) -> { html, data, runData,
 // nodeCount, composes, runErr, resolvedRunDir }. runDir acepta un path concreto O "latest"/true
-// (resuelto con `match`); pasá raw/argsObj para saltear la lectura del archivo o los args por defecto.
-export async function buildArtifact({ scriptPath, raw, argsObj, argsJson, runDir, match } = {}) {
+// (resuelto con `match`); evalPreview habilita explícitamente el recorrido evaluado con stubs.
+export async function buildArtifact({ scriptPath, raw, argsObj, argsJson, runDir, match, evalPreview = false } = {}) {
   if (!scriptPath) throw new Error("buildArtifact: scriptPath is required");
   if (raw == null) raw = readFileSync(scriptPath, "utf8");
   if (argsObj == null) argsObj = argsJson ? JSON.parse(argsJson) : KITCHEN_SINK();
-  const model = await extractStaticModel({ scriptPath, raw, argsObj });
+  const model = await extractPreviewModel({ scriptPath, raw, argsObj, evalPreview });
   const resolvedRunDir = runDir ? resolveRunDir(runDir, match) : null;
   const runData = resolvedRunDir ? readRunData(resolvedRunDir) : null;
   const merged = mergeNodes(runData, model.baseNodes, model.declared);
@@ -55,6 +55,7 @@ export async function buildArtifact({ scriptPath, raw, argsObj, argsJson, runDir
     merged, basePhases: model.basePhases, composes: model.composes, meta: model.meta,
     provenance: model.provenance, scaffolds: model.scaffolds, scriptPath, argsJson,
     schemas: model.schemas, skillRefs: model.skillRefs, raw, runData,
+    previewMode: evalPreview ? "evaluated" : "parse-only",
     staticFidelity: model.staticFidelity, jsonToMarkdownSource, clientJsSource, contractViewSource, tokensCss: pandiTokensCss,
   });
   return { html, data, runData, nodeCount, composes: model.composes, runErr: model.runErr, resolvedRunDir };

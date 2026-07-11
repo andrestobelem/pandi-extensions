@@ -110,12 +110,9 @@ function modelArg(ctx: ExtensionContext): string | undefined {
 
 /**
  * Parsea el veredicto desde stdout del subagente. El prompt REQUIRES el veredicto en la
- * línea final, así que primero anclamos en la última línea no vacía: un PASS real vive ahí.
- * Solo si esa línea no trae veredicto hacemos fallback al último match `VERDICT:` en
- * cualquier lugar. Esto hace imposible falsificar un PASS espurio echoeando antes las
- * propias líneas de instrucción del prompt (que listan "VERDICT: PASS" y "VERDICT: FAIL"):
- * la última línea no vacía es el veredicto real de cierre del modelo. Cualquier ambigüedad
- * (sin veredicto encontrado) queda como FAIL conservador.
+ * línea final, así que solo aceptamos `VERDICT: PASS` o `VERDICT: FAIL` como última línea
+ * no vacía exacta. Un PASS incidental, un veredicto seguido de prose o cualquier otra
+ * ambigüedad queda como FAIL conservador.
  */
 function lastNonEmptyLine(text: string): string | undefined {
 	const lines = text.split(/\r?\n/);
@@ -126,14 +123,9 @@ function lastNonEmptyLine(text: string): string | undefined {
 	return undefined;
 }
 
-function lastVerdictMatch(text: string): RegExpMatchArray | undefined {
-	const matches = [...text.matchAll(/VERDICT:\s*(PASS|FAIL)/gi)];
-	return matches.at(-1);
-}
-
 function parseVerdict(stdout: string): VerifierVerdict {
 	const text = (stdout || "").trim();
-	const lineRe = /VERDICT:\s*(PASS|FAIL)/i;
+	const lineRe = /^VERDICT:\s*(PASS|FAIL)$/i;
 	const finalLine = lastNonEmptyLine(text);
 	if (finalLine) {
 		const m = lineRe.exec(finalLine);
@@ -141,19 +133,12 @@ function parseVerdict(stdout: string): VerifierVerdict {
 			return { pass: m[1].toUpperCase() === "PASS", feedback: text, unparsed: false };
 		}
 	}
-	// Existe última línea no vacía pero no tiene veredicto → caer al scan de todo el texto
-	// en vez de confiar en una línea no final; cortar para no seguir subiendo a ciegas.
-	const last = lastVerdictMatch(text);
-	if (!last) {
-		// Sin veredicto parseable → FAIL conservador (nunca cerrar silenciosamente con un juez malformado).
-		return {
-			pass: false,
-			feedback: text || "el verificador no produjo un veredicto parseable",
-			unparsed: true,
-		};
-	}
-	const pass = last[1].toUpperCase() === "PASS";
-	return { pass, feedback: text, unparsed: false };
+	// Sin veredicto final exacto → FAIL conservador (nunca cerrar silenciosamente con un juez malformado).
+	return {
+		pass: false,
+		feedback: text || "el verificador no produjo un veredicto parseable",
+		unparsed: true,
+	};
 }
 
 function errorMessage(error: unknown): string {

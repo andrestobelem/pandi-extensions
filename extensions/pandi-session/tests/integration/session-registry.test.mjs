@@ -45,6 +45,14 @@ async function writeJson(file, value) {
 	await fs.writeFile(file, JSON.stringify(value), "utf8");
 }
 
+function deferred() {
+	let resolve;
+	const promise = new Promise((done) => {
+		resolve = done;
+	});
+	return { promise, resolve };
+}
+
 async function main() {
 	const { outDir, url } = await buildRegistry();
 	const project = await fs.mkdtemp(path.join(os.tmpdir(), "pandi-session-registry-"));
@@ -66,6 +74,63 @@ async function main() {
 		await registry.stopPandiSessionHeartbeat();
 		const afterStop = await registry.collectPandiSessions(ctx);
 		check("stop elimina el registro del heartbeat actual", afterStop.length === 0, JSON.stringify(afterStop));
+
+		const originalSetInterval = globalThis.setInterval;
+		const originalClearInterval = globalThis.clearInterval;
+		const writeStarted = deferred();
+		const releaseWrite = deferred();
+		let tickHeartbeat;
+		let stopped = false;
+		let firstGeneration;
+		try {
+			globalThis.setInterval = (callback) => {
+				tickHeartbeat = callback;
+				return { unref() {} };
+			};
+			globalThis.clearInterval = () => {};
+
+			await registry.startPandiSessionHeartbeat({ reason: "race" }, ctx);
+			registry.setPandiSessionHeartbeatWriteHookForTests(async (generation) => {
+				firstGeneration = generation;
+				writeStarted.resolve();
+				await releaseWrite.promise;
+			});
+			tickHeartbeat();
+			await writeStarted.promise;
+
+			const stopping = registry.stopPandiSessionHeartbeat().then(() => {
+				stopped = true;
+			});
+			await new Promise((resolve) => setImmediate(resolve));
+			check("stop espera el heartbeat in-flight antes de borrar", stopped === false);
+
+			releaseWrite.resolve();
+			await stopping;
+			const afterRacingStop = await registry.collectPandiSessions(ctx);
+			check(
+				"un heartbeat pausado no recrea el archivo después de stop",
+				afterRacingStop.length === 0,
+				JSON.stringify(afterRacingStop),
+			);
+
+			let restartedGeneration;
+			registry.setPandiSessionHeartbeatWriteHookForTests(async (generation) => {
+				restartedGeneration = generation;
+			});
+			await registry.startPandiSessionHeartbeat({ reason: "restart" }, ctx);
+			check(
+				"start posterior usa una generación nueva",
+				Number.isInteger(firstGeneration) &&
+					Number.isInteger(restartedGeneration) &&
+					restartedGeneration > firstGeneration,
+				JSON.stringify({ firstGeneration, restartedGeneration }),
+			);
+			await registry.stopPandiSessionHeartbeat();
+		} finally {
+			registry.setPandiSessionHeartbeatWriteHookForTests?.();
+			globalThis.setInterval = originalSetInterval;
+			globalThis.clearInterval = originalClearInterval;
+		}
 
 		await registry.startPandiSessionHeartbeat({ reason: "startup" }, makeCtx(project, { mode: "print" }));
 		const printSessions = await registry.collectPandiSessions(ctx);

@@ -23,12 +23,12 @@ Si tenés poco tiempo, leé en este orden:
 3. `AGENTS.md` — reglas de ingeniería del repo.
 4. `docs/dynamic-workflows.md`
 5. `extensions/pandi-dynamic-workflows/README.md`
-6. `extensions/pandi-dynamic-workflows/index.ts`
-7. `extensions/pandi-dynamic-workflows/command-handlers.ts`
-8. `extensions/pandi-dynamic-workflows/worker-source.ts`
-9. `extensions/pandi-dynamic-workflows/workflow-resolve.ts`
-10. `extensions/pandi-dynamic-workflows/run-lifecycle.ts`
-11. `extensions/pandi-dynamic-workflows/catalog.ts`
+6. `extensions/pandi-dynamic-workflows/ARCHITECTURE.md`
+7. `extensions/pandi-dynamic-workflows/index.ts`
+8. `extensions/pandi-dynamic-workflows/surface/index.ts`
+9. `extensions/pandi-dynamic-workflows/runtime/index.ts`
+10. `extensions/pandi-dynamic-workflows/lifecycle/index.ts`
+11. `extensions/pandi-dynamic-workflows/observe/index.ts`
 12. `docs/scaffolds/index.md`
 13. `extensions/pandi-dynamic-workflows/scaffolds/*.js`
 
@@ -53,23 +53,26 @@ Flujo mental:
 ```text
 humano/modelo
   → /workflow o dynamic_workflow
-  → command-handlers.ts
-  → workflow-resolve.ts
-  → index.ts engine
-  → Worker con worker-source.ts
+  → surface/command-handlers.ts
+  → surface/resolve.ts
+  → lifecycle/start.ts
+  → runtime/engine.ts
+  → runtime/worker-bridge.ts + runtime/worker-source.ts
   → subagents/bash/artifacts
+  → observe/writer.ts + tui/
   → .pi/workflows/runs/<run-id>/
 ```
 
 Archivos clave:
 
-- `index.ts` — engine y registro principal.
-- `command-handlers.ts` — comandos `/workflow`, `/workflows`, `/ultracode`.
-- `worker-source.ts` — globals inyectados dentro del workflow.
-- `workflow-resolve.ts` — resolución project/global de scripts.
-- `run-lifecycle.ts` y `run-store.ts` — estado, resume y persistencia.
-- `catalog.ts`, `pattern-scaffolds.ts` y `scaffolds/*.js` — catálogo de patrones.
-- `workflow-dashboard.ts` y `run-report-writer.ts` — superficies de inspección.
+- [`ARCHITECTURE.md`](../../extensions/pandi-dynamic-workflows/ARCHITECTURE.md) — mapa canónico de deep modules y sus fachadas.
+- `index.ts` — activación de la extensión; no contiene el engine.
+- `surface/command-handlers.ts` — handlers de `/workflow` y `/workflows`.
+- `surface/resolve.ts` — `listWorkflows`, `resolveWorkflow` y `resolveWorkflowForRun`.
+- `runtime/worker-source.ts` — globals inyectados dentro del workflow; `runtime/engine.ts` exporta `runWorkflow`.
+- `lifecycle/index.ts` — fachada de start, resume, cancel, cleanup, status y registry; `runtime/runs.ts` lista y resuelve runs.
+- `surface/catalog.ts`, `surface/pattern-scaffolds.ts` y `scaffolds/*.js` — catálogo de patrones.
+- `tui/dashboard.ts` y `observe/writer.ts` (`writeRunReport`) — superficies de inspección.
 
 ### Disciplina de ejecución
 

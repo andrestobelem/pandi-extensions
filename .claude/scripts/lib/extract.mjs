@@ -1,14 +1,20 @@
-// extract.mjs — extracción para static-preview. Corre el body del workflow con globals de runtime stubbeados
-// que registran cada llamada a agent()/agents()/workflow()/phase(), y desde ahí deriva el modelo estático
-// (nodos, schemas, referencias de skills, roles declarados, provenance) sin ejecución real.
+// extract.mjs — extracción del modelo de preview. Por defecto escanea literales y llamadas conocidas
+// sin ejecutar source; el modo evaluado conserva el recorrido histórico con globals de runtime stubbeados.
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
+import { scanPreviewSource } from "./source-scan.mjs";
 import { norm, phaseTitleOf } from "./util.mjs";
 
-// Devuelve el modelo estático completo que consume render. `scriptPath` siembra el fallback meta.name;
-// `raw` es la fuente del workflow; `argsObj` se splattea dentro del global stub `args`.
-export async function extractStaticModel({ scriptPath, raw, argsObj }) {
+function fallbackMeta(scriptPath) {
+	return {
+		name: scriptPath.split("/").pop().replace(/\.(?:m?js|cjs)$/, ""),
+		description: "",
+		phases: [],
+	};
+}
+
+async function evaluatePreviewSource({ scriptPath, raw, argsObj }) {
   const transformed = raw
   .replace(/export\s+const\s+meta\s*=/, "globalThis.__meta =")
   .replace(/export\s+default\s+/, "globalThis.__default = ");
@@ -113,10 +119,42 @@ const stubs = `
 `;
 const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor;
 let runErr = null;
-try { await new AsyncFunction(stubs + "\n" + transformed + "\n;await globalThis.__runDefault();")(); } catch (e) { runErr = e; }
-if (!runErr && globalThis.__defaultErr) runErr = new Error(globalThis.__defaultErr);
+const globalKeys = ["__meta", "__nodes", "__composes", "__phases", "__pipeErr", "__parallelDepth", "__default", "__defaultErr", "__runDefault"];
+const previousGlobals = new Map(globalKeys.map((key) => [key, {
+	had: Object.prototype.hasOwnProperty.call(globalThis, key),
+	value: globalThis[key],
+}]));
+try {
+	try {
+		await new AsyncFunction(`${stubs}\n${transformed}\n;await globalThis.__runDefault();`)();
+	} catch (error) {
+		runErr = error;
+	}
+	if (!runErr && globalThis.__defaultErr) runErr = new Error(globalThis.__defaultErr);
+	return {
+		meta: globalThis.__meta || fallbackMeta(scriptPath),
+		nodes: globalThis.__nodes || [],
+		phases: globalThis.__phases || [],
+		composes: globalThis.__composes || [],
+		fidelity: [],
+		runErr,
+		pipeErr: globalThis.__pipeErr,
+	};
+} finally {
+	for (const [key, previous] of previousGlobals) {
+		if (previous.had) globalThis[key] = previous.value;
+		else delete globalThis[key];
+	}
+}
+}
 
-  const meta = globalThis.__meta || { name: scriptPath.split("/").pop().replace(/\.js$/, ""), description: "", phases: [] };
+// Devuelve el modelo completo que consume render. `evalPreview` es la única entrada al recorrido
+// evaluado histórico; sin ese opt-in, el source se trata exclusivamente como texto.
+export async function extractPreviewModel({ scriptPath, raw, argsObj, evalPreview = false }) {
+	const extracted = evalPreview
+		? await evaluatePreviewSource({ scriptPath, raw, argsObj })
+		: scanPreviewSource({ scriptPath, raw });
+	const meta = extracted.meta || fallbackMeta(scriptPath);
 
 // Tab "Based on": una línea de provenance y, opcionalmente, los scaffolds en los que se basa este workflow.
 // Dos fuentes, en orden de prioridad:
@@ -135,10 +173,10 @@ const scaffolds = Array.isArray(basedOnRaw)
   : [];
 const provenance = (typeof basedOnRaw === "string" ? basedOnRaw : null) || paperFromComment || null;
 
-  // ── nodos de static-preview (registrados durante el run stubbed) ───────────────────────────────
-const rawNodes = globalThis.__nodes || [];
-const basePhases = (globalThis.__phases && globalThis.__phases.length) ? globalThis.__phases : (meta.phases || []).map(phaseTitleOf).filter(Boolean);
-const composes = [...new Set(globalThis.__composes || [])];
+  // ── nodos del preview (escaneados o registrados por el recorrido evaluado) ────────────────────
+const rawNodes = extracted.nodes || [];
+const basePhases = (extracted.phases && extracted.phases.length) ? extracted.phases : (meta.phases || []).map(phaseTitleOf).filter(Boolean);
+const composes = [...new Set(extracted.composes || [])];
 
 const byKey = new Map();
 for (const n of rawNodes) {
@@ -207,9 +245,9 @@ for (const n of baseNodes) if (n.schemaObj) { const k = (n.role || ("schema" + s
 
 // Notas estáticas de fidelidad (problemas de extracción) calculadas una vez; las notas de fase vacía son por render
 // (dependen de si un run llenó la fase), así que se agregan dentro de build().
-const staticFidelity = [];
-if (runErr) staticFidelity.push("partial extraction — script threw during stubbed run: " + (runErr.message || runErr));
-if (globalThis.__pipeErr) staticFidelity.push("a pipeline() stage threw during extraction (" + globalThis.__pipeErr + ") — agents/phases gated on a prior stage's output may be missing below");
+const staticFidelity = [...(extracted.fidelity || [])];
+if (extracted.runErr) staticFidelity.push("partial evaluated preview — script threw during stubbed traversal: " + (extracted.runErr.message || extracted.runErr));
+if (extracted.pipeErr) staticFidelity.push("a pipeline() stage threw during evaluated preview (" + extracted.pipeErr + ") — agents/phases gated on a prior stage's output may be missing below");
 
 // Escaneo de declaraciones a nivel fuente: recupera phase/model/effort para labels cuya rama el run stubbed
 // nunca ALCANZÓ (por ejemplo, un fan-out gated por la salida de un agente previo). Heurística: para cada literal
@@ -230,6 +268,16 @@ function scanDeclaredRoles(src) {
   return map;
 }
 const declared = scanDeclaredRoles(raw);
+for (const [role, declaration] of extracted.declared || []) {
+	const previous = declared.get(role) || {};
+	declared.set(role, {
+		phase: previous.phase ?? declaration.phase,
+		model: previous.model ?? declaration.model,
+		effort: previous.effort ?? declaration.effort,
+		schema: previous.schema ?? declaration.schema,
+		parallel: previous.parallel || declaration.parallel,
+	});
+}
 
-  return { meta, baseNodes, basePhases, composes, provenance, scaffolds, skillRefs, schemas, declared, staticFidelity, runErr };
+  return { meta, baseNodes, basePhases, composes, provenance, scaffolds, skillRefs, schemas, declared, staticFidelity, runErr: extracted.runErr };
 }

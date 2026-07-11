@@ -23,11 +23,12 @@ Run flags:
   --model <id>                Claude model or alias
   --effort <level>            Claude reasoning effort
   --claude-command <path>     Claude executable (default: claude)
-  --trust-workspace           Required acknowledgement for non-interactive Claude runs
+  --trust-workspace           Required: acknowledge trusted workflow/workspace code
 
-Safety: Claude workers use --permission-mode plan, a Read/Glob/Grep allowlist,
-and --safe-mode. This runner has no mutating flags: workflow shell, workflow
-writes and agent write access are rejected.
+Security model: workflows are trusted code with host capabilities. node:vm is
+an evaluation context, not a sandbox or OS boundary. Claude workers use
+--permission-mode plan, a Read/Glob/Grep allowlist and --safe-mode; this runner
+has no mutating flags.
 `;
 
 function fail(message) {

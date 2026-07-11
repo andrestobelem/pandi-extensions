@@ -11,7 +11,7 @@ export function registerDoctorCommand(pi: ExtensionAPI): void {
 		description: "Ejecuta el chequeo de entorno de `pandi-extensions` (`scripts/doctor.mjs`) y muestra el reporte",
 		handler: async (_args, ctx) => {
 			const result = await runDoctorCheck(runDoctor, {
-				cwd: process.cwd(),
+				cwd: ctx.cwd,
 				extDir: EXT_DIR,
 				signal: ctx.signal ?? undefined,
 				timeoutMs: parseTimeoutMs(process.env.PI_DOCTOR_TIMEOUT_MS, DEFAULT_DOCTOR_TIMEOUT_MS),

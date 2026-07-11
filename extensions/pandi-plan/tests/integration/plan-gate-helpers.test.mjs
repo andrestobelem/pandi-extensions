@@ -7,8 +7,9 @@
  * and the read-only dynamic_workflow allowlist) so the security-critical classification is
  * covered at the cheapest level. Gaps surfaced by the coverage audit:
  *   - isMutatingBash: git mutations incl. `git branch -D` and plain `git branch <name>` creation.
- *   - blockedReason: write/edit blocked; read/grep allowed; bash blocked only when mutating;
- *     dynamic_workflow blocked unless its action is read-only; submit_plan/enter_plan_mode allowed.
+ *   - blockedReason: write/edit and unknown tools blocked; known read-only tools allowed;
+ *     bash blocked only when mutating; dynamic_workflow blocked unless its action is read-only;
+ *     submit_plan/enter_plan_mode allowed.
  *
  * Run it:
  *   node extensions/pandi-plan/tests/integration/plan-gate-helpers.test.mjs
@@ -115,8 +116,9 @@ async function scenarioGateHelpers(url) {
 	check("blockedReason blocks write", typeof blockedReason(ev("write", { path: "a", content: "x" })) === "string");
 	check("blockedReason blocks edit", typeof blockedReason(ev("edit")) === "string");
 	check("blockedReason blocks notebook-edit (defensive)", typeof blockedReason(ev("notebook-edit")) === "string");
-	check("blockedReason allows read", blockedReason(ev("read", { path: "a" })) === undefined);
-	check("blockedReason allows grep", blockedReason(ev("grep")) === undefined);
+	for (const name of ["read", "grep", "rg", "glob", "find", "ls", "web_search", "ask_choice", "ask_confirm"]) {
+		check(`blockedReason allows ${name}`, blockedReason(ev(name)) === undefined, name);
+	}
 	check("blockedReason allows submit_plan", blockedReason(ev("submit_plan")) === undefined);
 	check("blockedReason allows enter_plan_mode", blockedReason(ev("enter_plan_mode")) === undefined);
 
@@ -149,8 +151,15 @@ async function scenarioGateHelpers(url) {
 		typeof blockedReason(ev("dynamic_workflow", {})) === "string",
 	);
 
-	// --- blockedReason: unknown tool falls through (allowed, best-effort) ---
-	check("blockedReason allows an unknown tool", blockedReason(ev("some_other_tool")) === undefined);
+	// --- blockedReason: unknown tools are denied by default ---
+	for (const name of ["some_mutating_tool", "mcp__unknown__mutate"]) {
+		const reason = blockedReason(ev(name));
+		check(
+			`blockedReason blocks unknown tool ${name}`,
+			typeof reason === "string" && reason.includes(name) && /solo lectura/i.test(reason),
+			reason,
+		);
+	}
 }
 
 async function main() {

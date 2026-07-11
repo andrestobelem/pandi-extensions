@@ -23,15 +23,15 @@ Run flags:
   --model <id>                Explicit Cursor model id
   --effort <level>            Recorded advisory reasoning effort
   --cursor-command <path>     Cursor executable (default: cursor-agent)
-  --trust-workspace           Pass Cursor --trust for this workspace
+  --trust-workspace           Required: acknowledge trusted workflow/workspace code
   --allow-agent-write         Allow agents that explicitly request allowWrite
   --allow-workflow-write      Allow workflow writeFile/appendFile
   --allow-workflow-shell      Allow workflow bash()
 
-Safety: Cursor agents use --mode ask and --sandbox enabled by default. Mutating
-capabilities require their corresponding explicit flag. Per-agent tools, skills,
-extensions and environment grants are rejected because Cursor CLI cannot enforce
-them independently per worker.
+Security model: workflows are trusted code with host capabilities. node:vm is
+an evaluation context, not a sandbox or OS boundary. Cursor workers use
+--mode ask and --sandbox enabled by default; mutating capabilities require
+their corresponding explicit flag.
 `;
 
 function fail(message) {

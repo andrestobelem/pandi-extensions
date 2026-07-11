@@ -178,7 +178,7 @@ pi -e .pi/tools/gondolin</code></pre>
 <h2 id="qué-aísla-y-qué-no">Qué aísla y qué no</h2>
 <ul>
 <li><strong>Aísla:</strong> las herramientas internas <code>read</code>, <code>write</code>, <code>edit</code>, <code>bash</code>, <code>grep</code>, <code>find</code>, <code>ls</code> y los comandos <code>!</code> del usuario se ejecutan dentro de la VM. El cwd del host se monta en <code>/workspace</code>; todo lo que escribas debajo de <code>/workspace</code> vuelve al host.</li>
-<li><strong>No aísla:</strong> los dynamic-workflow <strong>subagents</strong> lanzan procesos hijo <code>pi</code>/<code>codex</code> en el <strong>host</strong> (las extensiones corren donde corre <code>pi</code>). Por eso Gondolin no oculta la cadena de procesos <code>node → pi/codex → /bin/bash</code>. Para aislar todo el orquestador, ejecutá <code>pi</code> completo dentro de Docker; ver <code>docs/containerization.md</code>.</li>
+<li><strong>No aísla:</strong> los dynamic-workflow <strong>subagents</strong> lanzan procesos hijo <code>pi</code>/<code>codex</code> en el <strong>host</strong> (las extensiones corren donde corre <code>pi</code>). Por eso Gondolin no oculta la cadena de procesos <code>node → pi/codex → /bin/bash</code>. Para aislar todo el orquestador, ejecutá <code>pi</code> completo dentro de Docker; para comandos puntuales en una micro-VM de Apple, ver <a href="../extensions/pandi-container/README.md"><code>pandi-container</code></a>.</li>
 </ul>
 <h2 id="requisitos">Requisitos</h2>
 <ul>

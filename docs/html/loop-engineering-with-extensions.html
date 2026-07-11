@@ -234,25 +234,32 @@ la vez.</p>
 Ejecuta <code>pursuing → verifying → verifying-independent → done | blocked</code>: primero
 una comprobación de completitud, después un <strong>subagente adversarial separado y
 solo de lectura</strong> que emite <code>VERDICT: PASS | FAIL</code>. Solo un <code>PASS</code> independiente
-cierra el goal (<code>extensions/pandi-goal/index.ts:264-271</code>). Esta es la respuesta
-arquitectónica directa del repo al resultado de que la autocorrección no es
-confiable.</p>
+cierra el goal (<code>beginIndependentVerification</code> en
+<code>extensions/pandi-goal/verification.ts</code>). Esta es la respuesta arquitectónica
+directa del repo al resultado de que la autocorrección no es confiable.</p>
 <pre><code class="hljs language-bash"><span class="hljs-comment"># Objetivo -- criterios de éxito después de `--`</span>
 /goal migrate tests to vitest -- all tests pass; no jest imports remain
 /goal status
 /goal stop</code></pre>
 <p>Guardrails que heredás gratis:</p>
 <ul>
-<li>Nunca hay loop infinito; hay rondas y topes acotados (<code>extensions/pandi-goal/index.ts:157-159</code>, el guard <code>goal.iteration &gt;= goal.maxIterations</code>).</li>
-<li>Una afirmación sin evidencia verificable es <code>FAIL</code> (<code>extensions/pandi-goal/verifier.ts:69</code>).</li>
-<li>Guard contra oscilación: <code>maxIndependentVerifications</code> (por defecto 2) pasa un goal que está thrashing a <code>blocked</code> en vez de dejarlo girando para siempre (<code>extensions/pandi-goal/index.ts:279-291</code>).</li>
+<li>Nunca hay loop infinito; <code>fireGoal</code> aplica el guard
+<code>goal.iteration &gt;= goal.maxIterations</code> en
+<code>extensions/pandi-goal/scheduler.ts</code>.</li>
+<li>Una afirmación sin evidencia verificable es <code>FAIL</code>; <code>runIndependentVerifier</code>
+fija ese contrato en <code>extensions/pandi-goal/verifier.ts</code>.</li>
+<li>Guard contra oscilación: <code>beginIndependentVerification</code> compara
+<code>independentVerifyAttempts</code> con <code>maxIndependentVerifications</code> (por defecto 2)
+y pasa el goal a <code>blocked</code> en vez de dejarlo girando para siempre
+(<code>extensions/pandi-goal/verification.ts</code>).</li>
 </ul>
 <h3><code>/loop</code> — cadencia acotada, no confiar en el modelo</h3>
 <p>Usá <code>/loop</code> para trabajo recurrente que no tiene un <code>done</code> binario: monitoreo,
 polling, autopilot. El modelo propone un delay de wake; la extensión <strong>lo satura</strong>
 a una banda segura de <code>[60, 3600]s</code> para que un valor malo nunca desestabilice
-el loop (<code>extensions/pandi-loop/index.ts:115-116</code> para las constantes,
-<code>:1249-1251</code> para el clamp).</p>
+el loop (<code>MIN_DELAY_SECONDS</code> / <code>MAX_DELAY_SECONDS</code> en
+<code>extensions/pandi-loop/constants.ts</code>; <code>clampLoopDelaySeconds</code> en
+<code>extensions/pandi-loop/loop-tools.ts</code>).</p>
 <pre><code class="hljs language-bash"><span class="hljs-comment"># Cadencia fija (el último token es el intervalo)</span>
 /loop check whether CI went green 10m
 
@@ -271,12 +278,12 @@ deploy) manteniendo cache caliente.</li>
 <li>No consultes trabajo que el harness ya rastrea (subagentes, workflows) — usá un
 fallback largo y dejá que reporte de vuelta.</li>
 </ul>
-<p>Defense in depth: los topes en capas incluyen wall-clock y un context-budget de
-mejor esfuerzo (ver <code>extensions/pandi-loop/caps.ts:26-41</code>), más un tope separado
-de conteo de iteraciones dentro de <code>fireWake</code> en <code>extensions/pandi-loop/index.ts</code>,
-y además un watchdog de respaldo por encima del deadline. Ojo: el tope de
-context-budget es un <strong>soft sensor</strong> — hace no-op silencioso cuando el uso se
-ignora, así que no dependas solo de él.</p>
+<p>Defense in depth: <code>capExceeded</code> y <code>preWakeLimit</code> en
+<code>extensions/pandi-loop/caps.ts</code> combinan wall-clock, context-budget de mejor
+esfuerzo, iteraciones y watchdog; <code>fireWake</code> en
+<code>extensions/pandi-loop/scheduler.ts</code> aplica ese resultado antes de entregar un
+wake. Ojo: el tope de context-budget es un <strong>soft sensor</strong> — hace no-op
+silencioso cuando el uso se ignora, así que no dependas solo de él.</p>
 <h3><code>loop-until-dry</code> — convergencia por rondas quietas</h3>
 <p>Cuando el objetivo es exhaustividad y no un solo <code>done</code> (auditorías, búsquedas
 a nivel repo), usá el scaffold <code>loop-until-dry</code>. Ejecuta finders en paralelo en
@@ -288,8 +295,9 @@ flip de quietud transitoria.</p>
 <li><code>quietRounds</code> (por defecto 2) es un debounce/deadband, no un punto fijo
 probado.</li>
 <li><code>maxRounds</code> (por defecto 8) es el freno duro; cuando se detiene ahí, lo dice
-en voz alta (<code>extensions/pandi-dynamic-workflows/scaffolds/loop-until-dry.js:165</code>) —
-no hay topes silenciosos.</li>
+en voz alta con <code>stopped at maxRounds (not dry)</code> en
+<code>extensions/pandi-dynamic-workflows/scaffolds/loop-until-dry.js</code> — no hay
+topes silenciosos.</li>
 </ul>
 <h3>Ultracode + Contract Gate — acotar primero el alcance</h3>
 <p>Antes de orquestar trabajo amplio o a nivel repo, dejá que el Contract Gate

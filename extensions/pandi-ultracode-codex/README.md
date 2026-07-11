@@ -4,6 +4,10 @@ Ejecutá workflows portables de Ultracode mediante Codex CLI, sin instalar ni
 iniciar Pi. El runner conserva artifacts y journal bajo `.codex/ultracode/runs/`
 y usa `codex exec` para cada llamada a `agent()`.
 
+Este runner es **trusted-workspace only**: ejecutá únicamente workflows y
+workspaces que hayas revisado y decidido confiar. `run` y `resume` rechazan la
+ejecución salvo que pases `--trust-workspace` de forma explícita.
+
 Esta primera entrega es un **host de terminal**. No modifica `~/.codex` ni
 instala un plugin de Codex: la CLI actual expone plugins desde marketplaces, no
 una carga local por directorio equivalente a los hosts de Claude Code y Cursor.
@@ -66,9 +70,13 @@ El host no pasa `--add-dir`, `--search`, `workspace-write`,
 agentes, `bash()`, `writeFile()`, `appendFile()` y grants por agente de tools,
 skills, extensions, environment o provider.
 
-`read-only` limita los comandos que Codex genera; no convierte el workflow
-confiado ni el proceso de Codex en una frontera completa de aislamiento. Para
-una garantía fuerte, usá un contenedor, una cuenta o un entorno aislado.
+`read-only` es una política del worker de Codex; no aísla al workflow del
+proceso host. `node:vm` aporta solamente un contexto de evaluación: el workflow
+corre dentro del proceso del runner con las capacidades host inyectadas. No es
+un sandbox de seguridad y no admite código no confiable.
+
+Una futura frontera de proceso/OS está diseñada, pero no implementada, en
+[`docs/research/2026-07-11-ultracode-process-os-boundary.md`](../../docs/research/2026-07-11-ultracode-process-os-boundary.md).
 
 Agregá los artifacts efímeros al proyecto:
 

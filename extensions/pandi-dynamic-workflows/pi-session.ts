@@ -66,10 +66,19 @@ interface LivePiSessionRuntime {
 	file: string;
 	startedAt: string;
 	reason: string;
+	generation: number;
+	stopping: boolean;
+	writeInFlight?: Promise<void>;
 	timer?: NodeJS.Timeout;
 }
 
 let livePiSession: LivePiSessionRuntime | undefined;
+let piSessionHeartbeatGeneration = 0;
+let piSessionHeartbeatWriteHookForTests: ((generation: number) => Promise<void>) | undefined;
+
+export function setPiSessionHeartbeatWriteHookForTests(hook?: (generation: number) => Promise<void>): void {
+	piSessionHeartbeatWriteHookForTests = hook;
+}
 
 function isPersistentPiSessionMode(mode: string): boolean {
 	return mode === "tui" || mode === "rpc";
@@ -111,13 +120,22 @@ function buildPiSessionRecord(runtime: LivePiSessionRuntime): PiSessionRecord {
 }
 
 async function writePiSessionHeartbeat(runtime: LivePiSessionRuntime): Promise<void> {
-	try {
-		await ensureDir(path.dirname(runtime.file));
-		await writeJsonFile(runtime.file, buildPiSessionRecord(runtime));
-	} catch {
-		// Heartbeats son best-effort; el dashboard nunca debe fallar porque el
-		// live-session registry no se puede escribir (p. ej. permissions o tmp cleanup).
-	}
+	if (runtime.stopping || livePiSession?.generation !== runtime.generation) return;
+	if (runtime.writeInFlight) return runtime.writeInFlight;
+	const write = (async () => {
+		try {
+			await piSessionHeartbeatWriteHookForTests?.(runtime.generation);
+			if (runtime.stopping || livePiSession?.generation !== runtime.generation) return;
+			await ensureDir(path.dirname(runtime.file));
+			await writeJsonFile(runtime.file, buildPiSessionRecord(runtime));
+		} catch {
+			// Heartbeats son best-effort; el dashboard nunca debe fallar porque el
+			// live-session registry no se puede escribir (p. ej. permissions o tmp cleanup).
+		}
+	})();
+	runtime.writeInFlight = write;
+	await write;
+	if (runtime.writeInFlight === write) runtime.writeInFlight = undefined;
 }
 
 export async function startPiSessionHeartbeat(event: { reason: string }, ctx: ExtensionContext): Promise<void> {
@@ -130,18 +148,23 @@ export async function startPiSessionHeartbeat(event: { reason: string }, ctx: Ex
 		file: path.join(getLiveSessionRoot(ctx), `${id}.json`),
 		startedAt: new Date().toISOString(),
 		reason: event.reason,
+		generation: ++piSessionHeartbeatGeneration,
+		stopping: false,
 	};
 	livePiSession = runtime;
 	await writePiSessionHeartbeat(runtime);
+	if (runtime.stopping || livePiSession?.generation !== runtime.generation) return;
 	runtime.timer = setInterval(() => void writePiSessionHeartbeat(runtime), PI_SESSION_HEARTBEAT_MS);
 	runtime.timer.unref?.();
 }
 
 export async function stopPiSessionHeartbeat(): Promise<void> {
 	const runtime = livePiSession;
-	livePiSession = undefined;
 	if (!runtime) return;
+	runtime.stopping = true;
+	livePiSession = undefined;
 	if (runtime.timer) clearInterval(runtime.timer);
+	await runtime.writeInFlight;
 	await fs.rm(runtime.file, { force: true }).catch(() => undefined);
 }
 

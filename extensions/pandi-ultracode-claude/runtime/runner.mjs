@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import * as fs from "node:fs/promises";
 import { createRequire } from "node:module";
 import * as path from "node:path";
@@ -12,7 +12,14 @@ import { transformWorkflowCode } from "./transform.mjs";
 
 const require = createRequire(import.meta.url);
 const MAX_COLLECTION = 4096;
+const DEFAULT_CONCURRENCY = 4;
+const MAX_CONCURRENCY = 16;
+const DEFAULT_MAX_AGENTS = 32;
+const MAX_AGENTS = 1_000;
+const DEFAULT_MAX_WORKFLOW_DEPTH = 1;
+const MAX_WORKFLOW_DEPTH = 32;
 const DEFAULT_TIMEOUT_MS = 120_000;
+const MAX_AGENT_TIMEOUT_MS = 60 * 60_000;
 
 function slug(value) {
 	return (
@@ -23,6 +30,38 @@ function slug(value) {
 			.replace(/^[-/]+|[-/]+$/g, "")
 			.slice(0, 80) || "workflow"
 	);
+}
+
+function normalizeInteger(value, fallback, minimum, maximum) {
+	if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
+	return Math.min(Math.max(Math.floor(value), minimum), maximum);
+}
+
+export function normalizeRunLimits(rawOptions = {}) {
+	return {
+		concurrency: normalizeInteger(rawOptions.concurrency, DEFAULT_CONCURRENCY, 1, MAX_CONCURRENCY),
+		maxAgents: normalizeInteger(rawOptions.maxAgents, DEFAULT_MAX_AGENTS, 1, MAX_AGENTS),
+		maxWorkflowDepth: normalizeInteger(
+			rawOptions.maxWorkflowDepth,
+			DEFAULT_MAX_WORKFLOW_DEPTH,
+			0,
+			MAX_WORKFLOW_DEPTH,
+		),
+		agentTimeoutMs: normalizeInteger(rawOptions.agentTimeoutMs, DEFAULT_TIMEOUT_MS, 1, MAX_AGENT_TIMEOUT_MS),
+	};
+}
+
+async function createDefaultRunDir(root, name) {
+	await fs.mkdir(root, { recursive: true });
+	for (;;) {
+		const runDir = path.join(root, `${new Date().toISOString().replace(/[:.]/g, "-")}-${slug(name)}-${randomUUID()}`);
+		try {
+			await fs.mkdir(runDir);
+			return runDir;
+		} catch (error) {
+			if (error?.code !== "EEXIST") throw error;
+		}
+	}
 }
 
 function stable(value) {
@@ -53,6 +92,24 @@ function inside(root, candidate) {
 
 async function writeJson(file, value) {
 	await fs.writeFile(file, `${JSON.stringify(value, null, "\t")}\n`, "utf8");
+}
+
+function makeSerializedJournalWriter(file, journal) {
+	let pending = Promise.resolve();
+	return (key, entry) => {
+		const write = pending.then(async () => {
+			journal.calls[key] = entry;
+			const temporary = `${file}.${process.pid}.${randomUUID()}.tmp`;
+			try {
+				await fs.writeFile(temporary, `${JSON.stringify(journal, null, "\t")}\n`, "utf8");
+				await fs.rename(temporary, file);
+			} finally {
+				await fs.rm(temporary, { force: true });
+			}
+		});
+		pending = write.catch(() => {});
+		return write;
+	};
 }
 
 async function readJson(file, fallback) {
@@ -191,7 +248,9 @@ async function listFilesRecursive(directory, relative = "", output = []) {
 async function executeWorkflow({ state, source, sourcePath, input, depth }) {
 	const api = makeApi({ state, depth, sourcePath });
 	const module = { exports: {} };
-	const sandbox = vm.createContext({
+	// node:vm aporta un contexto de evaluación, no una frontera de seguridad.
+	// El workflow corre en el proceso host con estas capacidades y debe ser código confiable.
+	const context = vm.createContext({
 		module,
 		exports: module.exports,
 		args: JSON.stringify(input ?? {}),
@@ -209,7 +268,7 @@ async function executeWorkflow({ state, source, sourcePath, input, depth }) {
 		clearTimeout,
 	});
 	const script = new vm.Script(transformWorkflowCode(source), { filename: sourcePath, displayErrors: true });
-	script.runInContext(sandbox);
+	script.runInContext(context);
 	if (typeof module.exports !== "function") throw new Error(`Workflow ${sourcePath} did not export a function.`);
 	return await module.exports();
 }
@@ -317,8 +376,13 @@ function makeApi({ state, depth, sourcePath }) {
 			return null;
 		}
 		if (effective.cache !== false) {
-			state.journal.calls[key] = { ok: true, value: final.value, id, name, time: new Date().toISOString() };
-			await writeJson(path.join(runDir, "journal.json"), state.journal);
+			await state.writeJournal(key, {
+				ok: true,
+				value: final.value,
+				id,
+				name,
+				time: new Date().toISOString(),
+			});
 		}
 		await log(`agent ${id} completed: ${name}`, { sessionId: final.sessionId, key: key.slice(0, 12) });
 		return final.value;
@@ -495,14 +559,12 @@ function makeApi({ state, depth, sourcePath }) {
 /** Run a portable workflow locally while Claude CLI supplies each agent() worker. */
 export async function runWorkflow(rawOptions) {
 	const cwd = path.resolve(rawOptions.cwd ?? process.cwd());
+	const limits = normalizeRunLimits(rawOptions);
 	const options = {
 		cwd,
 		name: rawOptions.name,
 		input: rawOptions.input ?? {},
-		concurrency: Math.max(1, Number(rawOptions.concurrency ?? 4)),
-		maxAgents: Math.max(1, Number(rawOptions.maxAgents ?? 32)),
-		maxWorkflowDepth: Math.max(0, Number(rawOptions.maxWorkflowDepth ?? 1)),
-		agentTimeoutMs: Math.max(1, Number(rawOptions.agentTimeoutMs ?? DEFAULT_TIMEOUT_MS)),
+		...limits,
 		claudeCommand: rawOptions.claudeCommand ?? process.env.PANDI_CLAUDE_COMMAND ?? "claude",
 		claudeCommandArgs: rawOptions.claudeCommandArgs ?? [],
 		model: rawOptions.model,
@@ -511,19 +573,18 @@ export async function runWorkflow(rawOptions) {
 		env: { ...process.env, ...(rawOptions.env ?? {}) },
 	};
 	if (!options.trustWorkspace) {
-		throw new Error("Claude --print skips workspace trust; pass --trust-workspace to acknowledge this workspace.");
+		throw new Error(
+			"Ultracode workflows run as trusted code with host capabilities; pass --trust-workspace to acknowledge this workspace.",
+		);
 	}
 	const fresh = !rawOptions.resume;
 	const definition = fresh ? await resolveWorkflow(cwd, options.name) : undefined;
-	const defaultRunDir = path.join(
-		cwd,
-		".claude",
-		"ultracode",
-		"runs",
-		`${new Date().toISOString().replace(/[:.]/g, "-")}-${slug(options.name)}`,
-	);
-	const runDir = path.resolve(rawOptions.runDir ?? defaultRunDir);
-	if (!runDir.startsWith(path.join(cwd, ".claude", "ultracode", "runs") + path.sep)) {
+	const runsRoot = path.join(cwd, ".claude", "ultracode", "runs");
+	const runDir =
+		rawOptions.runDir === undefined
+			? await createDefaultRunDir(runsRoot, options.name)
+			: path.resolve(rawOptions.runDir);
+	if (!runDir.startsWith(runsRoot + path.sep)) {
 		throw new Error("Run directory must stay below .claude/ultracode/runs.");
 	}
 	await fs.mkdir(path.join(runDir, "agents"), { recursive: true });
@@ -547,6 +608,7 @@ export async function runWorkflow(rawOptions) {
 		cwd,
 		runDir,
 		journal,
+		writeJournal: makeSerializedJournalWriter(path.join(runDir, "journal.json"), journal),
 		agentId: Object.values(journal.calls).reduce((max, entry) => Math.max(max, Number(entry.id ?? 0)), 0),
 		launchedAgents: 0,
 		semaphore: makeSemaphore(options.concurrency),

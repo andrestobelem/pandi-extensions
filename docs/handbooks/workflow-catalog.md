@@ -59,7 +59,7 @@ flowchart TD
 | Workflow | Qué hace | Casos de uso | Usalo en lugar de su vecino cuando… |
 | --- | --- | --- | --- |
 | [`contract-gate`](../scaffolds/contract-gate.md) | Convierte un pedido vago en un contrato inspeccionable (tarea mejorada, criterios de éxito, supuestos, no-objetivos) y decide *preguntar ahora vs seguir con un supuesto registrado*. | Delimitar un ticket difuso; poner una compuerta antes de una corrida multi-agente costosa; reescribir un pedido crudo en una especificación limpia. | El problema es *qué deberíamos hacer*, no *si esta salida es segura* — para eso usá `guardrails`. |
-| [`guardrails`](../scaffolds/guardrails.md) | Tripwire barato de entrada/salida que **SE DETIENE** ante una violación clara; puede envolver cualquier workflow vía `protect:{name,args}`. | Compuerta de alcance/seguridad antes de un agente; chequeo de PII/secretos en una salida; envolver un workflow con tripwires. | Ya sabés la tarea y solo necesitás un límite duro (PII, secretos) aplicado alrededor de ella o de su salida. |
+| [`guardrails`](../scaffolds/guardrails.md) | Tripwire barato de entrada/salida que **se detiene** ante una violación clara; puede envolver cualquier workflow vía `protect:{name,args}`. | Compuerta de alcance/seguridad antes de un agente; chequeo de PII/secretos en una salida; envolver un workflow con tripwires. | Ya sabés la tarea y solo necesitás un límite duro (PII, secretos) aplicado alrededor de ella o de su salida. |
 
 ## 🧭 Route & orchestrate
 

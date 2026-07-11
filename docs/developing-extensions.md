@@ -129,9 +129,9 @@ tools/`!`-commands, no el ciclo de recarga.
   Aísla los tools built-in y `!` en una micro-VM; **no** aísla los subagentes de
   dynamic-workflows (spawnean `pi`/`codex` en el host).
 - **Contenedor / Docker:** para aislar el orquestador entero, correr todo `pi`
-  dentro de un contenedor (ver `docs/containerization.md` de pi upstream), o usar
-  la extensión `pandi-container` para correr comandos en micro-VMs de Apple
-  `container`.
+  dentro de un contenedor, o usar la extensión
+  [`pandi-container`](../extensions/pandi-container/README.md) para correr
+  comandos puntuales en micro-VMs de Apple `container`.
 
 No uses el eje 3 para resolver el eje 2: un edit roto no es un problema de
 seguridad de ejecución, es de cuándo recargás.
@@ -148,5 +148,5 @@ seguridad de ejecución, es de cuándo recargás.
 
 - [`README.md`](../README.md) — instalación / dogfooding (`pi install ./`, `/reload`).
 - Skill `init-pandi-extensions` — onboarding desde un clon fresco.
-- [`README.md#verification`](../README.md#verification) — cómo correr `npm test` (harness de tests, lint, typecheck).
+- [`README.md#verificación`](../README.md#verificación) — cómo correr `npm test` (harness de tests, lint, typecheck).
 - [`gondolin-isolation.md`](./gondolin-isolation.md) — aislamiento por micro-VM (eje 3).

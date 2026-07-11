@@ -11,7 +11,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = path.resolve(__dirname, "..", "..");
 const PLUGIN_ROOT = path.join(PACKAGE_ROOT, "cursor-plugin");
 
-test("Cursor plugin exposes an explicit /ultracode command with safe runner defaults", () => {
+test("Cursor plugin requires explicit trust without advertising mutating flags", () => {
 	const manifest = JSON.parse(fs.readFileSync(path.join(PLUGIN_ROOT, ".cursor-plugin", "plugin.json"), "utf8"));
 	const command = fs.readFileSync(path.join(PLUGIN_ROOT, "commands", "ultracode.md"), "utf8");
 	const skill = fs.readFileSync(path.join(PLUGIN_ROOT, "skills", "ultracode", "SKILL.md"), "utf8");
@@ -21,7 +21,8 @@ test("Cursor plugin exposes an explicit /ultracode command with safe runner defa
 	assert.match(command, /contract gate/i);
 	assert.match(command, /run cursor-ultracode/);
 	assert.match(command, /pandi-ultracode-cursor/);
-	assert.doesNotMatch(command, /--allow-agent-write|--allow-workflow-write|--allow-workflow-shell|--trust-workspace/);
+	assert.match(command, /--trust-workspace/);
+	assert.doesNotMatch(command, /--allow-agent-write|--allow-workflow-write|--allow-workflow-shell/);
 	assert.match(skill, /^name: ultracode$/m);
 	assert.match(skill, /disable-model-invocation: true/);
 });

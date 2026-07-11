@@ -13,7 +13,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "..");
 const SCRIPT = path.join(REPO, "extensions", "pandi-docs", "scripts", "markdown-to-html.mjs");
 
-const { renderMarkdownToHtml } = await import(pathToFileURL(SCRIPT).href);
+const { parseArgs, renderMarkdownToHtml } = await import(pathToFileURL(SCRIPT).href);
 
 function countMatches(text, regex) {
 	return text.match(regex)?.length ?? 0;
@@ -137,6 +137,17 @@ test("sanitizes raw executable HTML from Markdown input", () => {
 	assert.match(html, /<a>bad<\/a>/);
 });
 
+test("normalizes encoded URL protocols before accepting href and src", () => {
+	const html = renderMarkdownToHtml(
+		'# T\n\n<a href="&#x6a;avascript:alert(1)">hex</a>\n\n<img src="&#106;avascript:alert(2)">\n\n<a href="https://safe.example/path?q=1">safe</a>\n\n<img src="./safe.png">\n',
+		{},
+	);
+	assert.match(html, /<a>hex<\/a>/);
+	assert.match(html, /<img>/);
+	assert.match(html, /<a href="https:\/\/safe\.example\/path\?q=1">safe<\/a>/);
+	assert.match(html, /<img src="\.\/safe\.png">/);
+});
+
 test("code fences are syntax-highlighted at render time with the pandi palette", () => {
 	const html = renderMarkdownToHtml(
 		"# T\n\n```js\nexport default async function main() {\n\tconst ok = true;\n}\n```\n",
@@ -205,6 +216,23 @@ test("CLI converts a .md file to a sibling .html", () => {
 		assert.match(html, /Body here\./);
 	} finally {
 		fs.rmSync(dir, { recursive: true, force: true });
+	}
+});
+
+test("CLI rejects consuming flags without a value or with another flag as their value", () => {
+	for (const flag of ["-o", "--out", "--kicker", "--tokens", "--css"]) {
+		assert.throws(
+			() => parseArgs(["input.md", flag]),
+			new RegExp(`${flag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}.*valor`, "i"),
+		);
+		assert.throws(
+			() => parseArgs(["input.md", flag, "--help"]),
+			new RegExp(`${flag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}.*valor`, "i"),
+		);
+		assert.throws(
+			() => parseArgs(["input.md", flag, ""]),
+			new RegExp(`${flag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}.*valor`, "i"),
+		);
 	}
 });
 

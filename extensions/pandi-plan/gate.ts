@@ -241,7 +241,7 @@ function isMutatingSegment(segment: string): boolean {
 
 /**
  * ¿Este comando bash debe tratarse como mutante para el gate de `/plan`?
- * Es una heurística allowlist best-effort, no un parser shell completo; el contrato exacto está caracterizado
+ * Es una clasificación heurística best-effort, no un parser shell completo; el contrato exacto está caracterizado
  * en `tests/integration/plan-gate-helpers.test.mjs`.
  */
 export function isMutatingBash(command: string): boolean {
@@ -264,15 +264,26 @@ export const DYNAMIC_WORKFLOW_READONLY_ACTIONS = new Set([
 ]);
 
 const ALWAYS_BLOCKED_BUILTIN_TOOLS = new Set(["write", "edit", "notebook-edit"]);
-const READONLY_BUILTIN_TOOLS = new Set(["read", "grep", "find", "ls"]);
+const READONLY_TOOLS = new Set([
+	"read",
+	"grep",
+	"rg",
+	"glob",
+	"find",
+	"ls",
+	"web_search",
+	"ask_choice",
+	"ask_confirm",
+	"submit_plan",
+	"enter_plan_mode",
+]);
 
 export function blockedReason(event: ToolCallEvent): string | undefined {
 	const name = event.toolName;
-	if (name === "submit_plan" || name === "enter_plan_mode") return undefined;
 	if (ALWAYS_BLOCKED_BUILTIN_TOOLS.has(name)) {
 		return `el modo plan es de SOLO LECTURA: la tool "${name}" está bloqueada mientras planificás. Presentá tu plan vía submit_plan; podés editar después de que el usuario apruebe.`;
 	}
-	if (READONLY_BUILTIN_TOOLS.has(name)) return undefined;
+	if (READONLY_TOOLS.has(name)) return undefined;
 	if (name === "bash") {
 		const command = (event.input as { command?: unknown }).command;
 		if (typeof command === "string" && isMutatingBash(command)) {
@@ -285,5 +296,5 @@ export function blockedReason(event: ToolCallEvent): string | undefined {
 		if (typeof action === "string" && DYNAMIC_WORKFLOW_READONLY_ACTIONS.has(action)) return undefined;
 		return `el modo plan es de SOLO LECTURA: dynamic_workflow "${String(action)}" puede escribir archivos o lanzar subagentes mutantes y está bloqueado mientras planificás. Usá solo acciones de solo lectura (list/scaffold/read/check/graph/runs/view), o submit_plan cuando tu plan esté listo.`;
 	}
-	return undefined;
+	return `el modo plan es de SOLO LECTURA: la tool desconocida "${name}" no está en la allowlist explícita de solo lectura y queda bloqueada mientras planificás. Usá una tool de investigación permitida, o submit_plan cuando tu plan esté listo.`;
 }

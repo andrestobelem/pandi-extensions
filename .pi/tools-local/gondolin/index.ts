@@ -372,11 +372,28 @@ export default function (pi: ExtensionAPI) {
 	const localFind = createFindTool(localCwd);
 	const localLs = createLsTool(localCwd);
 
-	let vm: VM | undefined;
-	let vmStarting: Promise<VM> | undefined;
-	let shellPath = "/bin/sh";
+	class VmStartCancelledError extends Error {
+		constructor() {
+			super("Gondolin VM start cancelled by session shutdown");
+			this.name = "VmStartCancelledError";
+		}
+	}
 
-	async function startVm(ctx?: ExtensionContext): Promise<VM> {
+	let vm: VM | undefined;
+	let vmGeneration = 0;
+	let vmStarting: { generation: number; promise: Promise<VM> } | undefined;
+	let shellPath = "/bin/sh";
+	const vmClosures = new WeakMap<VM, Promise<void>>();
+
+	function closeVmOnce(vmToClose: VM): Promise<void> {
+		const existingClosure = vmClosures.get(vmToClose);
+		if (existingClosure) return existingClosure;
+		const closure = Promise.resolve().then(() => vmToClose.close());
+		vmClosures.set(vmToClose, closure);
+		return closure;
+	}
+
+	async function startVm(generation: number, ctx?: ExtensionContext): Promise<VM> {
 		ctx?.ui.setStatus("gondolin", ctx.ui.theme.fg("accent", `Gondolin: starting ${GUEST_WORKSPACE}`));
 		const created = await VM.create({
 			sessionLabel: `pi ${path.basename(localCwd)}`,
@@ -386,25 +403,38 @@ export default function (pi: ExtensionAPI) {
 				},
 			},
 		});
-		const bashProbe = await created.exec(["/bin/sh", "-lc", "command -v bash || true"]);
-		shellPath = bashProbe.stdout.trim() || "/bin/sh";
-		vm = created;
-		ctx?.ui.setStatus(
-			"gondolin",
-			ctx.ui.theme.fg("accent", `Gondolin: ${created.id.slice(0, 8)} (${GUEST_WORKSPACE})`),
-		);
-		ctx?.ui.notify(`Gondolin VM ready. ${localCwd} is mounted at ${GUEST_WORKSPACE}.`, "info");
-		return created;
+		try {
+			if (generation !== vmGeneration) throw new VmStartCancelledError();
+			const bashProbe = await created.exec(["/bin/sh", "-lc", "command -v bash || true"]);
+			if (generation !== vmGeneration) throw new VmStartCancelledError();
+			shellPath = bashProbe.stdout.trim() || "/bin/sh";
+			vm = created;
+			ctx?.ui.setStatus(
+				"gondolin",
+				ctx.ui.theme.fg("accent", `Gondolin: ${created.id.slice(0, 8)} (${GUEST_WORKSPACE})`),
+			);
+			ctx?.ui.notify(`Gondolin VM ready. ${localCwd} is mounted at ${GUEST_WORKSPACE}.`, "info");
+			return created;
+		} catch (error) {
+			if (generation !== vmGeneration) {
+				await closeVmOnce(created);
+				throw error instanceof VmStartCancelledError ? error : new VmStartCancelledError();
+			}
+			throw error;
+		}
 	}
 
 	async function ensureVm(ctx?: ExtensionContext): Promise<VM> {
 		if (vm) return vm;
-		if (!vmStarting) {
-			vmStarting = startVm(ctx).finally(() => {
-				vmStarting = undefined;
-			});
-		}
-		return vmStarting;
+		const currentStart = vmStarting;
+		if (currentStart?.generation === vmGeneration) return currentStart.promise;
+
+		const generation = vmGeneration;
+		const promise = startVm(generation, ctx).finally(() => {
+			if (vmStarting?.generation === generation) vmStarting = undefined;
+		});
+		vmStarting = { generation, promise };
+		return promise;
 	}
 
 	pi.on("session_start", async (_event, ctx) => {
@@ -413,12 +443,26 @@ export default function (pi: ExtensionAPI) {
 
 	pi.on("session_shutdown", async (_event, ctx) => {
 		const activeVm = vm;
+		const pendingStart = vmStarting;
+		vmGeneration++;
 		vm = undefined;
-		vmStarting = undefined;
-		if (!activeVm) return;
+		if (vmStarting === pendingStart) vmStarting = undefined;
+		if (!activeVm && !pendingStart) return;
 		ctx.ui.setStatus("gondolin", ctx.ui.theme.fg("muted", "Gondolin: stopping"));
 		try {
-			await activeVm.close();
+			const closures: Promise<unknown>[] = [];
+			if (activeVm) closures.push(closeVmOnce(activeVm));
+			if (pendingStart) {
+				closures.push(
+					pendingStart.promise.then(
+						(startedVm) => closeVmOnce(startedVm),
+						(error) => {
+							if (!(error instanceof VmStartCancelledError)) throw error;
+						},
+					),
+				);
+			}
+			await Promise.all(closures);
 		} finally {
 			ctx.ui.setStatus("gondolin", undefined);
 		}

@@ -1,7 +1,7 @@
 /**
  * Código fuente del Worker de ejecución de dynamic-workflows, mantenido tal cual como
  * literal template String.raw. Se instancia con `new Worker(source, { eval: true })`
- * en index.ts, ejecutándose en un contexto worker CommonJS fresco (sus llamadas
+ * en worker-bridge.ts, ejecutándose en un contexto worker CommonJS fresco (sus llamadas
  * `require("node:worker_threads")` / `require("node:vm")` son válidas ahí, NO importes
  * ESM en este módulo). BYTE-SENSITIVE: el worker agrupa/ejecuta este texto exacto; no
  * reformatees, re-indentess, ni "acomodess" el contenido.

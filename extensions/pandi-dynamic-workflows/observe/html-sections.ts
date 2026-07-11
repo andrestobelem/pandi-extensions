@@ -43,8 +43,6 @@ export function renderAgent(agent: RunReportAgent): string {
 	if (m?.costTotal !== undefined) meta.push(`cost ${m.costTotal}`);
 	if (m?.totalTokens !== undefined) meta.push(`tokens ${m.totalTokens}`);
 	if (m?.toolCalls !== undefined) meta.push(`tools ${m.toolCalls}${m.toolErrors ? ` (${m.toolErrors} err)` : ""}`);
-	if (agent.outputEmpty) meta.push("empty-output");
-	if (agent.outputTruncated) meta.push("output:truncated");
 	if (agent.stdoutTruncated) meta.push("stdout:truncated");
 
 	const links: string[] = [];

@@ -31,89 +31,39 @@
  */
 
 import * as fs from "node:fs/promises";
-import * as path from "node:path";
-import { fileURLToPath } from "node:url";
-import { buildExtension, createChecker, loadDefault, sdkStub } from "../../../shared/test/harness.mjs";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
+import { createChecker } from "../../../shared/test/harness.mjs";
+import {
+	buildGoal,
+	goalStateEntry as entry,
+	fireAgentEnd as fireAgentEndHook,
+	fireSessionShutdown,
+	fireSessionStart,
+	flushWithTimer as flush,
+	lastGoalSnapshotFor as lastSnapFor,
+	lastGoalStatusFor as lastStatusFor,
+	makeGoalTestEnv as makeEnv,
+	registerGoalExtension as register,
+	runGoalCommand,
+	runGoalProgress,
+	makeGoalSnapshot as snap,
+} from "./goal-test-support.mjs";
 
 const { check, counts } = createChecker();
 
-async function buildGoal() {
-	return await buildExtension({
-		name: "pi-goal-index-coverage-integration",
-		src: path.join(REPO_ROOT, "extensions", "pandi-goal", "index.ts"),
-		outName: "goal.mjs",
-		stubs: { typebox: true, sdk: (dir) => sdkStub(dir) },
-	});
+async function fireStart(built, env) {
+	await fireSessionStart(built, env.event, env.ctx);
 }
-
-// Ceder a AMBAS fases, timer (setTimeout) y check (setImmediate), para que asienten
-// las cadenas async fire-and-forget (el verifier independiente) y el tick de puesta al día.
-async function flush(predicate, tries = 100) {
-	for (let i = 0; i < tries; i++) {
-		await new Promise((r) => setTimeout(r, 0));
-		await new Promise((r) => setImmediate(r));
-		if (predicate?.()) return;
-	}
+async function fireAgentEnd(built, env) {
+	await fireAgentEndHook(built, env.ctx);
 }
-
-// Mock de pi: captura snapshots persistidos, mensajes reinyectados y subprocesos del verifier.
-function makePi(execImpl) {
-	const tools = new Map();
-	const commands = new Map();
-	const handlers = new Map();
-	const states = [];
-	const execCalls = [];
-	const messages = [];
-	const pi = {
-		registerTool: (def) => tools.set(def.name, def),
-		registerCommand: (name, opts) => commands.set(name, opts),
-		on: (event, handler) => {
-			if (!handlers.has(event)) handlers.set(event, []);
-			handlers.get(event).push(handler);
-		},
-		appendEntry: (customType, data) => {
-			if (customType === "goal-state") states.push(data);
-		},
-		sendUserMessage: (prompt, opts) => messages.push({ prompt, opts }),
-		exec: async (cmd, args, opts) => {
-			execCalls.push({ cmd, args, opts });
-			return execImpl ? execImpl(cmd, args, opts) : { code: 0, killed: false, stdout: "", stderr: "" };
-		},
-	};
-	return { pi, tools, commands, handlers, states, execCalls, messages };
+async function fireShutdown(built, env) {
+	await fireSessionShutdown(built, env.ctx);
 }
-
-function entry(snap) {
-	return { type: "custom", customType: "goal-state", data: snap };
+async function runCommand(built, args, env) {
+	await runGoalCommand(built, args, env.ctx);
 }
-
-let _gid = 0;
-function snap(overrides = {}) {
-	const goalId = overrides.goalId ?? `g${(_gid++).toString(16).padStart(4, "0")}`;
-	return {
-		goalId,
-		objective: "ship the feature",
-		successCriteria: "the tests pass",
-		derivedCriteria: undefined,
-		iteration: 1,
-		maxIterations: 20,
-		contextPercentCap: 80,
-		assessments: [],
-		verifyAttempts: 0,
-		independentVerifyAttempts: 0,
-		maxIndependentVerifications: 2,
-		verifierTimeoutMs: 120000,
-		verifierTools: ["read", "grep", "find", "ls", "bash"],
-		gstatus: "pursuing",
-		startedAt: new Date().toISOString(),
-		nextFireAt: Date.now() + 1000,
-		lastReason: "persisted snapshot",
-		updatedAt: new Date().toISOString(),
-		...overrides,
-	};
+async function runProgress(built, params, env) {
+	return await runGoalProgress(built, params, env.ctx);
 }
 
 function selectExactGoalChoice(goal) {
@@ -129,63 +79,6 @@ function selectExactGoalChoice(goal) {
 	};
 }
 
-function makeEnv(entries = [], opts = {}) {
-	const { mode = "tui", reason = "startup", selectImpl } = opts;
-	const notifies = [];
-	const event = { reason };
-	const ctx = {
-		mode,
-		hasUI: true,
-		cwd: REPO_ROOT,
-		isIdle: () => true,
-		isProjectTrusted: () => false,
-		getContextUsage: () => undefined,
-		ui: {
-			theme: { fg: (_c, s) => s },
-			notify: (message, type) => notifies.push({ message, type }),
-			setStatus: () => {},
-			confirm: async () => true,
-			select: async (q, items) => (selectImpl ? selectImpl(q, items) : undefined),
-		},
-		sessionManager: { getEntries: () => entries },
-	};
-	return { event, ctx, notifies };
-}
-
-async function register(goalUrl, execImpl) {
-	const goalExtension = await loadDefault(goalUrl);
-	const built = makePi(execImpl);
-	goalExtension(built.pi);
-	return built;
-}
-
-async function fireStart(built, env) {
-	for (const h of built.handlers.get("session_start") ?? []) await h(env.event, env.ctx);
-}
-async function fireAgentEnd(built, env) {
-	for (const h of built.handlers.get("agent_end") ?? []) await h({}, env.ctx);
-}
-async function fireShutdown(built, env) {
-	for (const h of built.handlers.get("session_shutdown") ?? []) await h({}, env.ctx);
-}
-async function runCommand(built, args, env) {
-	const cmd = built.commands.get("goal");
-	if (!cmd) throw new Error("goal command not registered");
-	await cmd.handler(args, env.ctx);
-}
-async function runProgress(built, params, env) {
-	const tool = built.tools.get("goal_progress");
-	if (!tool) throw new Error("goal_progress tool not registered");
-	return await tool.execute("tc", params, undefined, undefined, env.ctx);
-}
-
-function lastSnapFor(states, goalId) {
-	for (let i = states.length - 1; i >= 0; i--) if (states[i].goalId === goalId) return states[i];
-	return undefined;
-}
-function lastStatusFor(states, goalId) {
-	return lastSnapFor(states, goalId)?.gstatus;
-}
 function warned(notifies, re) {
 	return notifies.some((n) => n.type === "warning" && re.test(n.message));
 }
@@ -566,7 +459,7 @@ async function stoppedGoalRemovedFromActiveMap(goalUrl) {
 
 // ===========================================================================
 async function main() {
-	const { outDir, url } = await buildGoal();
+	const { outDir, url } = await buildGoal({ name: "pi-goal-index-coverage-integration" });
 	try {
 		await stopsAtMaxIterations(url);
 		await agentEndReArmsStrandedPursuing(url);

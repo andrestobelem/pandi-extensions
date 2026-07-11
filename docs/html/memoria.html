@@ -185,9 +185,9 @@ Consultalo antes de empezar una tarea no trivial o cuando necesites retomar cont
 <h2 id="convenciones-del-proyecto">Convenciones del proyecto</h2>
 <ul>
 <li><code>docs/README.md</code>: índice general.</li>
-<li><code>docs/workflows/</code>: documentación de workflows y ejecuciones.</li>
-<li><code>docs/conversaciones/</code>: resumen de conversaciones y decisiones.</li>
-<li><code>.pi/workflows/</code>: workflows locales/proyecto para automatizar revisiones o investigación.</li>
+<li><code>docs/dynamic-workflows.md</code> + <code>docs/scaffolds/</code>: referencia de workflows y patrones.</li>
+<li><code>docs/research/</code> + <code>docs/handbooks/</code>: investigación, decisiones y guías operativas.</li>
+<li><code>.pi/workflows/</code>: workflows locales/proyecto; los borradores viven en <code>.pi/workflows/drafts/</code>.</li>
 </ul>
 <h2 id="preferencias-actuales">Preferencias actuales</h2>
 <ul>
@@ -199,7 +199,7 @@ Consultalo antes de empezar una tarea no trivial o cuando necesites retomar cont
 <li>Los workflows en background deben despertar al agente al completar o fallar, enviando un follow-up automático para inspeccionar artifacts y continuar.</li>
 <li>Compaction: se volvió al comportamiento original de Pi. <code>.pi/settings.json</code> no define <code>compaction</code>, por lo que Pi usa sus defaults (<code>reserveTokens: 16384</code>, <code>keepRecentTokens: 20000</code>) salvo configuración global externa.</li>
 <li>Prompts de workflows: usar contratos explícitos basados en patrones agénticos—fan-out independiente, evidencia obligatoria, formato fijo, synthesis-as-judge, crítica adversarial, fallas parciales visibles y seguridad por defecto.</li>
-<li>Workflows dinámicos y task-specific: para cada tarea compleja se escribe un workflow nuevo (usando ejemplos solo como referencia), idealmente bajo <code>generated/&lt;task-slug&gt;</code> como borrador.<ul>
+<li>Workflows dinámicos y task-specific: para cada tarea compleja se escribe un workflow nuevo (usando ejemplos solo como referencia), idealmente bajo <code>.pi/workflows/drafts/&lt;slug&gt;.js</code>.<ul>
 <li>Hacer scout de la tarea y medir la work-list.</li>
 <li>Elegir concurrencia/fan-out según tamaño, coste, riesgo y profundidad; no hardcodear <code>4</code> salvo como fallback seguro.</li>
 <li>Si al usuario le gustó, ofrecer guardarlo/promoverlo a un nombre estable y reusable.</li>
@@ -215,13 +215,13 @@ Consultalo antes de empezar una tarea no trivial o cuando necesites retomar cont
 <li>Se agregó <code>npm test</code> como typecheck de las extensiones publicadas (<code>dynamic-workflows</code>, <code>loop</code>, <code>goal</code>) y pasó localmente.</li>
 <li>Se smokeó <code>dynamic_workflow</code> creando un workflow generado de prueba; <code>action=run</code> completó con <code>parallel</code> (incluyendo rama fallida → <code>null</code>), <code>pipeline</code>, <code>bash</code> y artifact <code>smoke-result.json</code>.</li>
 <li>Se smokeó <code>action=start</code> en sesión persistente/RPC para el mismo workflow; el run background completó y <code>action=view</code> mostró <code>Background: yes</code>, timeline y artifacts.</li>
-<li>Se actualizó <code>extensions/dynamic-workflows.ts</code> para que en sesiones TUI/RPC los workflows lanzados con <code>run</code>, <code>start</code> o <code>resume</code> vayan siempre en background; <code>run</code> foreground queda solo como fallback print/json.</li>
+<li>Se actualizó <code>extensions/pandi-dynamic-workflows/</code> para que en sesiones TUI/RPC los workflows lanzados con <code>run</code>, <code>start</code> o <code>resume</code> vayan siempre en background; <code>run</code> foreground queda solo como fallback print/json.</li>
 <li>Se recuperó <code>.pi/workflows/karpathy-programming-recommendations-research.js</code> desde git y se integró la síntesis en <code>docs/research/2026-06-25-karpathy-programming-recommendations.md</code>.</li>
 </ul>
 <h2 id="registro-2026-06-26">Registro 2026-06-26</h2>
 <ul>
 <li>Se implementó <code>/bg</code> M2a como runner local slash-only: <code>/bg start</code>, <code>/bg cancel</code>, <code>/bg list</code>, <code>/bg status</code>, <code>/bg logs</code>, con start solo en proyectos trusted/TUI-RPC, bloqueo en <code>/plan</code>, artifacts atómicos bajo <code>.pi/bg/runs/&lt;jobId&gt;/</code>, logs bounded y cancelación solo de jobs activos de la sesión.</li>
-<li>Se agregó <code>tests/bg/integration/bg-jobs.test.mjs</code> para start/completion/failure/cancel/stale/mode gates y se incluyó en <code>scripts/test/run-all.mjs</code>.</li>
+<li>Se agregó la suite hoy ubicada en <code>extensions/pandi-bg/tests/integration/</code> para start/completion/failure/cancel/stale/mode gates; el runner la descubre desde <code>scripts/test/run-all.mjs</code>.</li>
 <li>La auditoría <code>generated/bg-m2a-final-audit</code> completó con síntesis ruidosa; se tomaron los findings de reviewers como accionables y se corrigieron symlink roots, race fast-exit→running, preservación de whitespace en comandos, cancelación Windows vía <code>taskkill</code>, y determinismo de tests de integración con <code>esbuild</code> devDependency. <code>npm test</code> quedó verde.</li>
 <li>Se mantienen diferidos para planes separados: runner Supacode, tool LLM <code>background_job</code>, daemon/rehydrate automático, prune/delete y dashboard <code>/bg</code>.</li>
 </ul>

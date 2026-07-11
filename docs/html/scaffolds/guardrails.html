@@ -169,7 +169,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	</ol>
 </nav>
 <blockquote>
-<p>Tripwire barato de input/output que HALTA ante una violación clara; puede envolver cualquier workflow vía <code>protect:{name,args}</code>.</p>
+<p>Tripwire barato de input/output que se detiene ante una violación clara; puede envolver cualquier workflow vía <code>protect:{name,args}</code>.</p>
 </blockquote>
 <h2 id="en-30-segundos">En 30 segundos</h2>
 <p><code>guardrails</code> pone un tripwire barato alrededor de un workflow o de un artifact ya generado. Cada regla se evalúa con un agente chico y acotado; si una regla viola algo con evidencia clara, el flujo se detiene ahí mismo. Elegilo cuando querés imponer límites duros sin pagar el costo de correr todo el trabajo antes de descubrir el problema.</p>
@@ -348,9 +348,9 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <p>No se observan llamadas a <code>writeArtifact</code>: toda la observabilidad pasa por <code>log(...)</code> (guards fallidos/trippeados, tripwires disparados, errores del workflow protegido) y por el shape de retorno.</p>
 <h2 id="fases">Fases</h2>
 <ol>
-<li><strong>Input</strong> — (solo modo wrapper) corre los guards sobre la solicitud/<code>protect.args</code>; si alguno trippea, HALTA sin ejecutar el workflow protegido.</li>
+<li><strong>Input</strong> — (solo modo wrapper) corre los guards sobre la solicitud/<code>protect.args</code>; si alguno trippea, se detiene sin ejecutar el workflow protegido.</li>
 <li><strong>Run</strong> — (solo modo wrapper) ejecuta <code>workflow(protect.name, protect.args)</code> bajo <code>try/catch</code>, tratando <code>null</code>/excepción como error explícito.</li>
-<li><strong>Output</strong> — corre los guards sobre el resultado (wrapper) o sobre <code>content</code> (validador); si alguno trippea, HALTA devolviendo el resultado marcado como no confiable.</li>
+<li><strong>Output</strong> — corre los guards sobre el resultado (wrapper) o sobre <code>content</code> (validador); si alguno trippea, se detiene devolviendo el resultado marcado como no confiable.</li>
 </ol>
 	</main>
 	<footer>Generado con el skill pandi-artifact-style · paleta: panda-syntax dark/light</footer>

@@ -18,7 +18,7 @@
 		"key": "guardrails",
 		"title": "Guardrails (tripwire)",
 		"category": "compose",
-		"blurb": "Tripwire barato de input/output que HALTS ante una violación clara; puede envolver cualquier workflow vía protect:{name,args}.",
+		"blurb": "Tripwire barato de input/output que se detiene ante una violación clara; puede envolver cualquier workflow vía protect:{name,args}.",
 		"useWhen": "Necesitás aplicar límites duros de forma barata alrededor de una corrida, o validar un artifact.",
 		"inputHint": "{ \"outputRules\": [\"no secrets in output\"], \"content\": \"...\" }",
 		"primitives": ["agent(schema)", "workflow", "fail-closed"],

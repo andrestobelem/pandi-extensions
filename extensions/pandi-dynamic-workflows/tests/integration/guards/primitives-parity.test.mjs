@@ -76,6 +76,18 @@ async function main() {
 		check(`${name}.md has the required shape (# heading, **Runtime:**, ## Example)`, shapeOk, firstHeading);
 	}
 
+	// Smoke contractual barato: `agents` acepta AgentSpec[] + options, nunca un callback como tercer argumento.
+	const appendArtifactDoc = fs.readFileSync(path.join(PRIM_DIR, "appendArtifact.md"), "utf8");
+	const obsoleteAgentsSignature =
+		/agents\(\s*\[[\s\S]*?\]\s*,\s*[A-Za-z_$][\w$]*\s*,\s*\{/m.test(appendArtifactDoc) ||
+		/agents\(\s*[A-Za-z_$][\w$]*\s*,\s*[A-Za-z_$][\w$]*\s*,\s*\{/m.test(appendArtifactDoc);
+	check("appendArtifact.md never documents the obsolete three-argument agents signature", !obsoleteAgentsSignature);
+	check(
+		"appendArtifact.md example builds AgentSpec[] and calls agents(items, options)",
+		/\bconst\s+agentSpecs\s*=\s*items\.map\(/.test(appendArtifactDoc) &&
+			/\bagents\(\s*agentSpecs\s*,\s*\{/.test(appendArtifactDoc),
+	);
+
 	// Mirror del skill: copia byte-idéntica de toda la carpeta canónica (README.md incluido).
 	const mirrorExists = fs.existsSync(MIRROR_DIR) && fs.statSync(MIRROR_DIR).isDirectory();
 	check("skill mirror reference/primitives/ exists", mirrorExists, MIRROR_DIR);

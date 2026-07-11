@@ -50,7 +50,8 @@ export function parseCleanupArgs(afterAction: string): CleanupArgs {
 		else if (token === "--dry-run" || token === "-n") result.dryRun = true;
 		else if (token === "--yes" || token === "-y") result.yes = true;
 		else if (token.startsWith("--keep=")) {
-			const value = Number.parseInt(token.slice("--keep=".length), 10);
+			const raw = token.slice("--keep=".length);
+			const value = /^\d+$/.test(raw) ? Number.parseInt(raw, 10) : Number.NaN;
 			if (Number.isFinite(value)) result.keep = Math.max(0, value);
 		} else if (token.startsWith("--older-than=")) {
 			const value = parseCleanupDurationMs(token.slice("--older-than=".length));

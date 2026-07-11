@@ -7,10 +7,9 @@
  * `npm test` solo hace TYPECHECK; no prueba nada sobre comportamiento runtime. verifier.ts
  * posee tres contratos críticos que una regresión silenciosa podría romper sin ruido:
  *
- *   1. El parse CONSERVATIVE de parseVerdict: ancla en la última línea no vacía, y solo
- *      cuando esa línea no trae veredicto cae a un escaneo de todo el texto donde gana el
- *      ÚLTIMO match `VERDICT:`. Este fallback evita cerrar un goal con un judge malformado;
- *      fijar "last match wins" fija el contrato.
+ *   1. El parse CONSERVATIVE de parseVerdict: solo acepta una última línea no vacía que sea
+ *      exactamente `VERDICT: PASS` o `VERDICT: FAIL`. Cualquier PASS incidental, trailing
+ *      prose o salida sin veredicto final exacto queda como FAIL no parseado.
  *   2. La rama de criterios de makeIndependentVerifierPrompt: sin criterios (ni
  *      successCriteria ni derivedCriteria), el prompt debe decir "none were stated
  *      explicitly" y NO debe emitir un bloque de criterios definition-of-done.
@@ -30,103 +29,57 @@
  */
 
 import * as fs from "node:fs/promises";
-import * as path from "node:path";
-import { fileURLToPath } from "node:url";
-import { buildExtension, createChecker, loadModule, sdkStub } from "../../../shared/test/harness.mjs";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-// extensions/pandi-goal/tests/integration/ -> la raíz del repo está cuatro niveles arriba.
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
+import { createChecker, loadModule } from "../../../shared/test/harness.mjs";
+import { buildVerifier, makeExecPi, makeVerifierCtx, makeVerifierGoal } from "./goal-test-support.mjs";
 
 const { check, counts } = createChecker();
 
-// verifier.ts solo hace `import type` del SDK; sus imports runtime (constants.js, prompts.js,
-// types.js) son hojas puras sin deps de módulos externos, así que se empaqueta SIN stubs.
-async function buildVerifier() {
-	return await buildExtension({
-		name: "pi-goal-verifier-coverage",
-		src: path.join(REPO_ROOT, "extensions", "pandi-goal", "verifier.ts"),
-		outName: "verifier.mjs",
-		// verifier.ts trae constants.ts, que importa getPackageDir desde el SDK.
-		stubs: { sdk: (dir) => sdkStub(dir) },
-	});
-}
-
-// Un ActiveGoal mínimamente completo (solo los campos que lee el verifier).
-function makeGoal(overrides = {}) {
-	return {
-		goalId: "g0001",
-		objective: "ship the feature",
-		successCriteria: undefined,
-		derivedCriteria: undefined,
-		assessments: [],
-		verifierTimeoutMs: 120000,
-		verifierTools: ["read", "grep", "find", "ls"],
-		controller: new AbortController(),
-		...overrides,
-	};
-}
-
-// Mock de pi.exec: registra cada llamada ({cmd,args,opts}) y devuelve un resultado provisto por quien llama.
-function makePi(result) {
-	const calls = [];
-	const pi = {
-		exec: async (cmd, args, opts) => {
-			calls.push({ cmd, args, opts });
-			return typeof result === "function" ? result(cmd, args, opts) : result;
-		},
-	};
-	return { pi, calls };
-}
-
-function makeCtx(overrides = {}) {
-	return { cwd: "/tmp/verifier-cwd", ...overrides };
-}
-
 // El prompt siempre es el ÚLTIMO elemento de argv que agrega buildVerifierArgs.
-function capturedPrompt(calls) {
-	const args = calls[0].args;
+function capturedPrompt(execCalls) {
+	const args = execCalls[0].args;
 	return args[args.length - 1];
 }
 
 // ===========================================================================
-// BRECHA 1: fallback de parseVerdict con texto completo; la última línea no vacía NO tiene
-// veredicto, así que corre el escaneo de todo el texto y gana el ÚLTIMO match `VERDICT:`
-// (acá PASS, después de un FAIL anterior).
+// BRECHA 1: parseVerdict solo acepta un veredicto exacto en la última línea no vacía.
 // ===========================================================================
-async function fallbackLastMatchWins(mod) {
-	const stdout = "VERDICT: FAIL\nVERDICT: PASS\n(trailing prose with no verdict)";
-	const { pi } = makePi({ code: 0, killed: false, stdout, stderr: "" });
-	const verdict = await mod.runIndependentVerifier(pi, makeCtx(), makeGoal());
-	check(
-		"fallback scan: last non-empty line has no verdict → last whole-text match (PASS) wins",
-		verdict.pass === true,
-		`pass=${verdict.pass}`,
-	);
-	check(
-		"fallback PASS is a parsed verdict (unparsed=false)",
-		verdict.unparsed === false,
-		`unparsed=${verdict.unparsed}`,
-	);
+async function incidentalPassWithTrailingProseIsUnparsed(mod) {
+	const cases = [
+		["later prose line", "Criterion: PASS with evidence.\nVERDICT: PASS\nBut one more thought."],
+		["same-line prose", "Criterion: PASS with evidence.\nVERDICT: PASS because everything passed."],
+	];
+	for (const [label, stdout] of cases) {
+		const { pi } = makeExecPi({ code: 0, killed: false, stdout, stderr: "" });
+		const verdict = await mod.runIndependentVerifier(pi, makeVerifierCtx(), makeVerifierGoal());
+		check(`${label}: incidental PASS + trailing prose → conservative FAIL`, verdict.pass === false);
+		check(`${label}: incidental PASS + trailing prose → unparsed=true`, verdict.unparsed === true);
+	}
 }
 
-// Complemento: cuando la línea FINAL no vacía SÍ trae un veredicto, esa línea gana sobre
-// cualquier match previo (ancla primero en la última línea no vacía). También fija la ruta sin fallback.
-async function finalLineAnchorsVerdict(mod) {
+async function multipleVerdictsUseExactFinalLine(mod) {
 	const stdout = "VERDICT: PASS\nVERDICT: FAIL";
-	const { pi } = makePi({ code: 0, killed: false, stdout, stderr: "" });
-	const verdict = await mod.runIndependentVerifier(pi, makeCtx(), makeGoal());
+	const { pi } = makeExecPi({ code: 0, killed: false, stdout, stderr: "" });
+	const verdict = await mod.runIndependentVerifier(pi, makeVerifierCtx(), makeVerifierGoal());
 	check(
 		"final non-empty line carries the verdict (FAIL) and wins over earlier PASS",
 		verdict.pass === false,
 		`pass=${verdict.pass}`,
 	);
+	check("exact final FAIL is parsed", verdict.unparsed === false, `unparsed=${verdict.unparsed}`);
+}
+
+async function exactFinalVerdictIsValid(mod) {
+	const stdout = "Criterion: PASS with evidence.\n \tVERDICT: PASS \t\n\n";
+	const { pi } = makeExecPi({ code: 0, killed: false, stdout, stderr: "" });
+	const verdict = await mod.runIndependentVerifier(pi, makeVerifierCtx(), makeVerifierGoal());
+	check("exact final PASS with surrounding whitespace is valid", verdict.pass === true, `pass=${verdict.pass}`);
+	check("exact final PASS is parsed", verdict.unparsed === false, `unparsed=${verdict.unparsed}`);
 }
 
 // Complemento: sin veredicto parseable en ninguna parte → FAIL conservador marcado como unparsed.
 async function noVerdictIsConservativeFail(mod) {
-	const { pi } = makePi({ code: 0, killed: false, stdout: "the judge rambled but never voted", stderr: "" });
-	const verdict = await mod.runIndependentVerifier(pi, makeCtx(), makeGoal());
+	const { pi } = makeExecPi({ code: 0, killed: false, stdout: "the judge rambled but never voted", stderr: "" });
+	const verdict = await mod.runIndependentVerifier(pi, makeVerifierCtx(), makeVerifierGoal());
 	check("no parseable verdict → conservative FAIL", verdict.pass === false, `pass=${verdict.pass}`);
 	check("no parseable verdict → unparsed=true", verdict.unparsed === true, `unparsed=${verdict.unparsed}`);
 }
@@ -135,13 +88,13 @@ async function noVerdictIsConservativeFail(mod) {
 // BRECHA 2: rama de criterios de makeIndependentVerifierPrompt; no se indicaron criterios.
 // ===========================================================================
 async function promptNoCriteriaBranch(mod) {
-	const { pi, calls } = makePi({ code: 0, killed: false, stdout: "VERDICT: PASS", stderr: "" });
+	const { pi, execCalls } = makeExecPi({ code: 0, killed: false, stdout: "VERDICT: PASS", stderr: "" });
 	await mod.runIndependentVerifier(
 		pi,
-		makeCtx(),
-		makeGoal({ successCriteria: undefined, derivedCriteria: undefined }),
+		makeVerifierCtx(),
+		makeVerifierGoal({ successCriteria: undefined, derivedCriteria: undefined }),
 	);
-	const prompt = capturedPrompt(calls);
+	const prompt = capturedPrompt(execCalls);
 	check(
 		"no-criteria prompt contains 'no se indicaron explícitamente'",
 		prompt.includes("no se indicaron explícitamente"),
@@ -156,9 +109,9 @@ async function promptNoCriteriaBranch(mod) {
 
 // Complemento: criterios presentes → bloque definition-of-done con el texto de criterios; sin cláusula de inferencia.
 async function promptWithCriteriaBranch(mod) {
-	const { pi, calls } = makePi({ code: 0, killed: false, stdout: "VERDICT: PASS", stderr: "" });
-	await mod.runIndependentVerifier(pi, makeCtx(), makeGoal({ successCriteria: "the tests pass" }));
-	const prompt = capturedPrompt(calls);
+	const { pi, execCalls } = makeExecPi({ code: 0, killed: false, stdout: "VERDICT: PASS", stderr: "" });
+	await mod.runIndependentVerifier(pi, makeVerifierCtx(), makeVerifierGoal({ successCriteria: "the tests pass" }));
+	const prompt = capturedPrompt(execCalls);
 	check(
 		"with-criteria prompt contains the definition-of-done block",
 		prompt.includes("CRITERIOS DE ÉXITO (definición de terminado):"),
@@ -174,13 +127,13 @@ async function promptWithCriteriaBranch(mod) {
 
 // derivedCriteria se usa cuando successCriteria está ausente (fallback de effectiveCriteria).
 async function promptUsesDerivedCriteria(mod) {
-	const { pi, calls } = makePi({ code: 0, killed: false, stdout: "VERDICT: PASS", stderr: "" });
+	const { pi, execCalls } = makeExecPi({ code: 0, killed: false, stdout: "VERDICT: PASS", stderr: "" });
 	await mod.runIndependentVerifier(
 		pi,
-		makeCtx(),
-		makeGoal({ successCriteria: undefined, derivedCriteria: "lint is clean" }),
+		makeVerifierCtx(),
+		makeVerifierGoal({ successCriteria: undefined, derivedCriteria: "lint is clean" }),
 	);
-	const prompt = capturedPrompt(calls);
+	const prompt = capturedPrompt(execCalls);
 	check(
 		"derivedCriteria fills the definition-of-done when successCriteria is absent",
 		prompt.includes("CRITERIOS DE ÉXITO (definición de terminado):") && prompt.includes("lint is clean"),
@@ -192,12 +145,12 @@ async function promptUsesDerivedCriteria(mod) {
 // BRECHA 3: wiring de exec de runIndependentVerifier; cwd, timeout, signal.
 // ===========================================================================
 async function execWiring(mod) {
-	const goal = makeGoal({ verifierTimeoutMs: 4242 });
-	const ctx = makeCtx({ cwd: "/tmp/some-workspace" });
-	const { pi, calls } = makePi({ code: 0, killed: false, stdout: "VERDICT: PASS", stderr: "" });
+	const goal = makeVerifierGoal({ verifierTimeoutMs: 4242 });
+	const ctx = makeVerifierCtx({ cwd: "/tmp/some-workspace" });
+	const { pi, execCalls } = makeExecPi({ code: 0, killed: false, stdout: "VERDICT: PASS", stderr: "" });
 	await mod.runIndependentVerifier(pi, ctx, goal);
-	check("exec called exactly once", calls.length === 1, `calls=${calls.length}`);
-	const opts = calls[0].opts;
+	check("exec called exactly once", execCalls.length === 1, `calls=${execCalls.length}`);
+	const opts = execCalls[0].opts;
 	check("exec opts.timeout === goal.verifierTimeoutMs", opts.timeout === 4242, `timeout=${opts.timeout}`);
 	check("exec opts.cwd === ctx.cwd", opts.cwd === "/tmp/some-workspace", `cwd=${opts.cwd}`);
 	check(
@@ -206,7 +159,7 @@ async function execWiring(mod) {
 		"signal not threaded from controller",
 	);
 	// El argv garantiza una corrida de judge read-only y sin sesión.
-	const args = calls[0].args;
+	const args = execCalls[0].args;
 	check(
 		"argv requests a one-shot sessionless run (-p --no-session)",
 		args.includes("-p") && args.includes("--no-session"),
@@ -221,9 +174,9 @@ async function execWiring(mod) {
 
 // verifierTools vacío debe DESHABILITAR tools (--no-tools), nunca caer en un default mutante.
 async function emptyToolsDisablesTools(mod) {
-	const { pi, calls } = makePi({ code: 0, killed: false, stdout: "VERDICT: PASS", stderr: "" });
-	await mod.runIndependentVerifier(pi, makeCtx(), makeGoal({ verifierTools: [] }));
-	const args = calls[0].args;
+	const { pi, execCalls } = makeExecPi({ code: 0, killed: false, stdout: "VERDICT: PASS", stderr: "" });
+	await mod.runIndependentVerifier(pi, makeVerifierCtx(), makeVerifierGoal({ verifierTools: [] }));
+	const args = execCalls[0].args;
 	check(
 		"empty verifierTools → --no-tools (never a mutating default)",
 		args.includes("--no-tools") && !args.includes("--tools"),
@@ -235,16 +188,16 @@ async function emptyToolsDisablesTools(mod) {
 // Caracterización extra de modos de falla (barata, determinística).
 // ===========================================================================
 async function killedIsConservativeFail(mod) {
-	const { pi } = makePi({ code: 0, killed: true, stdout: "VERDICT: PASS", stderr: "" });
-	const verdict = await mod.runIndependentVerifier(pi, makeCtx(), makeGoal({ verifierTimeoutMs: 99 }));
+	const { pi } = makeExecPi({ code: 0, killed: true, stdout: "VERDICT: PASS", stderr: "" });
+	const verdict = await mod.runIndependentVerifier(pi, makeVerifierCtx(), makeVerifierGoal({ verifierTimeoutMs: 99 }));
 	check("killed (timeout) → FAIL even with a PASS line", verdict.pass === false, `pass=${verdict.pass}`);
 	check("killed → unparsed=true", verdict.unparsed === true, `unparsed=${verdict.unparsed}`);
 	check("killed feedback names the timeout budget", verdict.feedback.includes("99ms"), verdict.feedback);
 }
 
 async function nonZeroExitWithPassIsFail(mod) {
-	const { pi } = makePi({ code: 1, killed: false, stdout: "VERDICT: PASS", stderr: "" });
-	const verdict = await mod.runIndependentVerifier(pi, makeCtx(), makeGoal());
+	const { pi } = makeExecPi({ code: 1, killed: false, stdout: "VERDICT: PASS", stderr: "" });
+	const verdict = await mod.runIndependentVerifier(pi, makeVerifierCtx(), makeVerifierGoal());
 	check("non-zero exit + PASS line is contradictory → FAIL", verdict.pass === false, `pass=${verdict.pass}`);
 	check(
 		"non-zero-exit override is a parsed verdict (unparsed=false)",
@@ -254,10 +207,10 @@ async function nonZeroExitWithPassIsFail(mod) {
 }
 
 async function thrownExecIsConservativeFail(mod) {
-	const { pi } = makePi(() => {
+	const { pi } = makeExecPi(() => {
 		throw new Error("boom: spawn failed");
 	});
-	const verdict = await mod.runIndependentVerifier(pi, makeCtx(), makeGoal());
+	const verdict = await mod.runIndependentVerifier(pi, makeVerifierCtx(), makeVerifierGoal());
 	check("thrown exec → conservative FAIL", verdict.pass === false, `pass=${verdict.pass}`);
 	check("thrown exec → unparsed=true", verdict.unparsed === true, `unparsed=${verdict.unparsed}`);
 	check("thrown exec feedback names the error", verdict.feedback.includes("boom: spawn failed"), verdict.feedback);
@@ -271,8 +224,9 @@ async function main() {
 		if (typeof mod.runIndependentVerifier !== "function") {
 			throw new Error("runIndependentVerifier export missing");
 		}
-		await fallbackLastMatchWins(mod);
-		await finalLineAnchorsVerdict(mod);
+		await incidentalPassWithTrailingProseIsUnparsed(mod);
+		await multipleVerdictsUseExactFinalLine(mod);
+		await exactFinalVerdictIsValid(mod);
 		await noVerdictIsConservativeFail(mod);
 		await promptNoCriteriaBranch(mod);
 		await promptWithCriteriaBranch(mod);

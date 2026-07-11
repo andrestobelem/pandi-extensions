@@ -41,14 +41,14 @@ archivo. Emite un evento `artifact_append`.
 ## Example
 
 ```js
-async function reviewOne(item) {
-  const r = await agent(`Revisá ${item}`, { model: "sonnet" });
-  return { item, output: r.output };
+const items = ["a.ts", "b.ts", "c.ts"];
+const agentSpecs = items.map((item) => ({
+  prompt: `Revisá ${item} y devolvé el hallazgo principal.`,
+  model: "sonnet",
+}));
+const results = await agents(agentSpecs, { concurrency: 3, settle: true });
+for (const [i, r] of results.entries()) {
+  if (r) await appendArtifact("review.log", `${items[i]}: ${r.output}\n`);
 }
-
-const results = await agents(["a.ts", "b.ts", "c.ts"], reviewOne, { concurrency: 3, settle: true });
-for (const r of results) {
-  if (r) await appendArtifact("review.log", `${r.item}: ${r.output}\n`);
-}
-return { done: results.length };
+return { done: results.filter(Boolean).length };
 ```

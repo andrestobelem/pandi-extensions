@@ -16,9 +16,9 @@ function phaseOrder(phases, nodes) {
   return [...declared, ...fromNodes.filter((p) => !declared.includes(p))];
 }
 
-function phaseCards(phases, nodes) {
+function phaseCards(phases, nodes, previewLabel) {
   const ordered = phaseOrder(phases, nodes);
-  if (!ordered.length) return '<div class="prov" style="color:var(--muted)">Sin fases detectadas en el preview estático.</div>';
+  if (!ordered.length) return `<div class="prov" style="color:var(--muted)">Sin fases detectadas en el ${previewLabel}.</div>`;
   return ordered.map((phase) => {
     const ns = nodes.filter((n) => (n.phase || "—") === phase);
     const body = ns.length
@@ -28,8 +28,8 @@ function phaseCards(phases, nodes) {
   }).join("");
 }
 
-function agentCards(nodes) {
-  if (!nodes.length) return '<div class="prov" style="color:var(--muted)">Sin agentes detectados en el preview estático.</div>';
+function agentCards(nodes, previewLabel) {
+  if (!nodes.length) return `<div class="prov" style="color:var(--muted)">Sin agentes detectados en el ${previewLabel}.</div>`;
   return nodes.map((n) => {
     const skills = Array.isArray(n.skills) && n.skills.length ? n.skills.map((s) => `<span class="skill">${esc(s)}</span>`).join(" ") : '<span style="color:var(--muted)">inherited/ninguno declarado</span>';
     const prompt = String(n.prompt || "").trim();
@@ -61,15 +61,16 @@ function evidenceBlock({ schemas, warn }) {
   return `<div class="prov"><b>Evidencia esperada:</b> ${schemaLine} Los artifacts y el valor de retorno se completan en la pestaña Resultados después del run.</div>${warnLine}`;
 }
 
-export function renderWorkflowPlan({ meta = {}, phases = [], nodes = [], composes = [], scaffolds = [], provenance = null, args = "", schemas = {}, warn = null, source = "" } = {}) {
+export function renderWorkflowPlan({ meta = {}, phases = [], nodes = [], composes = [], scaffolds = [], provenance = null, args = "", schemas = {}, warn = null, source = "", previewMode = "parse-only" } = {}) {
   const name = meta.name || "workflow";
   const desc = meta.description || "Sin descripción declarada.";
+  const previewLabel = previewMode === "evaluated" ? "preview evaluado" : "preview estático";
   return [
     `<div class="prov"><b>Qué va a ejecutar:</b> <span class="tname">${esc(name)}</span><br>${esc(desc)}<br><b>Args:</b> ${esc(args)}</div>`,
     '<div class="subh">Fases</div>',
-    phaseCards(phases, nodes),
+    phaseCards(phases, nodes, previewLabel),
     '<div class="subh">Agentes y contratos</div>',
-    agentCards(nodes),
+    agentCards(nodes, previewLabel),
     '<div class="subh">Composición</div>',
     compositionBlock(composes),
     '<div class="subh">Procedencia</div>',

@@ -20,4 +20,4 @@ function contractMd(c){
   s+="## Bloqueos"+NL+(blockers.length?blockers.map(function(b){return "- **"+(b.question||"")+"**"+(b.rationale?" — "+b.rationale:"");}).join(NL):"_ninguno — se puede avanzar_")+NL;
   return s;
 }
-if(D.contract){var cEl=document.getElementById("contract");if(cEl)cEl.innerHTML=(window.marked&&marked.parse)?marked.parse(contractMd(D.contract),{breaks:true}):("<pre>"+esc(JSON.stringify(D.contract,null,2))+"</pre>");}
+if(D.contract){var cEl=document.getElementById("contract");if(cEl){var safeMd=escapeMarkdownHtml(contractMd(D.contract));var html=(window.marked&&marked.parse)?marked.parse(safeMd,{breaks:true}):("<pre>"+esc(JSON.stringify(D.contract,null,2))+"</pre>");cEl.innerHTML=sanitizeRenderedHtml(html);}}

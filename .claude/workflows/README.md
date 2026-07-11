@@ -274,7 +274,7 @@ Cada entrada incluye: **propósito** · **usar cuando** · **parámetros clave (
 - *Parámetros:* `request` (req) · `reviewers=3` · `improvePrompt=true` · `generate=false` · `maxQuestions=4→1..3`.
 - *Casos de uso:* acotar un ticket borroso; poner un gate antes de una corrida multiagente costosa.
 
-**`guardrails`** — tripwire barato de input/output que **HALTS** ante una violación clara.
+**`guardrails`** — tripwire barato de input/output que **se detiene** ante una violación clara.
 - *Usar cuando:* necesitás imponer límites duros con bajo costo alrededor de una corrida, o validar un artifact.
 - *Parámetros:* `inputRules[]` / `outputRules[]` (o `rules[]`) · `content` (modo validator) · `protect:{name,args}` (modo wrapper) · `strict=false` (fail-closed: si el guard crashea, cuenta como disparado).
 - *Ejemplo:*

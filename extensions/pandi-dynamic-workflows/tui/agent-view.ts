@@ -41,6 +41,13 @@ export function liveAgentHeaderStatus(state: string | undefined): string {
 	return isTerminalAgentState(state) ? `final (${state})` : "refresh 1s";
 }
 
+interface WorkflowGraphViewCache {
+	sourceKey: string;
+	recordedCodeHash: string | undefined;
+	graph: string;
+	content: string;
+}
+
 // La pestaña Definition: la fuente del workflow que ejecutó esta ejecución, como un bloque de código cercado,
 // con una advertencia de caché de reanudación cuando el archivo cambió desde la ejecución (igual verificación de hash que
 // hace la vista de ejecución).
@@ -72,30 +79,52 @@ async function formatWorkflowDefinition(run: WorkflowRunRecord): Promise<string>
 // La pestaña Graph: una representación Markdown/texto del mismo gráfico de workflow estático
 // usado por /workflow graph. Mantenlo como text+Mermaid dentro del visor Markdown con pestañas;
 // la acción de gráfico independiente posee el componente más rico capaz de PNG.
-async function formatWorkflowGraphView(ctx: ExtensionContext, run: WorkflowRunRecord): Promise<string> {
+async function formatWorkflowGraphView(
+	ctx: ExtensionContext,
+	run: WorkflowRunRecord,
+	cache: WorkflowGraphViewCache | undefined,
+): Promise<WorkflowGraphViewCache> {
 	const header = [`# Workflow graph: ${run.workflow}`, "", `Run: ${run.runId}`];
 	const { resolveWorkflowForRun } = await import("../surface/index.js");
 	const workflow = await resolveWorkflowForRun(ctx, run);
-	if (!workflow) return [...header, "", "Cannot open graph: workflow file not found."].join("\n");
-	let code: string;
-	try {
-		code = await fs.readFile(workflow.path, "utf8");
-	} catch (err) {
-		return [...header, "", `Cannot read workflow file: ${err instanceof Error ? err.message : String(err)}`].join(
-			"\n",
-		);
+	if (!workflow) {
+		const sourceKey = `missing:${run.file ?? run.workflow}`;
+		if (cache?.sourceKey === sourceKey && cache.recordedCodeHash === run.codeHash) return cache;
+		return {
+			sourceKey,
+			recordedCodeHash: run.codeHash,
+			graph: "",
+			content: [...header, "", "Cannot open graph: workflow file not found."].join("\n"),
+		};
 	}
-	const codeChanged = run.codeHash !== undefined && computeCodeHash(code) !== run.codeHash;
-	const { makeWorkflowGraphForContext } = await import("./graph/index.js");
-	return [
-		...header,
-		`File: ${workflow.path}`,
-		...(codeChanged
-			? ["", "⚠ Warning: this file changed since the run started, so the graph reflects the current workflow file."]
-			: []),
-		"",
-		await makeWorkflowGraphForContext(ctx, workflow, code),
-	].join("\n");
+	const code = await fs.readFile(workflow.path, "utf8");
+	const sourceHash = computeCodeHash(code);
+	const sourceKey = `${workflow.path}:${sourceHash}`;
+	if (cache?.sourceKey === sourceKey && cache.recordedCodeHash === run.codeHash) return cache;
+
+	let graph = cache?.sourceKey === sourceKey ? cache.graph : undefined;
+	if (graph === undefined) {
+		const { makeWorkflowGraphForContext } = await import("./graph/index.js");
+		graph = await makeWorkflowGraphForContext(ctx, workflow, code);
+	}
+	const codeChanged = run.codeHash !== undefined && sourceHash !== run.codeHash;
+	return {
+		sourceKey,
+		recordedCodeHash: run.codeHash,
+		graph,
+		content: [
+			...header,
+			`File: ${workflow.path}`,
+			...(codeChanged
+				? [
+						"",
+						"⚠ Warning: this file changed since the run started, so the graph reflects the current workflow file.",
+					]
+				: []),
+			"",
+			graph,
+		].join("\n"),
+	};
 }
 
 async function latestAgentForRun(run: WorkflowRunRecord, agent: AgentMonitorModel): Promise<AgentMonitorModel> {
@@ -120,7 +149,7 @@ export async function showLiveAgentView(
 		// para que el usuario pueda moverse entre la tarjeta del agente, su prompt, el gráfico del workflow, su salida,
 		// la fuente del workflow, y la vista de ejecución completa sin rebotar al panel.
 		let definitionCache: string | undefined; // estático por ejecución: carga una vez, reutiliza entre pestañas/actualizaciones
-		let graphCache: string | undefined; // estático por ejecución: carga una vez, reutiliza entre pestañas/actualizaciones
+		let graphCache: WorkflowGraphViewCache | undefined;
 		for (;;) {
 			let timer: NodeJS.Timeout | undefined;
 			let refreshing = false;
@@ -140,23 +169,27 @@ export async function showLiveAgentView(
 						refreshing = true;
 						try {
 							const latest = await latestAgentForRun(run, agent);
-							component.setState(latest.state);
 							const active = component.getActiveTab();
 							if (active === "card" || active === "prompt" || active === "output") {
 								// Una lectura de artifact produce las tres secciones del agente; rellénalas juntas.
 								const parts = await buildAgentViewParts(run, latest);
-								component.setTabContent("card", parts.card);
-								component.setTabContent("prompt", parts.prompt);
-								component.setTabContent("output", parts.output);
+								component.setTabContents([
+									["card", parts.card],
+									["prompt", parts.prompt],
+									["output", parts.output],
+								]);
 							} else if (active === "definition") {
 								definitionCache ??= await formatWorkflowDefinition(run);
 								component.setTabContent("definition", definitionCache);
 							} else if (active === "run") {
 								component.setTabContent("run", await formatRunView(run));
 							} else if (active === "graph") {
-								graphCache ??= await formatWorkflowGraphView(ctx, run);
-								component.setTabContent("graph", graphCache);
+								const nextGraph = await formatWorkflowGraphView(ctx, run, graphCache);
+								if (nextGraph !== graphCache) component.setTabContent("graph", nextGraph.content);
+								graphCache = nextGraph;
 							}
+							component.setState(latest.state);
+							component.markRefreshOk();
 							tui.requestRender();
 							// Detén el sondeo una vez que el agente es terminal; la salida final permanece
 							// en pantalla hasta que el usuario cierre la vista. Los cambios de pestaña aún se actualizan
@@ -165,6 +198,9 @@ export async function showLiveAgentView(
 								clearInterval(timer);
 								timer = undefined;
 							}
+						} catch (err) {
+							component.markRefreshError(err instanceof Error ? err.message : String(err));
+							tui.requestRender();
 						} finally {
 							refreshing = false;
 							if (pending) {

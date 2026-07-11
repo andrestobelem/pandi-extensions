@@ -284,6 +284,14 @@ try {
 	check("contract renderer labels success criteria in Spanish", contractHtml.includes("Criterios de éxito"));
 	check("contract renderer labels verification plan in Spanish", contractHtml.includes("Plan de verificación"));
 	check("contract renderer labels no blockers in Spanish", contractHtml.includes("ninguno — se puede avanzar"));
+	check(
+		"contract renderer escapes raw HTML before marked",
+		contractHtml.includes("escapeMarkdownHtml(contractMd(D.contract))"),
+	);
+	check(
+		"contract renderer sanitizes marked output before innerHTML",
+		contractHtml.includes("cEl.innerHTML=sanitizeRenderedHtml(html)"),
+	);
 	check("contract renderer no longer emits English success heading", !contractHtml.includes("## Success criteria"));
 	check(
 		"contract renderer no longer emits English verification heading",

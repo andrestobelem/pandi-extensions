@@ -14,6 +14,11 @@ El runtime es `pandi-ultracode-cursor`, instalado en el proyecto. Sus workers
 usan Cursor CLI en modo de solo lectura y guardan artifacts bajo
 `.cursor/ultracode/runs/`.
 
+El runner es trusted-workspace only: antes de ejecutar pedí una confirmación
+explícita de que el workflow y el workspace son confiables, y recién entonces
+pasá `--trust-workspace`. `node:vm` es un contexto de evaluación, no un sandbox
+de seguridad.
+
 ## Protocolo
 
 1. Ejecutá `contract-gate` con límites explícitos y revisá su `result.json`.

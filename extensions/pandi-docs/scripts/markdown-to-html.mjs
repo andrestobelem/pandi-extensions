@@ -106,6 +106,18 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 
 const escapeHtml = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
+const decodeNumericHtmlEntities = (value) =>
+	String(value).replace(/&#(?:x([0-9a-f]+)|([0-9]+));?/gi, (entity, hex, decimal) => {
+		const codePoint = Number.parseInt(hex ?? decimal, hex ? 16 : 10);
+		return codePoint <= 0x10ffff ? String.fromCodePoint(codePoint) : entity;
+	});
+
+const hasJavascriptProtocol = (value) =>
+	decodeNumericHtmlEntities(value)
+		.replace(/[\u0000-\u0020\u007f]+/g, "")
+		.toLowerCase()
+		.startsWith("javascript:");
+
 // Slugs compatibles con GitHub para que anchors escritos a mano (#seccion-existente) sigan
 // funcionando: saca tags/entidades/puntuación, conserva letras unicode y _, y usa un guion por espacio.
 const slugify = (html) =>
@@ -125,8 +137,11 @@ const sanitizeRenderedHtml = (html) =>
 		.replace(/<\s*(script|iframe|object|embed)\b[\s\S]*?<\s*\/\s*\1\s*>/gi, "")
 		.replace(/<\s*(script|iframe|object|embed)\b[^>]*\/?>/gi, "")
 		.replace(/\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
-		.replace(/\s+(href|src)\s*=\s*(["'])\s*javascript:[\s\S]*?\2/gi, "")
-		.replace(/\s+(href|src)\s*=\s*javascript:[^\s>]+/gi, "");
+		.replace(
+			/\s+(href|src)\s*=\s*(?:(["'])([\s\S]*?)\2|([^\s>]+))/gi,
+			(attribute, _name, _quote, quotedValue, unquotedValue) =>
+				hasJavascriptProtocol(quotedValue ?? unquotedValue) ? "" : attribute,
+		);
 
 // Envuelve cada tabla en un contenedor con scroll horizontal: una tabla más ancha que la
 // página scrollea en vez de desbordar. Tolera tags con atributos para no dejar divs desbalanceados.
@@ -343,12 +358,17 @@ export function parseArgs(argv) {
 	let kicker;
 	let tokens;
 	let css;
+	const takeValue = (flag, index) => {
+		const value = argv[index + 1];
+		if (!value || value.startsWith("-")) throw new Error(`${flag} requiere un valor`);
+		return value;
+	};
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i];
-		if (a === "-o" || a === "--out") out = argv[++i];
-		else if (a === "--kicker") kicker = argv[++i];
-		else if (a === "--tokens") tokens = argv[++i];
-		else if (a === "--css") css = argv[++i];
+		if (a === "-o" || a === "--out") out = takeValue(a, i++);
+		else if (a === "--kicker") kicker = takeValue(a, i++);
+		else if (a === "--tokens") tokens = takeValue(a, i++);
+		else if (a === "--css") css = takeValue(a, i++);
 		else if (a === "-h" || a === "--help") return { help: true };
 		else if (a.startsWith("-")) throw new Error(`flag desconocida: ${a}`);
 		else inputs.push(a);

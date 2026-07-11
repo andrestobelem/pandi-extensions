@@ -1,7 +1,12 @@
 # @pandi-coding-agent/pandi-auto-compact
 
-Las sesiones largas de Pi se quedan sin contexto, y un `/compact` manual puede perder
-silenciosamente datos que todavía necesitabas. Esta extensión vigila el uso de contexto y compacta sola cuando cruza un umbral (por defecto `35%` para Claude/otros modelos y `50%` para Codex), con una barra en el footer para anticiparlo, un hook de resumen rápido y acotado (Sonnet 5 por defecto, GPT 5.5 en sesiones Codex) y una instantánea en disco para que un resumen con pérdida nunca quede irrecuperable.
+Las sesiones largas de Pi se quedan sin contexto, y un `/compact` manual puede
+perder silenciosamente datos que todavía necesitabas. Esta extensión vigila el
+uso de contexto y compacta sola cuando cruza un umbral (por defecto `35%` para
+Claude/otros modelos y `50%` para Codex), con una barra en el footer para
+anticiparlo, un hook de resumen rápido y acotado (Sonnet 5 por defecto,
+`openai-codex/gpt-5.6-sol` en sesiones Codex) y una instantánea en disco para que
+un resumen con pérdida nunca quede irrecuperable.
 
 ## Inicio rápido
 

@@ -298,7 +298,7 @@ variante propia. Así `contract-gate` es la compuerta reusable y el scaffold es 
 | Familia | Pattern | Qué hace |
 | --- | --- | --- |
 | Gate & guard | `contract-gate` | acota un pedido ambiguo o high-stakes |
-| | `guardrails` | tripwire de input/output que HALTS |
+| | `guardrails` | tripwire de input/output que se detiene |
 | Route & orchestrate | `router` | despacha al mejor workflow |
 | | `orchestrator-workers` | open goal → grafo de subtareas → integrar |
 | | `map-reduce` | más grande que una ventana |

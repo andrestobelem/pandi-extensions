@@ -22,7 +22,7 @@ Después, dentro de la sesión de pi, `!uname -a` debe devolver **Linux**.
 ## Qué aísla y qué no
 
 - **Aísla:** las herramientas internas `read`, `write`, `edit`, `bash`, `grep`, `find`, `ls` y los comandos `!` del usuario se ejecutan dentro de la VM. El cwd del host se monta en `/workspace`; todo lo que escribas debajo de `/workspace` vuelve al host.
-- **No aísla:** los dynamic-workflow **subagents** lanzan procesos hijo `pi`/`codex` en el **host** (las extensiones corren donde corre `pi`). Por eso Gondolin no oculta la cadena de procesos `node → pi/codex → /bin/bash`. Para aislar todo el orquestador, ejecutá `pi` completo dentro de Docker; ver `docs/containerization.md`.
+- **No aísla:** los dynamic-workflow **subagents** lanzan procesos hijo `pi`/`codex` en el **host** (las extensiones corren donde corre `pi`). Por eso Gondolin no oculta la cadena de procesos `node → pi/codex → /bin/bash`. Para aislar todo el orquestador, ejecutá `pi` completo dentro de Docker; para comandos puntuales en una micro-VM de Apple, ver [`pandi-container`](../extensions/pandi-container/README.md).
 
 ## Requisitos
 

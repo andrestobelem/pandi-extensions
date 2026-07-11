@@ -19,6 +19,7 @@
 	],
 	"files": [
 		"index.ts",
+		"public-api.ts",
 		"podman.ts",
 		"command-handler.ts",
 		"command.ts",

@@ -9,8 +9,8 @@
  * Columna secuencial: cada fase consume el artifact de la fase anterior, por lo que una
  * pipeline/secuencia es la forma mínima suficiente. El ÚNICO paralelismo son 2-3 revisores
  * adversariales independientes en REVISIÓN (fan-out orchestrator-workers), seguidos por COMO MÁXIMO
- * una pasada acotada de corrección self-refine impulsada por hallazgos bloqueantes (resueltos o
- * dispensados, nunca un loop sin límite).
+ * una pasada acotada de corrección self-refine impulsada por hallazgos bloqueantes (corregidos o
+ * dispensados, nunca un loop sin límite). Una dispensa sin aprobación independiente sigue bloqueando.
  *
  * DISEÑO DEL RUNTIME de pi (adaptado del borrador de la factory en dialecto Claude):
  * - Los pasos deterministas se ejecutan DEL LADO DEL HOST con bash({ cache: true }): snapshot del
@@ -63,7 +63,7 @@ export const meta = {
 	],
 	basedOn: [
 		{ name: "orchestrator-workers", role: "2-3 revisores adversariales independientes en REVISIÓN + settle/síntesis del lado del host" },
-		{ name: "self-refine", role: "el ÚNICO ciclo acotado hallazgo-de-revisión -> corrector -> reverificación (resuelto o dispensado, no un loop)" },
+		{ name: "self-refine", role: "el ÚNICO ciclo acotado hallazgo-de-revisión -> corrector -> reverificación (corregido o dispensado; la dispensa sigue bloqueando sin aprobación independiente)" },
 		{ name: "grooming", role: "patrón de entrega de artifacts DESDE el que lee este workflow cuando se omite input.issue (backlog-groom-summary.json)" },
 	],
 };
@@ -705,16 +705,17 @@ if (blockingFindings.length > 0) {
 	const handled = new Set([...(fixResult.addressed ?? []).map((a) => a.id), ...(fixResult.waived ?? []).map((w) => w.id)]);
 	const unhandled = blockingFindings.filter((f) => !handled.has(f.id));
 	if (unhandled.length) log(`ADVERTENCIA: el corrector no resolvió ni dispensó ${unhandled.length} hallazgos bloqueantes: ${JSON.stringify(unhandled.map((f) => f.id))}; se bloqueará COMMIT`);
-	if ((fixResult.waived ?? []).length) log(`dispensas registradas: ${JSON.stringify(fixResult.waived)}`);
 }
 
-const unresolvedBlocking =
-	blockingFindings.length === 0
-		? []
-		: blockingFindings.filter((f) => {
-				const handled = new Set([...((fixResult?.addressed ?? []).map((a) => a.id)), ...((fixResult?.waived ?? []).map((w) => w.id))]);
-				return !handled.has(f.id);
-			});
+const addressedBlockingIds = new Set((fixResult?.addressed ?? []).map((a) => a.id));
+const waivedBlockingIds = new Set((fixResult?.waived ?? []).map((w) => w.id));
+const waivedBlocking = blockingFindings.filter((f) => waivedBlockingIds.has(f.id) && !addressedBlockingIds.has(f.id));
+const unresolvedBlocking = blockingFindings.filter((f) => !addressedBlockingIds.has(f.id));
+if (waivedBlocking.length) {
+	log(
+		`hallazgos blocking dispensados continúan bloqueando reviewGreen/canCommit hasta aprobación independiente ${JSON.stringify({ waivedBlocking: waivedBlocking.map((f) => f.id) })}`,
+	);
+}
 
 // ---------------------------------------------------------------------------------------------
 // VERIFICAR: gate ejecutable solo mediante exec: scripts npm del repo (typecheck, biome check, test:integration).
@@ -797,6 +798,9 @@ const commitDecisionMd = [
 	`Mensaje propuesto:\n\n\`\`\`\n${commitMessage}\n\`\`\``,
 	`Resumen del diff (real):\n\n${realDiffText.slice(0, 4000)}`,
 	`Gate: verifyGreen=${verifyGreen} gitClean=${gitClean} reviewGreen=${reviewGreen} forbiddenTrailer=${hasForbiddenTrailer} autoCommit=${wantsCommit}`,
+	waivedBlocking.length
+		? `HALLAZGOS BLOQUEANTES DISPENSADOS PENDIENTES DE APROBACIÓN INDEPENDIENTE (${waivedBlocking.length}); continúan sin resolver y bloquean COMMIT: ${JSON.stringify(waivedBlocking.map((f) => f.id))}`
+		: "",
 	unresolvedBlocking.length ? `HALLAZGOS BLOQUEANTES SIN RESOLVER (${unresolvedBlocking.length}): ${JSON.stringify(unresolvedBlocking.map((f) => f.id))}` : "",
 ].join("\n\n");
 
@@ -810,7 +814,7 @@ let commitExec = null;
 if (!canCommit) {
 	declinedAtGate = true;
 	log(
-		`COMMIT bloqueado ${JSON.stringify({ verifyGreen, gitClean, reviewGreen, hasForbiddenTrailer, gitReason: preflight?.reason ?? "", unresolvedBlocking: unresolvedBlocking.length })}`,
+		`COMMIT bloqueado ${JSON.stringify({ verifyGreen, gitClean, reviewGreen, hasForbiddenTrailer, gitReason: preflight?.reason ?? "", waivedBlocking: waivedBlocking.length, unresolvedBlocking: unresolvedBlocking.length })}`,
 	);
 } else {
 	// Gate humano REAL: confirmación con ask(), segura al reanudar (registrada en journal), valor
@@ -874,6 +878,7 @@ return {
 			blockingFindings,
 			outOfScopeFiles,
 			fix: fixResult,
+			waivedBlocking,
 			unresolvedBlocking,
 			reviewVerdictsMd,
 		},

@@ -61,11 +61,11 @@ Ambos arman el mismo gate de solo lectura y terminan en `submit_plan`; la difere
 - Mientras el modo plan está activo, las tools mutantes quedan bloqueadas hasta que apruebes el plan enviado.
 - El modelo puede *entrar* en modo plan, pero nunca puede *aprobar* un plan: en una sesión interactiva la aprobación siempre es una confirmación humana explícita.
 - El overlay de aprobación es estilo mdview: `↑/↓ j/k` desplazan, `PgUp/PgDn` paginan; `y`/`Enter` aprueban, `n`/`Esc`/`q` rechazan. Cuando `auto-submit` está habilitado, el overlay muestra una cuenta regresiva y aprueba después de 60 segundos sin elección. Si no se puede mostrar un componente personalizado, degrada a un diálogo `confirm` simple con el mismo comportamiento de timeout.
-- El gate de solo lectura (ver `gate.ts`) solo permite investigar: `read`, `grep`, `find`, `ls` y shell de solo lectura (`git ls-files`, `git status`, `cat`, `head`, `sed -n`, …). Bloquea `write`, `edit` y shell mutante (`rm`, `mv`, `git commit/add/push/reset`, redirecciones `>`/`>>`, instalaciones de paquetes, …).
+- El gate de solo lectura (ver `gate.ts`) solo permite investigar: `read`, `grep`/`rg`, `find`/`glob`, `ls`, `web_search` y shell de solo lectura (`git ls-files`, `git status`, `cat`, `head`, `sed -n`, consultas de Context7, …). También permite aclarar requisitos con `ask_choice`/`ask_confirm`. Bloquea `write`, `edit`, cualquier tool desconocida y shell mutante (`rm`, `mv`, `git commit/add/push/reset`, redirecciones `>`/`>>`, instalaciones de paquetes, …).
 
 ## Límites y notas de seguridad
 
-- La allowlist de bash es best-effort y prefiere bloquear ante la duda.
+- Las tools usan una allowlist explícita: una tool desconocida se bloquea por defecto. `bash` se clasifica aparte con una heurística best-effort, no con un parser shell completo.
 - En modo no interactivo (`plan-only`) el gate **nunca se levanta**: no hay aprobación ni implementación durante toda la sesión (ver Detalles).
 - Sin la flag no interactiva, las sesiones `print`/`json` rechazan entrar en modo plan (se preserva la back-compat existente).
 - `dynamic_workflow` queda gateado por `action` mientras planificás: se permiten acciones de solo lectura (`list`, `scaffold`, `read`, `graph`, `runs`, `view`); `run`, `start`, `resume`, `write`, `cancel`, `delete`, `report` (escribe un reporte HTML en disco) y las acciones faltantes o desconocidas se bloquean, porque pueden escribir archivos o lanzar subagentes mutantes cuyos tool calls saltean el gate.

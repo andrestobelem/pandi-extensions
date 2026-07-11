@@ -3,7 +3,13 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { composeInjectedMemory, INDEX_FILE } from "./memory.js";
 import { indexPathOf, legacyPathOf, memoryDirOf, safeRead } from "./paths.js";
 
+function escapeAttribute(value: string): string {
+	return value.replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+}
+
 export function injectLocalMemory(event: { systemPrompt: string }, ctx: ExtensionContext) {
+	if (!ctx.isProjectTrusted()) return;
+
 	const memoryDir = memoryDirOf(ctx.cwd);
 	const indexPath = indexPathOf(ctx.cwd);
 	const legacyPath = legacyPathOf(ctx.cwd);
@@ -39,6 +45,6 @@ export function injectLocalMemory(event: { systemPrompt: string }, ctx: Extensio
 		memoryDirPath: memoryDir,
 	});
 	return {
-		systemPrompt: `${event.systemPrompt}\n\n<local_memory path="${shownPath}">\n${body}\n</local_memory>`,
+		systemPrompt: `${event.systemPrompt}\n\n<local_memory path="${escapeAttribute(shownPath)}">\n${body}\n</local_memory>`,
 	};
 }

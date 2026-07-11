@@ -33,7 +33,7 @@
 export const meta = {
 	name: "guardrails",
 	description:
-		"Guardrails baratos de input/output con tripwire que detiene (HALTS); envolvé cualquier workflow vía protect:{name,args} o validá un artifact único (guardrails)",
+		"Guardrails baratos de input/output con tripwire que se detiene ante una violación clara; envolvé cualquier workflow vía protect:{name,args} o validá un artifact único (guardrails)",
 	phases: [{ title: "Input" }, { title: "Run" }, { title: "Output" }],
 	basedOn: [{ name: "OpenAI Agents SDK", role: "pattern (input/output guardrails)" }],
 };

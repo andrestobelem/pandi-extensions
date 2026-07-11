@@ -45,184 +45,26 @@
  */
 
 import * as fs from "node:fs/promises";
-import * as path from "node:path";
-import { fileURLToPath } from "node:url";
-import { buildExtension, createChecker, loadDefault, sdkStub } from "../../../shared/test/harness.mjs";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-// extensions/pandi-goal/tests/integration/ -> repo root está cuatro niveles arriba.
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
+import { createChecker, loadDefault } from "../../../shared/test/harness.mjs";
+import {
+	buildGoal,
+	goalStateEntry as entry,
+	flushWithMicrotask as flush,
+	installImmediateTimerHarness,
+	lastGoalStatusFor as lastStatusFor,
+	makePi,
+	makeRehydrateSession,
+	rehydrateGoalFrom as rehydrateFrom,
+	makeGoalSnapshot as snap,
+} from "./goal-test-support.mjs";
 
 // ---------------------------------------------------------------------------
 // Harness de aserciones
 // ---------------------------------------------------------------------------
 const { check, counts } = createChecker();
 
-// ---------------------------------------------------------------------------
-// Compila la extensión goal actual a ESM en un dir temporal; devuelve la URL de import.
-// (Misma estrategia de stubs que el sibling goal-verifier.test.mjs.)
-// ---------------------------------------------------------------------------
-async function buildGoal() {
-	// pandi-goal solo necesita Type.* para declarar tool-schema (nunca validación) y los símbolos
-	// del SDK para resolver state-dir.
-	return await buildExtension({
-		name: "pi-goal-rehydrate-integration",
-		src: path.join(REPO_ROOT, "extensions", "pandi-goal", "index.ts"),
-		outName: "goal.mjs",
-		stubs: { typebox: true, sdk: (dir) => sdkStub(dir) },
-	});
-}
-
 // pandi-goal mantiene un singleton de módulo (activeGoals). La query cache-busting de loadDefault
 // da a cada escenario una instancia FRESH para que los escenarios no filtren estado entre sí.
-
-const ZERO_DELAY_TIMER = Symbol("zero-delay-timer");
-
-// El contrato de rehydrate usa `setTimeout(fireGoal, 0)` para los catch-up ticks vencidos. En vez
-// de depender de sleeps/reintentos reales del event loop, el harness convierte SOLO esos timers de
-// delay 0 en microtasks determinísticas. Los timers futuros (>0) siguen siendo timers reales, así
-// que los snapshots no vencidos no disparan accidentalmente durante el test.
-function installImmediateTimerHarness() {
-	const realSetTimeout = globalThis.setTimeout;
-	const realClearTimeout = globalThis.clearTimeout;
-	globalThis.setTimeout = (handler, timeout = 0, ...args) => {
-		const delay = Number(timeout) || 0;
-		if (delay <= 0 && typeof handler === "function") {
-			const handle = { [ZERO_DELAY_TIMER]: true, cleared: false };
-			queueMicrotask(() => {
-				if (!handle.cleared) handler(...args);
-			});
-			return handle;
-		}
-		return realSetTimeout(handler, timeout, ...args);
-	};
-	globalThis.clearTimeout = (handle) => {
-		if (handle?.[ZERO_DELAY_TIMER]) {
-			handle.cleared = true;
-			return;
-		}
-		return realClearTimeout(handle);
-	};
-	return () => {
-		globalThis.setTimeout = realSetTimeout;
-		globalThis.clearTimeout = realClearTimeout;
-	};
-}
-
-// Deja asentarse las cadenas async fire-and-forget (`void beginIndependentVerification(...)`) y
-// los catch-up ticks de delay 0 que el harness anterior vuelve determinísticos. No duerme por tiempo:
-// cede microtasks/check y corta cuando el predicado observable se cumple.
-async function flush(predicate, turns = 20) {
-	for (let i = 0; i < turns; i++) {
-		await Promise.resolve();
-		await new Promise((r) => setImmediate(r));
-		if (predicate?.()) return;
-	}
-}
-
-// ---------------------------------------------------------------------------
-// Mock de pi + ctx. Capturamos cada snapshot "goal-state" persistido (pi.appendEntry), cada
-// mensaje de usuario reinyectado (pi.sendUserMessage) y cada subprocess verifier (pi.exec).
-// ctx.sessionManager.getEntries() devuelve el log persistido preparado (la entrada de reload).
-// ---------------------------------------------------------------------------
-function makePi(execImpl) {
-	const tools = new Map();
-	const commands = new Map();
-	const handlers = new Map();
-	const states = []; // cada snapshot goal-state agregado, en orden
-	const execCalls = [];
-	const messages = [];
-	const pi = {
-		registerTool: (def) => tools.set(def.name, def),
-		registerCommand: (name, opts) => commands.set(name, opts),
-		on: (event, handler) => {
-			if (!handlers.has(event)) handlers.set(event, []);
-			handlers.get(event).push(handler);
-		},
-		appendEntry: (customType, data) => {
-			if (customType === "goal-state") states.push(data);
-		},
-		sendUserMessage: (prompt, opts) => messages.push({ prompt, opts }),
-		exec: async (cmd, args, opts) => {
-			execCalls.push({ cmd, args, opts });
-			return execImpl ? execImpl(cmd, args, opts) : { code: 0, killed: false, stdout: "", stderr: "" };
-		},
-	};
-	return { pi, tools, commands, handlers, states, execCalls, messages };
-}
-
-// Entrada custom goal-state persistida, exactamente la forma que rehydrate() filtra
-// (entry.type === "custom" && entry.customType === "goal-state", data = el snapshot).
-function entry(snap) {
-	return { type: "custom", customType: "goal-state", data: snap };
-}
-
-// Snapshot GoalState mínimo completo (los campos que rehydrate copia / rearma).
-let _gid = 0;
-function snap(overrides = {}) {
-	const goalId = overrides.goalId ?? `g${(_gid++).toString(16).padStart(4, "0")}`;
-	return {
-		goalId,
-		objective: "ship the feature",
-		successCriteria: "the tests pass",
-		derivedCriteria: undefined,
-		iteration: 1,
-		maxIterations: 20,
-		contextPercentCap: 80,
-		assessments: [],
-		verifyAttempts: 0,
-		independentVerifyAttempts: 0,
-		maxIndependentVerifications: 2,
-		verifierTimeoutMs: 120000,
-		verifierTools: ["read", "grep", "find", "ls", "bash"],
-		gstatus: "pursuing",
-		startedAt: new Date().toISOString(),
-		nextFireAt: Date.now() + 1000,
-		lastReason: "persisted snapshot",
-		updatedAt: new Date().toISOString(),
-		...overrides,
-	};
-}
-
-function makeCtx(entries, { reason = "startup", mode = "tui" } = {}) {
-	return {
-		event: { reason },
-		ctx: {
-			mode,
-			hasUI: true,
-			cwd: REPO_ROOT,
-			isIdle: () => true,
-			isProjectTrusted: () => false,
-			getContextUsage: () => undefined,
-			ui: {
-				theme: { fg: (_c, s) => s },
-				notify: () => {},
-				setStatus: () => {},
-				confirm: async () => true,
-				select: async () => undefined,
-			},
-			sessionManager: { getEntries: () => entries },
-		},
-	};
-}
-
-// Compila la extensión, la registra y dispara session_start con las entradas persistidas preparadas.
-async function rehydrateFrom(goalUrl, entries, { reason = "startup", execImpl, mode = "tui" } = {}) {
-	const goalExtension = await loadDefault(goalUrl);
-	const built = makePi(execImpl);
-	goalExtension(built.pi);
-	const onStart = built.handlers.get("session_start");
-	if (!onStart || onStart.length === 0) throw new Error("no session_start handler registered");
-	const { event, ctx } = makeCtx(entries, { reason, mode });
-	for (const h of onStart) await h(event, ctx);
-	return { ctx, built };
-}
-
-// El último gstatus persistido para un goalId dado es su disposición observable.
-function lastStatusFor(states, goalId) {
-	for (let i = states.length - 1; i >= 0; i--) if (states[i].goalId === goalId) return states[i].gstatus;
-	return undefined;
-}
 
 // ===========================================================================
 // SCENARIO A: un snapshot `verifying-independent` RELANZA el verifier independiente en reload.
@@ -604,11 +446,11 @@ async function junkEntriesAreIgnored(goalUrl) {
 // ===========================================================================
 async function noDoubleFireOnSecondRehydrate(goalUrl) {
 	const goalExtension = await loadDefault(goalUrl);
-	const built = makePi();
+	const built = makePi(undefined, { trackMessages: "envelope" });
 	goalExtension(built.pi);
 	const onStart = built.handlers.get("session_start");
 	const s = snap({ gstatus: "stale", iteration: 7, nextFireAt: Date.now() - 1000 });
-	const { event, ctx } = makeCtx([entry(s)]);
+	const { event, ctx } = makeRehydrateSession([entry(s)]);
 	// El primer rehydrate arma el goal (y agenda un catch-up tick vencido).
 	for (const h of onStart) await h(event, ctx);
 	// Segundo rehydrate con timer/goal ya vivo: debe ser no-op para este goal.
@@ -679,7 +521,7 @@ async function nonInteractiveRehydrateIsNoOp(goalUrl) {
 
 // ===========================================================================
 async function main() {
-	const { outDir, url } = await buildGoal();
+	const { outDir, url } = await buildGoal({ name: "pi-goal-rehydrate-integration" });
 	const restoreTimers = installImmediateTimerHarness();
 	try {
 		await verifyingIndependentReRunsVerifierAndPasses(url);

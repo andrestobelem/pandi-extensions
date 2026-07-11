@@ -23,16 +23,19 @@ const nodeME = (n) => [shortModel(n.model), n.effort && n.effort !== "inherited"
 const escHtml = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;").replace(/'/g, "&#39;");
 const plural = (count, singular, pluralForm = `${singular}s`) => (count === 1 ? singular : pluralForm);
 
-function artifactKicker(runData) {
-  if (!runData) return "Workflow dinámico · preview estático";
+function artifactKicker(runData, previewMode) {
+  if (!runData) return previewMode === "evaluated" ? "Workflow dinámico · preview evaluado" : "Workflow dinámico · preview estático";
   if (runData.fail > 0) return "Workflow dinámico · reporte de run · con fallas";
   if (runData.active || runData.state === "running") return "Workflow dinámico · run en progreso";
   return "Workflow dinámico · reporte de run";
 }
 
-function openingText({ runData, nodeCount, argsJson, hasResults }) {
+function openingText({ runData, nodeCount, argsJson, hasResults, previewMode }) {
   if (!runData) {
     const argsLabel = argsJson ? "args provistos" : "args de ejemplo";
+    if (previewMode === "evaluated") {
+      return `Vista evaluada antes del run: recorrió el source con runtime stubs y ${argsLabel}. Confirmá efectos aceptables, fases, prompts y límites antes de lanzar el workflow real.`;
+    }
     return `Vista estática antes de ejecutar: muestra la estructura extraída con ${argsLabel}. Confirmá fases, prompts y límites antes de lanzar el run.`;
   }
   const total = runData.agentCount || 0;
@@ -56,7 +59,7 @@ function openingText({ runData, nodeCount, argsJson, hasResults }) {
     if (hasResults) return `${total} ${agentLabel} completaron el run sin fallas registradas. Empezá por Resultados; el diagrama y los prompts quedan abajo para auditar cómo se llegó ahí.`;
     return `${total} ${agentLabel} completaron el run sin fallas registradas y sin output final. Empezá por Agentes y luego usá el Diagrama como mapa de auditoría.`;
   }
-  return `Estado del run: ${runData.state || "desconocido"}. Hay ${total} ${agentLabel}; el preview estático detectó ${nodeCount} tipos de nodo.`;
+  return `Estado del run: ${runData.state || "desconocido"}. Hay ${total} ${agentLabel}; el preview detectó ${nodeCount} tipos de nodo.`;
 }
 
 function topCallouts(runData) {
@@ -188,7 +191,7 @@ footer{margin-top:40px;color:var(--muted);font-size:15px;}
 `;
 
 // Arma { html, data } desde el modelo estático + nodos mergeados + data opcional del run.
-export function assembleArtifact({ merged, basePhases, composes, meta, provenance, scaffolds, scriptPath, argsJson, schemas, skillRefs, raw, runData, staticFidelity, jsonToMarkdownSource, clientJsSource, contractViewSource, tokensCss = FALLBACK_TOKENS }) {
+export function assembleArtifact({ merged, basePhases, composes, meta, provenance, scaffolds, scriptPath, argsJson, schemas, skillRefs, raw, runData, previewMode = "parse-only", staticFidelity, jsonToMarkdownSource, clientJsSource, contractViewSource, tokensCss = FALLBACK_TOKENS }) {
   const nodes = merged.nodes;
   const phases = [...basePhases, ...merged.extraPhases.filter((p) => !basePhases.includes(p))];
   const tokenVariants = parseTokenVariants(tokensCss);
@@ -263,7 +266,7 @@ export function assembleArtifact({ merged, basePhases, composes, meta, provenanc
   const hasRun = !!runData;
   const hasResults = !!(runData && runData.results);
   const initialTab = "monitor";
-  const opening = escHtml(openingText({ runData, nodeCount: nodes.length, argsJson, hasResults }));
+  const opening = escHtml(openingText({ runData, nodeCount: nodes.length, argsJson, hasResults, previewMode }));
   const callouts = topCallouts(runData);
   const tabMap = {
     monitor: tabButton("monitor", "Monitor", initialTab === "monitor"),
@@ -283,10 +286,11 @@ export function assembleArtifact({ merged, basePhases, composes, meta, provenanc
     : [tabMap.monitor, tabMap.plan, tabMap.overview, tabMap.agents, tabMap.schemas, tabMap.based, tabMap.script, tabMap.results]
   ).filter(Boolean).join("");
   const active = (id) => (initialTab === id ? ' class="active"' : "");
-  const monitorHtml = renderWorkflowMonitor({ meta, phases, nodes, runData, args: argsLabel, warn: warnText, source: scriptPath });
+  const monitorHtml = renderWorkflowMonitor({ meta, phases, nodes, runData, args: argsLabel, warn: warnText, source: scriptPath, previewMode });
   const monitorSection = `<section data-s="monitor"${active("monitor")}><h2 class="sec">Monitor — estado, progreso y evidencia</h2><p class="section-intro">Esta vista replica la lectura del monitor de workflow: primero estado y progreso; después agentes, actividad y rutas crudas para depurar.</p>${monitorHtml}</section>`;
-  const planHtml = renderWorkflowPlan({ meta, phases, nodes, composes, scaffolds, provenance, args: argsLabel, schemas, warn: warnText, source: scriptPath });
-  const planSection = `<section data-s="plan"${active("plan")}><h2 class="sec">Plan — blueprint antes de ejecutar</h2><p class="section-intro">Este plan sale del workflow mismo: fases, agentes, contratos y composición detectados por el preview estático.</p>${planHtml}</section>`;
+  const planHtml = renderWorkflowPlan({ meta, phases, nodes, composes, scaffolds, provenance, args: argsLabel, schemas, warn: warnText, source: scriptPath, previewMode });
+  const previewLabel = previewMode === "evaluated" ? "preview evaluado" : "preview estático";
+  const planSection = `<section data-s="plan"${active("plan")}><h2 class="sec">Plan — blueprint antes de ejecutar</h2><p class="section-intro">Este plan sale del workflow mismo: fases, agentes, contratos y composición detectados por el ${previewLabel}.</p>${planHtml}</section>`;
   const overviewSection = `<section data-s="overview"${active("overview")}><h2 class="sec">Orquestación</h2><p class="section-intro">El diagrama muestra la estructura detectada: fases, tipos de agente y composición entre workflows. Usalo como mapa; los prompts exactos están en la pestaña de agentes.</p><div class="diagram"><pre class="mermaid" id="mm"></pre></div></section>`;
   const contractSection = hasContract ? '<section data-s="contract"><h2 class="sec">Contrato — contrato de tarea del gate</h2><div class="mdbody" id="contract"></div></section>' : "";
   const resultsSection = `<section data-s="results"${active("results")}><h2 class="sec">Resultados — valor de retorno y artifacts</h2><div id="results"></div></section>`;
@@ -305,7 +309,7 @@ export function assembleArtifact({ merged, basePhases, composes, meta, provenanc
 <style>
 ${tokensCss}
 ${COMPONENT_CSS}</style></head><body><div class="container">
-  <header><div class="kicker">${artifactKicker(runData)}</div><h1 id="wf-name"></h1><p id="wf-desc"></p>
+  <header><div class="kicker">${artifactKicker(runData, previewMode)}</div><h1 id="wf-name"></h1><p id="wf-desc"></p>
   <p class="opening">${opening}</p>
   ${callouts}
   <div class="runbanner" id="runbanner" style="display:none"></div>

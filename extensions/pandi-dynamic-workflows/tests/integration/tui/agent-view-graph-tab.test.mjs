@@ -141,10 +141,15 @@ async function main() {
 	check("showLiveAgentView is exported", typeof showLiveAgentView === "function");
 
 	const demo = await makeProjectWithWorkflow();
+	const graphableRun = makeRun({
+		workflow: "graph-tab-demo",
+		runDir: demo.runDir,
+		workflowFile: demo.workflowFile,
+	});
 	await exerciseGraphTab(showLiveAgentView, {
 		label: "graphable run",
 		project: demo.project,
-		run: makeRun({ workflow: "graph-tab-demo", runDir: demo.runDir, workflowFile: demo.workflowFile }),
+		run: graphableRun,
 		agent: makeAgent(),
 		assertGraph: async (component, label) => {
 			const graph = await waitForRender(
@@ -159,6 +164,36 @@ async function main() {
 				(rendered) => /Mermaid export/.test(rendered) && /flowchart TD/.test(rendered),
 			);
 			check(`${label}: includes the Mermaid fallback`, mermaid.ok, mermaid.rendered);
+
+			await fs.writeFile(
+				demo.workflowFile,
+				`export default async function main() {
+  const answer = await agent("inspect refreshed graph");
+  await writeArtifact("fresh-answer.json", { answer });
+  return answer;
+}
+`,
+				"utf8",
+			);
+			component.handleInput("1");
+			await waitForRender(component, (rendered) => /Agent #1/.test(rendered));
+			component.handleInput("3");
+			const refreshedSource = await waitForRender(component, (rendered) => /fresh-answer\.json/.test(rendered));
+			check(`${label}: source changes invalidate the graph cache`, refreshedSource.ok, refreshedSource.rendered);
+
+			graphableRun.codeHash = "recorded-before-current-source";
+			component.handleInput("1");
+			await waitForRender(component, (rendered) => /Agent #1/.test(rendered));
+			component.handleInput("3");
+			component.handleInput("home");
+			const refreshedCodeHash = await waitForRender(component, (rendered) =>
+				/file changed since the run started/.test(rendered),
+			);
+			check(
+				`${label}: codeHash changes invalidate the graph cache`,
+				refreshedCodeHash.ok,
+				refreshedCodeHash.rendered,
+			);
 		},
 	});
 

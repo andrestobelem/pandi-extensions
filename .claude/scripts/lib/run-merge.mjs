@@ -114,9 +114,9 @@ export function mergeNodes(runData, baseNodes, declared) {
     if (phase === "runtime" && !extraPhases.includes("runtime")) extraPhases.push("runtime");
     nodes.push({
       id: role + (g.count > 1 ? ` ×${g.count}` : ""), role, phase,
-      schema: "— (free text)", schemaObj: null,
+      schema: d.schema ? (d.schema.title || "object schema") : "— (free text)", schemaObj: d.schema || null,
       model: d.model || "inherited", effort: d.effort || "inherited", tools: "inherited", skills: [], extensions: "inherited",
-      prompt: g.prompt || "‹ recorded at runtime — see artifact ›",
+      prompt: g.prompt || "‹ recorded at runtime — see artifact ›", parallel: !!d.parallel,
       runtimeOnly: true, run: rg(g),
     });
   }

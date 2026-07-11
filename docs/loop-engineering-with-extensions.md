@@ -49,9 +49,9 @@ Usá `/goal` siempre que exista una definición concreta y verificable de termin
 Ejecuta `pursuing → verifying → verifying-independent → done | blocked`: primero
 una comprobación de completitud, después un **subagente adversarial separado y
 solo de lectura** que emite `VERDICT: PASS | FAIL`. Solo un `PASS` independiente
-cierra el goal (`extensions/pandi-goal/index.ts:264-271`). Esta es la respuesta
-arquitectónica directa del repo al resultado de que la autocorrección no es
-confiable.
+cierra el goal (`beginIndependentVerification` en
+`extensions/pandi-goal/verification.ts`). Esta es la respuesta arquitectónica
+directa del repo al resultado de que la autocorrección no es confiable.
 
 ```bash
 # Objetivo -- criterios de éxito después de `--`
@@ -62,17 +62,24 @@ confiable.
 
 Guardrails que heredás gratis:
 
-- Nunca hay loop infinito; hay rondas y topes acotados (`extensions/pandi-goal/index.ts:157-159`, el guard `goal.iteration >= goal.maxIterations`).
-- Una afirmación sin evidencia verificable es `FAIL` (`extensions/pandi-goal/verifier.ts:69`).
-- Guard contra oscilación: `maxIndependentVerifications` (por defecto 2) pasa un goal que está thrashing a `blocked` en vez de dejarlo girando para siempre (`extensions/pandi-goal/index.ts:279-291`).
+- Nunca hay loop infinito; `fireGoal` aplica el guard
+  `goal.iteration >= goal.maxIterations` en
+  `extensions/pandi-goal/scheduler.ts`.
+- Una afirmación sin evidencia verificable es `FAIL`; `runIndependentVerifier`
+  fija ese contrato en `extensions/pandi-goal/verifier.ts`.
+- Guard contra oscilación: `beginIndependentVerification` compara
+  `independentVerifyAttempts` con `maxIndependentVerifications` (por defecto 2)
+  y pasa el goal a `blocked` en vez de dejarlo girando para siempre
+  (`extensions/pandi-goal/verification.ts`).
 
 ### `/loop` — cadencia acotada, no confiar en el modelo
 
 Usá `/loop` para trabajo recurrente que no tiene un `done` binario: monitoreo,
 polling, autopilot. El modelo propone un delay de wake; la extensión **lo satura**
 a una banda segura de `[60, 3600]s` para que un valor malo nunca desestabilice
-el loop (`extensions/pandi-loop/index.ts:115-116` para las constantes,
-`:1249-1251` para el clamp).
+el loop (`MIN_DELAY_SECONDS` / `MAX_DELAY_SECONDS` en
+`extensions/pandi-loop/constants.ts`; `clampLoopDelaySeconds` en
+`extensions/pandi-loop/loop-tools.ts`).
 
 ```bash
 # Cadencia fija (el último token es el intervalo)
@@ -95,12 +102,12 @@ Elegí la cadencia con intención:
 - No consultes trabajo que el harness ya rastrea (subagentes, workflows) — usá un
   fallback largo y dejá que reporte de vuelta.
 
-Defense in depth: los topes en capas incluyen wall-clock y un context-budget de
-mejor esfuerzo (ver `extensions/pandi-loop/caps.ts:26-41`), más un tope separado
-de conteo de iteraciones dentro de `fireWake` en `extensions/pandi-loop/index.ts`,
-y además un watchdog de respaldo por encima del deadline. Ojo: el tope de
-context-budget es un **soft sensor** — hace no-op silencioso cuando el uso se
-ignora, así que no dependas solo de él.
+Defense in depth: `capExceeded` y `preWakeLimit` en
+`extensions/pandi-loop/caps.ts` combinan wall-clock, context-budget de mejor
+esfuerzo, iteraciones y watchdog; `fireWake` en
+`extensions/pandi-loop/scheduler.ts` aplica ese resultado antes de entregar un
+wake. Ojo: el tope de context-budget es un **soft sensor** — hace no-op
+silencioso cuando el uso se ignora, así que no dependas solo de él.
 
 ### `loop-until-dry` — convergencia por rondas quietas
 
@@ -117,8 +124,9 @@ flip de quietud transitoria.
 - `quietRounds` (por defecto 2) es un debounce/deadband, no un punto fijo
   probado.
 - `maxRounds` (por defecto 8) es el freno duro; cuando se detiene ahí, lo dice
-  en voz alta (`extensions/pandi-dynamic-workflows/scaffolds/loop-until-dry.js:165`) —
-  no hay topes silenciosos.
+  en voz alta con `stopped at maxRounds (not dry)` en
+  `extensions/pandi-dynamic-workflows/scaffolds/loop-until-dry.js` — no hay
+  topes silenciosos.
 
 ### Ultracode + Contract Gate — acotar primero el alcance
 

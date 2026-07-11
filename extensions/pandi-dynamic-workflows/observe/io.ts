@@ -6,6 +6,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
+import { resolveInsideRoot } from "../lib/path-safety.js";
 import type { RunReportText } from "./html.js";
 
 /** Límites — anclados a constantes runtime existentes (registro de diseño §4). */
@@ -25,9 +26,19 @@ export const REPORT_BOUNDS = {
 	maxArtifactsListed: 100,
 } as const;
 
-export async function readBounded(file: string, maxBytes: number): Promise<string | undefined> {
+function resolveReadableInsideRoot(rootDir: string, file: string): string | undefined {
 	try {
-		const handle = await fs.open(file, "r");
+		return resolveInsideRoot(rootDir, file, file, "workflow run directory");
+	} catch {
+		return undefined;
+	}
+}
+
+export async function readBounded(file: string, maxBytes: number, rootDir: string): Promise<string | undefined> {
+	try {
+		const readable = resolveReadableInsideRoot(rootDir, file);
+		if (!readable) return undefined;
+		const handle = await fs.open(readable, "r");
 		try {
 			const buffer = Buffer.alloc(maxBytes);
 			const { bytesRead } = await handle.read(buffer, 0, maxBytes, 0);
@@ -41,13 +52,15 @@ export async function readBounded(file: string, maxBytes: number): Promise<strin
 }
 
 /** Bounded TAIL read: open + seek a size − maxBytes (nunca lee el archivo entero). */
-export async function readTail(file: string, maxBytes: number): Promise<string | undefined> {
+export async function readTail(file: string, maxBytes: number, rootDir: string): Promise<string | undefined> {
 	try {
-		const stat = await fs.stat(file);
-		if (!stat.isFile()) return undefined;
-		const start = Math.max(0, stat.size - maxBytes);
-		const handle = await fs.open(file, "r");
+		const readable = resolveReadableInsideRoot(rootDir, file);
+		if (!readable) return undefined;
+		const handle = await fs.open(readable, "r");
 		try {
+			const stat = await handle.stat();
+			if (!stat.isFile()) return undefined;
+			const start = Math.max(0, stat.size - maxBytes);
 			const buffer = Buffer.alloc(Math.min(maxBytes, stat.size));
 			const { bytesRead } = await handle.read(buffer, 0, buffer.length, start);
 			return buffer.subarray(0, bytesRead).toString("utf8");
@@ -59,8 +72,8 @@ export async function readTail(file: string, maxBytes: number): Promise<string |
 	}
 }
 
-export async function readJsonBounded<T>(file: string, maxBytes: number): Promise<T | undefined> {
-	const body = await readBounded(file, maxBytes);
+export async function readJsonBounded<T>(file: string, maxBytes: number, rootDir: string): Promise<T | undefined> {
+	const body = await readBounded(file, maxBytes, rootDir);
 	if (body === undefined) return undefined;
 	try {
 		return JSON.parse(body) as T;
@@ -100,7 +113,7 @@ export function displayScriptPath(file: string | undefined): string | undefined 
 /** Segunda bounded events pass: agent estructurado `data` (readRunEvents mantiene solo output). */
 export async function readAgentData(runDir: string, ceiling: number): Promise<Map<number, string>> {
 	const out = new Map<number, string>();
-	const body = await readBounded(path.join(runDir, "events.jsonl"), ceiling);
+	const body = await readBounded(path.join(runDir, "events.jsonl"), ceiling, runDir);
 	if (!body) return out;
 	for (const line of body.split("\n")) {
 		if (!line.trim()) continue;

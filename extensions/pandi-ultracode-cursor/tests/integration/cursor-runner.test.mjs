@@ -1,13 +1,17 @@
 #!/usr/bin/env node
 
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 import { buildCursorCommand, parseCursorStream } from "../../runtime/cursor-agent.mjs";
-import { runWorkflow } from "../../runtime/runner.mjs";
+import { normalizeRunLimits, runWorkflow } from "../../runtime/runner.mjs";
+
+const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 async function makeProject(workflowSource) {
 	const root = await fs.mkdtemp(path.join(os.tmpdir(), "pandi-cursor-runner-"));
@@ -35,6 +39,33 @@ console.log(JSON.stringify({ type: "result", subtype: "success", is_error: false
 	);
 	return file;
 }
+
+test("runWorkflow requires an explicit workspace trust decision", async () => {
+	const project = await makeProject(`return await agent("Explain this repository");`);
+	try {
+		await assert.rejects(
+			runWorkflow({ cwd: project, name: "demo", cursorCommand: process.execPath }),
+			/--trust-workspace/i,
+		);
+	} finally {
+		await fs.rm(project, { recursive: true, force: true });
+	}
+});
+
+test("Cursor CLI refuses run without --trust-workspace", async () => {
+	const project = await makeProject(`return "done";`);
+	try {
+		const result = spawnSync(
+			process.execPath,
+			[path.join(packageRoot, "bin", "pandi-ultracode-cursor.mjs"), "run", "demo", "--cwd", project],
+			{ encoding: "utf8" },
+		);
+		assert.equal(result.status, 1);
+		assert.match(result.stderr, /--trust-workspace/i);
+	} finally {
+		await fs.rm(project, { recursive: true, force: true });
+	}
+});
 
 test("buildCursorCommand is read-only by default and forwards an explicit model", () => {
 	const command = buildCursorCommand({
@@ -123,6 +154,7 @@ test("cursor-ultracode turns an explicit task into a contract-gated single-agent
 			cwd: project,
 			name: "cursor-ultracode",
 			input: { request: "Explain the repository" },
+			trustWorkspace: true,
 			cursorCommand: process.execPath,
 			cursorCommandArgs: [fakeCursor],
 			env,
@@ -185,6 +217,7 @@ test("cursor-ultracode fans out only after a dynamic-workflow contract", async (
 			input: { request: "Audit two files", concurrency: 1 },
 			concurrency: 1,
 			maxAgents: 10,
+			trustWorkspace: true,
 			cursorCommand: process.execPath,
 			cursorCommandArgs: [fakeCursor],
 			env,
@@ -196,6 +229,95 @@ test("cursor-ultracode fans out only after a dynamic-workflow contract", async (
 	} finally {
 		await fs.rm(project, { recursive: true, force: true });
 		await fs.rm(path.dirname(fakeCursor), { recursive: true, force: true });
+	}
+});
+
+test("runWorkflow normalizes finite integer limits within local caps", () => {
+	assert.deepEqual(normalizeRunLimits({}), {
+		concurrency: 4,
+		maxAgents: 32,
+		maxWorkflowDepth: 1,
+		agentTimeoutMs: 120_000,
+	});
+	for (const invalid of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, "8"]) {
+		assert.deepEqual(
+			normalizeRunLimits({
+				concurrency: invalid,
+				maxAgents: invalid,
+				maxWorkflowDepth: invalid,
+				agentTimeoutMs: invalid,
+			}),
+			normalizeRunLimits({}),
+		);
+	}
+	assert.deepEqual(
+		normalizeRunLimits({
+			concurrency: -1,
+			maxAgents: -1,
+			maxWorkflowDepth: -1,
+			agentTimeoutMs: -1,
+		}),
+		{
+			concurrency: 1,
+			maxAgents: 1,
+			maxWorkflowDepth: 0,
+			agentTimeoutMs: 1,
+		},
+	);
+	assert.deepEqual(
+		normalizeRunLimits({
+			concurrency: 7.9,
+			maxAgents: 42.9,
+			maxWorkflowDepth: 3.9,
+			agentTimeoutMs: 1_234.9,
+		}),
+		{
+			concurrency: 7,
+			maxAgents: 42,
+			maxWorkflowDepth: 3,
+			agentTimeoutMs: 1_234,
+		},
+	);
+	assert.deepEqual(
+		normalizeRunLimits({
+			concurrency: 17,
+			maxAgents: 1_001,
+			maxWorkflowDepth: 33,
+			agentTimeoutMs: 3_600_001,
+		}),
+		{
+			concurrency: 16,
+			maxAgents: 1_000,
+			maxWorkflowDepth: 32,
+			agentTimeoutMs: 3_600_000,
+		},
+	);
+});
+
+test("runWorkflow gives concurrent fresh runs unique default directories in the same millisecond", async () => {
+	const project = await makeProject(`return "done";`);
+	const NativeDate = Date;
+	const fixedTime = new NativeDate("2026-07-11T17:23:45.678Z");
+	globalThis.Date = class extends NativeDate {
+		constructor(...args) {
+			super(...(args.length ? args : [fixedTime]));
+		}
+
+		static now() {
+			return fixedTime.getTime();
+		}
+	};
+	try {
+		const [first, second] = await Promise.all([
+			runWorkflow({ cwd: project, name: "demo", trustWorkspace: true }),
+			runWorkflow({ cwd: project, name: "demo", trustWorkspace: true }),
+		]);
+		assert.notEqual(first.runDir, second.runDir);
+		assert.equal(path.basename(first.runDir).startsWith("2026-07-11T17-23-45-678Z-demo-"), true);
+		assert.equal(path.basename(second.runDir).startsWith("2026-07-11T17-23-45-678Z-demo-"), true);
+	} finally {
+		globalThis.Date = NativeDate;
+		await fs.rm(project, { recursive: true, force: true });
 	}
 });
 
@@ -222,6 +344,7 @@ return { answer };
 		const first = await runWorkflow({
 			cwd: project,
 			name: "demo",
+			trustWorkspace: true,
 			cursorCommand: process.execPath,
 			cursorCommandArgs: [fakeCursor],
 			env,
@@ -239,11 +362,13 @@ return { answer };
 			name: "demo",
 			runDir: first.runDir,
 			resume: true,
+			trustWorkspace: true,
 			cursorCommand: process.execPath,
 			cursorCommandArgs: [fakeCursor],
 			env,
 		});
 		assert.deepEqual(resumed.result, first.result);
+		assert.equal(resumed.runDir, first.runDir);
 		assert.equal((await fs.readFile(log, "utf8")).trim().split("\n").length, 2, "resume must use journaled output");
 	} finally {
 		await fs.rm(project, { recursive: true, force: true });
@@ -277,6 +402,7 @@ return { parallelOutput, pipelineOutput, batchOutput, race: { status: raced.stat
 			name: "demo",
 			concurrency: 2,
 			maxAgents: 8,
+			trustWorkspace: true,
 			cursorCommand: process.execPath,
 			cursorCommandArgs: [fakeCursor],
 			env: { ...process.env, FAKE_CURSOR_LOG: log },
@@ -304,6 +430,7 @@ return "never";
 			runWorkflow({
 				cwd: project,
 				name: "demo",
+				trustWorkspace: true,
 				cursorCommand: process.execPath,
 				cursorCommandArgs: [process.execPath],
 			}),
@@ -324,6 +451,7 @@ return "never";
 			runWorkflow({
 				cwd: project,
 				name: "demo",
+				trustWorkspace: true,
 				cursorCommand: process.execPath,
 				cursorCommandArgs: [process.execPath],
 			}),

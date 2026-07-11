@@ -16,31 +16,10 @@
  */
 
 import * as fs from "node:fs/promises";
-import * as path from "node:path";
-import { fileURLToPath } from "node:url";
-import { buildExtension, createChecker, loadModule, sdkStub } from "../../../shared/test/harness.mjs";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
+import { createChecker, loadModule } from "../../../shared/test/harness.mjs";
+import { baseGoal, buildGoalModule, PROGRESS_LOG_KEEP } from "./goal-test-support.mjs";
 
 const { check, counts } = createChecker();
-
-const PROGRESS_LOG_KEEP = 12; // replica extensions/pandi-goal/constants.ts (fijado acá a propósito)
-
-function baseGoal(over = {}) {
-	return {
-		goalId: "g1",
-		objective: "Make the build green",
-		successCriteria: undefined,
-		derivedCriteria: undefined,
-		assessments: [],
-		iteration: 1,
-		maxIterations: 8,
-		lastReason: undefined,
-		ultracode: false,
-		...over,
-	};
-}
 
 async function scenarioPrompts(url) {
 	const { effectiveCriteria, formatProgressLog, makeGoalIterationPrompt, makeGoalVerificationPrompt } =
@@ -179,12 +158,10 @@ async function scenarioTime(url) {
 }
 
 async function main() {
-	const prompts = await buildExtension({
+	const prompts = await buildGoalModule({
 		name: "pi-goal-prompts-helpers",
-		src: path.join(REPO_ROOT, "extensions", "pandi-goal", "prompts.ts"),
+		relPath: "prompts.ts",
 		outName: "prompts.mjs",
-		// prompts.ts importa CONFIG_DIR_NAME desde el SDK, así que el bundle necesita el stub.
-		stubs: { sdk: (dir) => sdkStub(dir) },
 	});
 	try {
 		await scenarioPrompts(prompts.url);
@@ -192,10 +169,11 @@ async function main() {
 		await fs.rm(prompts.outDir, { recursive: true, force: true });
 	}
 
-	const sessionState = await buildExtension({
+	const sessionState = await buildGoalModule({
 		name: "pi-goal-session-state-helpers",
-		src: path.join(REPO_ROOT, "extensions", "pandi-goal", "session-state.ts"),
+		relPath: "session-state.ts",
 		outName: "session-state.mjs",
+		stubs: {},
 	});
 	try {
 		await scenarioSessionState(sessionState.url);
@@ -203,10 +181,11 @@ async function main() {
 		await fs.rm(sessionState.outDir, { recursive: true, force: true });
 	}
 
-	const time = await buildExtension({
+	const time = await buildGoalModule({
 		name: "pi-goal-time-helpers",
-		src: path.join(REPO_ROOT, "extensions", "pandi-goal", "time.ts"),
+		relPath: "time.ts",
 		outName: "time.mjs",
+		stubs: {},
 	});
 	try {
 		await scenarioTime(time.url);

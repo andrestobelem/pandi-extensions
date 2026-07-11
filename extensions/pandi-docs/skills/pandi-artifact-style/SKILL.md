@@ -13,8 +13,9 @@ description: >-
 ## En 30 segundos
 
 Un HTML autocontenido con layout Claude-design y paleta Panda Syntax (claro +
-oscuro). Partí de `reference/template.html`; los tokens deben ser byte-idénticos
-a `reference/pandi-tokens.css`. Para `.md` → `.html`, deferí a `md-to-html`.
+oscuro). Partí de `reference/template.html`; sus custom properties dark/light
+deben ser semánticamente idénticas a `reference/pandi-tokens.css`. Para
+`.md` → `.html`, deferí a `md-to-html`.
 
 Una misma apariencia en todos lados: estructura y tipografía Claude-design,
 coloreadas con la paleta Panda Syntax. Aplicalo a todo artifact de calidad de presentación
@@ -109,9 +110,9 @@ Markup + CSS funcionales para todo esto: [`reference/template.html`](./reference
 
 ## Reglas para artifacts HTML
 
-1. Partí de `reference/template.html`; mantené el bloque de tokens byte a byte
-   idéntico a `reference/pandi-tokens.css`, salvo que hayan cambiado los JSONs
-   del theme.
+1. Partí de `reference/template.html`; mantené sus custom properties dark/light
+   semánticamente idénticas a `reference/pandi-tokens.css`, salvo que hayan
+   cambiado los JSONs del theme.
 2. Un solo archivo autocontenido; todo el CSS/JS inline salvo los CDNs
    permitidos.
 3. Soportá ambos schemes vía `prefers-color-scheme`; nunca entregues una

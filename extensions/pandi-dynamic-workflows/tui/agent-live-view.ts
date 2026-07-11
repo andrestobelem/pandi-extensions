@@ -15,7 +15,9 @@
  */
 import { Key, Markdown, matchesKey, truncateToWidth } from "@earendil-works/pi-tui";
 import { createMarkdownTheme, formatViewerHints, scrollDelta } from "../lib/markdown-view.js";
+import { compactInline } from "../lib/presentation.js";
 import { liveAgentHeaderStatus } from "./agent-view.js";
+import { renderSafeInline } from "./render-utils.js";
 
 export interface AgentViewTab {
 	key: string;
@@ -30,6 +32,7 @@ export class AgentLiveViewComponent {
 	private scrollByTab = new Map<string, number>();
 	private tabIndex = 0;
 	private agentState: string | undefined;
+	private lastRefreshError: string | undefined;
 
 	constructor(
 		private readonly theme: any,
@@ -46,13 +49,27 @@ export class AgentLiveViewComponent {
 		return this.tabs[this.tabIndex]?.key ?? "";
 	}
 
+	private renderMarkdown(content: string): Markdown {
+		return new Markdown(content, 1, 0, createMarkdownTheme(this.theme), undefined, {
+			preserveOrderedListMarkers: true,
+		});
+	}
+
 	setTabContent(key: string, content: string): void {
-		this.markdownByTab.set(
-			key,
-			new Markdown(content, 1, 0, createMarkdownTheme(this.theme), undefined, {
-				preserveOrderedListMarkers: true,
-			}),
-		);
+		this.markdownByTab.set(key, this.renderMarkdown(content));
+	}
+
+	setTabContents(contents: ReadonlyArray<readonly [string, string]>): void {
+		const rendered = contents.map(([key, content]) => [key, this.renderMarkdown(content)] as const);
+		for (const [key, markdown] of rendered) this.markdownByTab.set(key, markdown);
+	}
+
+	markRefreshOk(): void {
+		this.lastRefreshError = undefined;
+	}
+
+	markRefreshError(error: string): void {
+		this.lastRefreshError = renderSafeInline(compactInline(error, 80));
 	}
 
 	// Punto de entrada legacy: define el contenido del tab activo (el ÚNICO documento cuando no
@@ -144,9 +161,12 @@ export class AgentLiveViewComponent {
 				end,
 				total: bodyLines.length,
 			});
+		const refreshStatus = this.lastRefreshError
+			? this.theme.fg("error", `⚠ falló el refresh (recuperable): ${this.lastRefreshError}`)
+			: liveAgentHeaderStatus(this.agentState);
 		const header =
 			this.theme.fg("accent", "Agente en vivo del workflow") +
-			this.theme.fg("dim", ` • ${liveAgentHeaderStatus(this.agentState)} • ${hints}`);
+			this.theme.fg("dim", ` • ${refreshStatus} • ${hints}`);
 		const chrome = [line(header)];
 		if (this.tabs.length > 0) chrome.push(line(this.renderTabBar()));
 		chrome.push(line(this.theme.fg("border", "─".repeat(Math.min(w, 120)))));

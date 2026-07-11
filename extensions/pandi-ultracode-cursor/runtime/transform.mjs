@@ -1,4 +1,4 @@
-// Convierte el contrato portable de workflows en CommonJS evaluable dentro del sandbox.
+// Convierte el contrato portable a CommonJS para el contexto de evaluación node:vm del host.
 function matchBalancedLiteral(source, start) {
 	let index = start;
 	while (index < source.length && /\s/.test(source[index])) index++;

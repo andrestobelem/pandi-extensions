@@ -23,11 +23,12 @@ Run flags:
   --model <id>                Codex model or alias
   --effort <level>            Recorded advisory reasoning effort
   --codex-command <path>     Codex executable (default: codex)
-  --trust-workspace           Required acknowledgement for non-interactive Codex runs
+  --trust-workspace           Required: acknowledge trusted workflow/workspace code
 
-Safety: Codex workers use exec --sandbox read-only --json --ephemeral and
-ignore user config. This runner has no mutating flags: workflow shell, workflow
-writes and agent write access are rejected.
+Security model: workflows are trusted code with host capabilities. node:vm is
+an evaluation context, not a sandbox or OS boundary. Codex worker policy uses
+exec --sandbox read-only --json --ephemeral and ignores user config; this
+runner has no mutating flags.
 `;
 
 function fail(message) {

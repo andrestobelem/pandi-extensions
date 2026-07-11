@@ -1,6 +1,6 @@
 # guardrails
 
-> Tripwire barato de input/output que HALTA ante una violación clara; puede envolver cualquier workflow vía `protect:{name,args}`.
+> Tripwire barato de input/output que se detiene ante una violación clara; puede envolver cualquier workflow vía `protect:{name,args}`.
 
 ## En 30 segundos
 
@@ -146,6 +146,6 @@ No se observan llamadas a `writeArtifact`: toda la observabilidad pasa por `log(
 
 ## Fases
 
-1. **Input** — (solo modo wrapper) corre los guards sobre la solicitud/`protect.args`; si alguno trippea, HALTA sin ejecutar el workflow protegido.
+1. **Input** — (solo modo wrapper) corre los guards sobre la solicitud/`protect.args`; si alguno trippea, se detiene sin ejecutar el workflow protegido.
 2. **Run** — (solo modo wrapper) ejecuta `workflow(protect.name, protect.args)` bajo `try/catch`, tratando `null`/excepción como error explícito.
-3. **Output** — corre los guards sobre el resultado (wrapper) o sobre `content` (validador); si alguno trippea, HALTA devolviendo el resultado marcado como no confiable.
+3. **Output** — corre los guards sobre el resultado (wrapper) o sobre `content` (validador); si alguno trippea, se detiene devolviendo el resultado marcado como no confiable.

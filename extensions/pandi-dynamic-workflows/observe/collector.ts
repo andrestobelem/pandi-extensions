@@ -80,8 +80,16 @@ export interface CollectRunReportOptions {
 
 export async function collectRunReport(runDir: string, opts: CollectRunReportOptions = {}): Promise<RunReportModel> {
 	const B = REPORT_BOUNDS;
-	const status = await readJsonBounded<WorkflowRunStatus>(path.join(runDir, "status.json"), B.fileReadCeilingBytes);
-	const result = await readJsonBounded<WorkflowRunResult>(path.join(runDir, "result.json"), B.fileReadCeilingBytes);
+	const status = await readJsonBounded<WorkflowRunStatus>(
+		path.join(runDir, "status.json"),
+		B.fileReadCeilingBytes,
+		runDir,
+	);
+	const result = await readJsonBounded<WorkflowRunResult>(
+		path.join(runDir, "result.json"),
+		B.fileReadCeilingBytes,
+		runDir,
+	);
 	if (!status && !result) {
 		throw new Error(`Not a readable run dir (no status.json or result.json): ${runDir}`);
 	}
@@ -93,7 +101,11 @@ export async function collectRunReport(runDir: string, opts: CollectRunReportOpt
 	const terminal = state !== "running";
 
 	const events = await readRunEvents(runDir);
-	const metrics = await readJsonBounded<MetricsFile>(path.join(runDir, "metrics.json"), B.fileReadCeilingBytes);
+	const metrics = await readJsonBounded<MetricsFile>(
+		path.join(runDir, "metrics.json"),
+		B.fileReadCeilingBytes,
+		runDir,
+	);
 	const agentData = await readAgentData(runDir, B.fileReadCeilingBytes);
 
 	// Precedencia log: logs status cuando no-empty, else events (matchea formatRunView).
@@ -155,7 +167,7 @@ export async function collectRunReport(runDir: string, opts: CollectRunReportOpt
 		if (agent.promptCopy) {
 			prompt = { text: agent.promptCopy, truncated: agent.promptTruncated === true };
 		} else if (artifactHref) {
-			const prefix = await readBounded(path.join(runDir, artifactHref), B.promptChars);
+			const prefix = await readBounded(path.join(runDir, artifactHref), B.promptChars, runDir);
 			const section = prefix ? extractMarkdownSection(prefix, "Prompt") : undefined;
 			if (section) prompt = boundedText(section, B.promptChars);
 		}
@@ -181,7 +193,7 @@ export async function collectRunReport(runDir: string, opts: CollectRunReportOpt
 		// Crash evidence stays visible even under the global clamp (it is small and tailed).
 		let stderrTail: { text: string; href?: string } | undefined;
 		if (failed && stderrHref) {
-			const tail = await readTail(path.join(runDir, stderrHref), B.stderrTailChars);
+			const tail = await readTail(path.join(runDir, stderrHref), B.stderrTailChars, runDir);
 			if (tail) stderrTail = { text: tail, href: stderrHref };
 		}
 
@@ -211,9 +223,6 @@ export async function collectRunReport(runDir: string, opts: CollectRunReportOpt
 			...(agent.promptPreview ? { promptPreview: agent.promptPreview } : {}),
 			...(prompt ? { prompt } : {}),
 			...(output ? { output } : {}),
-			...(agent.outputChars === undefined ? {} : { outputChars: agent.outputChars }),
-			...(agent.outputEmpty === undefined ? {} : { outputEmpty: agent.outputEmpty }),
-			...(agent.outputTruncated === undefined ? {} : { outputTruncated: agent.outputTruncated }),
 			...(data ? { data } : {}),
 			...(stderrTail ? { stderrTail } : {}),
 			...(stdoutHref ? { stdoutHref } : {}),
@@ -260,12 +269,12 @@ export async function collectRunReport(runDir: string, opts: CollectRunReportOpt
 		}
 	}
 
-	const inputBody = await readBounded(path.join(runDir, "input.json"), B.outputChars + 1);
+	const inputBody = await readBounded(path.join(runDir, "input.json"), B.outputChars + 1, runDir);
 	const outputValue = result?.output ?? base?.output;
 	const outputIsMarkdown = typeof outputValue === "string";
 	const outputText =
 		outputValue === undefined ? undefined : outputIsMarkdown ? outputValue : JSON.stringify(outputValue, null, 2);
-	const workflowSource = await readBounded(path.join(runDir, "workflow-source.js"), B.fileReadCeilingBytes);
+	const workflowSource = await readBounded(path.join(runDir, "workflow-source.js"), B.fileReadCeilingBytes, runDir);
 	const basedOn = extractRunReportBasedOn(workflowSource);
 
 	let codeDrift: RunReportModel["codeDrift"] = "unknown";

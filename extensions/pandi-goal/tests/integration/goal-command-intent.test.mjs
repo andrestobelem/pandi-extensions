@@ -8,25 +8,10 @@
  *   node extensions/pandi-goal/tests/integration/goal-command-intent.test.mjs
  */
 
-import * as path from "node:path";
-import { fileURLToPath } from "node:url";
-import { bundle, createChecker, loadModule, makeBuildDir } from "../../../shared/test/harness.mjs";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
+import { createChecker, loadModule } from "../../../shared/test/harness.mjs";
+import { buildCommandIntent } from "./goal-test-support.mjs";
 
 const { check, counts } = createChecker();
-
-async function buildCommandIntent() {
-	const { outDir, aliases } = await makeBuildDir("pandi-goal-command-intent");
-	const url = await bundle({
-		src: path.join(REPO_ROOT, "extensions", "pandi-goal", "command-intent.ts"),
-		outDir,
-		outName: "command-intent.mjs",
-		aliases,
-	});
-	return { url };
-}
 
 function same(label, actual, expected) {
 	check(label, JSON.stringify(actual) === JSON.stringify(expected), `actual=${JSON.stringify(actual)}`);
@@ -108,8 +93,13 @@ async function parserContract(url) {
 }
 
 async function main() {
-	const { url } = await buildCommandIntent();
-	await parserContract(url);
+	const { outDir, url } = await buildCommandIntent();
+	try {
+		await parserContract(url);
+	} finally {
+		const fs = await import("node:fs/promises");
+		await fs.rm(outDir, { recursive: true, force: true }).catch(() => {});
+	}
 
 	console.log("");
 	console.log(`TOTAL: ${counts.passed} passed, ${counts.failed} failed`);

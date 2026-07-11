@@ -186,12 +186,12 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li><code>AGENTS.md</code> — reglas de ingeniería del repo.</li>
 <li><code>docs/dynamic-workflows.md</code></li>
 <li><code>extensions/pandi-dynamic-workflows/README.md</code></li>
+<li><code>extensions/pandi-dynamic-workflows/ARCHITECTURE.md</code></li>
 <li><code>extensions/pandi-dynamic-workflows/index.ts</code></li>
-<li><code>extensions/pandi-dynamic-workflows/command-handlers.ts</code></li>
-<li><code>extensions/pandi-dynamic-workflows/worker-source.ts</code></li>
-<li><code>extensions/pandi-dynamic-workflows/workflow-resolve.ts</code></li>
-<li><code>extensions/pandi-dynamic-workflows/run-lifecycle.ts</code></li>
-<li><code>extensions/pandi-dynamic-workflows/catalog.ts</code></li>
+<li><code>extensions/pandi-dynamic-workflows/surface/index.ts</code></li>
+<li><code>extensions/pandi-dynamic-workflows/runtime/index.ts</code></li>
+<li><code>extensions/pandi-dynamic-workflows/lifecycle/index.ts</code></li>
+<li><code>extensions/pandi-dynamic-workflows/observe/index.ts</code></li>
 <li><code>docs/scaffolds/index.md</code></li>
 <li><code>extensions/pandi-dynamic-workflows/scaffolds/*.js</code></li>
 </ol>
@@ -245,21 +245,24 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <p>Flujo mental:</p>
 <pre><code class="hljs language-text">humano/modelo
   → /workflow o dynamic_workflow
-  → command-handlers.ts
-  → workflow-resolve.ts
-  → index.ts engine
-  → Worker con worker-source.ts
+  → surface/command-handlers.ts
+  → surface/resolve.ts
+  → lifecycle/start.ts
+  → runtime/engine.ts
+  → runtime/worker-bridge.ts + runtime/worker-source.ts
   → subagents/bash/artifacts
+  → observe/writer.ts + tui/
   → .pi/workflows/runs/&lt;run-id&gt;/</code></pre>
 <p>Archivos clave:</p>
 <ul>
-<li><code>index.ts</code> — engine y registro principal.</li>
-<li><code>command-handlers.ts</code> — comandos <code>/workflow</code>, <code>/workflows</code>, <code>/ultracode</code>.</li>
-<li><code>worker-source.ts</code> — globals inyectados dentro del workflow.</li>
-<li><code>workflow-resolve.ts</code> — resolución project/global de scripts.</li>
-<li><code>run-lifecycle.ts</code> y <code>run-store.ts</code> — estado, resume y persistencia.</li>
-<li><code>catalog.ts</code>, <code>pattern-scaffolds.ts</code> y <code>scaffolds/*.js</code> — catálogo de patrones.</li>
-<li><code>workflow-dashboard.ts</code> y <code>run-report-writer.ts</code> — superficies de inspección.</li>
+<li><a href="../../extensions/pandi-dynamic-workflows/ARCHITECTURE.md"><code>ARCHITECTURE.md</code></a> — mapa canónico de deep modules y sus fachadas.</li>
+<li><code>index.ts</code> — activación de la extensión; no contiene el engine.</li>
+<li><code>surface/command-handlers.ts</code> — handlers de <code>/workflow</code> y <code>/workflows</code>.</li>
+<li><code>surface/resolve.ts</code> — <code>listWorkflows</code>, <code>resolveWorkflow</code> y <code>resolveWorkflowForRun</code>.</li>
+<li><code>runtime/worker-source.ts</code> — globals inyectados dentro del workflow; <code>runtime/engine.ts</code> exporta <code>runWorkflow</code>.</li>
+<li><code>lifecycle/index.ts</code> — fachada de start, resume, cancel, cleanup, status y registry; <code>runtime/runs.ts</code> lista y resuelve runs.</li>
+<li><code>surface/catalog.ts</code>, <code>surface/pattern-scaffolds.ts</code> y <code>scaffolds/*.js</code> — catálogo de patrones.</li>
+<li><code>tui/dashboard.ts</code> y <code>observe/writer.ts</code> (<code>writeRunReport</code>) — superficies de inspección.</li>
 </ul>
 <h3>Disciplina de ejecución</h3>
 <p>Este grupo existe para que el agente no “haga cosas” sin control:</p>

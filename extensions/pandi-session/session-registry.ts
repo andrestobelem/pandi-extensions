@@ -39,6 +39,9 @@ interface LivePandiSessionRuntime {
 	file: string;
 	startedAt: string;
 	reason: string;
+	generation: number;
+	stopping: boolean;
+	writeInFlight?: Promise<void>;
 	timer?: NodeJS.Timeout;
 }
 
@@ -56,6 +59,12 @@ export interface PandiSessionCleanupItem {
 }
 
 let livePandiSession: LivePandiSessionRuntime | undefined;
+let pandiSessionHeartbeatGeneration = 0;
+let pandiSessionHeartbeatWriteHookForTests: ((generation: number) => Promise<void>) | undefined;
+
+export function setPandiSessionHeartbeatWriteHookForTests(hook?: (generation: number) => Promise<void>): void {
+	pandiSessionHeartbeatWriteHookForTests = hook;
+}
 
 function projectHash(cwd: string): string {
 	return crypto.createHash("sha256").update(path.resolve(cwd)).digest("hex").slice(0, 16);
@@ -120,12 +129,21 @@ function buildPandiSessionRecord(runtime: LivePandiSessionRuntime): PandiSession
 }
 
 async function writePandiSessionHeartbeat(runtime: LivePandiSessionRuntime): Promise<void> {
-	try {
-		await writeJsonFile(runtime.file, buildPandiSessionRecord(runtime));
-	} catch {
-		// Mejor esfuerzo: un dashboard no debería fallar porque el registro de sesiones vivas
-		// no se pueda escribir (permisos, directorios temporales borrados o carreras de recarga).
-	}
+	if (runtime.stopping || livePandiSession?.generation !== runtime.generation) return;
+	if (runtime.writeInFlight) return runtime.writeInFlight;
+	const write = (async () => {
+		try {
+			await pandiSessionHeartbeatWriteHookForTests?.(runtime.generation);
+			if (runtime.stopping || livePandiSession?.generation !== runtime.generation) return;
+			await writeJsonFile(runtime.file, buildPandiSessionRecord(runtime));
+		} catch {
+			// Mejor esfuerzo: un dashboard no debería fallar porque el registro de sesiones vivas
+			// no se pueda escribir (permisos, directorios temporales borrados o carreras de recarga).
+		}
+	})();
+	runtime.writeInFlight = write;
+	await write;
+	if (runtime.writeInFlight === write) runtime.writeInFlight = undefined;
 }
 
 export async function startPandiSessionHeartbeat(event: { reason: string }, ctx: ExtensionContext): Promise<void> {
@@ -138,18 +156,23 @@ export async function startPandiSessionHeartbeat(event: { reason: string }, ctx:
 		file: path.join(getLiveSessionRoot(ctx), `${id}.json`),
 		startedAt: new Date().toISOString(),
 		reason: event.reason,
+		generation: ++pandiSessionHeartbeatGeneration,
+		stopping: false,
 	};
 	livePandiSession = runtime;
 	await writePandiSessionHeartbeat(runtime);
+	if (runtime.stopping || livePandiSession?.generation !== runtime.generation) return;
 	runtime.timer = setInterval(() => void writePandiSessionHeartbeat(runtime), PANDI_SESSION_HEARTBEAT_MS);
 	runtime.timer.unref?.();
 }
 
 export async function stopPandiSessionHeartbeat(): Promise<void> {
 	const runtime = livePandiSession;
-	livePandiSession = undefined;
 	if (!runtime) return;
+	runtime.stopping = true;
+	livePandiSession = undefined;
 	if (runtime.timer) clearInterval(runtime.timer);
+	await runtime.writeInFlight;
 	await fs.rm(runtime.file, { force: true }).catch(() => undefined);
 }
 

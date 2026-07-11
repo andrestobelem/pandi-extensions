@@ -19,6 +19,7 @@
 	],
 	"files": [
 		"index.ts",
+		"public-api.ts",
 		"command-handler.ts",
 		"command-menu.ts",
 		"command.ts",

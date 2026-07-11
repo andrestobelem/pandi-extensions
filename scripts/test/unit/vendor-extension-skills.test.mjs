@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { test } from "node:test";
+import * as vendorExtensionSkills from "../../vendor-extension-skills.mjs";
 import {
 	expectedFilesFor,
 	parseCheckOnly,
@@ -70,6 +71,194 @@ test("syncVendorExtensionSkills rewrites vendored trees and removes stale files"
 		const outRoot = path.join(repo, "extensions", "pandi-ext", "skills", "alpha");
 		assert.equal(fs.readFileSync(path.join(outRoot, "SKILL.md"), "utf8"), "# alpha\n");
 		assert.equal(fs.existsSync(path.join(outRoot, "stale.txt")), false);
+	} finally {
+		fs.rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("replaceGeneratedTree preserves the previous tree when staging fails", async () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "vendor-skills-"));
+	try {
+		const outRoot = path.join(root, "skills", "alpha");
+		writeFile(outRoot, "SKILL.md", "# previous\n");
+		writeFile(outRoot, "keep.txt", "keep\n");
+		const expected = new Map([
+			["SKILL.md", "# next\n"],
+			[path.join("reference", "notes.md"), "notes\n"],
+		]);
+		let stagingRoot;
+
+		await assert.rejects(
+			() =>
+				vendorExtensionSkills.replaceGeneratedTree(expected, outRoot, {
+					writeTree: async ([first], rootPath) => {
+						stagingRoot = rootPath;
+						writeFile(rootPath, first[0], first[1]);
+						throw new Error("injected staging failure");
+					},
+				}),
+			/injected staging failure/,
+		);
+
+		assert.equal(path.dirname(stagingRoot), path.dirname(outRoot));
+		assert.match(path.basename(stagingRoot), /^alpha\.staging-/);
+		assert.equal(fs.readFileSync(path.join(outRoot, "SKILL.md"), "utf8"), "# previous\n");
+		assert.equal(fs.readFileSync(path.join(outRoot, "keep.txt"), "utf8"), "keep\n");
+		assert.deepEqual(
+			fs.readdirSync(path.dirname(outRoot)).filter((entry) => entry.startsWith("alpha.")),
+			[],
+		);
+	} finally {
+		fs.rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("replaceGeneratedTree validates the complete staging tree before swapping", async () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "vendor-skills-"));
+	try {
+		const outRoot = path.join(root, "skills", "alpha");
+		writeFile(outRoot, "SKILL.md", "# previous\n");
+		const expected = new Map([
+			["SKILL.md", "# next\n"],
+			[path.join("reference", "notes.md"), "notes\n"],
+		]);
+
+		await assert.rejects(
+			() =>
+				vendorExtensionSkills.replaceGeneratedTree(expected, outRoot, {
+					writeTree: async ([first], stagingRoot) => writeFile(stagingRoot, first[0], first[1]),
+				}),
+			/incomplete staging tree/,
+		);
+
+		assert.equal(fs.readFileSync(path.join(outRoot, "SKILL.md"), "utf8"), "# previous\n");
+		assert.deepEqual(
+			fs.readdirSync(path.dirname(outRoot)).filter((entry) => entry.startsWith("alpha.")),
+			[],
+		);
+	} finally {
+		fs.rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("replaceGeneratedTree installs a complete tree when the destination does not exist", async () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "vendor-skills-"));
+	try {
+		const outRoot = path.join(root, "skills", "alpha");
+		const expected = new Map([
+			["SKILL.md", "# next\n"],
+			[path.join("reference", "notes.md"), "notes\n"],
+		]);
+
+		assert.equal(await vendorExtensionSkills.replaceGeneratedTree(expected, outRoot), 2);
+
+		assert.equal(fs.readFileSync(path.join(outRoot, "SKILL.md"), "utf8"), "# next\n");
+		assert.equal(fs.readFileSync(path.join(outRoot, "reference", "notes.md"), "utf8"), "notes\n");
+		assert.deepEqual(
+			fs.readdirSync(path.dirname(outRoot)).filter((entry) => entry.startsWith("alpha.")),
+			[],
+		);
+	} finally {
+		fs.rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("replaceGeneratedTree preserves the previous tree when creating the backup fails", async () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "vendor-skills-"));
+	try {
+		const outRoot = path.join(root, "skills", "alpha");
+		writeFile(outRoot, "SKILL.md", "# previous\n");
+		writeFile(outRoot, "keep.txt", "keep\n");
+		const expected = new Map([["SKILL.md", "# next\n"]]);
+
+		await assert.rejects(
+			() =>
+				vendorExtensionSkills.replaceGeneratedTree(expected, outRoot, {
+					renamePath: async () => {
+						throw new Error("injected backup failure");
+					},
+				}),
+			/injected backup failure/,
+		);
+
+		assert.equal(fs.readFileSync(path.join(outRoot, "SKILL.md"), "utf8"), "# previous\n");
+		assert.equal(fs.readFileSync(path.join(outRoot, "keep.txt"), "utf8"), "keep\n");
+		assert.deepEqual(
+			fs.readdirSync(path.dirname(outRoot)).filter((entry) => entry.startsWith("alpha.")),
+			[],
+		);
+	} finally {
+		fs.rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("replaceGeneratedTree rolls back when installing staging fails", async () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "vendor-skills-"));
+	try {
+		const outRoot = path.join(root, "skills", "alpha");
+		writeFile(outRoot, "SKILL.md", "# previous\n");
+		writeFile(outRoot, "keep.txt", "keep\n");
+		const expected = new Map([["SKILL.md", "# next\n"]]);
+		let renameCalls = 0;
+
+		await assert.rejects(
+			() =>
+				vendorExtensionSkills.replaceGeneratedTree(expected, outRoot, {
+					renamePath: async (from, to) => {
+						renameCalls++;
+						if (renameCalls === 2) throw new Error("injected install failure");
+						await fs.promises.rename(from, to);
+					},
+				}),
+			/injected install failure/,
+		);
+
+		assert.equal(renameCalls, 3);
+		assert.equal(fs.readFileSync(path.join(outRoot, "SKILL.md"), "utf8"), "# previous\n");
+		assert.equal(fs.readFileSync(path.join(outRoot, "keep.txt"), "utf8"), "keep\n");
+		assert.deepEqual(
+			fs.readdirSync(path.dirname(outRoot)).filter((entry) => entry.startsWith("alpha.")),
+			[],
+		);
+	} finally {
+		fs.rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("replaceGeneratedTree does not mask a swap failure when best-effort cleanup fails", async () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "vendor-skills-"));
+	try {
+		const outRoot = path.join(root, "skills", "alpha");
+		writeFile(outRoot, "SKILL.md", "# previous\n");
+		const expected = new Map([["SKILL.md", "# next\n"]]);
+		let renameCalls = 0;
+		let cleanupFailures = 0;
+
+		await assert.rejects(
+			() =>
+				vendorExtensionSkills.replaceGeneratedTree(expected, outRoot, {
+					renamePath: async (from, to) => {
+						renameCalls++;
+						if (renameCalls === 2) throw new Error("injected install failure");
+						await fs.promises.rename(from, to);
+					},
+					removePath: async (target, options) => {
+						await fs.promises.rm(target, options);
+						if (path.basename(target).startsWith("alpha.staging-")) {
+							cleanupFailures++;
+							throw new Error("injected cleanup failure");
+						}
+					},
+				}),
+			/injected install failure/,
+		);
+
+		assert.equal(cleanupFailures, 1);
+		assert.equal(fs.readFileSync(path.join(outRoot, "SKILL.md"), "utf8"), "# previous\n");
+		assert.deepEqual(
+			fs.readdirSync(path.dirname(outRoot)).filter((entry) => entry.startsWith("alpha.")),
+			[],
+		);
 	} finally {
 		fs.rmSync(root, { recursive: true, force: true });
 	}

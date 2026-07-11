@@ -307,9 +307,9 @@ tools/<code>!</code>-commands, no el ciclo de recarga.</p>
 Aísla los tools built-in y <code>!</code> en una micro-VM; <strong>no</strong> aísla los subagentes de
 dynamic-workflows (spawnean <code>pi</code>/<code>codex</code> en el host).</li>
 <li><strong>Contenedor / Docker:</strong> para aislar el orquestador entero, correr todo <code>pi</code>
-dentro de un contenedor (ver <code>docs/containerization.md</code> de pi upstream), o usar
-la extensión <code>pandi-container</code> para correr comandos en micro-VMs de Apple
-<code>container</code>.</li>
+dentro de un contenedor, o usar la extensión
+<a href="../extensions/pandi-container/README.md"><code>pandi-container</code></a> para correr
+comandos puntuales en micro-VMs de Apple <code>container</code>.</li>
 </ul>
 <p>No uses el eje 3 para resolver el eje 2: un edit roto no es un problema de
 seguridad de ejecución, es de cuándo recargás.</p>
@@ -325,7 +325,7 @@ seguridad de ejecución, es de cuándo recargás.</p>
 <ul>
 <li><a href="index.html"><code>README.md</code></a> — instalación / dogfooding (<code>pi install ./</code>, <code>/reload</code>).</li>
 <li>Skill <code>init-pandi-extensions</code> — onboarding desde un clon fresco.</li>
-<li><a href="index.html#verification"><code>README.md#verification</code></a> — cómo correr <code>npm test</code> (harness de tests, lint, typecheck).</li>
+<li><a href="index.html#verificaci%C3%B3n"><code>README.md#verificación</code></a> — cómo correr <code>npm test</code> (harness de tests, lint, typecheck).</li>
 <li><a href="gondolin-isolation.html"><code>gondolin-isolation.md</code></a> — aislamiento por micro-VM (eje 3).</li>
 </ul>
 	</main>

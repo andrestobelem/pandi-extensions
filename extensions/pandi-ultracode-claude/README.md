@@ -5,6 +5,10 @@ ni depender de la herramienta `Workflow` nativa. El paquete ofrece una CLI
 observable y un plugin local con `/ultracode-run`; cada corrida conserva
 artifacts y journal en `.claude/ultracode/runs/`.
 
+Este runner es **trusted-workspace only**: ejecutá únicamente workflows y
+workspaces que hayas revisado y decidido confiar. `run` y `resume` rechazan la
+ejecución salvo que pases `--trust-workspace` de forma explícita.
+
 `/ultracode` sigue siendo la entrada nativa existente de Claude Code. Elegí
 `/ultracode-run` cuando necesitás un proceso externo, artifacts inspeccionables
 y recuperación mediante `resume`.
@@ -74,8 +78,13 @@ primera entrega rechaza escrituras de agentes, `bash()`, `writeFile()`,
 provider. Tampoco agrega directorios, plugins, MCP ni flags `dangerously-*`.
 
 Estos límites reducen el privilegio, pero no convierten workflows confiados ni
-el proceso de Claude en una frontera completa de aislamiento. Para una garantía
-fuerte, ejecutá el host en un contenedor, cuenta o entorno aislado.
+el proceso de Claude en una frontera de aislamiento. `node:vm` aporta solamente
+un contexto de evaluación: el workflow corre dentro del proceso del runner con
+las capacidades host inyectadas. No es un sandbox de seguridad y no admite
+código no confiable.
+
+Una futura frontera de proceso/OS está diseñada, pero no implementada, en
+[`docs/research/2026-07-11-ultracode-process-os-boundary.md`](../../docs/research/2026-07-11-ultracode-process-os-boundary.md).
 
 Agregá los artifacts efímeros al proyecto:
 

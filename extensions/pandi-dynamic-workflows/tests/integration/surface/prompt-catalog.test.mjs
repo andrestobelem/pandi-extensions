@@ -7,7 +7,8 @@
  * `formatWorkflowPatternCatalog()` en extensions/pandi-dynamic-workflows/pattern-scaffolds.ts.
  * El mismo bloque "Plantillas apoyadas en research" se espeja en skills/docs humanas
  * y debe mantenerse byte-idéntico salvo nivel de heading:
- *   - .pi/skills/ultracode/SKILL.md                (## Plantillas apoyadas en research)
+ *   - .pi/skills/ultracode/reference/operational-notes.md
+ *                                                    (## Plantillas apoyadas en research)
  *   - extensions/pandi-dynamic-workflows/README.md (### Plantillas apoyadas en research)
  *   - README.md (repo root)                        (### Plantillas apoyadas en research)
  *   - docs/dynamic-workflows.md                    (### Plantillas apoyadas en research)
@@ -100,7 +101,7 @@ async function main() {
 	const canonical = canonicalize(canonicalBlock);
 
 	const mirrors = [
-		".pi/skills/ultracode/SKILL.md",
+		".pi/skills/ultracode/reference/operational-notes.md",
 		"extensions/pandi-dynamic-workflows/README.md",
 		"README.md",
 		"docs/dynamic-workflows.md",

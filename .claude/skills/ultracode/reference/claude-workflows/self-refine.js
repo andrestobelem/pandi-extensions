@@ -237,7 +237,7 @@ while (round < maxRounds) {
 
 		// 2) REFINE — apply the fixes; verbal memory (all prior critiques) is prepended.
 		phase("Refine");
-		draft = await agent(
+		const refinedDraft = await agent(
 			`Revisá el intento para resolver las críticas. Conservá lo que funciona; cambiá solo lo que indiquen las críticas. ` +
 				`Abordá TODOS los problemas listados; no introduzcas problemas nuevos.\n\n` +
 				`Tarea: ${task}\n\n` +
@@ -245,6 +245,12 @@ while (round < maxRounds) {
 				`Current attempt:\n${compact(draft, 30000)}`,
 			node("refine", { tier: "balanced", effort: "medium", label: `refine-${round}`, phase: "Refine" }),
 		);
+		if (refinedDraft == null) {
+			failureNote = `round ${round}: refine returned null`;
+			log(`self-refine ${failureNote} — returning last good draft`);
+			break;
+		}
+		draft = refinedDraft;
 	} catch (err) {
 		// Partial-failure isolation: a thrown critique/refine on this round must NOT
 		// discard the last good draft. Log, record the failure, and break to return it.
@@ -254,7 +260,7 @@ while (round < maxRounds) {
 	}
 }
 
-if (!satisfied) log(`stopped at maxRounds (not yet satisfied) ${JSON.stringify({ maxRounds })}`);
+if (!satisfied && !failureNote) log(`stopped at maxRounds (not yet satisfied) ${JSON.stringify({ maxRounds })}`);
 log(`self-refine complete ${JSON.stringify({ rounds: round, satisfied, useJury, failed: !!failureNote })}`);
 
 return {

@@ -427,15 +427,30 @@ async function scenarioHandlerEndToEnd(url) {
 	const { pi, commands } = makePi();
 	extension(pi);
 	const notifications = [];
+	const processCwd = fs.mkdtempSync(path.join(os.tmpdir(), "pi-doctor-handler-cwd-"));
 	const ctx = {
 		mode: "interactive",
 		hasUI: true,
 		cwd: REPO_ROOT,
 		ui: { notify: (message, type) => notifications.push({ message, type }) },
 	};
-	// Corre el `scripts/doctor.mjs` REAL contra este repo; aserción agnóstica del entorno.
-	await commands.get("doctor").handler("", ctx);
+	const originalCwd = process.cwd();
+	try {
+		process.chdir(processCwd);
+		check("handler: process.cwd difiere de ctx.cwd", process.cwd() !== ctx.cwd);
+		// Corre el `scripts/doctor.mjs` REAL contra ctx.cwd, no contra el cwd del proceso host.
+		await commands.get("doctor").handler("", ctx);
+	} finally {
+		process.chdir(originalCwd);
+		fs.rmSync(processCwd, { recursive: true, force: true });
+	}
 	check("handler: notifica exactamente una vez", notifications.length === 1, `count=${notifications.length}`);
+	check(
+		"handler: resuelve el doctor desde ctx.cwd aunque process.cwd sea distinto",
+		notifications[0]?.type !== "warning" &&
+			!/No se encontró `scripts\/doctor\.mjs`/.test(notifications[0]?.message ?? ""),
+		JSON.stringify(notifications[0]),
+	);
 	check(
 		"handler: la notificación tiene texto no vacío y un tipo válido",
 		typeof notifications[0]?.message === "string" &&

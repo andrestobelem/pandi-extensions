@@ -1,7 +1,7 @@
 /**
  * Tests de integración chicos para el parser puro de intención de `/loop`.
  *
- * El engine completo ya está cubierto por loop-behavior/loop-caps-resume/safety/ultracode;
+ * El engine completo ya está cubierto por loop-behavior/loop-caps/loop-pause-resume/loop-rehydrate-durability/safety/ultracode;
  * esta suite fija la gramática antes de extraerla de index.ts para que el refactor sea
  * TDD y reversible.
  *

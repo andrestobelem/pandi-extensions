@@ -168,7 +168,6 @@ export async function runWorkflow(
 	const runSubagent = (prompt: string, options: InternalAgentOptions = {}) =>
 		runSubagentImpl(subagentHost, prompt, options);
 
-	// Copy of agent options excluding fields that do not affect model output, so
 	const agent = (prompt: string, options: InternalAgentOptions = {}) => trackSubagent(runSubagent(prompt, options));
 
 	const bashAsk: BashAskContext = {

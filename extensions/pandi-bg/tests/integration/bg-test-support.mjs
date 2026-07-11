@@ -3,7 +3,14 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildExtension, bundle, loadDefault, makeBuildDir, sdkStub } from "../../../shared/test/harness.mjs";
+import {
+	buildExtension,
+	bundle,
+	createChecker,
+	loadDefault,
+	makeBuildDir,
+	sdkStub,
+} from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -87,6 +94,42 @@ export async function setupJob(
 
 export function shellQuote(value) {
 	return JSON.stringify(value);
+}
+
+export async function flushStreamTurn() {
+	await new Promise((resolve) => setImmediate(resolve));
+}
+
+export async function startControlledJob(commands, cwd, { exitCode = 0, check } = {}) {
+	const script = path.join(cwd, `job-${Math.random().toString(16).slice(2)}.cjs`);
+	const started = path.join(cwd, `started-${Math.random().toString(16).slice(2)}`);
+	const release = path.join(cwd, `release-${Math.random().toString(16).slice(2)}`);
+	await fs.writeFile(
+		script,
+		`const fs = require("node:fs");\n` +
+			`const path = require("node:path");\n` +
+			`fs.writeFileSync(process.argv[2], "started");\n` +
+			`console.log("hello-stdout");\n` +
+			`console.error("hello-stderr");\n` +
+			`const release = process.argv[3];\n` +
+			`const timeout = setTimeout(() => process.exit(99), 8000);\n` +
+			`let watcher;\n` +
+			`function finish() { clearTimeout(timeout); watcher?.close(); process.exit(${exitCode}); }\n` +
+			`watcher = fs.watch(path.dirname(release), { persistent: false }, (_event, filename) => {\n` +
+			`  if (filename === undefined || String(filename) === path.basename(release)) {\n` +
+			`    if (fs.existsSync(release)) finish();\n` +
+			`  }\n` +
+			`});\n` +
+			`if (fs.existsSync(release)) finish();\n`,
+	);
+	const ctx = makeCtx({ cwd, trusted: true });
+	const command = `${shellQuote(process.execPath)} ${shellQuote(script)} ${shellQuote(started)} ${shellQuote(release)}`;
+	await commands.get("bg").handler(`start ${command}`, ctx);
+	const msg = ctx._notes.at(-1)?.msg || "";
+	const jobId = parseJobId(msg);
+	if (check) check("start: reports a job id", Boolean(jobId), msg);
+	const runDir = path.join(cwd, ".pi", "bg", "runs", jobId || "missing");
+	return { ctx, jobId, runDir, started, release, command };
 }
 
 export function makePi() {
@@ -191,4 +234,24 @@ export async function waitForFile(label, file, { timeoutMs = 6000 } = {}) {
 		});
 		void checkFile();
 	});
+}
+
+/** Orquesta escenarios de integración bg con build + checker compartidos (patrón loop-test-support). */
+export async function runBgScenarios({ name, scenarios, exitOnGreen = true }) {
+	const { check, counts } = createChecker();
+	const wrapped = scenarios.map((fn) => (url) => fn(url, check));
+	const { url } = await buildBg({ name });
+	try {
+		for (const scenario of wrapped) await scenario(url);
+	} catch (err) {
+		console.error("INTEGRATION TEST CRASH:", err?.stack ? err.stack : err);
+		process.exit(2);
+	}
+
+	console.log(`\n${counts.passed} passed, ${counts.failed} failed`);
+	if (counts.failed) {
+		console.error(counts.failures.join("\n"));
+		process.exit(1);
+	}
+	if (exitOnGreen) process.exit(0);
 }

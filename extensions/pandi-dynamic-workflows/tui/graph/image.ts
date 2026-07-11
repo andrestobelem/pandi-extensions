@@ -147,11 +147,14 @@ export async function renderWorkflowGraphImage(
 		};
 	const root = getGraphRoot(ctx);
 	await ensureDir(root);
-	const base = `${slugify(model.workflow.name)}-${crypto.createHash("sha1").update(model.workflow.path).digest("hex").slice(0, 8)}`;
+	const { renderWorkflowGraphMermaidLines } = await import("./render.js");
+	const mermaid = `${renderWorkflowGraphMermaidLines(model).join("\n")}\n`;
+	const pathHash = crypto.createHash("sha1").update(model.workflow.path).digest("hex").slice(0, 8);
+	const sourceHash = crypto.createHash("sha1").update(mermaid).digest("hex").slice(0, 12);
+	const base = `${slugify(model.workflow.name)}-${pathHash}-${sourceHash}`;
 	const mmdPath = path.join(root, `${base}.mmd`);
 	const pngPath = path.join(root, `${base}.png`);
-	const { renderWorkflowGraphMermaidLines } = await import("./render.js");
-	await fs.writeFile(mmdPath, `${renderWorkflowGraphMermaidLines(model).join("\n")}\n`, "utf8");
+	await fs.writeFile(mmdPath, mermaid, "utf8");
 
 	const invocation = resolveMmdcInvocation(ctx.cwd);
 	const imageOptions = workflowGraphImageOptions(model);

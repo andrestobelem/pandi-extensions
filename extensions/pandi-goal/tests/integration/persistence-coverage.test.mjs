@@ -37,106 +37,28 @@ import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import { fileURLToPath } from "node:url";
-import { buildExtension, createChecker, loadModule, sdkStub } from "../../../shared/test/harness.mjs";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
-
-// Replica constants.ts: PROGRESS_LOG_KEEP. La fuente lo empaqueta en privado; fijamos el valor
-// acá para que un cambio del límite aparezca como assertion fallida y se actualice conscientemente.
-const PROGRESS_LOG_KEEP = 12;
-const STATE_FILE = "state.json";
-const GOAL_DIR = "goals";
-const CONFIG_DIR_NAME = ".pi";
-const GOAL_STATE_TYPE = "goal-state";
+import { createChecker, loadModule } from "../../../shared/test/harness.mjs";
+import {
+	agentDirFor,
+	buildPersistence,
+	CONFIG_DIR_NAME,
+	flushFs,
+	GOAL_DIR,
+	GOAL_STATE_TYPE,
+	makeActiveGoal,
+	makeAppendPi,
+	PROGRESS_LOG_KEEP,
+	STATE_FILE,
+	waitForNoTmpFiles,
+} from "./goal-test-support.mjs";
 
 const { check, counts } = createChecker();
-
-// persistence.ts importa símbolos runtime del SDK (CONFIG_DIR_NAME, getAgentDir) → necesita el
-// stub sdk. NO toca typebox. getAgentDir() resuelve a <outDir>/agentdir.
-async function buildPersistence() {
-	return await buildExtension({
-		name: "pi-goal-persistence-integration",
-		src: path.join(REPO_ROOT, "extensions", "pandi-goal", "persistence.ts"),
-		outName: "persistence.mjs",
-		stubs: { sdk: (dir) => sdkStub(dir) },
-	});
-}
-
-// agentDir es determinístico desde el outDir del build (sdkStub apunta getAgentDir ahí).
-function agentDirFor(outDir) {
-	return path.join(outDir, "agentdir");
-}
-
-// Captura cada snapshot agregado.
-function makePi() {
-	const entries = [];
-	return {
-		pi: {
-			appendEntry: (customType, data) => entries.push({ customType, data }),
-		},
-		entries,
-	};
-}
-
-// Un objeto completo con forma ActiveGoal, con valores sentinel distintos por campo, más los
-// campos runtime extra que snapshot() NO debe copiar.
-function makeGoal(overrides = {}) {
-	return {
-		goalId: "goal-sentinel-id",
-		objective: "objective-sentinel",
-		successCriteria: "success-sentinel",
-		derivedCriteria: "derived-sentinel",
-		ultracode: true,
-		iteration: 7,
-		maxIterations: 33,
-		contextPercentCap: 71,
-		assessments: [{ iteration: 1, status: "continue", assessment: "a0", at: "t0" }],
-		verifyAttempts: 2,
-		independentVerifyAttempts: 1,
-		maxIndependentVerifications: 5,
-		verifierTimeoutMs: 99000,
-		verifierTools: ["read", "grep"],
-		gstatus: "pursuing",
-		startedAt: 1234567890,
-		nextFireAt: 1234599999,
-		lastReason: "reason-sentinel",
-		updatedAt: "2020-01-01T00:00:00.000Z",
-		// Runtime-only fields snapshot() drops:
-		timer: setTimeout(() => {}, 100000),
-		controller: { abort() {} },
-		rearmedThisTurn: true,
-		verifierInFlight: true,
-		...overrides,
-	};
-}
-
-// Sondea el filesystem (o cualquier predicate) hasta true o hasta agotar turnos de I/O/check.
-// No duerme por tiempo de pared: persist() dispara promesas de fs, no timers de producción.
-async function flush(predicate, tries = 2000) {
-	for (let i = 0; i < tries; i++) {
-		await new Promise((r) => setImmediate(r));
-		if (predicate?.()) return true;
-	}
-	return predicate ? predicate() : true;
-}
-
-async function waitForNoTmpFiles(dir, tries = 2000) {
-	let entries = [];
-	for (let i = 0; i < tries; i++) {
-		await new Promise((r) => setImmediate(r));
-		entries = await fs.readdir(dir);
-		if (!entries.some((f) => f.endsWith(".tmp"))) return entries;
-	}
-	return entries;
-}
 
 // ===========================================================================
 // snapshot(): mapeo completo de campos
 // ===========================================================================
 function snapshotCopiesAllFields(mod) {
-	const goal = makeGoal();
+	const goal = makeActiveGoal();
 	// cancelar el timer creado para que no mantenga vivo el event loop
 	clearTimeout(goal.timer);
 	const snap = mod.snapshot(goal);
@@ -188,7 +110,7 @@ function snapshotBoundsAssessments(mod) {
 		assessment: `a${i}`,
 		at: `t${i}`,
 	}));
-	const goal = makeGoal({ assessments });
+	const goal = makeActiveGoal({ assessments });
 	clearTimeout(goal.timer);
 	const snap = mod.snapshot(goal);
 	check(
@@ -213,9 +135,9 @@ function snapshotBoundsAssessments(mod) {
 // persist(): marca updatedAt, agrega el snapshot sincrónicamente y lanza sidecar en fire-and-forget.
 // ===========================================================================
 function persistAppendsAndStamps(mod) {
-	const { pi, entries } = makePi();
+	const { pi, entries } = makeAppendPi();
 	const ctx = { isProjectTrusted: () => true, cwd: os.tmpdir() };
-	const goal = makeGoal({ updatedAt: "1999-01-01T00:00:00.000Z" });
+	const goal = makeActiveGoal({ updatedAt: "1999-01-01T00:00:00.000Z" });
 	clearTimeout(goal.timer);
 	const before = Date.now();
 	const ret = mod.persist(pi, ctx, goal);
@@ -247,10 +169,10 @@ async function persistSwallowsSidecarError(mod) {
 	const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "goal-persist-fail-"));
 	const fileAsCwd = path.join(tmp, "iam-a-file");
 	await fs.writeFile(fileAsCwd, "not a dir");
-	const { pi, entries } = makePi();
+	const { pi, entries } = makeAppendPi();
 	// trusted → goalStateDir = <cwd>/.pi/goals/<id>; mkdir de eso bajo un ARCHIVO rechaza (ENOTDIR).
 	const ctx = { isProjectTrusted: () => true, cwd: fileAsCwd };
-	const goal = makeGoal();
+	const goal = makeActiveGoal();
 	clearTimeout(goal.timer);
 	const unhandledRejections = [];
 	const onUnhandledRejection = (reason) => unhandledRejections.push(String(reason?.message ?? reason));
@@ -270,7 +192,7 @@ async function persistSwallowsSidecarError(mod) {
 	// Dejar que la promise sidecar rechazada se resuelva; el .catch(() => {}) de la fuente debe tragarla
 	// (cualquier unhandled rejection acá haría caer el proceso con exit 2 vía el handler de main()).
 	try {
-		await flush(() => false, 30);
+		await flushFs(() => false, 30);
 	} finally {
 		process.off("unhandledRejection", onUnhandledRejection);
 	}
@@ -288,14 +210,14 @@ async function persistSwallowsSidecarError(mod) {
 // ===========================================================================
 async function sidecarAtomicWriteTrustedRoot(mod) {
 	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "goal-trusted-"));
-	const { pi } = makePi();
+	const { pi } = makeAppendPi();
 	const ctx = { isProjectTrusted: () => true, cwd };
-	const goal = makeGoal({ goalId: "trusted-goal-1" });
+	const goal = makeActiveGoal({ goalId: "trusted-goal-1" });
 	clearTimeout(goal.timer);
 	mod.persist(pi, ctx, goal);
 	const dir = path.join(cwd, CONFIG_DIR_NAME, GOAL_DIR, "trusted-goal-1");
 	const file = path.join(dir, STATE_FILE);
-	await flush(() => existsSync(file));
+	await flushFs(() => existsSync(file));
 	check("writeSidecar() trusted root lands at <cwd>/.pi/goals/<id>/state.json", existsSync(file), file);
 
 	if (existsSync(file)) {
@@ -335,9 +257,9 @@ async function sidecarTempCleanupOnRenameFailure(mod) {
 	await fs.mkdir(stateAsDir, { recursive: true });
 	await fs.writeFile(path.join(stateAsDir, "blocker"), "x");
 
-	const { pi, entries } = makePi();
+	const { pi, entries } = makeAppendPi();
 	const ctx = { isProjectTrusted: () => true, cwd };
-	const goal = makeGoal({ goalId: "rename-fail-goal" });
+	const goal = makeActiveGoal({ goalId: "rename-fail-goal" });
 	clearTimeout(goal.timer);
 	mod.persist(pi, ctx, goal);
 	check("persist() still appended despite the doomed rename", entries.length === 1, `n=${entries.length}`);
@@ -365,13 +287,13 @@ async function sidecarTempCleanupOnRenameFailure(mod) {
 async function sidecarUntrustedRootUsesSha1Hash(mod, outDir) {
 	const projectPath = "/some/path";
 	const expectedHash = crypto.createHash("sha1").update(projectPath).digest("hex").slice(0, 12);
-	const { pi } = makePi();
+	const { pi } = makeAppendPi();
 	const ctx = { isProjectTrusted: () => false, cwd: projectPath };
-	const goal = makeGoal({ goalId: "untrusted-goal-1" });
+	const goal = makeActiveGoal({ goalId: "untrusted-goal-1" });
 	clearTimeout(goal.timer);
 	mod.persist(pi, ctx, goal);
 	const expectedFile = path.join(agentDirFor(outDir), GOAL_DIR, expectedHash, "untrusted-goal-1", STATE_FILE);
-	await flush(() => existsSync(expectedFile));
+	await flushFs(() => existsSync(expectedFile));
 	check(
 		"goalStateDir() untrusted → <agentDir>/goals/<sha1(cwd)[:12]>/<id>/state.json",
 		existsSync(expectedFile),

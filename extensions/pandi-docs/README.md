@@ -1,6 +1,12 @@
 # @pandi-coding-agent/pandi-docs
 
-Convierte un archivo Markdown en un artifact HTML autocontenido y con estilo: un solo archivo, sin build step, con temas claro y oscuro integrados vía el skill `pandi-artifact-style` (layout Claude-design, paleta Panda Syntax). Usalo cuando necesites entregar un informe o reporte como un `.html` único, listo para abrir desde disco o enviar por mail.
+Convierte un archivo Markdown en un único artifact HTML con CSS y tokens
+embebidos, sin build step, con temas claro y oscuro integrados vía el skill
+`pandi-artifact-style` (layout Claude-design, paleta Panda Syntax). Usalo cuando
+necesites entregar un informe o reporte como un `.html` único, listo para abrir
+desde disco o enviar por mail. Si el Markdown contiene Mermaid, el archivo carga
+el runtime desde un CDN: requiere red y el diagrama puede quedar limitado por
+una CSP restrictiva o por el modo offline.
 
 ```bash
 /docs README.md --kicker "Informe"
@@ -40,7 +46,14 @@ Los detalles sobre soporte de mermaid, alertas de GitHub → callouts etiquetado
 
 ## Detalles
 
-El conversor lee los tokens pandi desde `skills/pandi-artifact-style/reference/pandi-tokens.css` en tiempo de ejecución, así que el paquete sigue siendo autocontenido incluso instalado de forma standalone. En el repo, esa copia del skill vendoreado es un espejo GENERADO de `.pi/skills/pandi-artifact-style/` (`npm run sync:skills:vendor`) — editá la fuente `.pi`, no la copia.
+El conversor lee los tokens pandi desde
+`skills/pandi-artifact-style/reference/pandi-tokens.css` en tiempo de ejecución
+y los embebe en el archivo final, así que el paquete sigue siendo autocontenido
+respecto del CSS y los tokens incluso instalado de forma standalone. En el repo,
+esa copia del skill vendoreado es un espejo GENERADO de
+`.pi/skills/pandi-artifact-style/` (`npm run sync:skills:vendor`) — editá la
+fuente `.pi`, no la copia. Mermaid es la excepción de runtime descrita arriba:
+su script se obtiene desde el CDN y no se embebe.
 
 ## Relacionado
 

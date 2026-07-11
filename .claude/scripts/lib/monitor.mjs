@@ -81,12 +81,13 @@ function activityBlock(runData) {
   return `<table class="monitor-table"><thead><tr><th>hora</th><th>mensaje</th></tr></thead><tbody>${latest.map((log) => `<tr><td class="mono-mini">${esc(String(log.time || "").slice(11, 19) || "—")}</td><td>${esc(log.message || "")}</td></tr>`).join("")}</tbody></table>`;
 }
 
-export function renderWorkflowMonitor({ meta = {}, phases = [], nodes = [], runData = null, args = "", warn = null, source = "" } = {}) {
+export function renderWorkflowMonitor({ meta = {}, phases = [], nodes = [], runData = null, args = "", warn = null, source = "", previewMode = "parse-only" } = {}) {
   const p = progress({ nodes, runData });
   const total = Math.max(0, p.total || 0);
   const frac = p.fraction !== undefined ? p.fraction : total > 0 ? p.done / total : 0;
   const featured = pickFeaturedNode(nodes);
-  const stateLabel = runData ? runData.state || "unknown" : "preview estático";
+  const previewLabel = previewMode === "evaluated" ? "preview evaluado" : "preview estático";
+  const stateLabel = runData ? runData.state || "unknown" : previewLabel;
   const stateKind = runData ? runData.runKind || (runData.state === "failed" ? "fail" : runData.active || runData.state === "running" ? "run" : runData.state === "completed" ? "ok" : "warn") : "run";
   const artifactCount = runData?.results?.artifacts?.length || 0;
   const lastLog = runData?.logs?.slice(-1)[0];
@@ -104,7 +105,7 @@ export function renderWorkflowMonitor({ meta = {}, phases = [], nodes = [], runD
     '<div class="subh">Agentes</div>',
     nodes.length
       ? `<table class="monitor-table"><thead><tr><th>estado</th><th>id/fase</th><th>rol</th><th>modelo</th><th>esfuerzo</th><th>schema</th><th>tools</th><th>skills</th></tr></thead><tbody>${nodes.map((node) => agentRow(node, featured)).join("")}</tbody></table>`
-      : '<div class="prov" style="color:var(--muted)">Sin agentes detectados en el preview estático.</div>',
+      : `<div class="prov" style="color:var(--muted)">Sin agentes detectados en el ${previewLabel}.</div>`,
     '<div class="subh">Agente destacado</div>',
     featuredAgent(featured),
     '<div class="subh">Actividad</div>',

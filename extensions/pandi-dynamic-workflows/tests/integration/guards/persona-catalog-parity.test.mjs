@@ -8,7 +8,7 @@
  *   - el string de prompt runtime en workflow-tool-contract.ts (la unión agentType:'…')
  *   - la referencia primitives/agent.md y su mirror autocontenido del skill ultracode
  *   - la lista de personas del README
- *   - el skill ultracode: SKILL.md y su catálogo reference/personas.md
+ *   - el catálogo `reference/personas.md` del skill ultracode
  *
  * También fija el invariante de seguridad read-only: cada persona built-in actual defaulta
  * a READ_ONLY_AGENT_TOOLS. Agregar una persona con capacidad de escritura (p. ej. un executor)
@@ -58,10 +58,6 @@ const SURFACES = {
 	README: {
 		path: path.join(REPO_ROOT, "README.md"),
 		hasPersona: (text, name) => lineSpan(text, "- **Personas**:").includes(`"${name}"`),
-	},
-	"skill SKILL.md": {
-		path: path.join(SKILL_DIR, "SKILL.md"),
-		hasPersona: (text, name) => lineSpan(text, "`agentType` personas set", 2).includes(`\`${name}\``),
 	},
 	"skill reference/personas.md": {
 		path: path.join(SKILL_DIR, "reference", "personas.md"),

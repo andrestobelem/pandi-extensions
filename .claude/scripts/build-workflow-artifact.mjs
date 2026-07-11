@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 // build-workflow-artifact.mjs — envoltorio fino de CLI alrededor del módulo reutilizable lib/artifact.mjs.
 // Uso: node build-workflow-artifact.mjs <workflow.js> <out.html> [argsJson]
-//                                       [--run <dir|latest>] [--match <s>] [--watch] [--open] [--interval <ms>]
+//                                       [--eval-preview] [--run <dir|latest>] [--match <s>]
+//                                       [--watch] [--open] [--interval <ms>]
 //
 // Renderiza un preview HTML autocontenido, con estilo Claude y tabs, de CUALQUIER script dynamic-workflow
 // (Diagram · Agents & prompts · Schemas · Based on · Full script · Results) — ANTES de lanzarlo,
 // y (con --run) después o mientras corre, superponiendo los resultados por rol del run real. El build
 // real lo hace buildArtifact() en ./lib/artifact.mjs (importable desde otro código); este archivo
 // solo resuelve el parseo de args de CLI, el loop de --watch, la escritura del archivo y --open. La
-// visualización se separa por responsabilidad en lib/: extract.mjs (extracción por stubbed-run),
+// visualización se separa por responsabilidad en lib/: extract.mjs (parse-only o evaluación con opt-in),
 // run-merge.mjs (ingesta y overlay del run), render.mjs (data -> HTML), artifact.mjs (orquestador),
 // más los ya modulares json-to-markdown.mjs y artifact-client.js inlineados en el HTML.
 import { writeFileSync, statSync } from "node:fs";
@@ -17,6 +18,7 @@ import { join } from "node:path";
 import { buildArtifact, resolveRunDir } from "./lib/artifact.mjs";
 
 // ── CLI: <workflow.js> <out.html> [argsJson] más flags opcionales ─────────────────────────
+const usage = "usage: build-workflow-artifact.mjs <workflow.js> <out.html> [argsJson] [--eval-preview] [--run <dir|latest>] [--match <s>] [--watch] [--open] [--interval <ms>]";
 const argv = process.argv.slice(2);
 const flags = {};
 const pos = [];
@@ -24,14 +26,19 @@ for (let i = 0; i < argv.length; i++) {
   const a = argv[i];
   if (a.startsWith("--")) {
     const key = a.slice(2);
-    if (key === "watch" || key === "open") flags[key] = true;
+    if (key === "watch" || key === "open" || key === "eval-preview" || key === "help") flags[key] = true;
     else { const nxt = argv[i + 1]; flags[key] = nxt && !nxt.startsWith("--") ? argv[++i] : true; }
   } else pos.push(a);
+}
+if (flags.help) {
+	console.log(usage);
+	console.log("  --eval-preview  evalúa explícitamente el workflow con runtime stubs; el default es parse-only");
+	process.exit(0);
 }
 const scriptPath = pos[0];
 const outPath = pos[1];
 const argsJson = pos[2];
-if (!scriptPath || !outPath) { console.error("usage: build-workflow-artifact.mjs <workflow.js> <out.html> [argsJson] [--run <dir|latest>] [--match <s>] [--watch] [--open] [--interval <ms>]"); process.exit(2); }
+if (!scriptPath || !outPath) { console.error(usage); process.exit(2); }
 
 // ── main: render único, o loop de --watch; --open abre ahora y vuelve a abrir cuando termina el run ─
 const openHtml = () => { if (flags.open) execFile("open", [outPath], () => {}); };
@@ -39,7 +46,7 @@ const runDir = resolveRunDir(flags.run, flags.match);
 if (flags.run && !runDir) console.error("warn: --run given but no run dir resolved for:", flags.run);
 
 const render = async () => {
-  const r = await buildArtifact({ scriptPath, argsJson, runDir });
+  const r = await buildArtifact({ scriptPath, argsJson, runDir, evalPreview: flags["eval-preview"] === true });
   writeFileSync(outPath, r.html);
   return r;
 };

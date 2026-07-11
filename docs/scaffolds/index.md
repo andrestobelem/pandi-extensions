@@ -16,7 +16,7 @@ Esta página es el mapa del catálogo de scaffolds de `pandi-extensions`. Un sca
 ## Gate, ruteo y guardas
 
 - [`contract-gate`](./contract-gate.md): Convierte un pedido vago en un contrato inspeccionable y decide entre preguntar ahora o seguir con un supuesto registrado.
-- [`guardrails`](./guardrails.md): Tripwire barato de entrada/salida que se DETIENE ante una violación clara; puede envolver cualquier workflow vía `protect:{name,args}`.
+- [`guardrails`](./guardrails.md): Tripwire barato de entrada/salida que se detiene ante una violación clara; puede envolver cualquier workflow vía `protect:{name,args}`.
 - [`router`](./router.md): Clasifica un pedido y lo despacha al workflow único del catálogo más adecuado, o solo lo recomienda.
 
 ## Composición y meta

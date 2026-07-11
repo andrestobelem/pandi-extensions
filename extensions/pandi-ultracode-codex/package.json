@@ -1,7 +1,7 @@
 {
 	"name": "@pandi-coding-agent/pandi-ultracode-codex",
 	"version": "0.1.0",
-	"description": "Runner autónomo de Ultracode que orquesta workflows portables mediante Codex CLI.",
+	"description": "Runner trusted-workspace de Ultracode que orquesta workflows portables mediante Codex CLI.",
 	"license": "MIT",
 	"repository": {
 		"type": "git",

@@ -6,7 +6,7 @@
  *
  * Resguardos de automodificación (NO eliminarlos: el metaagente debe conservarlos):
  *   1. copia de seguridad: la fuente actual se copia a .pi/workflows/versions/continuous-improvement.v<N>.js
- *      antes de sobrescribirla (N = cantidad de copias existentes + 1, determinista).
+ *      antes de sobrescribirla (N = max(vN) + 1), bajo un lock de creación exclusiva.
  *   2. control de sintaxis: la fuente propuesta debe superar `node --check` antes de aplicarse.
  *   3. control de marcadores: la fuente propuesta debe seguir conteniendo el export, las cuatro fases
  *      y el propio código de resguardo (no puede borrar su seguridad ni su paso meta).
@@ -86,6 +86,7 @@ export default async function main() {
 
 	const SELF_PATH = ".pi/workflows/continuous-improvement.js";
 	const VERSIONS_DIR = ".pi/workflows/versions";
+	const LOCK_DIR = `${VERSIONS_DIR}/.continuous-improvement.lock`;
 	const CHANGELOG = ".pi/workflows/continuous-improvement.changelog.md";
 
 	const CRITIQUE = {
@@ -314,6 +315,7 @@ export default async function main() {
 			'phase("Metamejora")',
 			"node --check",
 			"VERSIONS_DIR",
+			"LOCK_DIR",
 			"CHANGELOG",
 		];
 		const missing = markers.filter((m) => !proposal.source.includes(m));
@@ -338,23 +340,54 @@ export default async function main() {
 			return { applied: false, reason: "falló el control de sintaxis", detail: compact(check.stderr, 2000) };
 		}
 
-		// Resguardo 1: copia de seguridad versionada (N determinista = copias existentes + 1).
-		let existing = [];
+		// Resguardo 1: mkdir reserva de forma exclusiva toda la aplicación; exit 17 representa EEXIST.
+		const lockCommand =
+			`mkdir -p -- ${JSON.stringify(VERSIONS_DIR)} || exit 1; ` +
+			`if mkdir -- ${JSON.stringify(LOCK_DIR)}; then exit 0; fi; ` +
+			`if test -e ${JSON.stringify(LOCK_DIR)}; then echo EEXIST: ${LOCK_DIR} >&2; exit 17; fi; exit 1`;
+		let lock;
 		try {
-			existing = (await listFiles(VERSIONS_DIR)).filter((f) => /continuous-improvement\.v\d+\.js$/.test(f));
-		} catch {
-			existing = [];
+			lock = await bash(lockCommand, { throwOnError: false });
+		} catch (err) {
+			const detail = err?.message ?? String(err);
+			if (detail.includes("exited 17") || detail.includes("EEXIST")) throw new Error(`EEXIST: ${LOCK_DIR}`);
+			throw err;
 		}
-		const version = existing.length + 1;
-		await writeFile(`${VERSIONS_DIR}/continuous-improvement.v${version}.js`, source);
+		if (!lock.ok) {
+			const detail = lock.stderr || lock.stdout || `code ${lock.code}`;
+			if (lock.code === 17 || detail.includes("EEXIST")) throw new Error(`EEXIST: ${LOCK_DIR}`);
+			throw new Error(`no se pudo tomar el lock de metamejora: ${detail}`);
+		}
 
-		// Aplicación + resguardo 5: changelog.
-		await writeFile(SELF_PATH, proposal.source);
-		await appendFile(
-			CHANGELOG,
-			`\n## v${version + 1} (ejecución ${runId})\n\n${proposal.changelog || proposal.rationale}\n`,
-		);
-		log(`meta-improve: APLICADO — copia de seguridad v${version}; la próxima ejecución usa la fuente mejorada`);
-		return { applied: true, backup: `${VERSIONS_DIR}/continuous-improvement.v${version}.js`, rationale: proposal.rationale };
+		try {
+			// Una propuesta creada contra una fuente anterior no puede aplicarse después de otra ejecución.
+			if ((await readFile(SELF_PATH)) !== source) throw new Error(`EEXIST: ${SELF_PATH} cambió durante la metamejora`);
+
+			let existing = [];
+			try {
+				existing = (await listFiles(VERSIONS_DIR)).filter((f) => /continuous-improvement\.v\d+\.js$/.test(f));
+			} catch {
+				existing = [];
+			}
+			const version =
+				existing.reduce((max, file) => Math.max(max, Number(/continuous-improvement\.v(\d+)\.js$/.exec(file)?.[1] ?? 0)), 0) + 1;
+			await writeFile(`${VERSIONS_DIR}/continuous-improvement.v${version}.js`, source);
+
+			// Aplicación + resguardo 5: changelog, serializados bajo la misma reserva.
+			await writeFile(SELF_PATH, proposal.source);
+			await appendFile(
+				CHANGELOG,
+				`\n## v${version} (ejecución ${runId})\n\n${proposal.changelog || proposal.rationale}\n`,
+			);
+			log(`meta-improve: APLICADO — copia de seguridad v${version}; la próxima ejecución usa la fuente mejorada`);
+			return { applied: true, backup: `${VERSIONS_DIR}/continuous-improvement.v${version}.js`, rationale: proposal.rationale };
+		} finally {
+			try {
+				const unlock = await bash(`rmdir -- ${JSON.stringify(LOCK_DIR)}`, { throwOnError: false });
+				if (!unlock.ok) log(`meta-improve: ADVERTENCIA — no se pudo liberar ${LOCK_DIR}: ${unlock.stderr || unlock.stdout}`);
+			} catch (err) {
+				log(`meta-improve: ADVERTENCIA — no se pudo liberar ${LOCK_DIR}: ${err?.message ?? String(err)}`);
+			}
+		}
 	}
 }
