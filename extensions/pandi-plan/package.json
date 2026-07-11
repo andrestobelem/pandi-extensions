@@ -1,6 +1,6 @@
 {
 	"name": "@pandi-coding-agent/pandi-plan",
-	"version": "0.1.10",
+	"version": "0.1.11",
 	"description": "Extensión de Pi para modo plan de solo lectura, estilo Claude, con aprobación explícita antes de mutar.",
 	"license": "MIT",
 	"repository": {
@@ -26,7 +26,7 @@
 		]
 	},
 	"dependencies": {
-		"@pandi-coding-agent/pandi-docs": "0.1.8"
+		"@pandi-coding-agent/pandi-docs": "0.1.9"
 	},
 	"peerDependencies": {
 		"@earendil-works/pi-coding-agent": "^0.80.3",
