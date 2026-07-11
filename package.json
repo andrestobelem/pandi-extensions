@@ -79,7 +79,8 @@
 		"publish:npm:go": "node scripts/publish-npm.mjs --publish",
 		"doctor": "node extensions/pandi-doctor/scripts/doctor.mjs",
 		"setup:gondolin": "node scripts/setup-gondolin.mjs",
-		"test:unit": "node --test \"scripts/test/unit/*.test.mjs\"",
+		"setup:gondolin:test-fixture": "node scripts/ensure-gondolin-test-fixture.mjs",
+		"test:unit": "npm run setup:gondolin:test-fixture && node --test \"scripts/test/unit/*.test.mjs\"",
 		"test:integration": "node scripts/test/run-all.mjs",
 		"test:fast": "npm run typecheck && npm run check && npm run lint:md && npm run sync:check:all && node scripts/check-extension-boundaries.mjs && node scripts/check-package-files.mjs && npm run test:unit",
 		"test": "npm run typecheck && npm run check && npm run lint:md && npm run sync:docs:html:check && npm run sync:personas:check && npm run sync:personas:package:check && node scripts/check-extension-boundaries.mjs && node scripts/check-package-files.mjs && npm run test:unit && npm run test:integration"
