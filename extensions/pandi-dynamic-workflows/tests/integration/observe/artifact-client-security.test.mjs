@@ -100,7 +100,7 @@ const fakeEscape=(s)=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").repla
 const tick=String.fromCharCode(96),fence=tick+tick+tick;
 const fenceRe=new RegExp(fence+"(?:\\\\w+)?\\\\n([\\\\s\\\\S]*?)\\\\n"+fence,"g");
 const inlineRe=new RegExp(tick+"([^"+tick+"]+)"+tick,"g");
-const window={marked:{parse(md){return String(md).replace(fenceRe,function(_match,code){return "<pre><code>"+fakeEscape(code)+"</code></pre>";}).replace(inlineRe,function(_match,code){return "<code>"+fakeEscape(code)+"</code>";});}}};
+const window={marked:{parse(md,options){var rendered=String(md).replace(fenceRe,function(_match,code){return "<pre><code>"+fakeEscape(code)+"</code></pre>";}).replace(inlineRe,function(_match,code){return "<code>"+fakeEscape(code)+"</code>";});return options&&options.breaks?rendered.replace(/\\n/g,"<br>"):rendered;}}};
 const marked=window.marked;
 ${linkifyStatement}
 ${mdToHtmlStatement}
@@ -111,10 +111,12 @@ return { esc, escapeMarkdownHtml, linkify, mdToHtml };`);
 function renderContract(source, contract, { esc, escapeMarkdownHtml }) {
 	const contractElement = { innerHTML: "" };
 	const markedInputs = [];
+	const markedOptions = [];
 	const sanitizedInputs = [];
 	const marked = {
-		parse(md) {
+		parse(md, options) {
 			markedInputs.push(String(md));
+			markedOptions.push(options);
 			return String(md).replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '<a href="$2">$1</a>');
 		},
 	};
@@ -134,9 +136,10 @@ function renderContract(source, contract, { esc, escapeMarkdownHtml }) {
 		"escapeMarkdownHtml",
 		"sanitizeRenderedHtml",
 		"markedInputs",
+		"markedOptions",
 		"sanitizedInputs",
 		`${source}
-return { html: document.getElementById("contract").innerHTML, markedInputs, sanitizedInputs };`,
+return { html: document.getElementById("contract").innerHTML, markedInputs, markedOptions, sanitizedInputs };`,
 	);
 	return factory(
 		{ contract },
@@ -147,6 +150,7 @@ return { html: document.getElementById("contract").innerHTML, markedInputs, sani
 		escapeMarkdownHtml,
 		sanitizeRenderedHtml,
 		markedInputs,
+		markedOptions,
 		sanitizedInputs,
 	);
 }
@@ -202,6 +206,9 @@ function main() {
 		!renderedCode.includes("Promise&amp;lt;string&amp;gt;"),
 		renderedCode,
 	);
+	const softWrapped = mdToHtml(`Un log, un reporte
+que crece con cada paso.`);
+	check("artifact markdown keeps soft line breaks collapsible", !/<br\s*\/?\s*>/i.test(softWrapped), softWrapped);
 
 	// 4) El contrato usa el mismo pipeline: HTML crudo se escapa antes de marked y el HTML
 	// resultante se sanitiza antes de llegar a innerHTML.
@@ -220,6 +227,11 @@ function main() {
 			!contract.markedInputs[0].includes("<script") &&
 			!contract.markedInputs[0].includes("<img"),
 		JSON.stringify(contract.markedInputs),
+	);
+	check(
+		"contract markdown keeps soft line breaks collapsible",
+		contract.markedOptions.length === 1 && contract.markedOptions[0]?.breaks !== true,
+		JSON.stringify(contract.markedOptions),
 	);
 	check("contract sanitizes marked output before innerHTML", contract.sanitizedInputs.length === 1, contract.html);
 	check("contract emits no active script HTML", !/<script\b/i.test(contract.html), contract.html);

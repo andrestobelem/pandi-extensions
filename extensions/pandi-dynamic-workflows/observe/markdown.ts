@@ -16,7 +16,7 @@ function safeMarkdownHref(raw: string | undefined): string | undefined {
 
 const markdown = new Marked({
 	gfm: true,
-	breaks: true,
+	breaks: false,
 	renderer: {
 		html(token) {
 			return escapeHtml(token.text);

@@ -54,6 +54,17 @@ async function main() {
 	check("code fence escaped", safe.includes("&lt;script&gt;alert(1)&lt;/script&gt;"));
 	check("safe relative link kept", safe.includes('href="agents/0001-worker.md"'));
 
+	const softWrapped = mod.renderRunReportMarkdown(`Un log, un reporte
+que crece con cada paso.`);
+	check(
+		"soft line breaks stay collapsible",
+		!/<br\s*\/?\s*>/i.test(softWrapped) && /reporte\s+que crece/.test(softWrapped),
+		softWrapped,
+	);
+	const hardWrapped = mod.renderRunReportMarkdown(`Primera línea\\
+Segunda línea.`);
+	check("explicit hard line breaks still render", /<br\s*\/?\s*>/i.test(hardWrapped), hardWrapped);
+
 	const hostile = mod.renderRunReportMarkdown(`raw html: <img src=x onerror=alert(1)>
 
 <script>alert(1)</script>

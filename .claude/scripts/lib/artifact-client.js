@@ -93,7 +93,7 @@ if(document.querySelector('section[data-s="overview"].active'))renderMermaidOnce
   // fenced code block (so marked emits <pre><code class="language-json"> that hljs then highlights).
   // NL/fence via fromCharCode so no backtick or newline needs escaping inside this template literal.
   var NL=String.fromCharCode(10),fence=String.fromCharCode(96,96,96);
-  var mdToHtml=function(md){var safeMd=escapeMarkdownHtml(md);var html=(window.marked&&marked.parse)?marked.parse(safeMd,{breaks:true}):("<pre>"+esc(md)+"</pre>");return sanitizeRenderedHtml(html);};
+  var mdToHtml=function(md){var safeMd=escapeMarkdownHtml(md);var html=(window.marked&&marked.parse)?marked.parse(safeMd,{breaks:false}):("<pre>"+esc(md)+"</pre>");return sanitizeRenderedHtml(html);};
   // Outputs render as FORMATTED MARKDOWN (auto table/list/kv) via jsonToMarkdown — not raw JSON.
   var toHtml=function(text,ext){
     if(ext==="json"){ try{ return mdToHtml(jsonToMarkdown(JSON.parse(text))); }catch(e){ return mdToHtml(fence+"json"+NL+text+NL+fence); } }
