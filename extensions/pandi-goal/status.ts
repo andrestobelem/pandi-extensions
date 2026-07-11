@@ -1,10 +1,10 @@
 /**
- * Presentación de status-line para la extensión `/goal`.
+ * Presentación de status para `/goal`: notify (`formatStatus`) y barra TUI
+ * (`setGoalStatus` / `clearGoalStatus`).
  *
- * Render puro del estado de un único goal en la status line de Pi: sin scheduling, sin
- * ownership de estado, sin I/O fuera de ctx.ui. La selección de "qué goal está activo
- * actualmente" queda en index.ts (refreshGoalStatus), que lee el map activeGoals y llama
- * a estos renderers.
+ * Render puro: sin scheduling, sin ownership de estado. La selección de "qué goal está
+ * activo actualmente" queda en engine.ts (refreshGoalStatus), que lee activeGoals y llama
+ * estos renderers.
  */
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -32,6 +32,23 @@ function formatGoalStatusReason(goal: GoalState): string {
 
 function formatGoalStatusIteration(goal: GoalState): string {
 	return `it ${goal.iteration}/${goal.maxIterations}`;
+}
+
+export function formatStatus(goal: GoalState): string {
+	const phase =
+		goal.gstatus === "verifying"
+			? " (verificando)"
+			: goal.gstatus === "verifying-independent"
+				? " (verificación independiente)"
+				: "";
+	const eta =
+		goal.gstatus === "pursuing" || goal.gstatus === "verifying" ? `, próximo ${formatEta(goal.nextFireAt)}` : "";
+	const reason = goal.lastReason ? `, razón: ${goal.lastReason}` : "";
+	return `${goal.goalId} [${goal.gstatus}]${phase} iter ${goal.iteration}/${goal.maxIterations}${eta}${reason} — ${goal.objective}`;
+}
+
+export function formatGoalStatusList(goals: GoalState[]): string {
+	return goals.map(formatStatus).join("\n");
 }
 
 function formatGoalStatusDetails(goal: GoalState): string {

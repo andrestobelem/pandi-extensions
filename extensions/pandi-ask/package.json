@@ -20,6 +20,9 @@
 	],
 	"files": [
 		"index.ts",
+		"command-handler.ts",
+		"settings.ts",
+		"tools.ts",
 		"tool-results.ts",
 		"README.md"
 	],

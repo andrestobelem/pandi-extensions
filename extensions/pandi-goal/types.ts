@@ -1,10 +1,9 @@
 /**
  * Declaraciones de tipos compartidas para la extensión `/goal`.
  *
- * Declaraciones puras de tipos/interfaces extraídas de index.ts (cero runtime). La state
- * machine, scheduling, persistencia y verificador del goal que USAN estos tipos quedan en
- * index.ts; este módulo es una hoja sin imports para que cualquier hermano pueda depender
- * de él.
+ * Declaraciones puras de tipos/interfaces (cero runtime). La state machine, scheduling,
+ * persistencia y verificador viven en engine.ts y módulos hermanos; este archivo es una hoja
+ * sin imports para que cualquier hermano pueda depender de él.
  */
 
 export type GoalStatus = "pursuing" | "verifying" | "verifying-independent" | "done" | "blocked" | "stopped" | "stale";
@@ -58,4 +57,20 @@ export interface ActiveGoal extends GoalState {
 	rearmedThisTurn: boolean;
 	/** P1: true mientras un subagente verificador independiente está en vuelo (debounce del relanzamiento). */
 	verifierInFlight: boolean;
+}
+
+/** Parámetros normalizados de la tool `goal_progress` (post-esquema TypeBox). */
+export interface GoalProgressInput {
+	status: GoalDecision;
+	assessment: string;
+	successCriteria?: string;
+	nextStep?: string;
+	blocker?: string;
+	waitSeconds?: number;
+}
+
+/** Forma de retorno de `handleGoalProgress` (content + details de la tool). */
+export interface GoalProgressResult {
+	content: Array<{ type: "text"; text: string }>;
+	details: Record<string, unknown>;
 }

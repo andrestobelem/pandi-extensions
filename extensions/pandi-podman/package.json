@@ -20,9 +20,13 @@
 	"files": [
 		"index.ts",
 		"podman.ts",
+		"command-handler.ts",
 		"command.ts",
 		"command-menu.ts",
+		"handler-opts.ts",
 		"notify.ts",
+		"tool-handler.ts",
+		"tool-results.ts",
 		"README.md"
 	],
 	"pi": {

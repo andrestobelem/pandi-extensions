@@ -19,10 +19,14 @@
 	],
 	"files": [
 		"index.ts",
+		"command-handler.ts",
 		"command-menu.ts",
 		"command.ts",
 		"container.ts",
+		"handler-opts.ts",
 		"notify.ts",
+		"tool-handler.ts",
+		"tool-results.ts",
 		"README.md"
 	],
 	"pi": {
