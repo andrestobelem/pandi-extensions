@@ -1,3 +1,7 @@
+# macOS Finder metadata
+.DS_Store
+**/.DS_Store
+
 # Pi project-local state
 # Keep examples free of project-local Pi state; run example workflows from repo root or temp projects.
 examples/.pi/
