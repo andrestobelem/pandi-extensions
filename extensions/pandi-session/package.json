@@ -1,6 +1,6 @@
 {
 	"name": "@pandi-coding-agent/pandi-session",
-	"version": "0.2.3",
+	"version": "0.2.4",
 	"description": "Extensión de Pi que agrega un dashboard /sessions independiente para descubrir sesiones Pandi locales por proyecto.",
 	"license": "MIT",
 	"repository": {

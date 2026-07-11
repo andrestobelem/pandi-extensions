@@ -1,6 +1,6 @@
 {
 	"name": "@pandi-coding-agent/pandi-personas",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "Personas advisor empaquetadas para subagentes de pandi-dynamic-workflows.",
 	"license": "MIT",
 	"repository": {

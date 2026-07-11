@@ -1,6 +1,6 @@
 {
 	"name": "@pandi-coding-agent/pandi-docs",
-	"version": "0.1.7",
+	"version": "0.1.8",
 	"description": "Extensión de Pi que convierte Markdown en artifacts HTML autocontenidos con estilo pandi (/docs + tool markdown_to_html).",
 	"license": "MIT",
 	"repository": {

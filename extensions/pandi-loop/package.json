@@ -1,6 +1,6 @@
 {
 	"name": "@pandi-coding-agent/pandi-loop",
-	"version": "0.2.8",
+	"version": "0.2.9",
 	"description": "Extensión de Pi para tareas /loop iterativas con cadencia dinámica o fija y compuertas de seguridad.",
 	"license": "MIT",
 	"repository": {
