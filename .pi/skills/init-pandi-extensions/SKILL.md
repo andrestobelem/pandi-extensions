@@ -1,7 +1,7 @@
 ---
 name: init-pandi-extensions
 description: >-
-  Usar cuando la persona usuaria acaba de CLONAR este repo `pandi-extensions` y quiere instalarlo,
+  Activar cuando la persona usuaria acaba de CLONAR este repo `pandi-extensions` y quiere instalarlo,
   configurarlo o hacer onboarding; es decir, dejar funcionando desde cero las extensiones,
   skills y dynamic workflows de Pi (o Claude Code). Recorre la instalación ordenada,
   consciente de la plataforma e idempotente: Node >=22.19 vía nvm, la CLI global de Pi,
@@ -86,6 +86,7 @@ npm run sync:skills               # mirror .pi/skills -> .claude/skills
 npm run sync:skills:vendor        # .pi/skills -> copias vendorizadas de extension skills
 npm run sync:agents               # AGENTS.md -> CLAUDE.md
 npm run sync:claude:ultracode     # Claude ultracode skills generadas
+npm run sync:scaffold-catalog     # prosa del catálogo ES → scaffold-catalog + README
 npm run sync:docs:html            # mirror generado de docs/html
 npm run sync:personas             # README/HTML generados de personas
 ```

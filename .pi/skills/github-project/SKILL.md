@@ -3,7 +3,7 @@ name: github-project
 description: >-
   Gestiona el tracking de issues de este repo en el GitHub Project v2
   "pandi" (usuario andrestobelem, project #4) con la gh CLI.
-  Usar para crear stories/tasks/bugs, agregar items al board, mover el
+  Usá para crear stories/tasks/bugs, agregar items al board, mover el
   Status (Todo / In Progress / Done), setear Priority (P0-P3) o Size (S/M/L),
   armar epics con native sub-issues, gestionar milestones, cerrar trabajo
   desde commits, o responder "qué hay en el board / en progreso / falta / qué

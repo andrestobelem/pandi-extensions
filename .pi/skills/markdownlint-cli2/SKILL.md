@@ -3,7 +3,7 @@ name: markdownlint-cli2
 description: >-
   Usá markdownlint-cli2 en este repositorio para lint o fix de archivos
   Markdown con el mismo motor DavidAnson markdownlint que usa la extensión
-  markdownlint de VS Code. Usar al crear, editar, revisar o validar Markdown.
+  markdownlint de VS Code. Usá al crear, editar, revisar o validar Markdown.
 ---
 
 # markdownlint-cli2

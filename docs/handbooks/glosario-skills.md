@@ -27,6 +27,7 @@ en prosa, docs y skills del repo. Para tokens congelados dentro de prompts (tool
 | Comando esfuerzo | Dial de esfuerzo del orquestador | `/effort ultracode` | Activa el skill de orquestación sin renombrar el producto |
 | Extensión npm | Package publicable | `pandi-dynamic-workflows` | Vendorea skills `ultracode`, `default`, `deep-research` |
 | Persona usuaria | Quien pide, revisa y posee el resultado | `persona usuaria` | En skills y docs de producto; no `usuario` genérico |
+| Descripción de skill (frontmatter) | Cuándo activar el skill | `Activar cuando la persona usuaria…` · `Usá cuando…` · `Usá para…` | No `Usar cuando` (infinitivo impersonal); la descripción no lleva 🐼 |
 | Cuenta / identidad técnica | Scope de instalación o owner de GitHub | `usuario` permitido | "global para tu usuario" (cuenta Pi), `usuario andrestobelem` (GitHub) |
 | Historia de producto | Término ágil estándar | `historia de usuario` | No confundir con "persona usuaria" |
 | Concepto exploratorio | Prototipado sin rigor de producción | `vibe-coding` | Adjetivo: `vibe-coded`; no `vibe coding` en prosa propia |

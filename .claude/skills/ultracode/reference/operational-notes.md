@@ -276,6 +276,10 @@ diseño, no archivos standalone.
 
 ## El catálogo de patrones (por familia)
 
+Prosa legible (cuándo usar cada patrón, ejemplos): [`catalog-prose.es.md`](catalog-prose.es.md)
+(fuente canónica en español). `reference/scaffold-catalog.md` y `.claude/workflows/README.md` son
+snapshots generados con `npm run sync:scaffold-catalog` — no los edites a mano.
+
 Cada `pattern` de abajo es un **scaffold**: un archivo `.js` ejecutable, no solo un concepto. La
 columna `Pattern` es el stem del archivo (por ejemplo, `contract-gate` → `contract-gate.js`), así
 que los 25 archivos son:
@@ -347,7 +351,9 @@ Workflow({
 - Precedencia: mapa por rol > global > default del call-site. `name` resuelve solo si el workflow
   existía al **inicio de la sesión** (snapshot, no recursivo); archivos nuevos o en `drafts/`
   necesitan un `scriptPath` absoluto.
-- **Catalog:** `~/.claude/workflows/` (incluido acá como `reference/scaffold-catalog.md`).
+- **Catálogo:** scripts en `~/.claude/workflows/`; prosa canónica en
+  [`reference/catalog-prose.es.md`](catalog-prose.es.md) (snapshots:
+  `reference/scaffold-catalog.md`, `npm run sync:scaffold-catalog`).
   **Depth:** 1 (si un hijo llama `workflow()`, arroja; solo el tope compone). **Concurrency:** auto,
   ~`min(16, cores-2)`.
 - **SHOW, THEN LAUNCH (required):** siempre renderizá un script creado/especializado a HTML

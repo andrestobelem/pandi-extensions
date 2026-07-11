@@ -2,8 +2,8 @@
 name: md-to-html
 description: >-
   Convierte un documento Markdown en una página HTML autocontenida, con estilo
-  Pandi, usando el convertidor de `pandi-docs`. Usar cuando te pidan crear una
-  versión o mirror HTML de un documento Markdown, entregar un informe como un
+  Pandi, usando el convertidor de `pandi-docs`. Activar cuando la persona
+  usuaria pida una versión o mirror HTML de un documento Markdown, entregar un informe como un
   único archivo `.html`, o aplicar a un doc la paleta o la hoja de estilos
   propia de un proyecto. Se invoca con /md-to-html <path/to/doc.md>.
 ---

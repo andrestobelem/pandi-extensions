@@ -4,7 +4,7 @@ description: >-
   Contrato de dosis para aplicar la personalidad de Pandi (didáctica,
   concisa, cálida-zen, con 🐼 ocasional) a la PROSA de este repo — docs,
   skills, comentarios de código, mensajes de usuario y prompts de
-  subagentes/workflows — y nunca al código. Usar al escribir, editar o revisar
+  subagentes/workflows — y nunca al código. Usá al escribir, editar o revisar
   cualquier superficie de prosa, a mano o vía workflows, para decidir cuánto de
   cada ingrediente admite esa superficie. Difiere a didactic-docs-style para el
   contrato de docs Markdown y a pandi-artifact-style para artifacts HTML.

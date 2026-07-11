@@ -11,7 +11,7 @@ La idea central es: **convertir patrones agénticos en herramientas ejecutables,
 Tres anclas para orientarte:
 
 - `README.md` explica el producto y la ruta de instalación.
-- `extensions/pandi-dynamic-workflows/` contiene el runtime de workflows, el router Ultracode, dashboards, reports y artifacts.
+- `extensions/pandi-dynamic-workflows/` contiene el runtime de dynamic workflows, el patrón `router`, dashboards, reports y artifacts.
 - `extensions/<extension>/tests/integration/` + `extensions/shared/test/` sostienen el loop de desarrollo seguro.
 
 ## Ruta rápida de lectura

@@ -69,7 +69,7 @@ evidencia concreta.
   `HEAD` es con certeza tu propio commit. Si ya mezclaste cambios, recuperá con `reflog` +
   `git reset --soft` para separarlos.
 
-## 4. IA y workflows dinámicos
+## 4. IA y dynamic workflows
 
 - **Separá orquestador de workers.** `ai-assisted-engineering` es la lente del
   ORQUESTADOR (clasificar prototipo vs. producción, fijar el límite de delegación, scout +

@@ -1,6 +1,6 @@
 ---
 name: pi-cante-releasing
-description: Publica y mantiene las distribuciones pi-cante / pandi (el fork del agente de coding de pi en ~/ws/at/pi-cante que incluye el pack de extensiones @pandi-coding-agent/*). Usar al publicar una nueva versión de una distro, actualizar los pins de extensiones incluidas después de publicar extensiones desde este repo, sincronizar el fork con un nuevo tag de release upstream de pi, o agregar una distribución nueva. Cubre los scripts con estrategia simulación-primero (dry-run-first), el esquema de versionado y las trampas de npm/forks aprendidas con depuración real.
+description: Publica y mantiene las distribuciones pi-cante / pandi (el fork del agente de coding de pi en ~/ws/at/pi-cante que incluye el pack de extensiones @pandi-coding-agent/*). Usá al publicar una nueva versión de una distro, actualizar los pins de extensiones incluidas después de publicar extensiones desde este repo, sincronizar el fork con un nuevo tag de release upstream de pi, o agregar una distribución nueva. Cubre los scripts con estrategia simulación-primero (dry-run-first), el esquema de versionado y las trampas de npm/forks aprendidas con depuración real.
 ---
 
 # Publicación de las distribuciones pi-cante / pandi

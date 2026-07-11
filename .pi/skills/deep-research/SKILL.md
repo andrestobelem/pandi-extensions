@@ -1,6 +1,6 @@
 ---
 name: deep-research
-description: Usar cuando la persona usuaria pida investigación profunda, investigación respaldada por fuentes, o invoque la intención legacy deep-research. Enrutar al patrón complex-research de dynamic workflows.
+description: Activar cuando la persona usuaria pida investigación profunda, investigación respaldada por fuentes, o invoque la intención legacy deep-research. Enrutar al patrón complex-research de dynamic workflows.
 ---
 
 # Investigación profunda

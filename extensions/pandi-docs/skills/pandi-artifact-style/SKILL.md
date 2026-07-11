@@ -2,7 +2,7 @@
 name: pandi-artifact-style
 description: >-
   Aplicá el contrato visual Pandi a artifacts HTML autocontenidos de
-  presentación: reportes, dashboards y artifacts de runs de workflows. Usar al
+  presentación: reportes, dashboards y artifacts de runs de workflows. Usá al
   crear o revisar un artifact HTML con layout Claude-design y paleta Panda
   Syntax en variantes clara y oscura. Para convertir Markdown a HTML, usá
   md-to-html.

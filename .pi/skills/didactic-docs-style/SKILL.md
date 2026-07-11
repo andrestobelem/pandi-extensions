@@ -3,7 +3,7 @@ name: didactic-docs-style
 description: >-
   Contrato de estilo para la documentación didáctica de este repo (guías de
   dynamic workflows, páginas de scaffolds, referencia de primitives, READMEs).
-  Usar al escribir, editar, revisar o generar documentación — a mano o vía
+  Usá al escribir, editar, revisar o generar documentación — a mano o vía
   workflows como didactic-docs / scaffold-docs-html — para que cada doc abra en
   30 segundos, revele progresivamente, ayude a decidir con tablas o Mermaid,
   traiga ejemplos mínimos ejecutables y nunca cambie exactitud por claridad.

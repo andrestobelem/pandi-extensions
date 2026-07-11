@@ -7,7 +7,7 @@ description: >-
   paralelismo por exhaustividad, confianza o escala: auditorías repo-wide, migraciones/codemods,
   investigación profunda, verificación adversarial, generate-and-filter / best-of-N, ranking por
   torneo, loop-until-done discovery, decompose-an-open-goal o corpus mayor que una ventana de
-  contexto. Usar para acotar pedidos ambiguos de alto riesgo (contract-gate), elegir el workflow
+  contexto. Usá para acotar pedidos ambiguos de alto riesgo (contract-gate), elegir el workflow
   correcto (router), crear uno nuevo (workflow-factory), o componer/proteger una corrida
   multiagente.
 ---
@@ -178,7 +178,7 @@ Monitor sin polling (completion notice del harness); reporte final con `/workflo
 | Budget knobs | `model` · `effort` (low…max) | `model`/`provider` · `effort` (`off\|minimal\|low\|medium\|high\|xhigh`; `max`→`xhigh`) |
 | Models | `haiku`/`sonnet`/`opus`/`fable` | ids de Anthropic O `openai-codex/gpt-5.x` |
 | Per-role | helper `node(role)` / inline / `models`+`efforts` | por llamada + personas `agentType` |
-| Catalog | `~/.claude/workflows/` + README | `dynamic_workflow action=scaffold` |
+| Catalog | `~/.claude/workflows/` + README (desde `catalog-prose.es.md`) | `dynamic_workflow action=scaffold` |
 | Depth | 1 | 2 (→3) |
 | Preview / results | HTML pre-launch + `open`, luego re-render con `--run` al terminar (ambos obligatorios) | `/workflow graph`, dashboard `/workflows`, HTML final `--run latest` |
 
