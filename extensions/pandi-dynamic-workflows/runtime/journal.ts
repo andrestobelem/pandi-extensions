@@ -17,7 +17,14 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { appendJsonLine } from "../lib/file-append.js";
 import { truncate } from "../lib/format.js";
-import type { AskResult, BashResult, JournalCache, JournalRecord, SubagentResult } from "../types.js";
+import type {
+	AskResult,
+	BashResult,
+	JournalCache,
+	JournalRecord,
+	JournalRecordInput,
+	SubagentResult,
+} from "../types.js";
 import { JOURNAL_FILE, MAX_AGENT_OUTPUT_IN_RESULT, MAX_JOURNALED_STREAM } from "./constants.js";
 
 // --- Runs resumibles: journal de cache content-address ---
@@ -127,13 +134,9 @@ export async function appendJournalRecord(runDir: string, record: JournalRecord)
 export const JOURNAL_VERSION = 4;
 
 /** Construye un JournalRecord listo para append (ts = ahora). */
-export function makeJournalRecord(input: {
-	key: string;
-	occ: number;
-	method: JournalRecord["method"];
-	codeHash: string;
-	result: JournalRecord["result"];
-}): JournalRecord {
+export function makeJournalRecord<Method extends JournalRecord["method"]>(
+	input: JournalRecordInput<Method>,
+): JournalRecord<Method> {
 	return {
 		v: JOURNAL_VERSION,
 		key: input.key,

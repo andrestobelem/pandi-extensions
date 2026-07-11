@@ -245,15 +245,34 @@ export interface WorkflowRunResult extends WorkflowRunBase {
 	endedAt: string;
 }
 
-export interface JournalRecord {
+interface JournalRecordBase {
 	v: number;
 	key: string;
 	occ: number;
-	method: "agent" | "bash" | "ask";
 	codeHash: string;
 	ts: string;
-	result: SubagentResult | BashResult | AskResult;
 }
+
+type JournalResultByMethod = {
+	agent: SubagentResult;
+	bash: BashResult;
+	ask: AskResult;
+};
+
+type JournalMethod = keyof JournalResultByMethod;
+
+type JournalRecordVariant<Method extends JournalMethod> = {
+	[CurrentMethod in Method]: {
+		method: CurrentMethod;
+		result: JournalResultByMethod[CurrentMethod];
+	};
+}[Method];
+
+export type JournalRecord<Method extends JournalMethod = JournalMethod> = JournalRecordBase &
+	JournalRecordVariant<Method>;
+
+export type JournalRecordInput<Method extends JournalMethod = JournalMethod> = Omit<JournalRecordBase, "v" | "ts"> &
+	JournalRecordVariant<Method>;
 
 export type JournalCache = Map<string, (SubagentResult | BashResult | AskResult)[]>;
 

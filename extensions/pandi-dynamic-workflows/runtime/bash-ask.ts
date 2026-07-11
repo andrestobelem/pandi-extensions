@@ -184,7 +184,7 @@ export async function runAsk(
 	]);
 	const occ = occurrences.next(key);
 	if (cacheEnabled) {
-		const hit = lookupJournalRecord(journal, key, occ) as AskResult | undefined;
+		const hit = lookupJournalRecord(journal, key, occ);
 		if (hit && "answer" in hit) {
 			context.bumpCachedCalls();
 			await appendEvent({

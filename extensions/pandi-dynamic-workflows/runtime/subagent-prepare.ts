@@ -178,7 +178,7 @@ export async function tryReturnCachedSubagent(
 ): Promise<SubagentResult | undefined> {
 	const { journal, key, occ, effectiveOptions, phase, envAccess, cacheEnabled } = params;
 	if (!cacheEnabled) return undefined;
-	const hit = lookupJournalRecord(journal, key, occ) as SubagentResult | undefined;
+	const hit = lookupJournalRecord(journal, key, occ);
 	if (!hit || !("artifactPath" in hit)) return undefined;
 	deps.bumpCachedCalls();
 	const cachedPhase =
