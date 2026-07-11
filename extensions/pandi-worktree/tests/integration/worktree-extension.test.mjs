@@ -60,6 +60,16 @@ async function buildBundle() {
 	});
 }
 
+async function buildRunnerBundle() {
+	return await buildExtension({
+		name: "pi-worktree-runner-build",
+		src: path.join(REPO_ROOT, "extensions", "pandi-worktree", "worktree.ts"),
+		outName: "worktree-runner.mjs",
+		stubs: { sdk: 'export const CONFIG_DIR_NAME = ".pi";\n' },
+		npx: "--no-install",
+	});
+}
+
 function makePi() {
 	const commands = new Map();
 	const tools = new Map();
@@ -276,6 +286,157 @@ async function scenarioBuildAddArgs(url) {
 		JSON.stringify(dashCommit) === JSON.stringify(["worktree", "add", "--", "/p", "--force"]),
 		JSON.stringify(dashCommit),
 	);
+}
+
+async function scenarioRunGitProcessContract() {
+	const built = await buildRunnerBundle();
+	const fakeBinDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-worktree-fake-git-"));
+	const fakeGit = path.join(fakeBinDir, "git");
+	const source = `#!/usr/bin/env node
+const mode = process.argv[2];
+if (mode === "stubborn") {
+	${
+		process.platform === "win32"
+			? ""
+			: `const { spawn } = require("node:child_process");
+	spawn(process.execPath, ["-e", ${JSON.stringify(
+		[
+			'process.on("SIGTERM", () => process.stdout.write("descendiente recibió SIGTERM\\\\n"));',
+			"setInterval(() => {}, 1_000);",
+			"setTimeout(() => process.exit(0), 1_500).unref();",
+		].join(""),
+	)}], { stdio: "inherit" });`
+	}
+	process.on("SIGTERM", () => process.stdout.write("hijo recibió SIGTERM\\n"));
+	setInterval(() => {}, 1_000);
+	setTimeout(() => process.exit(23), 1_500).unref();
+} else if (mode === "signal") {
+	setTimeout(() => process.kill(process.pid, "SIGTERM"), 50);
+} else if (mode === "normal") {
+	process.stdout.write("salida normal\\n");
+	process.stderr.write("error normal\\n");
+} else if (mode === "large") {
+	const prefix = "a".repeat(999_999);
+	process.stdout.write(prefix + "€x");
+	process.stderr.write(prefix + "€x");
+}
+`;
+	await fs.writeFile(fakeGit, source, "utf8");
+	await fs.chmod(fakeGit, 0o755);
+	const originalPath = process.env.PATH;
+	process.env.PATH = `${fakeBinDir}${path.delimiter}${originalPath ?? ""}`;
+	try {
+		const mod = await loadModule(built.url);
+		const sawWholeTreeTermination = (stdout) =>
+			stdout.includes("hijo recibió SIGTERM") &&
+			(process.platform === "win32" || stdout.includes("descendiente recibió SIGTERM"));
+		const timedOut = await mod.runGit(["stubborn"], { cwd: REPO_ROOT, timeoutMs: 400 });
+		check(
+			"runGit: timeout signals the supported process group, escalates and resolves after inherited pipes close",
+			!timedOut.ok &&
+				timedOut.timedOut === true &&
+				timedOut.aborted === false &&
+				timedOut.signal === "SIGKILL" &&
+				sawWholeTreeTermination(timedOut.stdout),
+			JSON.stringify(timedOut),
+		);
+
+		const controller = new AbortController();
+		const pending = mod.runGit(["stubborn"], {
+			cwd: REPO_ROOT,
+			signal: controller.signal,
+			timeoutMs: 30_000,
+		});
+		setTimeout(() => controller.abort(), 400);
+		const aborted = await pending;
+		check(
+			"runGit: abort signals the supported process group, escalates and remains distinct",
+			!aborted.ok &&
+				aborted.timedOut === false &&
+				aborted.aborted === true &&
+				aborted.signal === "SIGKILL" &&
+				sawWholeTreeTermination(aborted.stdout),
+			JSON.stringify(aborted),
+		);
+
+		const signaled = await mod.runGit(["signal"], { cwd: REPO_ROOT, timeoutMs: 5_000 });
+		check(
+			"runGit: child signal termination is neither timeout nor external abort",
+			!signaled.ok && signaled.timedOut === false && signaled.aborted === false && signaled.signal === "SIGTERM",
+			JSON.stringify(signaled),
+		);
+
+		const normal = await mod.runGit(["normal"], { cwd: REPO_ROOT, timeoutMs: 5_000 });
+		check(
+			"runGit: ordinary stdout/stderr stay unchanged and untruncated",
+			normal.ok === true &&
+				normal.stdout === "salida normal\n" &&
+				normal.stderr === "error normal\n" &&
+				normal.stdoutTruncated === false &&
+				normal.stderrTruncated === false,
+			JSON.stringify(normal),
+		);
+
+		const large = await mod.runGit(["large"], { cwd: REPO_ROOT, timeoutMs: 5_000 });
+		check(
+			"runGit: byte cap keeps valid UTF-8 when a multibyte character crosses the boundary",
+			large.ok === true &&
+				Buffer.byteLength(large.stdout) <= 1_000_000 &&
+				Buffer.byteLength(large.stderr) <= 1_000_000 &&
+				large.stdoutTruncated === true &&
+				large.stderrTruncated === true &&
+				!large.stdout.includes("\uFFFD") &&
+				!large.stderr.includes("\uFFFD"),
+			JSON.stringify({
+				ok: large.ok,
+				stdoutBytes: Buffer.byteLength(large.stdout),
+				stderrBytes: Buffer.byteLength(large.stderr),
+				stdoutTruncated: large.stdoutTruncated,
+				stderrTruncated: large.stderrTruncated,
+			}),
+		);
+	} finally {
+		if (originalPath === undefined) delete process.env.PATH;
+		else process.env.PATH = originalPath;
+		await fs.rm(fakeBinDir, { recursive: true, force: true });
+		await fs.rm(built.outDir, { recursive: true, force: true });
+	}
+}
+
+async function scenarioTruncatedListRejected(url) {
+	const fakeBinDir = await fs.mkdtemp(path.join(os.tmpdir(), "pi-worktree-truncated-git-"));
+	const fakeGit = path.join(fakeBinDir, "git");
+	const source = `#!/usr/bin/env node
+const args = process.argv.slice(2);
+if (args[0] === "rev-parse") {
+	process.stdout.write(".git\\n");
+} else if (args[0] === "worktree" && args[1] === "list") {
+	process.stdout.write("worktree /tmp/partial\\nHEAD 0000000000000000000000000000000000000000\\nbranch refs/heads/main\\n\\n" + "x".repeat(1_100_000));
+} else {
+	process.exitCode = 1;
+}
+`;
+	await fs.writeFile(fakeGit, source, "utf8");
+	await fs.chmod(fakeGit, 0o755);
+	const originalPath = process.env.PATH;
+	process.env.PATH = `${fakeBinDir}${path.delimiter}${originalPath ?? ""}`;
+	try {
+		const { tools } = await loadExtension(url);
+		const result = await tools
+			.get("git_worktree")
+			.execute("id", { action: "list" }, undefined, undefined, makeCtx({ cwd: REPO_ROOT }));
+		check(
+			"tool list: refuses truncated porcelain instead of presenting partial worktrees",
+			result.details?.isError === true &&
+				result.details?.stdoutTruncated === true &&
+				/truncad/i.test(result.content?.[0]?.text ?? ""),
+			JSON.stringify(result),
+		);
+	} finally {
+		if (originalPath === undefined) delete process.env.PATH;
+		else process.env.PATH = originalPath;
+		await fs.rm(fakeBinDir, { recursive: true, force: true });
+	}
 }
 
 async function scenarioCompletions(url) {
@@ -898,6 +1059,8 @@ async function main() {
 		await scenarioParseHelpers(url);
 		await scenarioParseCommand(url);
 		await scenarioBuildAddArgs(url);
+		await scenarioRunGitProcessContract();
+		await scenarioTruncatedListRejected(url);
 		await scenarioCompletions(url);
 		await scenarioListCommand(url);
 		await scenarioListTool(url);

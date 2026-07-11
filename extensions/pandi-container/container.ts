@@ -12,6 +12,7 @@
  */
 
 import { spawn } from "node:child_process";
+import { StringDecoder } from "node:string_decoder";
 
 // --------------------------------------------------------------------------
 // Punto de spawn
@@ -22,8 +23,14 @@ export interface ContainerResult {
 	stdout: string;
 	stderr: string;
 	exitCode?: number;
-	/** Se setea cuando el proceso fue terminado por timeout/abort. */
+	/** true únicamente cuando venció timeoutMs. */
 	timedOut?: boolean;
+	/** true únicamente cuando la AbortSignal externa pidió terminar el proceso. */
+	aborted?: boolean;
+	/** Señal que cerró al hijo, incluida SIGKILL después de agotar la gracia. */
+	signal?: NodeJS.Signals;
+	stdoutTruncated?: boolean;
+	stderrTruncated?: boolean;
 	/** Se setea cuando nunca logramos hacer spawn de `container` (ej. no está instalado). */
 	spawnError?: string;
 }
@@ -38,6 +45,8 @@ export interface RunContainerOptions {
 
 export const DEFAULT_CONTAINER_TIMEOUT_MS = 120_000;
 export const MIN_CONTAINER_TIMEOUT_MS = 1_000;
+const MAX_CONTAINER_OUTPUT_BYTES = 1_000_000;
+const CONTAINER_TERMINATION_GRACE_MS = 250;
 
 export function parseTimeoutMs(raw: string | undefined, fallback = DEFAULT_CONTAINER_TIMEOUT_MS): number {
 	const n = Number(raw);
@@ -48,6 +57,43 @@ export function parseTimeoutMs(raw: string | undefined, fallback = DEFAULT_CONTA
 /** Firma compartida por runContainer y el runner simulado inyectado en tests. */
 export type RunContainer = (args: string[], options?: RunContainerOptions) => Promise<ContainerResult>;
 
+function createBoundedOutput(): {
+	append(chunk: Buffer | string): void;
+	readonly text: string;
+	readonly truncated: boolean;
+} {
+	const decoder = new StringDecoder("utf8");
+	const chunks: string[] = [];
+	let bytes = 0;
+	let truncated = false;
+	let finalized: string | undefined;
+	return {
+		append(chunk): void {
+			const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+			const remaining = MAX_CONTAINER_OUTPUT_BYTES - bytes;
+			if (buffer.length > remaining) truncated = true;
+			if (remaining <= 0) return;
+			const kept = buffer.length <= remaining ? buffer : buffer.subarray(0, remaining);
+			const decoded = decoder.write(kept);
+			if (decoded) chunks.push(decoded);
+			bytes += kept.length;
+		},
+		get text(): string {
+			if (finalized === undefined) {
+				if (!truncated) {
+					const tail = decoder.end();
+					if (tail) chunks.push(tail);
+				}
+				finalized = chunks.join("");
+			}
+			return finalized;
+		},
+		get truncated(): boolean {
+			return truncated;
+		},
+	};
+}
+
 /**
  * Hace spawn de `container` con un array argv. Falla de spawn, exit no cero, timeout o
  * abort vuelven como un ContainerResult (nunca lanza), igual que el runGit de pandi-worktree.
@@ -55,47 +101,78 @@ export type RunContainer = (args: string[], options?: RunContainerOptions) => Pr
 export function runContainer(args: string[], options: RunContainerOptions = {}): Promise<ContainerResult> {
 	const { cwd, signal, timeoutMs = DEFAULT_CONTAINER_TIMEOUT_MS, bin = "container" } = options;
 	return new Promise((resolve) => {
-		let stdout = "";
-		let stderr = "";
+		const stdout = createBoundedOutput();
+		const stderr = createBoundedOutput();
 		let settled = false;
-		let timedOut = false;
+		let termination: "timeout" | "abort" | undefined;
+		let spawnError: string | undefined;
+		let timeoutTimer: NodeJS.Timeout | undefined;
+		let killTimer: NodeJS.Timeout | undefined;
+		const useProcessGroup = process.platform !== "win32";
 
-		const child = spawn(bin, args, { cwd, windowsHide: true });
+		const child = spawn(bin, args, { cwd, detached: useProcessGroup, windowsHide: true });
 
-		const finish = (result: ContainerResult) => {
+		const sendSignal = (processSignal: NodeJS.Signals): void => {
+			if (useProcessGroup && child.pid && child.pid !== process.pid) {
+				try {
+					process.kill(-child.pid, processSignal);
+					return;
+				} catch {
+					// El fallback conserva el comportamiento en hosts sin group kill.
+				}
+			}
+			try {
+				child.kill(processSignal);
+			} catch {
+				// El proceso ya cerró.
+			}
+		};
+
+		const finish = (code: number | null, childSignal: NodeJS.Signals | null): void => {
 			if (settled) return;
 			settled = true;
-			clearTimeout(timer);
+			if (timeoutTimer) clearTimeout(timeoutTimer);
+			if (killTimer) clearTimeout(killTimer);
 			if (signal) signal.removeEventListener("abort", onAbort);
-			resolve(result);
+			resolve({
+				ok: !spawnError && !termination && code === 0,
+				stdout: stdout.text,
+				stderr: stderr.text,
+				exitCode: spawnError ? undefined : (code ?? undefined),
+				timedOut: termination === "timeout",
+				aborted: termination === "abort",
+				signal: childSignal ?? undefined,
+				stdoutTruncated: stdout.truncated,
+				stderrTruncated: stderr.truncated,
+				spawnError,
+			});
 		};
 
-		const onAbort = () => {
-			timedOut = true;
-			child.kill("SIGTERM");
+		const terminate = (reason: "timeout" | "abort"): void => {
+			if (settled || termination) return;
+			termination = reason;
+			sendSignal("SIGTERM");
+			killTimer = setTimeout(() => {
+				if (!settled) sendSignal("SIGKILL");
+			}, CONTAINER_TERMINATION_GRACE_MS);
+			killTimer.unref?.();
 		};
+
+		const onAbort = (): void => terminate("abort");
+
+		child.stdout?.on("data", (chunk: Buffer) => stdout.append(chunk));
+		child.stderr?.on("data", (chunk: Buffer) => stderr.append(chunk));
+		child.once("error", (err: Error) => {
+			spawnError = err.message;
+		});
+		child.once("close", finish);
+
+		timeoutTimer = setTimeout(() => terminate("timeout"), timeoutMs);
+		timeoutTimer.unref?.();
 		if (signal) {
 			if (signal.aborted) onAbort();
 			else signal.addEventListener("abort", onAbort, { once: true });
 		}
-
-		const timer = setTimeout(() => {
-			timedOut = true;
-			child.kill("SIGTERM");
-		}, timeoutMs);
-
-		child.stdout?.on("data", (chunk) => {
-			stdout += chunk.toString();
-		});
-		child.stderr?.on("data", (chunk) => {
-			stderr += chunk.toString();
-		});
-		child.on("error", (err: Error) => {
-			finish({ ok: false, stdout, stderr, spawnError: err.message });
-		});
-		child.on("close", (code) => {
-			finish({ ok: !timedOut && code === 0, stdout, stderr, exitCode: code ?? undefined, timedOut });
-		});
 	});
 }
 
@@ -345,17 +422,40 @@ export function buildRemoveArgs(opts: { name: string }): string[] {
 
 const INSTALL_HINT = "No se encontró la CLI de Apple `container`. Instalala con: brew install container";
 
+function outputTruncationDetails(result: ContainerResult): Record<string, true> {
+	return {
+		...(result.stdoutTruncated ? { stdoutTruncated: true } : {}),
+		...(result.stderrTruncated ? { stderrTruncated: true } : {}),
+	};
+}
+
+function describeOutputTruncation(result: ContainerResult): string | undefined {
+	const streams = [
+		result.stdoutTruncated ? "stdout" : undefined,
+		result.stderrTruncated ? "stderr" : undefined,
+	].filter((stream): stream is string => Boolean(stream));
+	return streams.length
+		? `La salida de ${streams.join(" y ")} fue truncada al límite de ${MAX_CONTAINER_OUTPUT_BYTES} bytes.`
+		: undefined;
+}
+
 /** Convierte un ContainerResult fallido en una sola línea acotada y accionable. */
 export function describeError(result: ContainerResult, action: string): string {
+	const truncation = describeOutputTruncation(result);
+	const withTruncation = (message: string): string => (truncation ? `${message} ${truncation}` : message);
 	if (result.spawnError) {
-		if (/ENOENT/i.test(result.spawnError)) return INSTALL_HINT;
-		return `No se pudo ejecutar \`container ${action}\`: ${result.spawnError}`;
+		if (/ENOENT/i.test(result.spawnError)) return withTruncation(INSTALL_HINT);
+		return withTruncation(`No se pudo ejecutar \`container ${action}\`: ${result.spawnError}`);
 	}
-	if (result.timedOut) return `\`container ${action}\` agotó el tiempo de espera.`;
+	if (result.timedOut) return withTruncation(`\`container ${action}\` agotó el tiempo de espera.`);
+	if (result.aborted) return withTruncation(`\`container ${action}\` fue abortado.`);
+	if (result.signal) return withTruncation(`\`container ${action}\` terminó por señal ${result.signal}.`);
 	const detail = (result.stderr || result.stdout || "").trim();
-	return detail
-		? `\`container ${action}\` falló: ${detail}`
-		: `\`container ${action}\` falló (salida ${result.exitCode ?? "?"}).`;
+	return withTruncation(
+		detail
+			? `\`container ${action}\` falló: ${detail}`
+			: `\`container ${action}\` falló (salida ${result.exitCode ?? "?"}).`,
+	);
 }
 
 // --------------------------------------------------------------------------
@@ -392,9 +492,17 @@ function invalidMachineNameResult(name: unknown, action: string): HandlerResult 
 export async function runStatus(run: RunContainer, opts: HandlerOpts): Promise<HandlerResult> {
 	const status = await run(buildStatusArgs(), opts);
 	if (!status.ok) {
-		return handlerError("status", describeError(status, "system status"));
+		return handlerError("status", describeError(status, "system status"), outputTruncationDetails(status));
+	}
+	const statusTruncation = describeOutputTruncation(status);
+	if (statusTruncation) {
+		return handlerError("status", statusTruncation, outputTruncationDetails(status));
 	}
 	const list = await run(buildMachineListArgs(), opts);
+	const listTruncation = describeOutputTruncation(list);
+	if (listTruncation) {
+		return handlerError("status", listTruncation, outputTruncationDetails(list));
+	}
 	const machines = list.ok ? parseMachineList(list.stdout) : [];
 	const text = `Subsistema: en ejecución\n\nMáquinas:\n${formatMachineList(machines)}`;
 	return { ok: true, text, details: { action: "status", running: true, machines } };
@@ -403,7 +511,11 @@ export async function runStatus(run: RunContainer, opts: HandlerOpts): Promise<H
 export async function runList(run: RunContainer, opts: HandlerOpts): Promise<HandlerResult> {
 	const result = await run(buildMachineListArgs(), opts);
 	if (!result.ok) {
-		return handlerError("list", describeError(result, "machine ls"));
+		return handlerError("list", describeError(result, "machine ls"), outputTruncationDetails(result));
+	}
+	const truncation = describeOutputTruncation(result);
+	if (truncation) {
+		return handlerError("list", truncation, outputTruncationDetails(result));
 	}
 	const machines = parseMachineList(result.stdout);
 	return {
@@ -493,10 +605,19 @@ export async function runExec(run: RunContainer, params: ExecParams, opts: Handl
 	const result = await run(args, opts);
 	const target = describeRunTarget(params);
 	if (!result.ok) {
-		return handlerError("run", describeError(result, "run"), { target });
+		return handlerError("run", describeError(result, "run"), {
+			target,
+			...outputTruncationDetails(result),
+		});
 	}
-	const text = result.stdout.trim() || `(sin salida) — ejecutado en ${target}`;
-	return { ok: true, text, details: { action: "run", target, exitCode: result.exitCode } };
+	const output = result.stdout.trim() || `(sin salida) — ejecutado en ${target}`;
+	const truncation = describeOutputTruncation(result);
+	const text = truncation ? `${output}\n\nAdvertencia: ${truncation}` : output;
+	return {
+		ok: true,
+		text,
+		details: { action: "run", target, exitCode: result.exitCode, ...outputTruncationDetails(result) },
+	};
 }
 
 export async function runStop(run: RunContainer, params: { name?: string }, opts: HandlerOpts): Promise<HandlerResult> {

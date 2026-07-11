@@ -5,10 +5,10 @@
  * Por qué existe este archivo
  * ---------------------------
  * `npm test` es solo TYPECHECK (`tsc --noEmit`). El engine de /goal es un scheduler persistente,
- * recuperable tras crash, cuyo comportamiento en vivo — el límite de iteraciones, la red de
- * seguridad agent_end, las ramas de la tool goal_progress (no-active-goal, blocked), la guardia de
- * reentrada del verifier independiente, la disposición de session_shutdown y la selección del
- * subcomando `/goal stop` + resolveGoal — es invisible para `tsc`. Esta suite maneja los handlers
+ * recuperable desde el JSONL válido de la sesión, cuyo comportamiento en vivo — el límite de
+ * iteraciones, la red de seguridad agent_end, las ramas de la tool goal_progress (no-active-goal,
+ * blocked), la guardia de reentrada del verifier independiente, la disposición de session_shutdown
+ * y la selección del subcomando `/goal stop` + resolveGoal — es invisible para `tsc`. Esta suite maneja los handlers
  * REALES registrados de comando/tool/event contra un pi/ctx mockeado y fija el contrato
  * OBSERVABLE (gstatus persistido, notificaciones, spawns del verifier, wakes reinyectados).
  *

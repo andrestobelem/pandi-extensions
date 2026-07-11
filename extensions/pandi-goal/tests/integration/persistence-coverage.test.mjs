@@ -4,26 +4,14 @@
  * Por qué existe este archivo
  * --------------------
  * `npm test` solo hace TYPECHECK. persistence.ts posee el lado durable de la extensión goal: el
- * mapeo de campos persistido (snapshot), el log de progreso acotado, la escritura sidecar ATOMIC
- * fire-and-forget (archivo temp y luego rename, swallow-on-error), y la resolución state-dir de
- * doble raíz (trusted project vs. agent dir hasheado con sha1). Un drift silencioso en cualquiera
- * de estos puntos perdería estado de recuperación o rompería el engine ante un problema de disco;
- * `tsc` no ve nada de eso.
+ * mapeo de campos persistido (snapshot), el log de progreso acotado y la entry JSONL `goal-state`
+ * que constituye la única fuente de recovery. También fija el límite negativo: persist no crea ni
+ * actualiza `.pi/goals/<id>/state.json`; sidecars legados quedan inertes. `tsc` no ve nada de eso.
  *
  * Qué es alcanzable
  * -----------------
- * persistence.ts EXPORTA solo `snapshot` y `persist`. `goalStateDir` y `writeSidecar` son
- * internos al módulo, así que se ejercitan INDIRECTAMENTE a través de `persist` (que ejecuta
- * `writeSidecar` en modo fire-and-forget). Afirmamos el resultado OBSERVABLE en filesystem en vez
- * de copiar la lógica.
- *
- * Qué NO es testeable acá (ver `skipped` en el resultado): el RETHROW de writeSidecar ante falla
- * de rename. persist() traga deliberadamente ese rechazo (`void writeSidecar(...).catch(() => {})`)
- * y la función no se exporta, así que el rechazo no es observable para ningún llamador alcanzable.
- * Forzarlo requeriría monkeypatch de bindings nombrados de `node:fs/promises`, que son live
- * bindings ESM read-only dentro del bundle; no es posible sin reescribir la fuente. SÍ cubrimos la
- * mitad temp-cleanup de esa ruta (sin *.tmp huérfanos tras un rename fallido) mediante una falla
- * real EISDIR de rename, observada en el filesystem.
+ * persistence.ts exporta `snapshot` y `persist`. Afirmamos el snapshot y la entry capturada por un
+ * mock de `pi.appendEntry`, más la ausencia observable del antiguo artifact en un proyecto temporal.
  *
  * Ejecución:
  *   node extensions/pandi-goal/tests/integration/persistence-coverage.test.mjs
@@ -32,24 +20,18 @@
  */
 
 import { deepStrictEqual } from "node:assert";
-import * as crypto from "node:crypto";
 import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { createChecker, loadModule } from "../../../shared/test/harness.mjs";
 import {
-	agentDirFor,
 	buildPersistence,
-	CONFIG_DIR_NAME,
 	flushFs,
-	GOAL_DIR,
 	GOAL_STATE_TYPE,
 	makeActiveGoal,
 	makeAppendPi,
 	PROGRESS_LOG_KEEP,
-	STATE_FILE,
-	waitForNoTmpFiles,
 } from "./goal-test-support.mjs";
 
 const { check, counts } = createChecker();
@@ -132,7 +114,7 @@ function snapshotBoundsAssessments(mod) {
 }
 
 // ===========================================================================
-// persist(): marca updatedAt, agrega el snapshot sincrónicamente y lanza sidecar en fire-and-forget.
+// persist(): marca updatedAt y agrega el snapshot JSONL sincrónicamente.
 // ===========================================================================
 function persistAppendsAndStamps(mod) {
 	const { pi, entries } = makeAppendPi();
@@ -162,156 +144,53 @@ function persistAppendsAndStamps(mod) {
 }
 
 // ===========================================================================
-// persist(): una falla de sidecar NUNCA rompe el engine (fire-and-forget + swallow).
-// Apuntamos goalStateDir a una ruta no escribible (cwd es un ARCHIVO real → mkdir encuentra ENOTDIR).
+// Contrato JSONL-only: persist agrega exactamente una entry y no escribe state.json.
 // ===========================================================================
-async function persistSwallowsSidecarError(mod) {
-	const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "goal-persist-fail-"));
-	const fileAsCwd = path.join(tmp, "iam-a-file");
-	await fs.writeFile(fileAsCwd, "not a dir");
-	const { pi, entries } = makeAppendPi();
-	// trusted → goalStateDir = <cwd>/.pi/goals/<id>; mkdir de eso bajo un ARCHIVO rechaza (ENOTDIR).
-	const ctx = { isProjectTrusted: () => true, cwd: fileAsCwd };
-	const goal = makeActiveGoal();
-	clearTimeout(goal.timer);
-	const unhandledRejections = [];
-	const onUnhandledRejection = (reason) => unhandledRejections.push(String(reason?.message ?? reason));
-	process.on("unhandledRejection", onUnhandledRejection);
-	let threw = false;
+async function persistWritesJsonlOnly(mod) {
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "goal-jsonl-only-"));
 	try {
+		const { pi, entries } = makeAppendPi();
+		const ctx = { isProjectTrusted: () => true, cwd };
+		const goal = makeActiveGoal({ goalId: "jsonl-only-goal" });
+		clearTimeout(goal.timer);
+
 		mod.persist(pi, ctx, goal);
-	} catch {
-		threw = true;
-	}
-	check("persist() does not throw when the sidecar write will fail", !threw);
-	check(
-		"persist() still appended the JSONL entry despite sidecar failure",
-		entries.length === 1,
-		`n=${entries.length}`,
-	);
-	// Dejar que la promise sidecar rechazada se resuelva; el .catch(() => {}) de la fuente debe tragarla
-	// (cualquier unhandled rejection acá haría caer el proceso con exit 2 vía el handler de main()).
-	try {
-		await flushFs(() => false, 30);
+		const stateFile = path.join(cwd, ".pi", "goals", goal.goalId, "state.json");
+		await flushFs(() => existsSync(stateFile));
+
+		check("persist() appends exactly one JSONL goal-state entry", entries.length === 1, `n=${entries.length}`);
+		check(
+			"persist() leaves recovery exclusively in JSONL (does not create state.json)",
+			!existsSync(stateFile),
+			stateFile,
+		);
 	} finally {
-		process.off("unhandledRejection", onUnhandledRejection);
+		await fs.rm(cwd, { recursive: true, force: true }).catch(() => {});
 	}
-	check(
-		"persist() sidecar failure produced no observable throw/rejection",
-		unhandledRejections.length === 0,
-		JSON.stringify(unhandledRejections),
-	);
-	await fs.rm(tmp, { recursive: true, force: true }).catch(() => {});
 }
 
-// ===========================================================================
-// writeSidecar() (vía persist): escritura atómica; JSON pretty + newline final, sin *.tmp restante.
-// raíz trusted: <cwd>/.pi/goals/<id>/state.json.
-// ===========================================================================
-async function sidecarAtomicWriteTrustedRoot(mod) {
-	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "goal-trusted-"));
-	const { pi } = makeAppendPi();
-	const ctx = { isProjectTrusted: () => true, cwd };
-	const goal = makeActiveGoal({ goalId: "trusted-goal-1" });
-	clearTimeout(goal.timer);
-	mod.persist(pi, ctx, goal);
-	const dir = path.join(cwd, CONFIG_DIR_NAME, GOAL_DIR, "trusted-goal-1");
-	const file = path.join(dir, STATE_FILE);
-	await flushFs(() => existsSync(file));
-	check("writeSidecar() trusted root lands at <cwd>/.pi/goals/<id>/state.json", existsSync(file), file);
+async function legacySidecarRemainsInert(mod) {
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "goal-legacy-sidecar-"));
+	try {
+		const goal = makeActiveGoal({ goalId: "legacy-sidecar-goal" });
+		clearTimeout(goal.timer);
+		const stateFile = path.join(cwd, ".pi", "goals", goal.goalId, "state.json");
+		const legacyContents = '{"legacy":true}\n';
+		await fs.mkdir(path.dirname(stateFile), { recursive: true });
+		await fs.writeFile(stateFile, legacyContents, "utf8");
 
-	if (existsSync(file)) {
-		const raw = await fs.readFile(file, "utf8");
-		const parsed = JSON.parse(raw);
+		const { pi, entries } = makeAppendPi();
+		mod.persist(pi, { isProjectTrusted: () => true, cwd }, goal);
+		await flushFs(() => false);
+
+		check("persist() still appends one JSONL entry beside a legacy sidecar", entries.length === 1);
 		check(
-			"writeSidecar() state.json parses to the snapshot",
-			parsed.goalId === "trusted-goal-1",
-			`id=${parsed.goalId}`,
+			"persist() leaves an existing legacy state.json inert",
+			(await fs.readFile(stateFile, "utf8")) === legacyContents,
 		);
-		check(
-			"writeSidecar() writes pretty-printed JSON (2-space indent) with a trailing newline",
-			raw.endsWith("\n") && raw.includes('\n  "goalId"'),
-			JSON.stringify(raw.slice(0, 24)),
-		);
-		const leftovers = (await fs.readdir(dir)).filter((f) => f.endsWith(".tmp"));
-		check(
-			"writeSidecar() leaves no orphaned *.tmp file after a successful rename",
-			leftovers.length === 0,
-			leftovers.join(","),
-		);
+	} finally {
+		await fs.rm(cwd, { recursive: true, force: true }).catch(() => {});
 	}
-	await fs.rm(cwd, { recursive: true, force: true }).catch(() => {});
-}
-
-// ===========================================================================
-// writeSidecar() (vía persist): CLEANUP temp cuando rename falla. Precreamos state.json como
-// DIRECTORIO no vacío para que fs.rename(temp, file) rechace con EISDIR; el catch de la fuente debe
-// hacer `fs.rm(temp)` antes de relanzar (persist traga el rethrow, así que solo observamos cleanup).
-// ===========================================================================
-async function sidecarTempCleanupOnRenameFailure(mod) {
-	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "goal-rename-fail-"));
-	const dir = path.join(cwd, CONFIG_DIR_NAME, GOAL_DIR, "rename-fail-goal");
-	await fs.mkdir(dir, { recursive: true });
-	// Hacer de state.json un directorio EXISTENTE no vacío → rename(file, dir) → EISDIR.
-	const stateAsDir = path.join(dir, STATE_FILE);
-	await fs.mkdir(stateAsDir, { recursive: true });
-	await fs.writeFile(path.join(stateAsDir, "blocker"), "x");
-
-	const { pi, entries } = makeAppendPi();
-	const ctx = { isProjectTrusted: () => true, cwd };
-	const goal = makeActiveGoal({ goalId: "rename-fail-goal" });
-	clearTimeout(goal.timer);
-	mod.persist(pi, ctx, goal);
-	check("persist() still appended despite the doomed rename", entries.length === 1, `n=${entries.length}`);
-	// Permitir que se complete la cadena write+failed-rename+cleanup. En CI Linux el
-	// rename fallido puede tardar más turnos de I/O que en macOS, así que esperamos la
-	// condición observable en vez de contar un número chico de setImmediate().
-	const entriesInDir = await waitForNoTmpFiles(dir);
-	const tmpLeftovers = entriesInDir.filter((f) => f.endsWith(".tmp"));
-	check(
-		"writeSidecar() removes the temp file when rename fails (no orphaned *.tmp)",
-		tmpLeftovers.length === 0,
-		`leftovers=[${tmpLeftovers.join(",")}]`,
-	);
-	check(
-		"writeSidecar() does NOT clobber the existing state.json directory on failure",
-		existsSync(stateAsDir),
-		stateAsDir,
-	);
-	await fs.rm(cwd, { recursive: true, force: true }).catch(() => {});
-}
-
-// ===========================================================================
-// goalStateDir() (vía persist): raíz UNTRUSTED → <agentDir>/goals/<sha1(cwd)[:12]>/<id>.
-// ===========================================================================
-async function sidecarUntrustedRootUsesSha1Hash(mod, outDir) {
-	const projectPath = "/some/path";
-	const expectedHash = crypto.createHash("sha1").update(projectPath).digest("hex").slice(0, 12);
-	const { pi } = makeAppendPi();
-	const ctx = { isProjectTrusted: () => false, cwd: projectPath };
-	const goal = makeActiveGoal({ goalId: "untrusted-goal-1" });
-	clearTimeout(goal.timer);
-	mod.persist(pi, ctx, goal);
-	const expectedFile = path.join(agentDirFor(outDir), GOAL_DIR, expectedHash, "untrusted-goal-1", STATE_FILE);
-	await flushFs(() => existsSync(expectedFile));
-	check(
-		"goalStateDir() untrusted → <agentDir>/goals/<sha1(cwd)[:12]>/<id>/state.json",
-		existsSync(expectedFile),
-		expectedFile,
-	);
-	if (existsSync(expectedFile)) {
-		const parsed = JSON.parse(await fs.readFile(expectedFile, "utf8"));
-		check(
-			"goalStateDir() untrusted write contains the goal snapshot",
-			parsed.goalId === "untrusted-goal-1",
-			`id=${parsed.goalId}`,
-		);
-	}
-	check(
-		"goalStateDir() untrusted hash matches an independent sha1(cwd)[:12]",
-		expectedHash === crypto.createHash("sha1").update(projectPath).digest("hex").slice(0, 12),
-		expectedHash,
-	);
 }
 
 // ===========================================================================
@@ -322,10 +201,8 @@ async function main() {
 		snapshotCopiesAllFields(mod);
 		snapshotBoundsAssessments(mod);
 		persistAppendsAndStamps(mod);
-		await persistSwallowsSidecarError(mod);
-		await sidecarAtomicWriteTrustedRoot(mod);
-		await sidecarTempCleanupOnRenameFailure(mod);
-		await sidecarUntrustedRootUsesSha1Hash(mod, outDir);
+		await persistWritesJsonlOnly(mod);
+		await legacySidecarRemainsInert(mod);
 	} finally {
 		await fs.rm(outDir, { recursive: true, force: true }).catch(() => {});
 	}

@@ -582,6 +582,95 @@ async function rehydrateReArmsActiveOnly(url) {
 		await fireSessionStart(handlers, ctx, "resume"); // must not throw
 		check("rehydrate(junk): valid active plan among junk re-arms the gate", await writeBlocked(handlers, ctx));
 	}
+
+	// --- 5h: snapshots activos inválidos nunca arman el gate ni crean un plan fantasma. ---
+	{
+		const base = {
+			planId: "boundary-plan",
+			task: "persisted task",
+			active: true,
+			status: "planning",
+			submissions: 0,
+			rejections: 0,
+			startedAt: Date.now() - 1000,
+			updatedAt: new Date(Date.now() - 1000).toISOString(),
+		};
+		const invalidCases = [
+			["unknown status", (state) => (state.status = "mystery")],
+			["missing planId", (state) => delete state.planId],
+			["non-string planId", (state) => (state.planId = 42)],
+			["missing task", (state) => delete state.task],
+			["non-string task", (state) => (state.task = { text: "persisted task" })],
+			["non-boolean active", (state) => (state.active = "true")],
+			["non-number submissions", (state) => (state.submissions = "0")],
+			["non-string updatedAt", (state) => (state.updatedAt = 123)],
+			["invalid updatedAt timestamp", (state) => (state.updatedAt = "not-a-date")],
+		];
+
+		for (const [label, corrupt] of invalidCases) {
+			const planExtension = await loadDefault(url);
+			const { pi, handlers } = makePi();
+			planExtension(pi);
+			const state = { ...base };
+			corrupt(state);
+			const ctx = makeCtx({
+				mode: "tui",
+				hasUI: true,
+				entries: [{ type: "custom", customType: "plan-state", data: state }],
+			});
+			await fireSessionStart(handlers, ctx, "resume");
+			check(`rehydrate(invalid ${label}): gate stays INERT`, !(await writeBlocked(handlers, ctx)));
+		}
+	}
+
+	// --- 5i: active y status son dimensiones separadas; planned+active sigue armando el gate. ---
+	{
+		const planExtension = await loadDefault(url);
+		const { pi, handlers } = makePi();
+		planExtension(pi);
+		const state = {
+			planId: "planned-active",
+			task: "plan-only task",
+			active: true,
+			status: "planned",
+			submissions: 1,
+			rejections: 0,
+			startedAt: Date.now() - 1000,
+			updatedAt: new Date(Date.now() - 1000).toISOString(),
+		};
+		const ctx = makeCtx({
+			mode: "tui",
+			hasUI: true,
+			entries: [{ type: "custom", customType: "plan-state", data: state }],
+		});
+		await fireSessionStart(handlers, ctx, "resume");
+		check("rehydrate(planned+active): valid plan-only snapshot re-arms the gate", await writeBlocked(handlers, ctx));
+	}
+
+	// --- 5j: un último snapshot inválido retira al activo anterior; no se revive estado obsoleto. ---
+	{
+		const planExtension = await loadDefault(url);
+		const { pi, handlers } = makePi();
+		planExtension(pi);
+		const valid = {
+			planId: "retired-by-invalid",
+			task: "old active task",
+			active: true,
+			status: "planning",
+			submissions: 0,
+			rejections: 0,
+			startedAt: 1,
+			updatedAt: "1970-01-01T00:00:01.000Z",
+		};
+		const invalidLatest = { ...valid, status: "corrupt", updatedAt: "1970-01-01T00:00:02.000Z" };
+		const entries = [
+			{ type: "custom", customType: "plan-state", data: valid },
+			{ type: "custom", customType: "plan-state", data: invalidLatest },
+		];
+		const ctx = makeCtx({ mode: "tui", hasUI: true, entries });
+		await fireSessionStart(handlers, ctx, "resume");
+		check("rehydrate(invalid latest): older active plan stays retired", !(await writeBlocked(handlers, ctx)));
+	}
 }
 
 // ===========================================================================

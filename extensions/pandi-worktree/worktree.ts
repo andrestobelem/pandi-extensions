@@ -15,10 +15,12 @@ import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { StringDecoder } from "node:string_decoder";
 import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 
 export const DEFAULT_GIT_TIMEOUT_MS = 30_000;
 const MAX_GIT_OUTPUT_BYTES = 1_000_000;
+const GIT_TERMINATION_GRACE_MS = 250;
 /** Subdirectorio por defecto (bajo el dir de config de Pi) para worktrees creados desde un nombre simple. */
 export const WORKTREES_DIR = "worktrees";
 
@@ -31,6 +33,10 @@ export interface GitResult {
 	/** se define cuando el proceso fue terminado por signal/timeout/abort. */
 	signal: NodeJS.Signals | null;
 	timedOut: boolean;
+	/** true únicamente cuando la AbortSignal externa pidió terminar el proceso. */
+	aborted?: boolean;
+	stdoutTruncated?: boolean;
+	stderrTruncated?: boolean;
 	/** se define cuando nunca logramos hacer spawn de git (p. ej., git no instalado). */
 	spawnError?: string;
 }
@@ -44,21 +50,42 @@ export interface RunGitOptions {
 /**
  * Acumula la salida del proceso hijo como texto UTF-8, acotada por bytes a
  * MAX_GIT_OUTPUT_BYTES para que un git desbocado no inunde la memoria ni la
- * transcripción. Acumulador mutable: agregá cada chunk y leé `.text`. Factoriza los dos
- * acumuladores idénticos de stdout/stderr en runGit.
+ * transcripción. Conserva bytes completos hasta el límite e informa explícitamente
+ * cuando descartó el resto.
  */
-function createBoundedSink(): { append(chunk: Buffer): void; readonly text: string } {
-	let text = "";
+function createBoundedOutput(): {
+	append(chunk: Buffer | string): void;
+	readonly text: string;
+	readonly truncated: boolean;
+} {
+	const decoder = new StringDecoder("utf8");
+	const chunks: string[] = [];
 	let bytes = 0;
+	let truncated = false;
+	let finalized: string | undefined;
 	return {
-		append(chunk: Buffer): void {
-			if (bytes >= MAX_GIT_OUTPUT_BYTES) return;
-			bytes += chunk.length;
-			text += chunk.toString("utf8");
-			if (bytes > MAX_GIT_OUTPUT_BYTES) text = text.slice(0, MAX_GIT_OUTPUT_BYTES);
+		append(chunk): void {
+			const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+			const remaining = MAX_GIT_OUTPUT_BYTES - bytes;
+			if (buffer.length > remaining) truncated = true;
+			if (remaining <= 0) return;
+			const kept = buffer.length <= remaining ? buffer : buffer.subarray(0, remaining);
+			const decoded = decoder.write(kept);
+			if (decoded) chunks.push(decoded);
+			bytes += kept.length;
 		},
 		get text(): string {
-			return text;
+			if (finalized === undefined) {
+				if (!truncated) {
+					const tail = decoder.end();
+					if (tail) chunks.push(tail);
+				}
+				finalized = chunks.join("");
+			}
+			return finalized;
+		},
+		get truncated(): boolean {
+			return truncated;
 		},
 	};
 }
@@ -73,80 +100,78 @@ function createBoundedSink(): { append(chunk: Buffer): void; readonly text: stri
 export function runGit(args: string[], options: RunGitOptions): Promise<GitResult> {
 	const { cwd, signal, timeoutMs = DEFAULT_GIT_TIMEOUT_MS } = options;
 	return new Promise<GitResult>((resolve) => {
-		const stdoutSink = createBoundedSink();
-		const stderrSink = createBoundedSink();
+		const stdout = createBoundedOutput();
+		const stderr = createBoundedOutput();
 		let settled = false;
-		let timedOut = false;
+		let termination: "timeout" | "abort" | undefined;
+		let spawnError: string | undefined;
+		let timeoutTimer: NodeJS.Timeout | undefined;
+		let killTimer: NodeJS.Timeout | undefined;
+		const useProcessGroup = process.platform !== "win32";
 
-		const child = spawn("git", args, { cwd, windowsHide: true });
+		const child = spawn("git", args, { cwd, detached: useProcessGroup, windowsHide: true });
 
-		const finish = (result: GitResult): void => {
+		const sendSignal = (processSignal: NodeJS.Signals): void => {
+			if (useProcessGroup && child.pid && child.pid !== process.pid) {
+				try {
+					process.kill(-child.pid, processSignal);
+					return;
+				} catch {
+					// El fallback conserva el comportamiento en hosts sin group kill.
+				}
+			}
+			try {
+				child.kill(processSignal);
+			} catch {
+				// El proceso ya cerró.
+			}
+		};
+
+		const finish = (code: number | null, childSignal: NodeJS.Signals | null): void => {
 			if (settled) return;
 			settled = true;
-			clearTimeout(timer);
+			if (timeoutTimer) clearTimeout(timeoutTimer);
+			if (killTimer) clearTimeout(killTimer);
 			if (signal) signal.removeEventListener("abort", onAbort);
-			resolve(result);
-		};
-
-		const onAbort = (): void => {
-			try {
-				child.kill("SIGTERM");
-			} catch {
-				/* ya no está */
-			}
-			finish({
-				ok: false,
-				exitCode: null,
-				stdout: stdoutSink.text,
-				stderr: stderrSink.text,
-				signal: "SIGTERM",
-				timedOut: false,
+			resolve({
+				ok: !spawnError && !termination && code === 0,
+				exitCode: spawnError ? null : code,
+				stdout: stdout.text,
+				stderr: stderr.text,
+				signal: childSignal,
+				timedOut: termination === "timeout",
+				aborted: termination === "abort",
+				stdoutTruncated: stdout.truncated,
+				stderrTruncated: stderr.truncated,
+				spawnError,
 			});
 		};
 
-		const timer = setTimeout(() => {
-			timedOut = true;
-			try {
-				child.kill("SIGTERM");
-			} catch {
-				/* ya no está */
-			}
-		}, timeoutMs);
-		// No mantengas vivo el proceso solo por este timer.
-		if (typeof timer.unref === "function") timer.unref();
+		const terminate = (reason: "timeout" | "abort"): void => {
+			if (settled || termination) return;
+			termination = reason;
+			sendSignal("SIGTERM");
+			killTimer = setTimeout(() => {
+				if (!settled) sendSignal("SIGKILL");
+			}, GIT_TERMINATION_GRACE_MS);
+			killTimer.unref?.();
+		};
 
+		const onAbort = (): void => terminate("abort");
+
+		child.stdout?.on("data", (chunk: Buffer) => stdout.append(chunk));
+		child.stderr?.on("data", (chunk: Buffer) => stderr.append(chunk));
+		child.once("error", (err) => {
+			spawnError = err.message;
+		});
+		child.once("close", finish);
+
+		timeoutTimer = setTimeout(() => terminate("timeout"), timeoutMs);
+		timeoutTimer.unref?.();
 		if (signal) {
-			if (signal.aborted) {
-				onAbort();
-				return;
-			}
-			signal.addEventListener("abort", onAbort, { once: true });
+			if (signal.aborted) onAbort();
+			else signal.addEventListener("abort", onAbort, { once: true });
 		}
-
-		child.stdout?.on("data", (chunk: Buffer) => stdoutSink.append(chunk));
-		child.stderr?.on("data", (chunk: Buffer) => stderrSink.append(chunk));
-
-		child.on("error", (err) => {
-			finish({
-				ok: false,
-				exitCode: null,
-				stdout: stdoutSink.text,
-				stderr: stderrSink.text,
-				signal: null,
-				timedOut,
-				spawnError: err.message,
-			});
-		});
-		child.on("close", (code, sig) => {
-			finish({
-				ok: code === 0 && !timedOut,
-				exitCode: code,
-				stdout: stdoutSink.text,
-				stderr: stderrSink.text,
-				signal: sig,
-				timedOut,
-			});
-		});
 	});
 }
 

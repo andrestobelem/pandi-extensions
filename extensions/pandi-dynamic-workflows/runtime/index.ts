@@ -52,7 +52,16 @@ export {
 export { prepareWorkflowRun } from "./prepare.js";
 export type { ProcessResult, StreamingProcessResult } from "./process-spawn.js";
 export { runProcess, runStreamingAgentProcess } from "./process-spawn.js";
-export { formatRunList, listRuns, resolveRun, selectRunByKey } from "./runs.js";
+export type { LocatedRunRecord } from "./runs.js";
+export {
+	authoritativeRunRecord,
+	formatRunList,
+	listLocatedRuns,
+	listRuns,
+	resolveLocatedRun,
+	resolveRun,
+	selectRunByKey,
+} from "./runs.js";
 export {
 	getRunDirs,
 	readRunRecord,

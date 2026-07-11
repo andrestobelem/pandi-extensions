@@ -12,10 +12,11 @@ import {
 	computeCodeHash,
 	getRunPeakParallelAgents,
 	getRunState,
+	type LocatedRunRecord,
 	loadJournal,
 	maxAgentArtifactNumber,
 	maxJournalAgentId,
-	resolveRun,
+	resolveLocatedRun,
 } from "../runtime/index.js";
 import type {
 	DynamicWorkflowToolParams,
@@ -47,7 +48,8 @@ export async function resumeWorkflow(
 	signal?: AbortSignal,
 	onProgress?: (logs: WorkflowLogEntry[], status?: WorkflowRunStatus) => void,
 ): Promise<WorkflowRunRecord> {
-	const record = await resolveRun(ctx, idOrLatest);
+	const locatedRun = await resolveLocatedRun(ctx, idOrLatest);
+	const { record } = locatedRun;
 	if (hasActiveRun(record.runId) || resumingRuns.has(record.runId)) {
 		throw new Error(`Workflow run is already active: ${record.runId}. Cancel it first or wait for it to finish.`);
 	}
@@ -69,7 +71,7 @@ export async function resumeWorkflow(
 	// para que una reanudación concurrente del mismo runId sea rechazada en lugar de ejecutarse dos veces.
 	resumingRuns.add(record.runId);
 	try {
-		return await resumeReservedRun(pi, ctx, record, signal, onProgress, opts.limits);
+		return await resumeReservedRun(pi, ctx, locatedRun, signal, onProgress, opts.limits);
 	} finally {
 		resumingRuns.delete(record.runId);
 	}
@@ -79,23 +81,24 @@ export async function resumeWorkflow(
 async function resumeReservedRun(
 	pi: ExtensionAPI,
 	ctx: ExtensionContext,
-	record: WorkflowRunRecord,
+	locatedRun: LocatedRunRecord,
 	signal?: AbortSignal,
 	onProgress?: (logs: WorkflowLogEntry[], status?: WorkflowRunStatus) => void,
 	limitOverrides?: Partial<DynamicWorkflowToolParams>,
 ): Promise<WorkflowRunRecord> {
+	const { record, discoveredRunDir: runDir } = locatedRun;
 	const workflow = await runtimeWorkflowDeps.resolveWorkflow(ctx, record.workflow, record.scope);
 	const code = await fs.readFile(workflow.path, "utf8");
 	const codeHash = computeCodeHash(code);
-	const journal = await loadJournal(record.runDir);
+	const journal = await loadJournal(runDir);
 	// Comienza agentCount por encima del id más alto ya usado (registrado en el journal O en disco),
 	// para que los subagentes recién re-ejecutados nunca puedan sobrescribir un
 	// artifact agents/NNNN existente, incluso cuando el journal es no contiguo o tiene espacios {cache:false}.
-	const baseAgentCount = Math.max(maxJournalAgentId(journal), await maxAgentArtifactNumber(record.runDir));
+	const baseAgentCount = Math.max(maxJournalAgentId(journal), await maxAgentArtifactNumber(runDir));
 
 	let input: unknown = {};
 	try {
-		input = JSON.parse(await fs.readFile(path.join(record.runDir, "input.json"), "utf8"));
+		input = JSON.parse(await fs.readFile(path.join(runDir, "input.json"), "utf8"));
 	} catch {
 		input = {};
 	}
@@ -112,7 +115,7 @@ async function resumeReservedRun(
 			? new Date(record.startedAt).getTime()
 			: Date.now(),
 		runId: record.runId,
-		runDir: record.runDir,
+		runDir,
 		background: resumeInBackground,
 		resume: {
 			journal,
@@ -122,13 +125,13 @@ async function resumeReservedRun(
 			previousPeakParallelAgents: getRunPeakParallelAgents(record) ?? 0,
 		},
 	};
-	await ensureDir(path.join(record.runDir, "agents"));
+	await ensureDir(path.join(runDir, "agents"));
 	// Elimina el result.json obsoleto de la (fallida/cancelada/completada)
 	// ejecución anterior. readRunRecord lee result.json antes de status.json, así que dejarlo
 	// en su lugar ocultaría el estado en ejecución en vivo durante la duración de la reanudación
 	// (runs/view/dashboard mostrarían el estado terminal anterior). runWorkflow
 	// reescribe result.json cuando finaliza la ejecución reanudada.
-	await fs.rm(path.join(record.runDir, "result.json"), { force: true }).catch(() => {});
+	await fs.rm(path.join(runDir, "result.json"), { force: true }).catch(() => {});
 
 	const previousHash = record.codeHash;
 	if (previousHash && previousHash !== codeHash) {

@@ -62,13 +62,16 @@ muy distintas:
 ## Cómo funciona
 
 - `--ultracode` (alias `--uc`) activa una **postura ultracode**: cada prompt de iteración le pide al modelo que conduzca el trabajo con dynamic workflows cuando eso justifique su costo (primero scout inline, después orquestación para exhaustividad, confianza o escala). Es solo inyección de prompt: no cambia el nivel de thinking ni fuerza la activación de `dynamic_workflow`. El flag puede aparecer en cualquier parte de los args y se elimina del objetivo.
-- El estado del goal se persiste y sobrevive a una recarga de sesión; al rehidratarse, el goal retoma sin doble disparo.
+- El estado del goal se persiste exclusivamente como entries `goal-state` en el JSONL de sesión. Sobrevive
+  `reload`/`resume` mientras esa sesión exista y su JSONL sea válido; al rehidratarse, retoma sin doble disparo.
 - Cuando un `done` verificado cerraría el goal, la extensión lanza el verificador independiente (proceso separado, ojos frescos). Un FAIL por debajo del tope reinyecta una iteración con la devolución del verificador; un FAIL al llegar al tope detiene el goal como `blocked` para que intervenga una persona.
 
 ## Límites y notas de seguridad
 
 - Solo puede haber un goal activo a la vez; detené el actual antes de iniciar otro.
 - `/goal` requiere una sesión TUI o RPC; no puede correr en otros modos.
+- No se promete recovery ante un hard crash previo al flush, corrupción o truncado de la última entry, ni eliminación de
+  la sesión. Los sidecars legados bajo `.pi/goals/` quedan inertes: `/goal` no los lee, reescribe ni borra.
 - Un goal se detiene cuando llega a `maxIterations` (30) o al presupuesto de contexto (90% de uso); después de un corte por presupuesto podés hacer `/compact` y volver a empezar.
 
 ## Relacionado

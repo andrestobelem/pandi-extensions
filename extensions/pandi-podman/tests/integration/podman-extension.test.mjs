@@ -273,6 +273,15 @@ async function scenarioHandlers(url) {
 		);
 	}
 	{
+		const run = fakeRunner([{ ...okResult(INFO_JSON), stdoutTruncated: true }]);
+		const result = await mod.runStatus(run, { platform: "linux" });
+		check(
+			"runStatus: refuses a truncated info snapshot",
+			!result.ok && /truncad/i.test(result.text) && result.details.stdoutTruncated === true,
+			JSON.stringify(result),
+		);
+	}
+	{
 		const run = fakeRunner([
 			{ ok: false, stdout: "", stderr: "cannot connect", exitCode: 125 },
 			okResult(REAL_MACHINE_JSON),
@@ -288,6 +297,15 @@ async function scenarioHandlers(url) {
 		const run = fakeRunner([okResult(REAL_PS_JSON)]);
 		const result = await mod.runList(run, {});
 		check("runList: returns parsed containers", result.ok && result.details.count === 1, result.text);
+	}
+	{
+		const run = fakeRunner([{ ...okResult(REAL_PS_JSON), stdoutTruncated: true }]);
+		const result = await mod.runList(run, {});
+		check(
+			"runList: refuses truncated JSON instead of presenting a partial list",
+			!result.ok && /truncad/i.test(result.text) && result.details.stdoutTruncated === true,
+			JSON.stringify(result),
+		);
 	}
 	{
 		const run = fakeRunner();
@@ -315,6 +333,25 @@ async function scenarioHandlers(url) {
 			"runSandbox: applies constrained argv",
 			JSON.stringify(run.calls[0]?.args) ===
 				JSON.stringify(mod.buildRunArgs({ image: "alpine:latest", command: ["id"] })),
+		);
+	}
+	{
+		const run = fakeRunner([
+			{
+				...okResult("salida parcial"),
+				stderr: "diagnóstico parcial",
+				stdoutTruncated: true,
+				stderrTruncated: true,
+			},
+		]);
+		const result = await mod.runSandbox(run, { image: "alpine:latest", command: ["id"] }, {});
+		check(
+			"runSandbox: explicitly warns when presented output was truncated",
+			result.ok &&
+				/truncad/i.test(result.text) &&
+				result.details.stdoutTruncated === true &&
+				result.details.stderrTruncated === true,
+			JSON.stringify(result),
 		);
 	}
 	{
@@ -369,18 +406,110 @@ async function scenarioRealRunner(url) {
 		JSON.stringify(absent),
 	);
 
+	const stubbornProcess = [
+		'process.on("SIGTERM", () => process.stdout.write("hijo recibió SIGTERM\\n"));',
+		"setInterval(() => {}, 1_000);",
+		"setTimeout(() => process.exit(23), 1_500).unref();",
+	].join("");
+	const stubbornTree =
+		process.platform === "win32"
+			? stubbornProcess
+			: [
+					'const { spawn } = require("node:child_process");',
+					`spawn(process.execPath, ["-e", ${JSON.stringify(
+						[
+							'process.on("SIGTERM", () => process.stdout.write("descendiente recibió SIGTERM\\\\n"));',
+							"setInterval(() => {}, 1_000);",
+							"setTimeout(() => process.exit(0), 1_500).unref();",
+						].join(""),
+					)}], { stdio: "inherit" });`,
+					'process.on("SIGTERM", () => process.stdout.write("hijo recibió SIGTERM\\n"));',
+					"setInterval(() => {}, 1_000);",
+					"setTimeout(() => process.exit(23), 1_500).unref();",
+				].join("");
+	const sawWholeTreeTermination = (stdout) =>
+		stdout.includes("hijo recibió SIGTERM") &&
+		(process.platform === "win32" || stdout.includes("descendiente recibió SIGTERM"));
+
+	const timedOut = await mod.runPodman(["-e", stubbornTree], {
+		bin: process.execPath,
+		timeoutMs: 400,
+	});
+	check(
+		"runPodman: timeout signals the supported process group, escalates and resolves after inherited pipes close",
+		!timedOut.ok &&
+			timedOut.timedOut === true &&
+			timedOut.aborted === false &&
+			timedOut.signal === "SIGKILL" &&
+			sawWholeTreeTermination(timedOut.stdout),
+		JSON.stringify(timedOut),
+	);
+
 	const controller = new AbortController();
-	const pending = mod.runPodman(["-e", "setTimeout(() => {}, 10_000)"], {
+	const pending = mod.runPodman(["-e", stubbornTree], {
 		bin: process.execPath,
 		signal: controller.signal,
-		timeoutMs: 5_000,
+		timeoutMs: 30_000,
 	});
-	controller.abort();
+	setTimeout(() => controller.abort(), 400);
 	const aborted = await pending;
 	check(
-		"runPodman: abort becomes a timed-out result",
-		!aborted.ok && aborted.timedOut === true,
+		"runPodman: abort signals the supported process group, escalates and remains distinct",
+		!aborted.ok &&
+			aborted.timedOut === false &&
+			aborted.aborted === true &&
+			aborted.signal === "SIGKILL" &&
+			sawWholeTreeTermination(aborted.stdout),
 		JSON.stringify(aborted),
+	);
+
+	const signaled = await mod.runPodman(["-e", 'setTimeout(() => process.kill(process.pid, "SIGTERM"), 50);'], {
+		bin: process.execPath,
+		timeoutMs: 5_000,
+	});
+	check(
+		"runPodman: child signal termination is neither timeout nor external abort",
+		!signaled.ok && signaled.timedOut === false && signaled.aborted === false && signaled.signal === "SIGTERM",
+		JSON.stringify(signaled),
+	);
+
+	const normal = await mod.runPodman(
+		["-e", 'process.stdout.write("salida normal\\n"); process.stderr.write("error normal\\n");'],
+		{ bin: process.execPath, timeoutMs: 5_000 },
+	);
+	check(
+		"runPodman: ordinary stdout/stderr stay unchanged and untruncated",
+		normal.ok === true &&
+			normal.stdout === "salida normal\n" &&
+			normal.stderr === "error normal\n" &&
+			normal.stdoutTruncated === false &&
+			normal.stderrTruncated === false,
+		JSON.stringify(normal),
+	);
+
+	const large = await mod.runPodman(
+		[
+			"-e",
+			'const prefix = "a".repeat(999_999); process.stdout.write(prefix + "€x"); process.stderr.write(prefix + "€x");',
+		],
+		{ bin: process.execPath, timeoutMs: 5_000 },
+	);
+	check(
+		"runPodman: byte cap keeps valid UTF-8 when a multibyte character crosses the boundary",
+		large.ok === true &&
+			Buffer.byteLength(large.stdout) <= 1_000_000 &&
+			Buffer.byteLength(large.stderr) <= 1_000_000 &&
+			large.stdoutTruncated === true &&
+			large.stderrTruncated === true &&
+			!large.stdout.includes("\uFFFD") &&
+			!large.stderr.includes("\uFFFD"),
+		JSON.stringify({
+			ok: large.ok,
+			stdoutBytes: Buffer.byteLength(large.stdout),
+			stderrBytes: Buffer.byteLength(large.stderr),
+			stdoutTruncated: large.stdoutTruncated,
+			stderrTruncated: large.stderrTruncated,
+		}),
 	);
 }
 

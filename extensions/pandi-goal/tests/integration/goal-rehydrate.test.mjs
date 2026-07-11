@@ -1,16 +1,16 @@
 /**
- * Test de integración conductual durable para la REHYDRATION (recuperación crash/reload) de extensions/pandi-goal/index.ts.
+ * Test de integración conductual durable para la REHYDRATION desde JSONL de extensions/pandi-goal/index.ts.
  *
  * Por qué existe este archivo
  * ---------------------------
  * `npm test` es solo TYPECHECK (`tsc --noEmit` sobre las cuatro extensiones). Demuestra que
  * el código compila; no demuestra NADA sobre comportamiento runtime. Un `/goal` es un agente
- * PERSISTENTE, recuperable tras crash: cuando el proceso reinicia, `rehydrate()` (disparado en
- * `session_start`) es lo ÚNICO que revive un goal activo. Su contrato es sutil y totalmente
- * conductual, por eso una regresión silenciosa acá está entre las más peligrosas del paquete:
+ * PERSISTENTE: `rehydrate()` (disparado en `session_start`) revive un goal activo cuando la sesión
+ * y su última entry JSONL son válidas. Su contrato es sutil y totalmente conductual, por eso una
+ * regresión silenciosa acá está entre las más peligrosas del paquete:
  *
- *   - Un goal que crasheó durante una verificación INDEPENDIENTE (`verifying-independent`) DEBE
- *     relanzar el subagente escéptico al recargar: su verdict en vuelo se perdió, así que
+ *   - Un snapshot JSONL en verificación INDEPENDIENTE (`verifying-independent`) DEBE relanzar el
+ *     subagente escéptico al recargar: su verdict en vuelo se perdió, así que
  *     RE-JUZGAMOS en vez de adivinar. Si rehydrate lo descartara, o lo cerrara como done,
  *     el goal moriría en silencio o cerraría SIN VERIFICAR: la falla exacta que el
  *     verifier independiente existe para prevenir. (goal.ts rehydrate: la rama
@@ -49,12 +49,14 @@ import { createChecker, loadDefault } from "../../../shared/test/harness.mjs";
 import {
 	buildGoal,
 	goalStateEntry as entry,
+	fireSessionShutdown,
 	flushWithMicrotask as flush,
 	installImmediateTimerHarness,
 	lastGoalStatusFor as lastStatusFor,
 	makePi,
 	makeRehydrateSession,
 	rehydrateGoalFrom as rehydrateFrom,
+	runGoalCommand,
 	makeGoalSnapshot as snap,
 } from "./goal-test-support.mjs";
 
@@ -520,6 +522,162 @@ async function nonInteractiveRehydrateIsNoOp(goalUrl) {
 }
 
 // ===========================================================================
+// SCENARIO J: la frontera persistida rechaza snapshots live inválidos sin rearmar
+// una meta fantasma. Una /goal nueva debe poder arrancar después de cada rechazo.
+// ===========================================================================
+async function invalidLiveSnapshotsDoNotRearm(goalUrl) {
+	const invalidCases = [
+		["missing goalId", (state) => delete state.goalId],
+		["non-string goalId", (state) => (state.goalId = 17)],
+		["missing objective", (state) => delete state.objective],
+		["non-string objective", (state) => (state.objective = { text: "ship" })],
+		["unknown status", (state) => (state.gstatus = "mystery")],
+		["non-finite iteration", (state) => (state.iteration = Number.POSITIVE_INFINITY)],
+		["non-finite maxIterations", (state) => (state.maxIterations = Number.NaN)],
+		["non-finite contextPercentCap", (state) => (state.contextPercentCap = Number.NEGATIVE_INFINITY)],
+		["contextPercentCap below range", (state) => (state.contextPercentCap = -1)],
+		["zero contextPercentCap", (state) => (state.contextPercentCap = 0)],
+		["fractional contextPercentCap", (state) => (state.contextPercentCap = 100.5)],
+		["contextPercentCap above range", (state) => (state.contextPercentCap = 101)],
+		["non-finite verifyAttempts", (state) => (state.verifyAttempts = Number.NaN)],
+		["non-finite independentVerifyAttempts", (state) => (state.independentVerifyAttempts = Number.POSITIVE_INFINITY)],
+		["non-finite maxIndependentVerifications", (state) => (state.maxIndependentVerifications = Number.NaN)],
+		["non-finite verifierTimeoutMs", (state) => (state.verifierTimeoutMs = Number.POSITIVE_INFINITY)],
+		["non-finite startedAt", (state) => (state.startedAt = Number.POSITIVE_INFINITY)],
+		["non-finite nextFireAt", (state) => (state.nextFireAt = Number.NaN)],
+		["invalid updatedAt timestamp", (state) => (state.updatedAt = "not-a-date")],
+		["invalid assessments shape", (state) => (state.assessments = { iteration: 1 })],
+		["invalid verifierTools shape", (state) => (state.verifierTools = ["read", { name: "bash" }])],
+	];
+
+	for (const [label, corrupt] of invalidCases) {
+		const state = snap({ gstatus: "pursuing", nextFireAt: Date.now() + 60_000 });
+		corrupt(state);
+		const { ctx, built } = await rehydrateFrom(goalUrl, [entry(state)]);
+		await runGoalCommand(built, "replacement objective -- replacement complete", ctx);
+		check(
+			`invalid ${label}: snapshot ignored and replacement goal starts`,
+			built.states.some((candidate) => candidate.objective === "replacement objective"),
+			`persisted=${built.states.map((candidate) => `${candidate.goalId}:${candidate.objective}`).join(",")}`,
+		);
+		await fireSessionShutdown(built, ctx);
+	}
+}
+
+// Un snapshot listo para relanzar el judge no puede convertir datos persistidos en permisos
+// mutantes. La frontera rechaza tanto el caso puro como listas mixtas, antes de llamar a pi.exec.
+async function mutatingVerifierToolSnapshotsDoNotSpawnJudge(goalUrl) {
+	const cases = [
+		["mutating-only bash", ["bash"]],
+		["mixed read/bash", ["read", "bash"]],
+		["mixed write/grep", ["write", "grep"]],
+		["mixed edit/find/ls", ["edit", "find", "ls"]],
+	];
+
+	for (const [label, verifierTools] of cases) {
+		const state = snap({
+			gstatus: "verifying-independent",
+			nextFireAt: null,
+			verifierTools,
+		});
+		const { ctx, built } = await rehydrateFrom(goalUrl, [entry(state)], {
+			execImpl: () => ({ code: 0, killed: false, stdout: "VERDICT: PASS", stderr: "" }),
+		});
+		await flush();
+		check(
+			`${label}: invalid snapshot never spawns a recovered judge`,
+			built.execCalls.length === 0,
+			`args=${JSON.stringify(built.execCalls[0]?.args)}`,
+		);
+		await runGoalCommand(built, `replacement after ${label} -- replacement complete`, ctx);
+		check(
+			`${label}: rejected snapshot leaves room for a replacement goal`,
+			built.states.some((candidate) => candidate.objective === `replacement after ${label}`),
+		);
+		await fireSessionShutdown(built, ctx);
+	}
+}
+
+// Las listas explícitas que son subconjuntos de la allowlist canónica siguen siendo válidas
+// y llegan al verifier sin ampliarse ni reordenarse.
+async function explicitReadOnlyVerifierToolsRemainValid(goalUrl) {
+	for (const verifierTools of [["read"], ["grep", "find", "ls"]]) {
+		const state = snap({
+			gstatus: "verifying-independent",
+			nextFireAt: null,
+			verifierTools,
+		});
+		const { built } = await rehydrateFrom(goalUrl, [entry(state)], {
+			execImpl: () => ({ code: 0, killed: false, stdout: "VERDICT: PASS", stderr: "" }),
+		});
+		await flush(() => lastStatusFor(built.states, state.goalId) === "done");
+		const args = built.execCalls[0]?.args ?? [];
+		const toolsIndex = args.indexOf("--tools");
+		check(
+			`explicit read-only tools ${verifierTools.join(",")} remain unchanged`,
+			built.execCalls.length === 1 && args[toolsIndex + 1] === verifierTools.join(","),
+			JSON.stringify(args),
+		);
+	}
+}
+
+// El porcentaje expresa un cap semántico, por lo que sus límites inclusivos son 1..100.
+// Los valores válidos sobreviven recovery sin ser reemplazados por el default.
+async function validContextPercentCapsRemainUnchanged(goalUrl) {
+	for (const contextPercentCap of [1, 73, 100]) {
+		const state = snap({
+			gstatus: "verifying-independent",
+			nextFireAt: null,
+			contextPercentCap,
+		});
+		const { built } = await rehydrateFrom(goalUrl, [entry(state)], {
+			execImpl: () => ({ code: 0, killed: false, stdout: "VERDICT: PASS", stderr: "" }),
+		});
+		await flush(() => lastStatusFor(built.states, state.goalId) === "done");
+		const terminal = built.states.find(
+			(candidate) => candidate.goalId === state.goalId && candidate.gstatus === "done",
+		);
+		check(
+			`valid contextPercentCap ${contextPercentCap} survives recovery unchanged`,
+			terminal?.contextPercentCap === contextPercentCap,
+			`persisted=${terminal?.contextPercentCap}`,
+		);
+	}
+}
+
+// Los campos agregados para verificación independiente tienen defaults de recovery:
+// un snapshot pre-P1 que no los traía sigue siendo recuperable.
+async function legacySnapshotDefaultsRemainValid(goalUrl) {
+	const state = snap({ gstatus: "stale", nextFireAt: Date.now() - 1000 });
+	delete state.assessments;
+	delete state.verifyAttempts;
+	delete state.independentVerifyAttempts;
+	delete state.maxIndependentVerifications;
+	delete state.verifierTimeoutMs;
+	delete state.verifierTools;
+	const { built } = await rehydrateFrom(goalUrl, [entry(state)]);
+	await flush(() => built.states.some((candidate) => candidate.goalId === state.goalId));
+	check(
+		"legacy pre-P1 snapshot remains recoverable through decoder defaults",
+		built.states.some((candidate) => candidate.goalId === state.goalId && candidate.gstatus === "pursuing"),
+	);
+
+	const verifierState = snap({ gstatus: "verifying-independent", nextFireAt: null });
+	delete verifierState.verifierTools;
+	const { built: verifierBuilt } = await rehydrateFrom(goalUrl, [entry(verifierState)], {
+		execImpl: () => ({ code: 0, killed: false, stdout: "VERDICT: PASS", stderr: "" }),
+	});
+	await flush(() => lastStatusFor(verifierBuilt.states, verifierState.goalId) === "done");
+	const args = verifierBuilt.execCalls[0]?.args ?? [];
+	const toolsIndex = args.indexOf("--tools");
+	check(
+		"legacy snapshot without verifierTools recovers with the canonical read-only default",
+		verifierBuilt.execCalls.length === 1 && args[toolsIndex + 1] === "read,grep,find,ls",
+		JSON.stringify(args),
+	);
+}
+
+// ===========================================================================
 async function main() {
 	const { outDir, url } = await buildGoal({ name: "pi-goal-rehydrate-integration" });
 	const restoreTimers = installImmediateTimerHarness();
@@ -537,6 +695,11 @@ async function main() {
 		await junkEntriesAreIgnored(url);
 		await noDoubleFireOnSecondRehydrate(url);
 		await nonInteractiveRehydrateIsNoOp(url);
+		await invalidLiveSnapshotsDoNotRearm(url);
+		await mutatingVerifierToolSnapshotsDoNotSpawnJudge(url);
+		await explicitReadOnlyVerifierToolsRemainValid(url);
+		await validContextPercentCapsRemainUnchanged(url);
+		await legacySnapshotDefaultsRemainValid(url);
 	} finally {
 		restoreTimers();
 		await fs.rm(outDir, { recursive: true, force: true }).catch(() => {});

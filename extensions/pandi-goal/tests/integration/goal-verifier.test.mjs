@@ -447,7 +447,7 @@ async function verifierArgvIsReadOnly(goalUrl) {
 		`tools=${argTools(args)}`,
 	);
 
-	// Parte 2: verifierTools VACÍO (alcanzable solo vía sidecar rehidratado). Una lista vacía debe
+	// Parte 2: verifierTools VACÍO (alcanzable vía snapshot JSONL rehidratado). Una lista vacía debe
 	// DESHABILITAR todas las tools (--no-tools), nunca caer al default mutante. Rehidratamos un
 	// goal estacionado en verifying-independent (que relanza el verifier) con verifierTools: [].
 	const goalExtension = await loadDefault(goalUrl);

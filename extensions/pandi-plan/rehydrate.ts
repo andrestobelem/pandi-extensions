@@ -7,6 +7,7 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { PLAN_STATE_TYPE } from "./persistence.js";
 import { restoreActivePlans } from "./registry.js";
 import { collectLatestByKey } from "./session-state.js";
+import { decodePlanStateSnapshot, persistedPlanStateId } from "./snapshot-parser.js";
 import type { PlanState } from "./state.js";
 
 export type RehydrateDeps = {
@@ -28,8 +29,13 @@ export function rehydrate(ctx: ExtensionContext): void {
 	if (!rehydrateDeps) return;
 	const activePlans = rehydrateDeps.getActivePlans();
 	const entries = ctx.sessionManager.getEntries();
-	const latest = collectLatestByKey<PlanState>(entries, PLAN_STATE_TYPE, (d) => d.planId);
+	const latest = collectLatestByKey(entries, PLAN_STATE_TYPE, persistedPlanStateId);
+	const validSnapshots: PlanState[] = [];
+	for (const value of latest.values()) {
+		const state = decodePlanStateSnapshot(value);
+		if (state) validSnapshots.push(state);
+	}
 
-	restoreActivePlans(activePlans, latest.values());
+	restoreActivePlans(activePlans, validSnapshots);
 	rehydrateDeps.refreshPlanStatus(ctx);
 }

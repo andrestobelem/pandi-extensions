@@ -433,9 +433,9 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </thead>
 <tbody><tr>
 <td>Alta</td>
-<td><code>extensions/pandi-goal/persistence.ts</code> — “tragar errores”</td>
-<td>Puede sugerir que toda persistencia ignora errores, cuando solo el sidecar es best-effort</td>
-<td>Aclarar qué llamada mantiene errores y cuál los ignora</td>
+<td><code>extensions/pandi-goal/persistence.ts</code> — recovery</td>
+<td>Puede sugerir una durabilidad mayor que la fuente real</td>
+<td>Explicitar que <code>goal-state</code> en el JSONL válido de la sesión es la única fuente; no prometer hard-crash recovery</td>
 </tr>
 <tr>
 <td>Alta</td>

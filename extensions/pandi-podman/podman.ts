@@ -7,13 +7,21 @@
  */
 
 import { spawn } from "node:child_process";
+import { StringDecoder } from "node:string_decoder";
 
 export interface PodmanResult {
 	ok: boolean;
 	stdout: string;
 	stderr: string;
 	exitCode?: number;
+	/** true únicamente cuando venció timeoutMs. */
 	timedOut?: boolean;
+	/** true únicamente cuando la AbortSignal externa pidió terminar el proceso. */
+	aborted?: boolean;
+	/** Señal que cerró al hijo, incluida SIGKILL después de agotar la gracia. */
+	signal?: NodeJS.Signals;
+	stdoutTruncated?: boolean;
+	stderrTruncated?: boolean;
 	spawnError?: string;
 }
 
@@ -26,6 +34,8 @@ export interface RunPodmanOptions {
 
 export const DEFAULT_PODMAN_TIMEOUT_MS = 120_000;
 export const MIN_PODMAN_TIMEOUT_MS = 1_000;
+const MAX_PODMAN_OUTPUT_BYTES = 1_000_000;
+const PODMAN_TERMINATION_GRACE_MS = 250;
 const DEFAULT_CPUS = 2;
 const DEFAULT_MEMORY = "1G";
 const DEFAULT_PIDS_LIMIT = 256;
@@ -38,46 +48,118 @@ export function parseTimeoutMs(raw: string | undefined, fallback = DEFAULT_PODMA
 
 export type RunPodman = (args: string[], options?: RunPodmanOptions) => Promise<PodmanResult>;
 
+function createBoundedOutput(): {
+	append(chunk: Buffer | string): void;
+	readonly text: string;
+	readonly truncated: boolean;
+} {
+	const decoder = new StringDecoder("utf8");
+	const chunks: string[] = [];
+	let bytes = 0;
+	let truncated = false;
+	let finalized: string | undefined;
+	return {
+		append(chunk): void {
+			const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+			const remaining = MAX_PODMAN_OUTPUT_BYTES - bytes;
+			if (buffer.length > remaining) truncated = true;
+			if (remaining <= 0) return;
+			const kept = buffer.length <= remaining ? buffer : buffer.subarray(0, remaining);
+			const decoded = decoder.write(kept);
+			if (decoded) chunks.push(decoded);
+			bytes += kept.length;
+		},
+		get text(): string {
+			if (finalized === undefined) {
+				if (!truncated) {
+					const tail = decoder.end();
+					if (tail) chunks.push(tail);
+				}
+				finalized = chunks.join("");
+			}
+			return finalized;
+		},
+		get truncated(): boolean {
+			return truncated;
+		},
+	};
+}
+
 /** Ejecuta la CLI sin shell; errores del proceso vuelven como datos para la UI/tool. */
 export function runPodman(args: string[], options: RunPodmanOptions = {}): Promise<PodmanResult> {
 	const { cwd, signal, timeoutMs = DEFAULT_PODMAN_TIMEOUT_MS, bin = "podman" } = options;
 	return new Promise((resolve) => {
-		let stdout = "";
-		let stderr = "";
+		const stdout = createBoundedOutput();
+		const stderr = createBoundedOutput();
 		let settled = false;
-		let timedOut = false;
-		const child = spawn(bin, args, { cwd, windowsHide: true });
+		let termination: "timeout" | "abort" | undefined;
+		let spawnError: string | undefined;
+		let timeoutTimer: NodeJS.Timeout | undefined;
+		let killTimer: NodeJS.Timeout | undefined;
+		const useProcessGroup = process.platform !== "win32";
+		const child = spawn(bin, args, { cwd, detached: useProcessGroup, windowsHide: true });
 
-		const finish = (result: PodmanResult) => {
+		const sendSignal = (processSignal: NodeJS.Signals): void => {
+			if (useProcessGroup && child.pid && child.pid !== process.pid) {
+				try {
+					process.kill(-child.pid, processSignal);
+					return;
+				} catch {
+					// El fallback conserva el comportamiento en hosts sin group kill.
+				}
+			}
+			try {
+				child.kill(processSignal);
+			} catch {
+				// El proceso ya cerró.
+			}
+		};
+
+		const finish = (code: number | null, childSignal: NodeJS.Signals | null): void => {
 			if (settled) return;
 			settled = true;
-			clearTimeout(timer);
+			if (timeoutTimer) clearTimeout(timeoutTimer);
+			if (killTimer) clearTimeout(killTimer);
 			if (signal) signal.removeEventListener("abort", onAbort);
-			resolve(result);
+			resolve({
+				ok: !spawnError && !termination && code === 0,
+				stdout: stdout.text,
+				stderr: stderr.text,
+				exitCode: spawnError ? undefined : (code ?? undefined),
+				timedOut: termination === "timeout",
+				aborted: termination === "abort",
+				signal: childSignal ?? undefined,
+				stdoutTruncated: stdout.truncated,
+				stderrTruncated: stderr.truncated,
+				spawnError,
+			});
 		};
-		const onAbort = () => {
-			timedOut = true;
-			child.kill("SIGTERM");
+
+		const terminate = (reason: "timeout" | "abort"): void => {
+			if (settled || termination) return;
+			termination = reason;
+			sendSignal("SIGTERM");
+			killTimer = setTimeout(() => {
+				if (!settled) sendSignal("SIGKILL");
+			}, PODMAN_TERMINATION_GRACE_MS);
+			killTimer.unref?.();
 		};
+
+		const onAbort = (): void => terminate("abort");
+
+		child.stdout?.on("data", (chunk: Buffer) => stdout.append(chunk));
+		child.stderr?.on("data", (chunk: Buffer) => stderr.append(chunk));
+		child.once("error", (error: Error) => {
+			spawnError = error.message;
+		});
+		child.once("close", finish);
+
+		timeoutTimer = setTimeout(() => terminate("timeout"), timeoutMs);
+		timeoutTimer.unref?.();
 		if (signal) {
 			if (signal.aborted) onAbort();
 			else signal.addEventListener("abort", onAbort, { once: true });
 		}
-		const timer = setTimeout(() => {
-			timedOut = true;
-			child.kill("SIGTERM");
-		}, timeoutMs);
-
-		child.stdout?.on("data", (chunk) => {
-			stdout += chunk.toString();
-		});
-		child.stderr?.on("data", (chunk) => {
-			stderr += chunk.toString();
-		});
-		child.on("error", (error: Error) => finish({ ok: false, stdout, stderr, spawnError: error.message }));
-		child.on("close", (code) => {
-			finish({ ok: !timedOut && code === 0, stdout, stderr, exitCode: code ?? undefined, timedOut });
-		});
 	});
 }
 
@@ -304,16 +386,39 @@ const INSTALL_HINT =
 		? "No se encontró Podman. Instalalo con: brew install podman"
 		: "No se encontró Podman. Instalalo con el gestor de paquetes de tu sistema.";
 
+function outputTruncationDetails(result: PodmanResult): Record<string, true> {
+	return {
+		...(result.stdoutTruncated ? { stdoutTruncated: true } : {}),
+		...(result.stderrTruncated ? { stderrTruncated: true } : {}),
+	};
+}
+
+function describeOutputTruncation(result: PodmanResult): string | undefined {
+	const streams = [
+		result.stdoutTruncated ? "stdout" : undefined,
+		result.stderrTruncated ? "stderr" : undefined,
+	].filter((stream): stream is string => Boolean(stream));
+	return streams.length
+		? `La salida de ${streams.join(" y ")} fue truncada al límite de ${MAX_PODMAN_OUTPUT_BYTES} bytes.`
+		: undefined;
+}
+
 export function describePodmanError(result: PodmanResult, action: string): string {
+	const truncation = describeOutputTruncation(result);
+	const withTruncation = (message: string): string => (truncation ? `${message} ${truncation}` : message);
 	if (result.spawnError)
 		return /ENOENT/i.test(result.spawnError)
-			? INSTALL_HINT
-			: `No se pudo ejecutar \`podman ${action}\`: ${result.spawnError}`;
-	if (result.timedOut) return `\`podman ${action}\` agotó el tiempo de espera.`;
+			? withTruncation(INSTALL_HINT)
+			: withTruncation(`No se pudo ejecutar \`podman ${action}\`: ${result.spawnError}`);
+	if (result.timedOut) return withTruncation(`\`podman ${action}\` agotó el tiempo de espera.`);
+	if (result.aborted) return withTruncation(`\`podman ${action}\` fue abortado.`);
+	if (result.signal) return withTruncation(`\`podman ${action}\` terminó por señal ${result.signal}.`);
 	const detail = (result.stderr || result.stdout).trim();
-	return detail
-		? `\`podman ${action}\` falló: ${detail}`
-		: `\`podman ${action}\` falló (salida ${result.exitCode ?? "?"}).`;
+	return withTruncation(
+		detail
+			? `\`podman ${action}\` falló: ${detail}`
+			: `\`podman ${action}\` falló (salida ${result.exitCode ?? "?"}).`,
+	);
 }
 
 export interface HandlerResult {
@@ -372,10 +477,22 @@ function validateSandbox(params: SandboxParams): string | undefined {
 
 export async function runStatus(run: RunPodman, opts: HandlerOpts): Promise<HandlerResult> {
 	const infoResult = await run(buildInfoArgs(), opts);
+	const infoTruncation = describeOutputTruncation(infoResult);
 	if (!infoResult.ok) {
-		if (!isMachinePlatform(opts.platform)) return handlerError("status", describePodmanError(infoResult, "info"));
+		if (infoTruncation)
+			return handlerError("status", describePodmanError(infoResult, "info"), outputTruncationDetails(infoResult));
+		if (!isMachinePlatform(opts.platform))
+			return handlerError("status", describePodmanError(infoResult, "info"), outputTruncationDetails(infoResult));
 		const machinesResult = await run(buildMachineListArgs(), opts);
-		if (!machinesResult.ok) return handlerError("status", describePodmanError(infoResult, "info"));
+		const machinesTruncation = describeOutputTruncation(machinesResult);
+		if (machinesTruncation)
+			return handlerError(
+				"status",
+				machinesResult.ok ? machinesTruncation : describePodmanError(machinesResult, "machine list"),
+				outputTruncationDetails(machinesResult),
+			);
+		if (!machinesResult.ok)
+			return handlerError("status", describePodmanError(infoResult, "info"), outputTruncationDetails(infoResult));
 		const machines = parseMachineList(machinesResult.stdout);
 		return handlerError(
 			"status",
@@ -383,10 +500,18 @@ export async function runStatus(run: RunPodman, opts: HandlerOpts): Promise<Hand
 			{ machines },
 		);
 	}
+	if (infoTruncation) return handlerError("status", infoTruncation, outputTruncationDetails(infoResult));
 	const info = parseInfo(infoResult.stdout);
 	let machines: MachineEntry[] | undefined;
 	if (isMachinePlatform(opts.platform)) {
 		const machinesResult = await run(buildMachineListArgs(), opts);
+		const machinesTruncation = describeOutputTruncation(machinesResult);
+		if (machinesTruncation)
+			return handlerError(
+				"status",
+				machinesResult.ok ? machinesTruncation : describePodmanError(machinesResult, "machine list"),
+				outputTruncationDetails(machinesResult),
+			);
 		if (machinesResult.ok) machines = parseMachineList(machinesResult.stdout);
 	}
 	const summary = [
@@ -402,7 +527,9 @@ export async function runStatus(run: RunPodman, opts: HandlerOpts): Promise<Hand
 
 export async function runList(run: RunPodman, opts: HandlerOpts): Promise<HandlerResult> {
 	const result = await run(buildListArgs(), opts);
-	if (!result.ok) return handlerError("list", describePodmanError(result, "ps"));
+	if (!result.ok) return handlerError("list", describePodmanError(result, "ps"), outputTruncationDetails(result));
+	const truncation = describeOutputTruncation(result);
+	if (truncation) return handlerError("list", truncation, outputTruncationDetails(result));
 	const containers = parseContainerList(result.stdout);
 	return {
 		ok: true,
@@ -415,11 +542,18 @@ export async function runSandbox(run: RunPodman, params: SandboxParams, opts: Ha
 	const error = validateSandbox(params);
 	if (error) return handlerError("run", error);
 	const result = await run(buildRunArgs(params), opts);
-	if (!result.ok) return handlerError("run", describePodmanError(result, "run"));
+	if (!result.ok) return handlerError("run", describePodmanError(result, "run"), outputTruncationDetails(result));
+	const output = result.stdout.trim() || "(sin salida) — sandbox efímero finalizado.";
+	const truncation = describeOutputTruncation(result);
 	return {
 		ok: true,
-		text: result.stdout.trim() || "(sin salida) — sandbox efímero finalizado.",
-		details: { action: "run", image: params.image, exitCode: result.exitCode },
+		text: truncation ? `${output}\n\nAdvertencia: ${truncation}` : output,
+		details: {
+			action: "run",
+			image: params.image,
+			exitCode: result.exitCode,
+			...outputTruncationDetails(result),
+		},
 	};
 }
 
@@ -454,7 +588,10 @@ export async function runRemove(
 
 export async function runMachineList(run: RunPodman, opts: HandlerOpts): Promise<HandlerResult> {
 	const result = await run(buildMachineListArgs(), opts);
-	if (!result.ok) return handlerError("machine-list", describePodmanError(result, "machine list"));
+	if (!result.ok)
+		return handlerError("machine-list", describePodmanError(result, "machine list"), outputTruncationDetails(result));
+	const truncation = describeOutputTruncation(result);
+	if (truncation) return handlerError("machine-list", truncation, outputTruncationDetails(result));
 	const machines = parseMachineList(result.stdout);
 	return {
 		ok: true,

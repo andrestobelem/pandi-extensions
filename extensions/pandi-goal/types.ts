@@ -46,7 +46,7 @@ export interface GoalState {
 	startedAt: number;
 	nextFireAt: number | null;
 	lastReason?: string;
-	/** Timestamp ISO de la última escritura; usado para resolver conflictos JSONL-vs-sidecar. */
+	/** Timestamp ISO de la última transición persistida en el JSONL de sesión. */
 	updatedAt: string;
 }
 

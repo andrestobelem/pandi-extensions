@@ -5,7 +5,6 @@
  * Los mocks makePi/makeCtx siguen siendo configurables por suite vía opciones.
  */
 
-import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildExtension, bundle, loadDefault, makeBuildDir, sdkStub } from "../../../shared/test/harness.mjs";
@@ -17,9 +16,6 @@ export const EXT_DIR = path.join(REPO_ROOT, "extensions", "pandi-goal");
 /** Replica constants.ts — fijado acá para que un cambio del límite aparezca en assertions. */
 export const PROGRESS_LOG_KEEP = 12;
 export const GOAL_STATE_TYPE = "goal-state";
-export const STATE_FILE = "state.json";
-export const GOAL_DIR = "goals";
-export const CONFIG_DIR_NAME = ".pi";
 
 const goalSdkStubs = { sdk: (dir) => sdkStub(dir) };
 
@@ -50,10 +46,6 @@ export async function buildCommandIntent({ name = "pandi-goal-command-intent" } 
 		aliases,
 	});
 	return { outDir, url };
-}
-
-export function agentDirFor(outDir) {
-	return path.join(outDir, "agentdir");
 }
 
 const DEFAULT_EXEC_RESULT = { code: 0, killed: false, stdout: "", stderr: "" };
@@ -268,16 +260,6 @@ export function baseGoal(over = {}) {
 	};
 }
 
-export async function waitForNoTmpFiles(dir, tries = 2000) {
-	let entries = [];
-	for (let i = 0; i < tries; i++) {
-		await new Promise((r) => setImmediate(r));
-		entries = await fs.readdir(dir);
-		if (!entries.some((f) => f.endsWith(".tmp"))) return entries;
-	}
-	return entries;
-}
-
 export function makeGoalSnapshot(overrides = {}) {
 	const goalId = overrides.goalId ?? `g${(_goalSnapId++).toString(16).padStart(4, "0")}`;
 	return {
@@ -293,7 +275,7 @@ export function makeGoalSnapshot(overrides = {}) {
 		independentVerifyAttempts: 0,
 		maxIndependentVerifications: 2,
 		verifierTimeoutMs: 120000,
-		verifierTools: ["read", "grep", "find", "ls", "bash"],
+		verifierTools: ["read", "grep", "find", "ls"],
 		gstatus: "pursuing",
 		startedAt: new Date().toISOString(),
 		nextFireAt: Date.now() + 1000,

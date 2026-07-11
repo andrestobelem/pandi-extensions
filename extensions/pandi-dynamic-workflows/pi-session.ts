@@ -20,7 +20,7 @@ import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
 import { ensureDir, projectHash } from "./lib/paths.js";
 import { formatElapsedMs } from "./lib/presentation.js";
 import { activeRunCount } from "./lifecycle/index.js";
-import { PI_SESSION_HEARTBEAT_MS, writeJsonFile } from "./runtime/index.js";
+import { PI_SESSION_HEARTBEAT_MS } from "./runtime/index.js";
 
 const PI_LIVE_SESSION_DIR = "live-sessions";
 const PI_SESSION_STALE_MS = 20_000;
@@ -80,6 +80,18 @@ export function setPiSessionHeartbeatWriteHookForTests(hook?: (generation: numbe
 	piSessionHeartbeatWriteHookForTests = hook;
 }
 
+async function writeJsonFileAtomic(file: string, value: unknown): Promise<void> {
+	await ensureDir(path.dirname(file));
+	const temp = `${file}.${crypto.randomBytes(6).toString("hex")}.tmp`;
+	try {
+		await fs.writeFile(temp, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+		await fs.rename(temp, file);
+	} catch (err) {
+		await fs.rm(temp, { force: true }).catch(() => undefined);
+		throw err;
+	}
+}
+
 function isPersistentPiSessionMode(mode: string): boolean {
 	return mode === "tui" || mode === "rpc";
 }
@@ -126,8 +138,7 @@ async function writePiSessionHeartbeat(runtime: LivePiSessionRuntime): Promise<v
 		try {
 			await piSessionHeartbeatWriteHookForTests?.(runtime.generation);
 			if (runtime.stopping || livePiSession?.generation !== runtime.generation) return;
-			await ensureDir(path.dirname(runtime.file));
-			await writeJsonFile(runtime.file, buildPiSessionRecord(runtime));
+			await writeJsonFileAtomic(runtime.file, buildPiSessionRecord(runtime));
 		} catch {
 			// Heartbeats son best-effort; el dashboard nunca debe fallar porque el
 			// live-session registry no se puede escribir (p. ej. permissions o tmp cleanup).

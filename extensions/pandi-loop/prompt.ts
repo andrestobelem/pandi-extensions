@@ -5,19 +5,20 @@
 
 import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 import { formatInterval } from "./interval.js";
+import type { LoopSchedule } from "./state.js";
 
 /** Subconjunto de LoopState que makeLoopIterationPrompt necesita. */
-export interface LoopIterationPromptInput {
+interface LoopIterationPromptFields {
 	loopId: string;
 	task: string;
-	mode: "dynamic" | "fixed";
-	intervalMs?: number;
 	iteration: number;
 	maxIterations: number;
 	lastReason?: string;
 	autonomous?: boolean;
 	ultracode?: boolean;
 }
+
+export type LoopIterationPromptInput = LoopIterationPromptFields & LoopSchedule;
 
 function renderLoopIterationPrompt(lines: string[]): string {
 	return lines.join("\n");
@@ -58,7 +59,7 @@ export function makeLoopIterationPrompt(loop: LoopIterationPromptInput): string 
 	lines.push("Hacé EXACTAMENTE UNA iteración de la tarea ahora, y después decidí si continuar:");
 	if (loop.mode === "fixed") {
 		// El período pertenece a la extensión; el modelo solo decide continuar o detenerse.
-		const periodSec = Math.round((loop.intervalMs ?? 0) / 1000);
+		const periodSec = Math.round(loop.intervalMs / 1000);
 		lines.push(
 			`- Este loop corre en un intervalo FIJO (cada ${formatInterval(periodSec)}). NO controlás la cadencia; no intentes cambiarla.`,
 		);

@@ -30,12 +30,31 @@ export function notify(ctx: ExtensionContext, message: string, type: "info" | "w
 	if (type !== "info") console.error(message);
 }
 
+export function outputTruncationDetails(result: GitResult): Record<string, true> {
+	return {
+		...(result.stdoutTruncated ? { stdoutTruncated: true } : {}),
+		...(result.stderrTruncated ? { stderrTruncated: true } : {}),
+	};
+}
+
+export function describeOutputTruncation(result: GitResult): string | undefined {
+	const streams = [
+		result.stdoutTruncated ? "stdout" : undefined,
+		result.stderrTruncated ? "stderr" : undefined,
+	].filter((stream): stream is string => Boolean(stream));
+	return streams.length ? `La salida de ${streams.join(" y ")} fue truncada al límite de captura.` : undefined;
+}
+
 /** Un motivo corto, de una sola línea, para una invocación fallida de git. */
 export function gitError(result: GitResult): string {
-	if (result.spawnError) return `No se pudo iniciar git: ${result.spawnError}`;
-	if (result.timedOut) return "git agotó el tiempo de espera";
+	const truncation = describeOutputTruncation(result);
+	const withTruncation = (message: string): string => (truncation ? `${message}. ${truncation}` : message);
+	if (result.spawnError) return withTruncation(`No se pudo iniciar git: ${result.spawnError}`);
+	if (result.timedOut) return withTruncation("git agotó el tiempo de espera");
+	if (result.aborted) return withTruncation("git fue abortado");
+	if (result.signal) return withTruncation(`git terminó por señal ${result.signal}`);
 	const reason = (result.stderr || result.stdout).trim().split("\n")[0];
-	return reason || `git salió con el código ${result.exitCode}`;
+	return withTruncation(reason || `git salió con el código ${result.exitCode}`);
 }
 
 type GitOutputStream = "stdout" | "stderr";
@@ -52,7 +71,9 @@ function combineGitOutput(
 
 /** stdout+stderr combinados (git worktree prune informa por stderr). */
 export function combinedOutput(result: GitResult): string {
-	return combineGitOutput(result, "stdout", "stderr");
+	const output = combineGitOutput(result, "stdout", "stderr");
+	const truncation = describeOutputTruncation(result);
+	return truncation ? `${output}${output ? "\n\n" : ""}Advertencia: ${truncation}` : output;
 }
 
 /**
@@ -72,12 +93,14 @@ export function needsForce(result: GitResult): boolean {
  * funcionando.
  */
 export async function ensureGitRepo(ctx: ExtensionContext, signal?: AbortSignal): Promise<GitResult> {
-	return runGit(["rev-parse", "--git-dir"], { cwd: ctx.cwd, signal, timeoutMs: GIT_TIMEOUT_MS });
+	const result = await runGit(["rev-parse", "--git-dir"], { cwd: ctx.cwd, signal, timeoutMs: GIT_TIMEOUT_MS });
+	return describeOutputTruncation(result) ? { ...result, ok: false } : result;
 }
 
 /** Diagnóstico para un chequeo fallido del repo: distingue git-ausente/timeout de "no repo". */
 export function repoError(result: GitResult, surface: string): string {
-	if (result.spawnError || result.timedOut) return gitError(result);
+	if (result.spawnError || result.timedOut || result.aborted || result.signal || describeOutputTruncation(result))
+		return gitError(result);
 	return `No estás dentro de un repositorio git — ${surface} necesita un repositorio git.`;
 }
 
@@ -87,5 +110,7 @@ export async function listWorktrees(
 ): Promise<{ ok: true; entries: WorktreeEntry[] } | { ok: false; error: string }> {
 	const result = await runGit(buildListArgs(), { cwd: ctx.cwd, signal, timeoutMs: GIT_TIMEOUT_MS });
 	if (!result.ok) return { ok: false, error: gitError(result) };
+	const truncation = describeOutputTruncation(result);
+	if (truncation) return { ok: false, error: truncation };
 	return { ok: true, entries: parseWorktreeList(result.stdout) };
 }

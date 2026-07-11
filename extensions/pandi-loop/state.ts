@@ -2,6 +2,7 @@
  * Modelo de estado de `pandi-loop`: separa snapshots durables de campos runtime-only
  * como timers, AbortController y flags de wake.
  */
+import { MAX_FIXED_INTERVAL_SECONDS, MIN_FIXED_INTERVAL_SECONDS } from "./interval.js";
 
 export const DEFAULT_MAX_ITERATIONS = 25;
 export const DEFAULT_MAX_WALL_CLOCK_MS = 6 * 60 * 60 * 1000; // Deadline default de 6h.
@@ -15,12 +16,21 @@ export const positiveOr = (value: unknown, dflt: number): number =>
 export type LoopMode = "dynamic" | "fixed";
 export type LoopStatus = "running" | "paused" | "stopped" | "done" | "failed" | "stale";
 
-export interface LoopState {
+export interface DynamicLoopSchedule {
+	mode: "dynamic";
+	intervalMs?: never;
+}
+
+export interface FixedLoopSchedule {
+	mode: "fixed";
+	intervalMs: number;
+}
+
+export type LoopSchedule = DynamicLoopSchedule | FixedLoopSchedule;
+
+interface LoopStateFields {
 	loopId: string;
 	task: string;
-	mode: LoopMode;
-	/** Período de fixed-mode en ms (0/undefined para dynamic). La extensión lo posee. */
-	intervalMs?: number;
 	iteration: number;
 	maxIterations: number;
 	/** Deadline absoluto de wall-clock (epoch ms): detener cuando Date.now() lo supere. */
@@ -41,7 +51,9 @@ export interface LoopState {
 	updatedAt: string;
 }
 
-export interface ActiveLoop extends LoopState {
+export type LoopState = LoopStateFields & LoopSchedule;
+
+interface ActiveLoopRuntime {
 	timer: ReturnType<typeof setTimeout> | null;
 	controller: AbortController;
 	/** Verdadero cuando un wake fue (re)armado en el turno actual; se resetea en cada fire. */
@@ -54,6 +66,9 @@ export interface ActiveLoop extends LoopState {
 	fixedAnchor?: number;
 }
 
+export type ActiveLoop = LoopState & ActiveLoopRuntime;
+export type FixedActiveLoop = ActiveLoop & FixedLoopSchedule;
+
 export interface CreateActiveLoopInput {
 	loopId: string;
 	task: string;
@@ -64,12 +79,80 @@ export interface CreateActiveLoopInput {
 	ownerSessionId?: string;
 }
 
+export interface ParsedLoopStateSnapshot {
+	state: LoopState;
+	invalidScheduleReason?: string;
+}
+
+const MIN_FIXED_INTERVAL_MS = MIN_FIXED_INTERVAL_SECONDS * 1000;
+const MAX_FIXED_INTERVAL_MS = MAX_FIXED_INTERVAL_SECONDS * 1000;
+const LOOP_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+
+/**
+ * Un loopId durable es un único segmento portable. Los IDs actuales (8 hex) y
+ * los IDs legacy alfanuméricos con `._-` siguen siendo válidos; separadores,
+ * rutas absolutas y segmentos relativos nunca llegan al filesystem.
+ */
+export function isValidLoopId(value: unknown): value is string {
+	return typeof value === "string" && LOOP_ID_PATTERN.test(value);
+}
+
+export function isValidFixedIntervalMs(value: unknown): value is number {
+	return (
+		typeof value === "number" &&
+		Number.isFinite(value) &&
+		Number.isInteger(value) &&
+		value >= MIN_FIXED_INTERVAL_MS &&
+		value <= MAX_FIXED_INTERVAL_MS
+	);
+}
+
+/**
+ * Normaliza únicamente la frontera de schedule de snapshots persistidos.
+ * Los snapshots legacy sin mode siguen siendo dynamic; un fixed inválido queda
+ * marcado para retiro y se degrada a una forma runtime segura sin intervalo.
+ */
+export function parseLoopStateSnapshot(value: unknown): ParsedLoopStateSnapshot | undefined {
+	if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+	const raw = value as Record<string, unknown>;
+	if (!isValidLoopId(raw.loopId) || typeof raw.task !== "string" || typeof raw.status !== "string") {
+		return undefined;
+	}
+	const { mode, intervalMs, ...fields } = raw;
+	const stateFields = fields as unknown as LoopStateFields;
+	if (mode === undefined || mode === "dynamic") {
+		return { state: { ...stateFields, mode: "dynamic" } };
+	}
+	if (mode === "fixed" && isValidFixedIntervalMs(intervalMs)) {
+		return { state: { ...stateFields, mode: "fixed", intervalMs } };
+	}
+	const invalidScheduleReason =
+		mode === "fixed"
+			? `schedule fixed inválido: intervalMs debe ser un entero finito entre ${MIN_FIXED_INTERVAL_MS} y ${MAX_FIXED_INTERVAL_MS} ms`
+			: `schedule inválido: mode debe ser "dynamic" o "fixed"`;
+	return {
+		state: { ...stateFields, mode: "dynamic" },
+		invalidScheduleReason,
+	};
+}
+
 export function createActiveLoop(input: CreateActiveLoopInput): ActiveLoop {
+	if (!isValidLoopId(input.loopId)) {
+		throw new RangeError("loopId must be a portable single path segment");
+	}
+	let schedule: LoopSchedule = { mode: "dynamic" };
+	if (input.intervalMs !== undefined) {
+		if (!isValidFixedIntervalMs(input.intervalMs)) {
+			throw new RangeError(
+				`intervalMs must be a finite integer between ${MIN_FIXED_INTERVAL_MS} and ${MAX_FIXED_INTERVAL_MS}`,
+			);
+		}
+		schedule = { mode: "fixed", intervalMs: input.intervalMs };
+	}
 	return {
 		loopId: input.loopId,
 		task: input.task,
-		mode: input.intervalMs ? "fixed" : "dynamic",
-		intervalMs: input.intervalMs,
+		...schedule,
 		iteration: 0,
 		maxIterations: DEFAULT_MAX_ITERATIONS,
 		maxWallClockMs: DEFAULT_MAX_WALL_CLOCK_MS,
@@ -90,11 +173,12 @@ export function createActiveLoop(input: CreateActiveLoopInput): ActiveLoop {
 }
 
 export function snapshot(loop: ActiveLoop): LoopState {
+	const schedule: LoopSchedule =
+		loop.mode === "fixed" ? { mode: "fixed", intervalMs: loop.intervalMs } : { mode: "dynamic" };
 	return {
 		loopId: loop.loopId,
 		task: loop.task,
-		mode: loop.mode,
-		intervalMs: loop.intervalMs,
+		...schedule,
 		iteration: loop.iteration,
 		maxIterations: loop.maxIterations,
 		maxWallClockMs: loop.maxWallClockMs,
@@ -114,15 +198,19 @@ export function snapshot(loop: ActiveLoop): LoopState {
  * Reconstruye un ActiveLoop desde un snapshot durable (rehydrate).
  * Aplica defaults de modo/caps para snapshots legacy y resetea campos runtime.
  */
-export function fromSnapshot(state: LoopState, status: LoopStatus): ActiveLoop {
+export function fromSnapshot(value: unknown, status: LoopStatus): ActiveLoop {
+	const parsed = parseLoopStateSnapshot(value);
+	if (!parsed) throw new Error("Invalid loop snapshot.");
+	const state = parsed.state;
+	const retired = parsed.invalidScheduleReason !== undefined;
 	return {
 		...state,
-		mode: state.mode ?? "dynamic",
 		maxIterations: positiveOr(Math.trunc(state.maxIterations), DEFAULT_MAX_ITERATIONS),
 		maxWallClockMs: positiveOr(state.maxWallClockMs, DEFAULT_MAX_WALL_CLOCK_MS),
 		contextPercentCap: Math.min(positiveOr(state.contextPercentCap, DEFAULT_CONTEXT_PERCENT_CAP), 100),
 		updatedAt: state.updatedAt ?? new Date().toISOString(),
-		status,
+		status: retired ? "stopped" : status,
+		...(retired ? { nextFireAt: null, lastReason: parsed.invalidScheduleReason } : {}),
 		timer: null,
 		controller: new AbortController(),
 		rearmedThisTurn: false,

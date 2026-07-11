@@ -9,7 +9,7 @@ import { formatLoopInterval } from "./interval.js";
 import type { NotifyType } from "./notify.js";
 import type { persist } from "./persistence.js";
 import type { makeLoopIterationPrompt } from "./prompt.js";
-import type { ActiveLoop } from "./state.js";
+import type { ActiveLoop, FixedActiveLoop } from "./state.js";
 import type { setLoopStatus } from "./status.js";
 
 export type SchedulerDeps = {
@@ -213,9 +213,9 @@ export function scheduleWake(
  * Rearma fixed mode desde un target absoluto: evita deriva y evita solapar
  * iteraciones lentas. Si el target quedó atrás, entrega un único catch-up inmediato.
  */
-export function rearmFixed(pi: ExtensionAPI, ctx: ExtensionContext, loop: ActiveLoop): void {
+export function rearmFixed(pi: ExtensionAPI, ctx: ExtensionContext, loop: FixedActiveLoop): void {
 	clearLoopTimer(loop);
-	const period = loop.intervalMs ?? 0;
+	const period = loop.intervalMs;
 	// El target anterior evita deriva; resume/primer armado caen a nextFireAt o now.
 	const base = loop.fixedAnchor ?? loop.nextFireAt ?? Date.now();
 	loop.fixedAnchor = undefined;

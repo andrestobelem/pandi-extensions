@@ -10,10 +10,11 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildExtension, createChecker, sdkStub } from "../../../shared/test/harness.mjs";
+import { buildExtension, bundle, createChecker, makeBuildDir, sdkStub } from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
+const CONTROLLED_FS_KEY = "__pandiSessionRegistryFsControl";
 const { check, counts } = createChecker();
 
 async function buildRegistry() {
@@ -23,6 +24,50 @@ async function buildRegistry() {
 		outName: "session-registry.mjs",
 		stubs: { sdk: (dir) => sdkStub(dir) },
 	});
+}
+
+async function buildControlledRegistry() {
+	const { outDir, aliases } = await makeBuildDir("pandi-session-registry-atomicity", {
+		sdk: (dir) => sdkStub(dir),
+	});
+	const fsStub = path.join(outDir, "controlled-fs.mjs");
+	await fs.writeFile(
+		fsStub,
+		`
+import * as fs from "fs/promises";
+export * from "fs/promises";
+
+const control = () => globalThis[${JSON.stringify(CONTROLLED_FS_KEY)}];
+
+export async function writeFile(file, data, ...args) {
+	const current = control();
+	const name = String(file);
+	const controlled =
+		current &&
+		(name === current.target || (name.startsWith(current.target + ".") && name.endsWith(".tmp")));
+	if (!controlled) return await fs.writeFile(file, data, ...args);
+	const text = String(data);
+	await fs.writeFile(file, text.slice(0, Math.max(1, Math.floor(text.length / 2))), ...args);
+	current.started.resolve(name);
+	await current.release.promise;
+	try {
+		if (current.fail) throw new Error("injected heartbeat write failure");
+		return await fs.writeFile(file, data, ...args);
+	} finally {
+		current.finished.resolve();
+	}
+}
+`,
+		"utf8",
+	);
+	aliases["node:fs/promises"] = fsStub;
+	const url = await bundle({
+		src: path.join(REPO_ROOT, "extensions", "pandi-session", "session-registry.ts"),
+		outDir,
+		outName: "session-registry-controlled.mjs",
+		aliases,
+	});
+	return { outDir, url };
 }
 
 function makeCtx(cwd, { mode = "tui", trusted = true, name = "Sesión actual" } = {}) {
@@ -51,6 +96,120 @@ function deferred() {
 		resolve = done;
 	});
 	return { promise, resolve };
+}
+
+function controlledWrite(target, { fail = false } = {}) {
+	return {
+		target,
+		fail,
+		started: deferred(),
+		release: deferred(),
+		finished: deferred(),
+	};
+}
+
+async function tempSiblings(file) {
+	const entries = await fs.readdir(path.dirname(file));
+	const prefix = `${path.basename(file)}.`;
+	return entries.filter((entry) => entry.startsWith(prefix) && entry.endsWith(".tmp"));
+}
+
+async function waitFor(predicate, tries = 100) {
+	for (let attempt = 0; attempt < tries; attempt += 1) {
+		if (await predicate()) return true;
+		await new Promise((resolve) => setImmediate(resolve));
+	}
+	return false;
+}
+
+async function testAtomicHeartbeatWrites() {
+	const { outDir, url } = await buildControlledRegistry();
+	const project = await fs.mkdtemp(path.join(os.tmpdir(), "pandi-session-registry-atomicity-"));
+	const originalSetInterval = globalThis.setInterval;
+	const originalClearInterval = globalThis.clearInterval;
+	let registry;
+	let tickHeartbeat;
+	let currentControl;
+	try {
+		globalThis.setInterval = (callback) => {
+			tickHeartbeat = callback;
+			return { unref() {} };
+		};
+		globalThis.clearInterval = () => {};
+		registry = await import(url);
+		const ctx = makeCtx(project);
+		await registry.startPandiSessionHeartbeat({ reason: "atomicity" }, ctx);
+		const initial = await registry.collectPandiSessions(ctx);
+		const heartbeatFile = initial[0]?.file;
+		if (!heartbeatFile || typeof tickHeartbeat !== "function") throw new Error("heartbeat fixture unavailable");
+		const initialSnapshot = await fs.readFile(heartbeatFile, "utf8");
+
+		currentControl = controlledWrite(heartbeatFile);
+		globalThis[CONTROLLED_FS_KEY] = currentControl;
+		tickHeartbeat();
+		await currentControl.started.promise;
+		const visibleDuringWrite = await fs.readFile(heartbeatFile, "utf8");
+		check(
+			"una escritura pausada mantiene visible el snapshot completo anterior",
+			visibleDuringWrite === initialSnapshot,
+			visibleDuringWrite,
+		);
+		currentControl.release.resolve();
+		await currentControl.finished.promise;
+		await waitFor(async () => (await tempSiblings(heartbeatFile)).length === 0);
+		await new Promise((resolve) => setImmediate(resolve));
+		const committedSnapshot = await fs.readFile(heartbeatFile, "utf8");
+		check(
+			"la escritura completada publica JSON íntegro",
+			typeof JSON.parse(committedSnapshot).updatedAt === "string",
+			committedSnapshot,
+		);
+
+		currentControl = controlledWrite(heartbeatFile, { fail: true });
+		globalThis[CONTROLLED_FS_KEY] = currentControl;
+		tickHeartbeat();
+		await currentControl.started.promise;
+		currentControl.release.resolve();
+		await currentControl.finished.promise;
+		const failedTempCleaned = await waitFor(async () => (await tempSiblings(heartbeatFile)).length === 0);
+		await new Promise((resolve) => setImmediate(resolve));
+		const afterFailedWrite = await fs.readFile(heartbeatFile, "utf8");
+		check(
+			"un write fallido preserva el último snapshot completo",
+			afterFailedWrite === committedSnapshot,
+			afterFailedWrite,
+		);
+		check(
+			"un write fallido limpia el temp sibling",
+			failedTempCleaned,
+			JSON.stringify(await tempSiblings(heartbeatFile)),
+		);
+
+		currentControl = controlledWrite(heartbeatFile);
+		globalThis[CONTROLLED_FS_KEY] = currentControl;
+		tickHeartbeat();
+		await currentControl.started.promise;
+		let stopped = false;
+		const stopping = registry.stopPandiSessionHeartbeat().then(() => {
+			stopped = true;
+		});
+		await new Promise((resolve) => setImmediate(resolve));
+		check("stop espera una escritura de filesystem in-flight", stopped === false);
+		currentControl.release.resolve();
+		await stopping;
+		check(
+			"stop no permite resurrección ni deja temp siblings",
+			(await registry.collectPandiSessions(ctx)).length === 0 && (await tempSiblings(heartbeatFile)).length === 0,
+		);
+	} finally {
+		currentControl?.release.resolve();
+		delete globalThis[CONTROLLED_FS_KEY];
+		await registry?.stopPandiSessionHeartbeat?.();
+		globalThis.setInterval = originalSetInterval;
+		globalThis.clearInterval = originalClearInterval;
+		await fs.rm(project, { recursive: true, force: true }).catch(() => {});
+		await fs.rm(outDir, { recursive: true, force: true }).catch(() => {});
+	}
 }
 
 async function main() {
@@ -269,6 +428,8 @@ async function main() {
 		await fs.rm(project, { recursive: true, force: true }).catch(() => {});
 		await fs.rm(outDir, { recursive: true, force: true }).catch(() => {});
 	}
+
+	await testAtomicHeartbeatWrites();
 
 	if (counts.failed) {
 		console.error("\nFailures:");

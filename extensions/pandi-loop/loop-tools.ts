@@ -106,7 +106,7 @@ export function registerLoopTools(pi: ExtensionAPI, activeLoops: Map<string, Act
 			if (!loop) return toolError("No hay ningún loop activo para reprogramar. No hay nada que reprogramar.");
 			// En fixed mode la extensión posee la cadencia; loop_schedule solo registra la razón.
 			if (loop.mode === "fixed") {
-				const periodSec = Math.round((loop.intervalMs ?? 0) / 1000);
+				const periodSec = Math.round(loop.intervalMs / 1000);
 				return toolResult(
 					`El loop ${loop.loopId} corre en un intervalo fijo (cada ${formatLoopInterval(loop.intervalMs)}); la cadencia es fija y loop_schedule es un no-op. Razón registrada: ${params.reason}.`,
 					{ loopId: loop.loopId, mode: "fixed", noop: true, intervalSeconds: periodSec },

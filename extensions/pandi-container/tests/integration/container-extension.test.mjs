@@ -245,6 +245,23 @@ async function scenarioHandlers(url) {
 			JSON.stringify(run.calls[0]) === JSON.stringify(["machine", "ls", "--format", "json"]),
 		);
 	}
+	{
+		const run = fakeRunner([
+			{
+				ok: true,
+				stdout: REAL_MACHINE_JSON,
+				stderr: "",
+				exitCode: 0,
+				stdoutTruncated: true,
+			},
+		]);
+		const res = await mod.runList(run, {});
+		check(
+			"runList: refuses truncated JSON instead of presenting a partial list",
+			res.ok === false && /truncad/i.test(res.text) && res.details?.stdoutTruncated === true,
+			JSON.stringify(res),
+		);
+	}
 
 	// exec → arma args y expone stdout
 	{
@@ -256,6 +273,27 @@ async function scenarioHandlers(url) {
 			"runExec: argv via machine run -- ",
 			JSON.stringify(run.calls[0]) === JSON.stringify(["machine", "run", "-n", "dev", "--", "uname", "-sr"]),
 			JSON.stringify(run.calls[0]),
+		);
+	}
+	{
+		const run = fakeRunner([
+			{
+				ok: true,
+				stdout: "salida parcial",
+				stderr: "diagnóstico parcial",
+				exitCode: 0,
+				stdoutTruncated: true,
+				stderrTruncated: true,
+			},
+		]);
+		const res = await mod.runExec(run, { machine: "dev", command: ["echo", "x"] }, {});
+		check(
+			"runExec: explicitly warns when presented output was truncated",
+			res.ok === true &&
+				/truncad/i.test(res.text) &&
+				res.details?.stdoutTruncated === true &&
+				res.details?.stderrTruncated === true,
+			JSON.stringify(res),
 		);
 	}
 
@@ -405,6 +443,24 @@ async function scenarioStatusHandler(url) {
 		const res = await mod.runStatus(run, {});
 		check("runStatus running: ok + machine listed", res.ok === true && /dev/.test(res.text), res.text);
 	}
+	{
+		const run = fakeRunner([
+			{ ok: true, stdout: "{}", stderr: "", exitCode: 0 },
+			{
+				ok: true,
+				stdout: REAL_MACHINE_JSON,
+				stderr: "",
+				exitCode: 0,
+				stdoutTruncated: true,
+			},
+		]);
+		const res = await mod.runStatus(run, {});
+		check(
+			"runStatus: refuses a truncated machine snapshot",
+			res.ok === false && /truncad/i.test(res.text) && res.details?.stdoutTruncated === true,
+			JSON.stringify(res),
+		);
+	}
 
 	{
 		const run = fakeRunner([
@@ -515,8 +571,8 @@ async function scenarioParseContainerCommand(url) {
 	);
 }
 
-// bordes reales de proceso de runContainer: un hijo colgado recibe SIGTERM en timeoutMs (timedOut,
-// ok=false), y una señal de abort lo mata igual — spawns reales, no mocks.
+// bordes reales de proceso de runContainer: timeout y abort esperan el cierre,
+// escalan de SIGTERM a SIGKILL cuando el hijo no coopera y conservan causas distintas.
 async function scenarioConfigurableTimeout(url) {
 	const mod = await loadModule(url);
 
@@ -535,29 +591,116 @@ async function scenarioConfigurableTimeout(url) {
 
 async function scenarioRealTimeoutAndAbort(url) {
 	const mod = await loadModule(url);
+	const stubbornProcess = [
+		'process.on("SIGTERM", () => process.stdout.write("hijo recibió SIGTERM\\n"));',
+		"setInterval(() => {}, 1_000);",
+		"setTimeout(() => process.exit(23), 1_500).unref();",
+	].join("");
+	const stubbornTree =
+		process.platform === "win32"
+			? stubbornProcess
+			: [
+					'const { spawn } = require("node:child_process");',
+					`spawn(process.execPath, ["-e", ${JSON.stringify(
+						[
+							'process.on("SIGTERM", () => process.stdout.write("descendiente recibió SIGTERM\\\\n"));',
+							"setInterval(() => {}, 1_000);",
+							"setTimeout(() => process.exit(0), 1_500).unref();",
+						].join(""),
+					)}], { stdio: "inherit" });`,
+					'process.on("SIGTERM", () => process.stdout.write("hijo recibió SIGTERM\\n"));',
+					"setInterval(() => {}, 1_000);",
+					"setTimeout(() => process.exit(23), 1_500).unref();",
+				].join("");
+	const sawWholeTreeTermination = (stdout) =>
+		stdout.includes("hijo recibió SIGTERM") &&
+		(process.platform === "win32" || stdout.includes("descendiente recibió SIGTERM"));
 
-	const hung = await mod.runContainer(["-e", "setTimeout(() => {}, 10000)"], {
+	const hung = await mod.runContainer(["-e", stubbornTree], {
 		bin: process.execPath,
-		timeoutMs: 300,
+		timeoutMs: 400,
 	});
 	check(
-		"runContainer: timeout → ok=false + timedOut",
-		hung.ok === false && hung.timedOut === true,
+		"runContainer: timeout signals the supported process group, escalates and resolves after inherited pipes close",
+		hung.ok === false &&
+			hung.timedOut === true &&
+			hung.aborted === false &&
+			hung.signal === "SIGKILL" &&
+			sawWholeTreeTermination(hung.stdout),
 		JSON.stringify(hung),
 	);
 
 	const controller = new AbortController();
-	const pending = mod.runContainer(["-e", "setTimeout(() => {}, 10000)"], {
+	const pending = mod.runContainer(["-e", stubbornTree], {
 		bin: process.execPath,
 		signal: controller.signal,
-		timeoutMs: 30000,
+		timeoutMs: 30_000,
 	});
-	setTimeout(() => controller.abort(), 100);
+	setTimeout(() => controller.abort(), 400);
 	const aborted = await pending;
 	check(
-		"runContainer: abort → ok=false + timedOut flag",
-		aborted.ok === false && aborted.timedOut === true,
+		"runContainer: abort signals the supported process group, escalates and remains distinct",
+		aborted.ok === false &&
+			aborted.timedOut === false &&
+			aborted.aborted === true &&
+			aborted.signal === "SIGKILL" &&
+			sawWholeTreeTermination(aborted.stdout),
 		JSON.stringify(aborted),
+	);
+
+	const signaled = await mod.runContainer(["-e", 'setTimeout(() => process.kill(process.pid, "SIGTERM"), 50);'], {
+		bin: process.execPath,
+		timeoutMs: 5_000,
+	});
+	check(
+		"runContainer: child signal termination is neither timeout nor external abort",
+		signaled.ok === false &&
+			signaled.timedOut === false &&
+			signaled.aborted === false &&
+			signaled.signal === "SIGTERM",
+		JSON.stringify(signaled),
+	);
+}
+
+async function scenarioRealOutputBounds(url) {
+	const mod = await loadModule(url);
+	const normal = await mod.runContainer(
+		["-e", 'process.stdout.write("salida normal\\n"); process.stderr.write("error normal\\n");'],
+		{ bin: process.execPath, timeoutMs: 5_000 },
+	);
+	check(
+		"runContainer: ordinary stdout/stderr stay unchanged and untruncated",
+		normal.ok === true &&
+			normal.stdout === "salida normal\n" &&
+			normal.stderr === "error normal\n" &&
+			normal.stdoutTruncated === false &&
+			normal.stderrTruncated === false,
+		JSON.stringify(normal),
+	);
+
+	const large = await mod.runContainer(
+		[
+			"-e",
+			'const prefix = "a".repeat(999_999); process.stdout.write(prefix + "€x"); process.stderr.write(prefix + "€x");',
+		],
+		{ bin: process.execPath, timeoutMs: 5_000 },
+	);
+	check(
+		"runContainer: byte cap keeps valid UTF-8 when a multibyte character crosses the boundary",
+		large.ok === true &&
+			Buffer.byteLength(large.stdout) <= 1_000_000 &&
+			Buffer.byteLength(large.stderr) <= 1_000_000 &&
+			large.stdoutTruncated === true &&
+			large.stderrTruncated === true &&
+			!large.stdout.includes("\uFFFD") &&
+			!large.stderr.includes("\uFFFD"),
+		JSON.stringify({
+			ok: large.ok,
+			stdoutBytes: Buffer.byteLength(large.stdout),
+			stderrBytes: Buffer.byteLength(large.stderr),
+			stdoutTruncated: large.stdoutTruncated,
+			stderrTruncated: large.stderrTruncated,
+		}),
 	);
 }
 
@@ -896,6 +1039,7 @@ async function main() {
 	await scenarioSizeTiers(url);
 	await scenarioConfigurableTimeout(url);
 	await scenarioRealTimeoutAndAbort(url);
+	await scenarioRealOutputBounds(url);
 	await scenarioCommandAndToolOutsideIn(url);
 
 	console.log(`\n${counts.passed} passed, ${counts.failed} failed`);

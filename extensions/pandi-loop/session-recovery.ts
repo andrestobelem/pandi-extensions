@@ -12,20 +12,24 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { capExceeded } from "./caps.js";
 import { GC_MAX_AGE_MS, LOOP_STATE_TYPE, STATE_FILE, WATCHDOG_HARD_DEADLINE_MS } from "./constants.js";
 import { stopLoop } from "./lifecycle.js";
+import { notify } from "./notify.js";
 import {
 	currentOwnerSessionId,
 	discoverSidecarLoopIds,
 	loopStateRoot,
 	newerState,
-	readSidecar,
+	readSidecarSnapshot,
 } from "./persistence.js";
 import { fireWake, stopByWatchdog, stopForCap } from "./scheduler.js";
 import { collectLatestByKey } from "./session-state.js";
 import {
 	type ActiveLoop,
 	fromSnapshot,
+	isValidLoopId,
 	type LoopState,
 	type LoopStatus,
+	type ParsedLoopStateSnapshot,
+	parseLoopStateSnapshot,
 	shouldRehydrateLoopForSession,
 } from "./state.js";
 import { refreshLoopStatus } from "./status.js";
@@ -41,6 +45,22 @@ export function configureRecovery(deps: RecoveryDeps): void {
 	recoveryDeps = deps;
 }
 
+function reportIgnoredJsonlState(ctx: ExtensionContext): void {
+	try {
+		notify(ctx, "Snapshot loop-state ignorado: loopId inválido", "warning");
+	} catch {
+		// La observabilidad best-effort no puede bloquear la recuperación segura.
+	}
+}
+
+function newerSnapshot(
+	a: ParsedLoopStateSnapshot | undefined,
+	b: ParsedLoopStateSnapshot | undefined,
+): ParsedLoopStateSnapshot | undefined {
+	const winner = newerState(a?.state, b?.state);
+	return winner === b?.state ? b : a;
+}
+
 /**
  * Reconstruye estado de loop y rearma. La fuente de verdad por loopId es el MÁS NUEVO
  * entre la última entrada JSONL y el sidecar atómico (por updatedAt), cubriendo un crash
@@ -51,30 +71,46 @@ export function configureRecovery(deps: RecoveryDeps): void {
 export async function rehydrate(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void> {
 	const activeLoops = recoveryDeps.getActiveLoops();
 	const entries = ctx.sessionManager.getEntries();
-	const latestJsonl = collectLatestByKey<LoopState>(entries, LOOP_STATE_TYPE, (d) => d.loopId);
+	const latestJsonlRaw = collectLatestByKey<Record<string, unknown>>(entries, LOOP_STATE_TYPE, (data) => data.loopId);
+	const latestJsonl = new Map<string, ParsedLoopStateSnapshot>();
+	for (const [loopId, raw] of latestJsonlRaw) {
+		if (!isValidLoopId(loopId)) {
+			reportIgnoredJsonlState(ctx);
+			continue;
+		}
+		const parsed = parseLoopStateSnapshot(raw);
+		if (parsed) latestJsonl.set(loopId, parsed);
+	}
 
 	// Resolver cada loopId contra su sidecar (gana el más nuevo por updatedAt). Incluir
 	// también loopIds sidecar-only: el sidecar es específicamente el fallback de crash recovery
 	// para una transición que llegó a state.json pero no al JSONL de sesión.
-	const resolved = new Map<string, LoopState>();
+	const resolved = new Map<string, ParsedLoopStateSnapshot>();
 	const sidecarLoopIds = await discoverSidecarLoopIds(ctx);
 	const ownerSessionId = currentOwnerSessionId(ctx);
 	for (const loopId of new Set([...latestJsonl.keys(), ...sidecarLoopIds])) {
 		const jsonlState = latestJsonl.get(loopId);
-		const sidecar = await readSidecar(ctx, loopId);
-		const winner = newerState(jsonlState, sidecar);
-		if (winner && shouldRehydrateLoopForSession(winner, ownerSessionId, latestJsonl.has(loopId))) {
+		const sidecar = await readSidecarSnapshot(ctx, loopId);
+		const winner = newerSnapshot(jsonlState, sidecar);
+		if (winner && shouldRehydrateLoopForSession(winner.state, ownerSessionId, latestJsonl.has(loopId))) {
 			resolved.set(loopId, winner);
 		}
 	}
 
-	for (const state of resolved.values()) {
+	for (const parsed of resolved.values()) {
+		const { state } = parsed;
 		// "running" = estaba vivo en un proceso previo; "stale" = persistido por un
 		// session_shutdown limpio (reload/quit); "paused" = recuperar y mantener paused.
 		// Todo lo demás (stopped/done/failed) es terminal → saltear.
 		if (state.status !== "running" && state.status !== "stale" && state.status !== "paused") continue;
 		// Timer todavía vivo en este proceso → no rearmar (sin double-fire).
 		if (activeLoops.has(state.loopId)) continue;
+		if (parsed.invalidScheduleReason) {
+			const retired = fromSnapshot(state, "stopped");
+			activeLoops.set(retired.loopId, retired);
+			stopLoop(pi, ctx, retired.loopId, `snapshot retirado: ${parsed.invalidScheduleReason}`, "stopped");
+			continue;
+		}
 		// Revalidar trust en cada re-entry: un objetivo autónomo no debe sobrevivir si el
 		// proyecto perdió confianza desde la confirmación original.
 		if (state.autonomous && !ctx.isProjectTrusted()) {
@@ -127,6 +163,7 @@ export async function gcOldTerminalLoops(ctx: ExtensionContext, now: number = Da
 	for (const dirent of dirents) {
 		if (!dirent.isDirectory()) continue;
 		const loopId = dirent.name;
+		if (!isValidLoopId(loopId)) continue;
 		// Un loop vivo en este proceso puede tener timer armado.
 		if (activeLoops.has(loopId)) continue;
 		const dir = path.join(root, loopId);

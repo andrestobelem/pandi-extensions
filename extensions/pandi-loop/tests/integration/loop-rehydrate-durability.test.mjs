@@ -363,6 +363,140 @@ async function rehydrateSkipsForeignSessionSidecar(url, check) {
 	}
 }
 
+async function rehydrateRejectsUnsafeLoopIds(url, check) {
+	const loopExtension = await loadDefault(url);
+	const { pi, handlers, entries, sentMessages } = makePi();
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-loop-unsafe-id-"));
+	try {
+		const sessionId = "unsafe-session";
+		const ctx = makeCtx({ mode: "tui", hasUI: true, isIdle: true, trusted: true, cwd, sessionId });
+		loopExtension(pi);
+		const now = Date.now();
+
+		const escapedFile = path.join(cwd, "escape", "state.json");
+		const escapedState = snap("../../escape", {
+			status: "running",
+			nextFireAt: now - 1000,
+			ownerSessionId: sessionId,
+			updatedAt: new Date(now + 1000).toISOString(),
+		});
+		await fs.mkdir(path.dirname(escapedFile), { recursive: true });
+		const escapedBody = `${JSON.stringify(escapedState, null, 2)}\n`;
+		await fs.writeFile(escapedFile, escapedBody, "utf8");
+
+		const sidecarDir = path.join(cwd, ".pi", "loops", "discovered-safe");
+		const mismatchedSidecar = snap("../../sidecar-escape", {
+			mode: "fixed",
+			intervalMs: 0,
+			status: "running",
+			nextFireAt: now - 1000,
+			ownerSessionId: sessionId,
+			updatedAt: new Date(now).toISOString(),
+		});
+		await fs.mkdir(sidecarDir, { recursive: true });
+		const mismatchedBody = `${JSON.stringify(mismatchedSidecar, null, 2)}\n`;
+		await fs.writeFile(path.join(sidecarDir, "state.json"), mismatchedBody, "utf8");
+
+		seedEntries(ctx, [
+			snap("../../escape", {
+				status: "stopped",
+				nextFireAt: null,
+				ownerSessionId: sessionId,
+				updatedAt: new Date(now).toISOString(),
+			}),
+			snap("../retire", {
+				mode: "fixed",
+				intervalMs: 0,
+				status: "running",
+				nextFireAt: now - 1000,
+				ownerSessionId: sessionId,
+				updatedAt: new Date(now).toISOString(),
+			}),
+		]);
+
+		await fireEvent(handlers, "session_start", { reason: "startup" }, ctx);
+		await tick();
+		await tick();
+
+		check(
+			"unsafe loopId: recovery appends no ghost or retirement state",
+			entries.length === 0,
+			`n=${entries.length}`,
+		);
+		check("unsafe loopId: recovery delivers no wake", sentMessages.length === 0, `n=${sentMessages.length}`);
+		check(
+			"unsafe loopId: ignored JSONL and mismatched sidecar state stay observable",
+			ctx._notes.filter((note) => note.type === "warning" && /loopId|sidecar/i.test(note.msg)).length >= 3,
+			JSON.stringify(ctx._notes),
+		);
+		check(
+			"unsafe loopId: JSONL traversal never reads or overwrites outside the canonical root",
+			(await fs.readFile(escapedFile, "utf8")) === escapedBody,
+		);
+		check(
+			"unsafe loopId: invalid JSONL retirement never writes outside the canonical root",
+			await fs
+				.access(path.join(cwd, ".pi", "retire", "state.json"))
+				.then(() => false)
+				.catch(() => true),
+		);
+		check(
+			"unsafe loopId: mismatched sidecar metadata never directs retirement outside the root",
+			await fs
+				.access(path.join(cwd, "sidecar-escape", "state.json"))
+				.then(() => false)
+				.catch(() => true),
+		);
+		check(
+			"unsafe loopId: ignored sidecar remains at its discovered in-root location",
+			(await fs.readFile(path.join(sidecarDir, "state.json"), "utf8")) === mismatchedBody,
+		);
+	} finally {
+		await fs.rm(cwd, { recursive: true, force: true }).catch(() => {});
+	}
+}
+
+async function rehydrateTerminalWinsUpdatedAtTie(url, check) {
+	const loopExtension = await loadDefault(url);
+	const { pi, handlers, entries, sentMessages } = makePi();
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-loop-updated-at-tie-"));
+	try {
+		const sessionId = "tie-session";
+		const ctx = makeCtx({ mode: "tui", hasUI: true, isIdle: true, trusted: true, cwd, sessionId });
+		loopExtension(pi);
+		const now = Date.now();
+		const updatedAt = new Date(now).toISOString();
+		const loopId = "updated-at-tie";
+		const runningJsonl = snap(loopId, {
+			status: "running",
+			nextFireAt: now - 1000,
+			ownerSessionId: sessionId,
+			updatedAt,
+		});
+		const stoppedSidecar = snap(loopId, {
+			status: "stopped",
+			nextFireAt: null,
+			ownerSessionId: sessionId,
+			updatedAt,
+		});
+		const sidecarDir = path.join(cwd, ".pi", "loops", loopId);
+		await fs.mkdir(sidecarDir, { recursive: true });
+		await fs.writeFile(path.join(sidecarDir, "state.json"), `${JSON.stringify(stoppedSidecar, null, 2)}\n`, "utf8");
+		seedEntries(ctx, [runningJsonl]);
+
+		await fireEvent(handlers, "session_start", { reason: "startup" }, ctx);
+		await tick();
+
+		check(
+			"updatedAt tie: terminal sidecar prevents JSONL running resurrection",
+			sentMessages.length === 0 && entries.length === 0,
+			JSON.stringify({ wakes: sentMessages.length, entries: entries.length }),
+		);
+	} finally {
+		await fs.rm(cwd, { recursive: true, force: true }).catch(() => {});
+	}
+}
+
 async function rehydrateZeroWallClockSanitized(url, check) {
 	const loopExtension = await loadDefault(url);
 	const { pi, handlers, entries, sentMessages } = makePi();
@@ -436,6 +570,118 @@ async function rehydrateMissingMaxIterationsSanitized(url, check) {
 	);
 	check("sanitize: capped loop delivered NO new wake", sentMessages.length === 0, `delivered=${sentMessages.length}`);
 }
+
+async function rehydrateRejectsInvalidFixedSchedules(url, check) {
+	const loopExtension = await loadDefault(url);
+	const { pi, handlers, entries, sentMessages } = makePi();
+	loopExtension(pi);
+	const ctx = makeCtx({ mode: "tui", hasUI: true, isIdle: true });
+	const now = Date.now();
+	const invalidIntervals = [undefined, Number.NaN, Number.POSITIVE_INFINITY, 1.5, 0, -1000];
+	seedEntries(
+		ctx,
+		invalidIntervals.map((intervalMs, index) =>
+			snap(`invalid-fixed-${index}`, {
+				mode: "fixed",
+				intervalMs,
+				status: "running",
+				nextFireAt: now - 1000,
+				updatedAt: new Date(now + index).toISOString(),
+			}),
+		),
+	);
+
+	await fireEvent(handlers, "session_start", { reason: "startup" }, ctx);
+	await tick();
+	for (let index = 0; index < invalidIntervals.length; index++) {
+		const state = latestSnapshot(entries, `invalid-fixed-${index}`);
+		check(
+			`invalid fixed ${String(invalidIntervals[index])}: snapshot is retired observably`,
+			state?.status === "stopped" && /interval|schedule|fixed/i.test(state?.lastReason || ""),
+			JSON.stringify(state),
+		);
+		check(
+			`invalid fixed ${String(invalidIntervals[index])}: retired state is not an impossible fixed schedule`,
+			state?.mode === "dynamic" && state?.intervalMs === undefined,
+			JSON.stringify(state),
+		);
+	}
+	check(
+		"invalid fixed: no snapshot rearms or fires a wake",
+		sentMessages.length === 0,
+		`delivered=${sentMessages.length}`,
+	);
+	const entriesBeforeAgentEnd = entries.length;
+	await fireEvent(handlers, "agent_end", {}, ctx);
+	check(
+		"invalid fixed: retired snapshots leave no active ghost on agent_end",
+		entries.length === entriesBeforeAgentEnd && sentMessages.length === 0,
+	);
+}
+
+async function rehydrateLegacyMissingModeAsDynamic(url, check) {
+	const loopExtension = await loadDefault(url);
+	const { pi, handlers, entries, sentMessages } = makePi();
+	loopExtension(pi);
+	const ctx = makeCtx({ mode: "tui", hasUI: true, isIdle: true });
+	const now = Date.now();
+	const { mode: _legacyMode, ...legacy } = snap("legacy-no-mode", {
+		intervalMs: 300000,
+		status: "stale",
+		nextFireAt: now - 1000,
+		updatedAt: new Date(now).toISOString(),
+	});
+	seedEntries(ctx, [legacy]);
+
+	await fireEvent(handlers, "session_start", { reason: "startup" }, ctx);
+	await tick();
+	const state = latestSnapshot(entries, "legacy-no-mode");
+	check("legacy schedule: missing mode rehydrates as dynamic", state?.mode === "dynamic", JSON.stringify(state));
+	check("legacy schedule: stray interval is not retained", state?.intervalMs === undefined, JSON.stringify(state));
+	check(
+		"legacy schedule: due dynamic snapshot still fires once",
+		sentMessages.length === 1,
+		`delivered=${sentMessages.length}`,
+	);
+}
+
+async function rehydrateRetiresInvalidFixedSidecar(url, check) {
+	const loopExtension = await loadDefault(url);
+	const { pi, handlers, entries, sentMessages } = makePi();
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-loop-invalid-fixed-sidecar-"));
+	try {
+		const ctx = makeCtx({ mode: "tui", hasUI: true, isIdle: true, trusted: true, cwd, sessionId: "sidecar-owner" });
+		loopExtension(pi);
+		const state = snap("invalid-fixed-sidecar", {
+			mode: "fixed",
+			intervalMs: 0,
+			status: "running",
+			nextFireAt: Date.now() - 1000,
+			ownerSessionId: "sidecar-owner",
+			updatedAt: new Date().toISOString(),
+		});
+		const dir = path.join(cwd, ".pi", "loops", state.loopId);
+		await fs.mkdir(dir, { recursive: true });
+		await fs.writeFile(path.join(dir, "state.json"), `${JSON.stringify(state, null, 2)}\n`, "utf8");
+
+		await fireEvent(handlers, "session_start", { reason: "startup" }, ctx);
+		await tick();
+		const retired = latestSnapshot(entries, state.loopId);
+		check(
+			"invalid fixed sidecar: parser retires it with an observable reason",
+			retired?.status === "stopped" && /interval|schedule|fixed/i.test(retired?.lastReason || ""),
+			JSON.stringify(retired),
+		);
+		check(
+			"invalid fixed sidecar: no wake is delivered",
+			sentMessages.length === 0,
+			`delivered=${sentMessages.length}`,
+		);
+	} finally {
+		await fs.rm(cwd, { recursive: true, force: true }).catch(() => {});
+	}
+}
+
 async function main() {
 	await runLoopScenarios({
 		name: "pi-loop-loop-rehydrate-durability",
@@ -447,8 +693,13 @@ async function main() {
 			shutdownThenStartupRehydrates,
 			rehydrateSidecarOnly,
 			rehydrateSkipsForeignSessionSidecar,
+			rehydrateRejectsUnsafeLoopIds,
+			rehydrateTerminalWinsUpdatedAtTie,
 			rehydrateZeroWallClockSanitized,
 			rehydrateMissingMaxIterationsSanitized,
+			rehydrateRejectsInvalidFixedSchedules,
+			rehydrateLegacyMissingModeAsDynamic,
+			rehydrateRetiresInvalidFixedSidecar,
 		],
 	});
 }

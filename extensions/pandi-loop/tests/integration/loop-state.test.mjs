@@ -40,6 +40,8 @@ async function stateContract(url) {
 		DEFAULT_MAX_ITERATIONS,
 		DEFAULT_MAX_WALL_CLOCK_MS,
 		createActiveLoop,
+		isValidLoopId,
+		parseLoopStateSnapshot,
 		positiveOr,
 		shouldRehydrateLoopForSession,
 		snapshot,
@@ -169,6 +171,61 @@ async function stateContract(url) {
 	check("fromSnapshot: resets rearmedThisTurn", recovered.rearmedThisTurn === false);
 	check("fromSnapshot: keeps durable loopId", recovered.loopId === "loop-b");
 	check("fromSnapshot: keeps durable intervalMs", recovered.intervalMs === 300000);
+
+	for (const intervalMs of [undefined, Number.NaN, Number.POSITIVE_INFINITY, 1.5, 0, -1000]) {
+		let threw = false;
+		try {
+			createActiveLoop({
+				loopId: `invalid-${String(intervalMs)}`,
+				task: "must reject invalid fixed interval",
+				intervalMs,
+				now,
+			});
+		} catch {
+			threw = true;
+		}
+		check(
+			`factory: ${String(intervalMs)} ${intervalMs === undefined ? "stays dynamic" : "is rejected"}`,
+			intervalMs === undefined ? !threw : threw,
+		);
+	}
+
+	for (const intervalMs of [undefined, Number.NaN, Number.POSITIVE_INFINITY, 1.5, 0, -1000]) {
+		const parsed = parseLoopStateSnapshot({ ...snap, mode: "fixed", intervalMs });
+		check(`parser: fixed ${String(intervalMs)} is retired`, typeof parsed?.invalidScheduleReason === "string");
+		check(
+			`parser: fixed ${String(intervalMs)} cannot survive as a runtime fixed schedule`,
+			parsed?.state.mode === "dynamic" && !("intervalMs" in parsed.state),
+		);
+	}
+
+	const legacySchedule = parseLoopStateSnapshot({ ...snap, mode: undefined, intervalMs: 300000 });
+	check("parser: legacy snapshot without mode stays compatible as dynamic", legacySchedule?.state.mode === "dynamic");
+	check(
+		"parser: legacy dynamic snapshot drops stray interval metadata",
+		legacySchedule != null && !("intervalMs" in legacySchedule.state),
+	);
+
+	check("loopId: generated 8-hex ids remain valid", isValidLoopId("0a1b2c3d"));
+	check("loopId: safe legacy ids remain valid", isValidLoopId("legacy-loop_1.2"));
+	for (const unsafeLoopId of [
+		"../../escape",
+		"nested/escape",
+		"nested\\escape",
+		"/absolute",
+		"\\absolute",
+		"C:\\absolute",
+		".",
+		"..",
+	]) {
+		check(
+			`loopId: parser rejects unsafe id ${JSON.stringify(unsafeLoopId)}`,
+			!parseLoopStateSnapshot({
+				...snap,
+				loopId: unsafeLoopId,
+			}),
+		);
+	}
 
 	const legacy = fromSnapshot(
 		{

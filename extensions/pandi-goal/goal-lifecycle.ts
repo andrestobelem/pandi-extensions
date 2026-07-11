@@ -19,7 +19,8 @@ import { notify } from "./notify.js";
 import { persist } from "./persistence.js";
 import { canGoalInMode, fireGoal } from "./scheduler.js";
 import { collectLatestByKey } from "./session-state.js";
-import type { ActiveGoal, GoalState, GoalStatus } from "./types.js";
+import { decodeGoalStateSnapshot, persistedGoalStateId } from "./snapshot-parser.js";
+import type { ActiveGoal, GoalStatus } from "./types.js";
 import { beginIndependentVerification } from "./verification.js";
 
 export { activeGoal, activeGoals } from "./active-goals.js";
@@ -106,9 +107,11 @@ export async function resolveGoal(
 export function rehydrate(pi: ExtensionAPI, ctx: ExtensionContext): void {
 	if (!canGoalInMode(ctx)) return;
 	const entries = ctx.sessionManager.getEntries();
-	const latest = collectLatestByKey<GoalState>(entries, GOAL_STATE_TYPE, (d) => d.goalId);
+	const latest = collectLatestByKey(entries, GOAL_STATE_TYPE, persistedGoalStateId);
 
-	for (const state of latest.values()) {
+	for (const value of latest.values()) {
+		const state = decodeGoalStateSnapshot(value);
+		if (!state) continue;
 		if (
 			state.gstatus !== "pursuing" &&
 			state.gstatus !== "verifying" &&
@@ -122,17 +125,6 @@ export function rehydrate(pi: ExtensionAPI, ctx: ExtensionContext): void {
 		const goal: ActiveGoal = {
 			...state,
 			gstatus: state.gstatus === "stale" ? "pursuing" : state.gstatus,
-			assessments: Array.isArray(state.assessments) ? state.assessments : [],
-			verifyAttempts: typeof state.verifyAttempts === "number" ? state.verifyAttempts : 0,
-			independentVerifyAttempts:
-				typeof state.independentVerifyAttempts === "number" ? state.independentVerifyAttempts : 0,
-			maxIndependentVerifications:
-				typeof state.maxIndependentVerifications === "number"
-					? state.maxIndependentVerifications
-					: DEFAULT_MAX_INDEPENDENT_VERIFICATIONS,
-			verifierTimeoutMs:
-				typeof state.verifierTimeoutMs === "number" ? state.verifierTimeoutMs : DEFAULT_VERIFIER_TIMEOUT_MS,
-			verifierTools: Array.isArray(state.verifierTools) ? state.verifierTools : [...DEFAULT_VERIFIER_TOOLS],
 			timer: null,
 			controller: new AbortController(),
 			rearmedThisTurn: false,

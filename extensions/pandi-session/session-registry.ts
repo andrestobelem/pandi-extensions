@@ -74,9 +74,16 @@ async function ensureDir(dir: string): Promise<void> {
 	await fs.mkdir(dir, { recursive: true });
 }
 
-async function writeJsonFile(file: string, value: unknown): Promise<void> {
+async function writeJsonFileAtomic(file: string, value: unknown): Promise<void> {
 	await ensureDir(path.dirname(file));
-	await fs.writeFile(file, `${JSON.stringify(value, null, "\t")}\n`, "utf8");
+	const temp = `${file}.${crypto.randomBytes(6).toString("hex")}.tmp`;
+	try {
+		await fs.writeFile(temp, `${JSON.stringify(value, null, "\t")}\n`, "utf8");
+		await fs.rename(temp, file);
+	} catch (err) {
+		await fs.rm(temp, { force: true }).catch(() => undefined);
+		throw err;
+	}
 }
 
 function getLiveSessionRoot(ctx: ExtensionContext): string {
@@ -135,7 +142,7 @@ async function writePandiSessionHeartbeat(runtime: LivePandiSessionRuntime): Pro
 		try {
 			await pandiSessionHeartbeatWriteHookForTests?.(runtime.generation);
 			if (runtime.stopping || livePandiSession?.generation !== runtime.generation) return;
-			await writeJsonFile(runtime.file, buildPandiSessionRecord(runtime));
+			await writeJsonFileAtomic(runtime.file, buildPandiSessionRecord(runtime));
 		} catch {
 			// Mejor esfuerzo: un dashboard no debería fallar porque el registro de sesiones vivas
 			// no se pueda escribir (permisos, directorios temporales borrados o carreras de recarga).

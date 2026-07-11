@@ -175,7 +175,7 @@ Ejemplos semilla para revisar antes de editar:
 
 | Prioridad | Path/frase | Problema | Dirección de corrección |
 | --- | --- | --- | --- |
-| Alta | `extensions/pandi-goal/persistence.ts` — “tragar errores” | Puede sugerir que toda persistencia ignora errores, cuando solo el sidecar es best-effort | Aclarar qué llamada mantiene errores y cuál los ignora |
+| Alta | `extensions/pandi-goal/persistence.ts` — recovery | Puede sugerir una durabilidad mayor que la fuente real | Explicitar que `goal-state` en el JSONL válido de la sesión es la única fuente; no prometer hard-crash recovery |
 | Alta | `extensions/pandi-goal/verifier.ts` — “clamó” | Falso amigo de `claimed`; suena a gritar/proclamar | Usar “afirmó” |
 | Media | `extensions/pandi-goal/prompts.ts` — referencia a `index.ts` | El verificador vive en `verifier.ts` | Actualizar path conceptual |
 | Media | `extensions/pandi-goal/index.ts` — estados activos | Puede omitir `verifying-independent` | Enumerar todos los estados relevantes |

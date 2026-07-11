@@ -35,6 +35,6 @@ export function formatInterval(seconds: number): string {
 }
 
 /** Formatea un período en ms (p. ej. de LoopState.intervalMs) vía formatInterval. */
-export function formatLoopInterval(intervalMs: number | undefined): string {
-	return formatInterval(Math.round((intervalMs ?? 0) / 1000));
+export function formatLoopInterval(intervalMs: number): string {
+	return formatInterval(Math.round(intervalMs / 1000));
 }

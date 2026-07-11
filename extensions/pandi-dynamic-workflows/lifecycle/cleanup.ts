@@ -6,17 +6,15 @@
 import * as fs from "node:fs/promises";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import {
-	getRunDirs,
 	getRunStatusLabel,
-	listRuns,
-	readRunRecord,
+	listLocatedRuns,
 	readRunStatus,
-	resolveRun,
+	resolveLocatedRun,
 	selectRunByKey,
 	selectRunsForCleanup,
 	writeRunStatus,
 } from "../runtime/index.js";
-import type { ActiveWorkflowRun, WorkflowRunRecord, WorkflowRunResult, WorkflowRunState } from "../types.js";
+import type { ActiveWorkflowRun, WorkflowRunResult, WorkflowRunState } from "../types.js";
 import { activeRunIds, clearActiveRuns, getActiveRun, hasActiveRun, listActiveRuns } from "./registry.js";
 
 function resolveActiveRun(id: string | undefined): ActiveWorkflowRun | undefined {
@@ -39,7 +37,7 @@ export async function cancelWorkflowRun(ctx: ExtensionContext, id: string | unde
 	if (!active) {
 		if (id?.trim()) {
 			try {
-				const run = await resolveRun(ctx, id);
+				const { record: run } = await resolveLocatedRun(ctx, id);
 				return `Workflow run is not active (${getRunStatusLabel(run)}): ${run.runId}`;
 			} catch {
 				// Fall through to a clearer active-run message.
@@ -64,35 +62,12 @@ export async function cancelWorkflowRun(ctx: ExtensionContext, id: string | unde
 	return `Cancellation requested for background workflow run: ${active.runId}`;
 }
 
-async function resolveRunForDeletion(
-	ctx: ExtensionContext,
-	id: string | undefined,
-): Promise<{ run: WorkflowRunRecord; runDir: string }> {
-	const dirs = await getRunDirs(ctx);
-	const records: { run: WorkflowRunRecord; runDir: string }[] = [];
-	for (const runDir of dirs) {
-		const run = await readRunRecord(runDir);
-		if (run) records.push({ run, runDir });
-	}
-	if (records.length === 0) throw new Error("No workflow runs found.");
-	const key = id?.trim() || "latest";
-	if (key === "latest") return records[0];
-	const found = selectRunByKey(
-		records,
-		key,
-		({ run }) => run.runId,
-		({ run }) => run.workflow,
-	);
-	if (!found) throw new Error(`Workflow run not found: ${key}`);
-	return found;
-}
-
 export async function deleteWorkflowRun(ctx: ExtensionContext, id: string | undefined): Promise<string> {
-	const { run, runDir } = await resolveRunForDeletion(ctx, id);
+	const { record: run, discoveredRunDir } = await resolveLocatedRun(ctx, id);
 	if (hasActiveRun(run.runId))
 		throw new Error(`Workflow run is active; cancel it before deleting artifacts: ${run.runId}`);
-	await fs.rm(runDir, { recursive: true, force: false });
-	return `Deleted workflow run artifacts: ${run.runId}\nDirectory: ${runDir}`;
+	await fs.rm(discoveredRunDir, { recursive: true, force: false });
+	return `Deleted workflow run artifacts: ${run.runId}\nDirectory: ${discoveredRunDir}`;
 }
 
 // Número por defecto de ejecuciones de workflow más recientes que `/workflow cleanup` retiene. Fuente única
@@ -107,7 +82,9 @@ export async function cleanupWorkflowRuns(
 	ctx: ExtensionContext,
 	opts: { keep?: number; states?: WorkflowRunState[]; dryRun?: boolean } = {},
 ): Promise<{ removed: string[]; kept: number }> {
-	const runs = await listRuns(ctx);
+	const locatedRuns = await listLocatedRuns(ctx);
+	const runs = locatedRuns.map(({ record }) => record);
+	const discoveredRunDirs = new Map(locatedRuns.map(({ record, discoveredRunDir }) => [record, discoveredRunDir]));
 	const activeIds = new Set(activeRunIds());
 	const keep = opts.keep ?? DEFAULT_CLEANUP_KEEP;
 	const selected = selectRunsForCleanup(runs, { keep, states: opts.states, activeIds });
@@ -117,7 +94,9 @@ export async function cleanupWorkflowRuns(
 	for (const run of selected) {
 		if (hasActiveRun(run.runId)) continue;
 		try {
-			await fs.rm(run.runDir, { recursive: true, force: false });
+			const discoveredRunDir = discoveredRunDirs.get(run);
+			if (!discoveredRunDir) continue;
+			await fs.rm(discoveredRunDir, { recursive: true, force: false });
 			removed.push(run.runId);
 		} catch {
 			// Already gone or lost a race — skip it.

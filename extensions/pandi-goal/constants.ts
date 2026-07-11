@@ -34,8 +34,6 @@ function hostBinName(): string {
 
 export const GOAL_STATE_TYPE = "goal-state";
 export const GOAL_STATUS_KEY = "goal";
-export const GOAL_DIR = "goals";
-export const STATE_FILE = "state.json";
 export const DEFAULT_MAX_ITERATIONS = 30;
 // Límites opcionales de espera externa (segundos): el modelo solo setea waitSeconds cuando
 // espera una señal externa real; por default la reinyección es inmediata (delay 0).

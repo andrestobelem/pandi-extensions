@@ -22,6 +22,7 @@ import type { PlanFlags } from "./posture.js";
 import { makePlanningPrompt } from "./prompts.js";
 import { findLastPlan, overlayRuntimePlans } from "./registry.js";
 import { collectLatestByKey } from "./session-state.js";
+import { decodePlanStateSnapshot, persistedPlanStateId } from "./snapshot-parser.js";
 import type { PlanState } from "./state.js";
 import { formatStatus, setPlanStatus } from "./status.js";
 import { canApproveInMode, wake } from "./wake.js";
@@ -44,8 +45,13 @@ function requireCommandDeps(): CommandHandlerDeps {
 
 function collectAllPlans(ctx: ExtensionContext): PlanState[] {
 	const activePlans = requireCommandDeps().getActivePlans();
-	const latest = collectLatestByKey<PlanState>(ctx.sessionManager.getEntries(), PLAN_STATE_TYPE, (d) => d.planId);
-	return overlayRuntimePlans(latest, activePlans.values());
+	const latest = collectLatestByKey(ctx.sessionManager.getEntries(), PLAN_STATE_TYPE, persistedPlanStateId);
+	const validSnapshots = new Map<string, PlanState>();
+	for (const [planId, value] of latest) {
+		const state = decodePlanStateSnapshot(value);
+		if (state) validSnapshots.set(planId, state);
+	}
+	return overlayRuntimePlans(validSnapshots, activePlans.values());
 }
 
 async function openPlanDashboard(ctx: ExtensionContext): Promise<void> {

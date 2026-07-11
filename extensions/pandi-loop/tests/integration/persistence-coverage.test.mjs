@@ -20,7 +20,14 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildExtension, createChecker, loadModule, sdkStub } from "../../../shared/test/harness.mjs";
+import {
+	buildExtension,
+	bundle,
+	createChecker,
+	loadModule,
+	makeBuildDir,
+	sdkStub,
+} from "../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
@@ -29,6 +36,7 @@ const STATE_FILE = "state.json";
 const LOOP_DIR = "loops";
 const CONFIG_DIR_NAME = ".pi";
 const LOOP_STATE_TYPE = "loop-state";
+const CONTROLLED_FS_KEY = "__pandiLoopPersistenceFsControl";
 
 const { check, counts } = createChecker();
 
@@ -39,6 +47,55 @@ async function buildPersistence() {
 		outName: "persistence.mjs",
 		stubs: { sdk: (dir) => sdkStub(dir) },
 	});
+}
+
+async function buildControlledPersistence() {
+	const { outDir, aliases } = await makeBuildDir("pi-loop-persistence-race", {
+		sdk: (dir) => sdkStub(dir),
+	});
+	const fsStub = path.join(outDir, "controlled-fs.mjs");
+	await fs.writeFile(
+		fsStub,
+		`
+import * as fs from "fs/promises";
+
+const labelsByTemp = new Map();
+const control = () => globalThis[${JSON.stringify(CONTROLLED_FS_KEY)}];
+
+export const mkdir = (...args) => fs.mkdir(...args);
+export const readFile = (...args) => fs.readFile(...args);
+export const readdir = (...args) => fs.readdir(...args);
+export const rm = (...args) => fs.rm(...args);
+
+export async function writeFile(file, data, ...args) {
+	try {
+		const state = JSON.parse(String(data));
+		if (typeof state.lastReason === "string") labelsByTemp.set(String(file), state.lastReason);
+	} catch {}
+	return await fs.writeFile(file, data, ...args);
+}
+
+export async function rename(temp, file) {
+	const label = labelsByTemp.get(String(temp));
+	const current = control();
+	if (label && current) {
+		current.started.push(label);
+		await current.gates.get(label)?.promise;
+	}
+	await fs.rename(temp, file);
+	if (label && current) current.committed.push(label);
+}
+`,
+		"utf8",
+	);
+	aliases["node:fs/promises"] = fsStub;
+	const url = await bundle({
+		src: path.join(REPO_ROOT, "extensions", "pandi-loop", "persistence.ts"),
+		outDir,
+		outName: "persistence-controlled.mjs",
+		aliases,
+	});
+	return { outDir, url };
 }
 
 function agentDirFor(outDir) {
@@ -81,6 +138,13 @@ function makeLoop(overrides = {}) {
 	};
 }
 
+function makeState(overrides = {}) {
+	const loop = makeLoop(overrides);
+	clearTimeout(loop.timer);
+	const { timer: _timer, controller: _controller, rearmedThisTurn: _rearmed, autopilot: _autopilot, ...state } = loop;
+	return state;
+}
+
 async function flush(predicate, tries = 2000) {
 	for (let i = 0; i < tries; i++) {
 		await new Promise((r) => setImmediate(r));
@@ -97,6 +161,14 @@ async function waitForNoTmpFiles(dir, tries = 2000) {
 		if (!entries.some((f) => f.endsWith(".tmp"))) return entries;
 	}
 	return entries;
+}
+
+function deferred() {
+	let release;
+	const promise = new Promise((resolve) => {
+		release = resolve;
+	});
+	return { promise, release };
 }
 
 function persistAppendsAndStamps(mod) {
@@ -128,12 +200,21 @@ function persistAppendsAndStamps(mod) {
 	);
 }
 
-async function persistSwallowsSidecarError(mod) {
+async function persistReportsSidecarError(mod) {
 	const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "loop-persist-fail-"));
 	const fileAsCwd = path.join(tmp, "iam-a-file");
 	await fs.writeFile(fileAsCwd, "not a dir");
 	const { pi, entries } = makePi();
-	const ctx = { isProjectTrusted: () => true, cwd: fileAsCwd };
+	const observedErrors = [];
+	const ctx = {
+		isProjectTrusted: () => true,
+		cwd: fileAsCwd,
+		mode: "tui",
+		hasUI: true,
+		ui: {
+			notify: (message, type) => observedErrors.push({ message, type }),
+		},
+	};
 	const loop = makeLoop();
 	clearTimeout(loop.timer);
 	const unhandledRejections = [];
@@ -152,16 +233,124 @@ async function persistSwallowsSidecarError(mod) {
 		`n=${entries.length}`,
 	);
 	try {
-		await flush(() => false, 30);
+		await flush(() => observedErrors.length > 0 || unhandledRejections.length > 0, 200);
 	} finally {
 		process.off("unhandledRejection", onUnhandledRejection);
 	}
 	check(
-		"persist() sidecar failure produced no observable throw/rejection",
+		"persist() sidecar failure is observable through the UI",
+		observedErrors.length === 1 &&
+			observedErrors[0]?.type === "error" &&
+			/sidecar|persist/i.test(observedErrors[0]?.message ?? ""),
+		JSON.stringify(observedErrors),
+	);
+	check(
+		"persist() sidecar failure produces no unhandledRejection",
 		unhandledRejections.length === 0,
 		JSON.stringify(unhandledRejections),
 	);
 	await fs.rm(tmp, { recursive: true, force: true }).catch(() => {});
+}
+
+async function persistRejectsUnsafeLoopId(mod) {
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "loop-persist-unsafe-id-"));
+	const { pi, entries } = makePi();
+	const observedErrors = [];
+	const ctx = {
+		isProjectTrusted: () => true,
+		cwd,
+		mode: "tui",
+		hasUI: true,
+		ui: {
+			notify: (message, type) => observedErrors.push({ message, type }),
+		},
+	};
+	const loop = makeLoop({ loopId: "../../write-escape" });
+	clearTimeout(loop.timer);
+
+	mod.persist(pi, ctx, loop);
+	await flush(() => observedErrors.length > 0);
+
+	check("persist() rejects an unsafe loopId before appending JSONL", entries.length === 0, `n=${entries.length}`);
+	check(
+		"persist() reports the rejected unsafe loopId",
+		observedErrors.length === 1 &&
+			observedErrors[0]?.type === "error" &&
+			/loopId|id/i.test(observedErrors[0]?.message),
+		JSON.stringify(observedErrors),
+	);
+	check(
+		"persist() never writes an unsafe loopId outside the canonical root",
+		!existsSync(path.join(cwd, "write-escape", STATE_FILE)),
+	);
+	await fs.rm(cwd, { recursive: true, force: true }).catch(() => {});
+}
+
+async function sidecarKeepsLatestLogicalTransition(mod) {
+	const scenarios = [
+		{ name: "transition", latestStatus: "paused", latestNextFireAt: null },
+		{ name: "stop", latestStatus: "stopped", latestNextFireAt: null },
+		{ name: "shutdown", latestStatus: "stale", latestNextFireAt: 1_700_000_060_000 },
+	];
+
+	for (const scenario of scenarios) {
+		const cwd = await fs.mkdtemp(path.join(os.tmpdir(), `loop-persist-${scenario.name}-`));
+		const firstLabel = `${scenario.name}-A-running`;
+		const latestLabel = `${scenario.name}-B-${scenario.latestStatus}`;
+		const firstGate = deferred();
+		const latestGate = deferred();
+		const control = {
+			gates: new Map([
+				[firstLabel, firstGate],
+				[latestLabel, latestGate],
+			]),
+			started: [],
+			committed: [],
+		};
+		globalThis[CONTROLLED_FS_KEY] = control;
+
+		try {
+			const { pi } = makePi();
+			const ctx = { isProjectTrusted: () => true, cwd };
+			const loop = makeLoop({
+				loopId: `race-${scenario.name}`,
+				status: "running",
+				lastReason: firstLabel,
+			});
+			clearTimeout(loop.timer);
+
+			mod.persist(pi, ctx, loop);
+			await flush(() => control.started.includes(firstLabel));
+
+			loop.status = scenario.latestStatus;
+			loop.nextFireAt = scenario.latestNextFireAt;
+			loop.lastReason = latestLabel;
+			mod.persist(pi, ctx, loop);
+
+			// Señalamos B antes que A. Sin serialización ambas renames arrancan y B
+			// llega durable primero; luego la rename tardía de A puede pisarla.
+			latestGate.release();
+			const latestStartedBeforeFirstReleased = await flush(() => control.started.includes(latestLabel), 100);
+			if (latestStartedBeforeFirstReleased) {
+				await flush(() => control.committed.includes(latestLabel));
+			}
+			firstGate.release();
+			await flush(() => control.committed.includes(firstLabel) && control.committed.includes(latestLabel));
+
+			const file = path.join(cwd, CONFIG_DIR_NAME, LOOP_DIR, loop.loopId, STATE_FILE);
+			const durable = JSON.parse(await fs.readFile(file, "utf8"));
+			check(
+				`${scenario.name}: sidecar keeps B after requesting B completion before A`,
+				durable.status === scenario.latestStatus && durable.lastReason === latestLabel,
+				JSON.stringify({ durable, started: control.started, committed: control.committed }),
+			);
+		} finally {
+			firstGate.release();
+			latestGate.release();
+			delete globalThis[CONTROLLED_FS_KEY];
+			await fs.rm(cwd, { recursive: true, force: true }).catch(() => {});
+		}
+	}
 }
 
 async function sidecarAtomicWriteTrustedRoot(mod) {
@@ -261,6 +450,21 @@ function newerStatePicksLatest(mod) {
 	check("newerState() picks the later updatedAt", mod.newerState(older, newer) === newer);
 	check("newerState() keeps a when a is later", mod.newerState(newer, older) === newer);
 	check("newerState() treats missing updatedAt as oldest", mod.newerState({ loopId: "a" }, older) === older);
+	const tiedRunning = { loopId: "tie", status: "running", updatedAt: newer.updatedAt };
+	const tiedStopped = { loopId: "tie", status: "stopped", updatedAt: newer.updatedAt };
+	check(
+		"newerState() conservatively picks terminal b when updatedAt ties",
+		mod.newerState(tiedRunning, tiedStopped) === tiedStopped,
+	);
+	check(
+		"newerState() conservatively keeps terminal a when updatedAt ties",
+		mod.newerState(tiedStopped, tiedRunning) === tiedStopped,
+	);
+	const tiedPaused = { loopId: "tie", status: "paused", updatedAt: newer.updatedAt };
+	check(
+		"newerState() preserves first-argument precedence for non-terminal ties",
+		mod.newerState(tiedRunning, tiedPaused) === tiedRunning,
+	);
 }
 
 async function readAndDiscoverSidecars(mod) {
@@ -286,6 +490,30 @@ async function readAndDiscoverSidecars(mod) {
 		ids.includes("discover-me"),
 		`ids=${JSON.stringify(ids)}`,
 	);
+
+	const escapedDir = path.join(cwd, "escape");
+	await fs.mkdir(escapedDir, { recursive: true });
+	await fs.writeFile(
+		path.join(escapedDir, STATE_FILE),
+		`${JSON.stringify(makeState({ loopId: "../../escape" }))}\n`,
+		"utf8",
+	);
+	check(
+		"readSidecar() rejects traversal instead of reading outside the canonical root",
+		(await mod.readSidecar(ctx, "../../escape")) === undefined,
+	);
+
+	const mismatchedDir = path.join(cwd, CONFIG_DIR_NAME, LOOP_DIR, "discovered-safe");
+	await fs.mkdir(mismatchedDir, { recursive: true });
+	await fs.writeFile(
+		path.join(mismatchedDir, STATE_FILE),
+		`${JSON.stringify(makeState({ loopId: "../../escape" }))}\n`,
+		"utf8",
+	);
+	check(
+		"readSidecar() requires internal loopId to match the discovered directory",
+		(await mod.readSidecar(ctx, "discovered-safe")) === undefined,
+	);
 	await fs.rm(cwd, { recursive: true, force: true }).catch(() => {});
 }
 
@@ -294,7 +522,8 @@ async function main() {
 	try {
 		const mod = await loadModule(url);
 		persistAppendsAndStamps(mod);
-		await persistSwallowsSidecarError(mod);
+		await persistReportsSidecarError(mod);
+		await persistRejectsUnsafeLoopId(mod);
 		await sidecarAtomicWriteTrustedRoot(mod);
 		await sidecarTempCleanupOnRenameFailure(mod);
 		await sidecarUntrustedRootUsesSha1Hash(mod, outDir);
@@ -302,6 +531,13 @@ async function main() {
 		await readAndDiscoverSidecars(mod);
 	} finally {
 		await fs.rm(outDir, { recursive: true, force: true }).catch(() => {});
+	}
+
+	const controlled = await buildControlledPersistence();
+	try {
+		await sidecarKeepsLatestLogicalTransition(await loadModule(controlled.url));
+	} finally {
+		await fs.rm(controlled.outDir, { recursive: true, force: true }).catch(() => {});
 	}
 
 	console.log("");

@@ -6,16 +6,14 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { LOOP_STATUS_KEY } from "./constants.js";
 import { formatLoopInterval } from "./interval.js";
-import type { ActiveLoop, LoopMode, LoopStatus } from "./state.js";
+import type { ActiveLoop, LoopSchedule, LoopStatus } from "./state.js";
 import { formatEta } from "./time.js";
 
 /** Subconjunto de LoopState que formatStatus necesita. */
-export interface LoopStatusInput {
+interface LoopStatusFields {
 	loopId: string;
 	task: string;
 	status: LoopStatus;
-	mode: LoopMode;
-	intervalMs?: number;
 	iteration: number;
 	maxIterations: number;
 	nextFireAt: number | null;
@@ -23,9 +21,11 @@ export interface LoopStatusInput {
 	autonomous?: boolean;
 }
 
+export type LoopStatusInput = LoopStatusFields & LoopSchedule;
+
 export function formatStatus(loop: LoopStatusInput): string {
 	const eta = loop.status === "running" ? `, próximo ${formatEta(loop.nextFireAt)}` : "";
-	const mode = loop.mode === "fixed" && loop.intervalMs ? ` cada ${formatLoopInterval(loop.intervalMs)}` : "";
+	const mode = loop.mode === "fixed" ? ` cada ${formatLoopInterval(loop.intervalMs)}` : "";
 	const auto = loop.autonomous ? " auto" : "";
 	const reason = loop.lastReason ? `, razón: ${loop.lastReason}` : "";
 	return `${loop.loopId} [${loop.status}${auto}]${mode} it ${loop.iteration}/${loop.maxIterations}${eta}${reason} — ${loop.task}`;
@@ -35,7 +35,7 @@ export function setLoopStatus(ctx: ExtensionContext, loop: LoopStatusInput): voi
 	if (!ctx.hasUI) return;
 	const theme = ctx.ui.theme;
 	const paused = loop.status === "paused" ? " paused" : "";
-	const fixed = loop.mode === "fixed" && loop.intervalMs ? ` @${formatLoopInterval(loop.intervalMs)}` : "";
+	const fixed = loop.mode === "fixed" ? ` @${formatLoopInterval(loop.intervalMs)}` : "";
 	const eta = loop.status === "running" && loop.nextFireAt ? `, próximo ${formatEta(loop.nextFireAt)}` : "";
 	const reason = loop.lastReason ? ` · ${loop.lastReason}` : "";
 	ctx.ui.setStatus(

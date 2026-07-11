@@ -10,8 +10,8 @@
  * Mantené las copias sincronizadas a mano.
  *
  * Acá vive solo la recolección PURA latest-by-key; la lógica divergente de
- * recuperación que corre después (gating active-vs-terminal, resolución de
- * conflictos del sidecar, retiro autónomo, re-arming) queda en el index.ts de
+ * recuperación que corre después (gating active-vs-terminal, ownership,
+ * retiro autónomo, re-arming) queda en el index.ts de
  * cada extensión porque esas sí son máquinas de estado realmente distintas, no
  * duplicación.
  *
