@@ -3,7 +3,7 @@ name: kitty-remote-control
 description: >-
   Controla la terminal kitty desde el shell mediante su protocolo de
   remote-control (`kitty @ ...`): abre tabs, ventanas y splits nuevos, y
-  consulta/administra la instancia de kitty en ejecución. Usar cuando el
+  consulta/administra la instancia de kitty en ejecución. Usar cuando la
   persona usuaria pida abrir una tab o ventana nueva de kitty, dividir paneles
   (vertical/horizontal), o scriptear kitty desde una sesión en curso. Si la
   extensión pandi-kitty está instalada, preferí su comando `/kitty` o la tool
@@ -11,6 +11,16 @@ description: >-
 ---
 
 # Control remoto de kitty
+
+## En 30 segundos
+
+`kitty @` controla la instancia kitty en ejecución (tabs, ventanas, splits).
+Requiere `allow_remote_control yes` en `kitty.conf`. Si `pandi-kitty` está
+instalada, preferí `/kitty` o `kitty_remote`.
+
+```bash
+kitty @ launch --type=tab
+```
 
 kitty trae un protocolo de remote-control manejado por el subcomando
 `kitty @`. Habla con la instancia de kitty *actualmente en ejecución* a
@@ -21,7 +31,7 @@ sesión kitty que tenga el remote control habilitado. 🐼
 
 El remote control tiene que estar permitido. Revisá/habilitalo en `kitty.conf`:
 
-```
+```ini
 allow_remote_control yes
 ```
 
@@ -72,7 +82,7 @@ precisión.
 En este repo, `extensions/pandi-kitty/` envuelve estos comandos como paquete
 standalone:
 
-- comando `/kitty` para personas (`tab`, `window`, `vsplit`, `hsplit`,
+- comando `/kitty` para la persona usuaria (`tab`, `window`, `vsplit`, `hsplit`,
   `os-window`, `layout`, `close`, `focus`)
 - tool `kitty_remote` para el modelo, con acciones `launch`, `goto-layout`,
   `close-window` y `focus-window`

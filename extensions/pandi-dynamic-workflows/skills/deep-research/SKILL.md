@@ -5,7 +5,9 @@ description: Usar cuando la persona usuaria pida investigación profunda, invest
 
 # Investigación profunda
 
-Para esta solicitud, usá el patrón `complex-research` de dynamic workflows.
+## En 30 segundos
+
+Para `/deep-research` o pedidos de investigación profunda, usá el patrón `complex-research` de dynamic workflows.
 
 1. Tratá la solicitud de la persona usuaria como la `question` de `complex-research`.
 

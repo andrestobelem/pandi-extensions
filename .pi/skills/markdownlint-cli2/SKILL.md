@@ -8,6 +8,16 @@ description: >-
 
 # markdownlint-cli2
 
+## En 30 segundos
+
+`markdownlint-cli2` valida Markdown con el mismo motor que la extensión VS Code.
+Después de editar, corré un chequeo focalizado; reservá `npm run lint:md` para
+validación repo-wide.
+
+```bash
+npx markdownlint-cli2 ":docs/example.md"
+```
+
 Usá este skill cuando una tarea cree, edite, revise o valide Markdown en este repositorio.
 
 ## Comandos

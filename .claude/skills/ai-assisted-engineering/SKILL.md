@@ -5,14 +5,20 @@ description: >-
   agentes: construí cosas pequeñas para entender, separá prototipado/vibe-coding
   de producción, tratá prompts/context/tools como el programa (Software 3.0),
   depurá de forma incremental desde baselines simples y mantené a la persona
-  humana como especificadora, evaluadora y dueña de la corrección. Usar cuando
+  usuaria como especificadora, evaluadora y dueña de la corrección. Usá cuando
   haya que decidir cuánto delegar a la IA, si un output es confiable o cómo
-  diseñar workflows agénticos/dynamic workflows.
+  diseñar dynamic workflows.
 ---
 
 # Ingeniería asistida por IA
 
-Usá este skill cuando una tarea implique **usar IA o agentes para construir software** y la pregunta de fondo sea de criterio: cuánto delegar, cuándo confiar en un output generado, cuándo conviene prototipar con libertad y cuándo verificar, y cómo diseñar agentic/dynamic workflows sin sacar a la persona del control.
+## En 30 segundos
+
+- **Qué es:** criterio Karpathy para construir con IA/agentes sin abdicar corrección.
+- **Problema:** la IA acelera crear; no reemplaza specs, tests ni ownership.
+- **Cuándo:** decidir cuánto delegar, si un output es confiable, o cómo diseñar dynamic workflows.
+
+Usá este skill cuando una tarea implique **usar IA o agentes para construir software** y la pregunta de fondo sea de criterio: cuánto delegar, cuándo confiar en un output generado, cuándo conviene prototipar con libertad y cuándo verificar, y cómo diseñar dynamic workflows sin sacar a la persona usuaria del control.
 
 Se apoya en la investigación del proyecto destilada desde las recomendaciones de Andrej Karpathy sobre programación, aprendizaje y uso de IA (Software 2.0/3.0, vibe coding, "A Recipe for Training Neural Networks", micrograd/nanoGPT). Ver `references/karpathy-programming-recommendations.md` para el resumen compacto de la fuente.
 
@@ -25,14 +31,14 @@ Es el complemento, en la era de la IA, del skill `modern-software-engineering`: 
 3. **Software 3.0: prompts/context/tools son el programa.** Los LLMs se programan con prompts, ejemplos, memoria, contexto y tools acotadas. Tratá eso como artifacts de ingeniería de primera clase — diseñados, versionados e inspeccionables — no como detalles descartables.
 4. **Hacé vibe-coding en prototipos; no en producción.** La generación libre es excelente para demos, apps personales y exploración rápida. Producción necesita specifications, permissions, diff review, tests/evals, security y una persona dueña. Separá "explore/generate" de "verify/commit" y hacé visible qué fue realmente validado.
 5. **Depurá de forma incremental desde baselines simples.** Inspeccioná datos/inputs, empezá simple, verificá supuestos, sobreajustá un caso mínimo y recién después agregá complejidad. Hacé cheap scout y smoke test antes de cualquier fan-out grande.
-6. **El rol de la persona experta se desplaza hacia especificar, evaluar y depurar.** A medida que la IA escribe más código, el trabajo humano se mueve hacia gestionar contexto, revisar outputs, diseñar tests/evals y *decidir si algo es correcto*.
+6. **El rol de la persona usuaria se desplaza hacia especificar, evaluar y depurar.** A medida que la IA escribe más código, el trabajo humano se mueve hacia gestionar contexto, revisar outputs, diseñar tests/evals y *decidir si algo es correcto*.
 
 ## Forma de respuesta requerida al usar este skill
 
 En un plan, review o implementación que se apoye en IA/agentes, incluí esto salvo que sea claramente irrelevante:
 
 - **Nivel de confianza:** ¿esto es prototipo/exploración (`vibe-coding` OK) o producción/serio (`specs` + verificación obligatorias)? Decilo explícitamente.
-- **Límite de delegación:** qué hace la IA/agente versus qué especifica, revisa y posee la persona.
+- **Límite de delegación:** qué hace la IA/agente versus qué especifica, revisa y posee la persona usuaria.
 - **Rebanada mínima entendible:** el incremento más chico e inspeccionable; preferí una implementación pequeña y legible antes que una generación amplia.
 - **Plan de verificación:** los tests, evals, diff review o check ejecutable que decide la corrección — *no* el consenso entre agentes.
 - **Condición para frenar/escalar:** qué evidencia alcanza para avanzar y qué obliga a volver a meter a una persona en el loop.

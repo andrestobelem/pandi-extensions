@@ -4,15 +4,17 @@ description: >-
   Aplicá diseño empírico de software al estilo Kent Beck al conducir el ritmo
   fino de TDD (test list, fake it, triangulate, step-size gears), separar
   cambios de estructura de cambios de comportamiento, decidir el timing del
-  tidying como first/after/later/never según la economía local, aplicar las
-  four rules of simple design, ajustar prácticas a las fases
-  explore/expand/extract, o supervisar un agente de coding con los guardrails
-  de Beck para augmented coding. Usalo para dimensionar el próximo paso,
-  decidir cuándo el tidying se paga solo y mantener las decisiones de diseño
-  apoyadas en feedback y reversibilidad.
+  tidying como first/after/later/never, y aplicar las four rules of simple design.
+  Usá para dimensionar el próximo paso de TDD y el timing del tidying con feedback reversible.
 ---
 
 # Diseño empírico de software
+
+## En 30 segundos
+
+- **Qué es:** micro-ritmo Beck dentro del loop TDD del repo (step size, tidy timing, estructura vs comportamiento).
+- **Problema:** pasos grandes o tidy mezclado con comportamiento encarecen review y revert.
+- **Cuándo:** elegir el próximo paso, decidir tidy first/after/later/never, o supervisar un agente de coding.
 
 Usá este skill para afinar decisiones de diseño dentro del loop de coding: elegir el próximo paso de TDD, decidir si conviene tidy first/after/later/never, separar estructura de comportamiento y mantener a un agente de coding dentro de un loop de feedback corto.
 
@@ -118,7 +120,7 @@ Para guía de coding, refactoring o review, incluí estos puntos salvo que sean 
 - ¿Las indirections (mocks, adapters, layers) responden a una decisión de diseño, o solo a velocidad de test isolation (test-induced design damage)?
 - Para diffs producidos por agentes: ¿hay assertions borradas o debilitadas, fake implementations, scope no pedido o loops?
 
-## Guía para workflows dinámicos
+## Guía para dynamic workflows
 
 Para Pi Dynamic Workflows en particular:
 

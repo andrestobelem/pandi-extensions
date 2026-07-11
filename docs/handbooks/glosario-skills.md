@@ -115,7 +115,7 @@ Los skills **no se editan en los destinos generados**. La fuente canónica es si
 4. `npm run doctor` o los tests de parity de `pandi-dynamic-workflows`.
 
 Skills **project-local** (no mirrored ni vendored): `didactic-docs-style`, `pandi-prose-style`,
-`markdownlint-cli2` — viven solo en `.pi/skills/`.
+`pandi-artifact-style`, `markdownlint-cli2`, `md-to-html`, `sync-doc-mirrors` — viven solo en `.pi/skills/`.
 
 ## Próximos pasos
 

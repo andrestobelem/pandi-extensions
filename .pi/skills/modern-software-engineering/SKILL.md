@@ -1,15 +1,21 @@
 ---
 name: modern-software-engineering
 description: >-
-  Aplica principios de Modern Software Engineering al estilo Dave Farley al
+  Aplicá principios de Modern Software Engineering al estilo Dave Farley al
   diseñar, revisar o mejorar sistemas de software, dynamic workflows, tests,
-  pipelines de delivery o prácticas de ingeniería. Usar para optimizar el
+  pipelines de delivery o prácticas de ingeniería. Usá para optimizar el
   aprendizaje, hacer de TDD el loop de feedback por defecto para cambios de
-  comportamiento, gestionar la complejidad y evaluar cambios por estabilidad más
+  comportamiento, gestionar la complejidad y evaluar cambios por estabilidad y
   throughput.
 ---
 
 # Ingeniería de Software Moderna
+
+## En 30 segundos
+
+- **Qué es:** ingeniería práctica al estilo Farley — aprender rápido con feedback de calidad.
+- **Problema:** cambios sin hipótesis ni checks ejecutables postergan el aprendizaje.
+- **Cuándo:** arquitectura, tests, delivery, dynamic workflows o decidir si un cambio vale la pena.
 
 Usá este skill cuando una tarea pida criterio de ingeniería de software: arquitectura, refactoring, code review, estrategia de tests, mejoras de delivery/proceso, diseño de workflows o decidir si un cambio vale la pena.
 
@@ -34,9 +40,9 @@ Cuando el trabajo cambia comportamiento, preferí TDD como primer mecanismo de a
 3. **Green:** hacé el cambio de implementación más pequeño que pase.
 4. **Refactor:** mejorá nombres, límites, cohesión, coupling, duplicación y claridad mientras los tests siguen en verde.
 5. **Verify:** corré los checks locales relevantes y la señal de CI; cuando se pueda, capturá el comando y el resultado exactos.
-6. **Commit:** aterrizá el cambio como un commit atómico usando Conventional Commits con scope explícito (por ejemplo, `fix(pandi-goal): …`). Un solo cambio coherente por commit, con el test que fija el comportamiento en el SAME commit que el código que cubre.
+6. **Commit:** aterrizá el cambio como un commit atómico usando Conventional Commits con scope explícito (por ejemplo, `fix(pandi-goal): …`). Un solo cambio coherente por commit, con el test que fija el comportamiento en el mismo commit que el código que cubre.
 
-Si TDD no es la herramienta correcta para la tarea, decí por qué y nombrá la evidencia de reemplazo: resultado de spike, señal de CI, observación de runtime, feedback de usuario, métrica u otro check ejecutable.
+Si TDD no es la herramienta correcta para la tarea, decí por qué y nombrá la evidencia de reemplazo: resultado de spike, señal de CI, observación de runtime, feedback de la persona usuaria, métrica u otro check ejecutable.
 
 ## Forma de respuesta requerida al usar este skill
 

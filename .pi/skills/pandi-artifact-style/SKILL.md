@@ -8,7 +8,13 @@ description: >-
   md-to-html.
 ---
 
-# Pandi artifact style
+# Estilo de artifacts HTML de Pandi
+
+## En 30 segundos
+
+Un HTML autocontenido con layout Claude-design y paleta Panda Syntax (claro +
+oscuro). Partí de `reference/template.html`; los tokens deben ser byte-idénticos
+a `reference/pandi-tokens.css`. Para `.md` → `.html`, deferí a `md-to-html`.
 
 Una misma apariencia en todos lados: estructura y tipografía Claude-design,
 coloreadas con la paleta Panda Syntax. Aplicalo a todo artifact de calidad de presentación

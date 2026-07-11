@@ -1,7 +1,7 @@
 ---
 name: ultracode
 description: >-
-  Orquestá tareas con workflows dinámicos multiagente en vez de resolverlas inline, tanto en Claude
+  Orquestá tareas con dynamic workflows multiagente en vez de resolverlas inline, tanto en Claude
   Code (tool `Workflow`) como en pi (tool `dynamic_workflow`). Activar cuando la persona usuaria
   escriba "ultracode" o "workflow" como pedido de orquestación, o cuando una tarea justifique
   paralelismo por exhaustividad, confianza o escala: auditorías repo-wide, migraciones/codemods,
@@ -20,7 +20,17 @@ prompting, seguridad) se comparten; la *API* concreta cambia entre **Claude Code
 **pi** (un runtime que corre sobre Anthropic o OpenAI/Codex). En [Referencia de plataforma](#referencia-de-plataforma)
 está la tool, los helpers y la forma de invocación de cada uno.
 
+## En 30 segundos
+
+`ultracode` orquesta tareas multiagente cuando inline no alcanza (exhaustividad, confianza o escala).
+Primero gates; después primitiva o patrón; al final la tool de tu plataforma. Ejemplo mínimo en pi:
+
+```js
+dynamic_workflow({ action: 'start', name: 'task-slug', input: { request: '…' }, concurrency: 4 })
+```
+
 Glosario de nombres (producto vs skill vs tool): [`docs/handbooks/glosario-skills.md`](../../../docs/handbooks/glosario-skills.md).
+Para criterio de delegación (inline vs orquestar), deferí a `ai-assisted-engineering`; este skill gobierna el cómo una vez decidido orquestar.
 Detalle operativo (fan-out, model tiers, catálogo completo): [`reference/operational-notes.md`](reference/operational-notes.md).
 
 El catálogo del lado de Claude viene incluido en `reference/scaffold-catalog.md` (snapshot del
@@ -128,7 +138,7 @@ Vista rápida: [`reference/scaffold-catalog.md`](reference/scaffold-catalog.md) 
 ## PHASE 0 — contract-gate (siempre, para corridas sustantivas)
 
 1. En Pi, corré el scaffold canónico `contract-gate` sobre el pedido bruto; la extensión lo usa como workflow read-only.
-2. Si necesita aclaración → devolvé las preguntas bloqueantes al humano y STOP.
+2. Si necesita aclaración → devolvé las preguntas bloqueantes a la persona usuaria y STOP.
 3. Si se puede avanzar → usá el prompt reescrito como handoff durable hacia router /
    workflow-factory / el workflow elegido.
 4. Propagá el resource plan del gate (`{ tier, models, efforts }`) al budget de la corrida aguas

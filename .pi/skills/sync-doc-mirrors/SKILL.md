@@ -11,6 +11,16 @@ description: >-
 
 # sync-doc-mirrors
 
+## En 30 segundos
+
+Mantené pares `.md` ↔ `.html` committeados declarados en `mirrors.json`.
+En **pandi-extensions** usá el wrapper de política; en otros repos, el motor
+`sync-doc-mirrors.mjs` con `--check` y sync.
+
+```bash
+npm run sync:docs:html:check   # pandi-extensions
+```
+
 Mantené en sync los docs markdown de un repo y sus mirrors HTML estilizados y
 committeados. El mecanismo es `scripts/sync-doc-mirrors.mjs` dentro de la
 extensión `pandi-docs`: cada par de mirror es una entrada

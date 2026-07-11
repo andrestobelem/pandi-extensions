@@ -3,7 +3,10 @@ name: default
 description: Usar cuando la persona usuaria pida el patrón legacy por defecto de dynamic workflows. Derivar al patrón `fan-out-and-synthesize`.
 ---
 
-# Workflow dinámico por defecto
+# Default de dynamic workflows
+
+Cuando la persona usuaria pide el patrón legacy `default`, enrutá a `fan-out-and-synthesize`:
+fan-out paralelo de workers + síntesis final. No es un patrón distinto; es el alias histórico del repo.
 
 Para esta solicitud, usá el patrón `fan-out-and-synthesize` de dynamic workflows.
 

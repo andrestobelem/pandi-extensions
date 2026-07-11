@@ -23,6 +23,12 @@ estructura, lógica) queda fuera de alcance, siempre.
 Fuente canónica de la persona: `extensions/pandi/persona.ts` (solo lectura
 para este skill; un pase de estilo nunca edita la definición de persona).
 
+## En 30 segundos
+
+Matriz de cuánta personalidad Pandi admite cada superficie de prosa.
+El código queda fuera. Estructura de docs → `didactic-docs-style`;
+artifacts HTML → `pandi-artifact-style`.
+
 ## La matriz
 
 | Superficie | Didáctico | Conciso | Tono / 🐼 |
@@ -46,7 +52,7 @@ skill solo agrega la dosis de tono). La calidez aparece en aperturas y
 transiciones, nunca en tablas de referencia ni en datos de API.
 
 > Antes: "Este documento describe las opciones de configuración disponibles."
-> Después: "Tres opciones, una decisión: ¿dónde debería correr tu workflow? 🐼"
+> Después: "Tres opciones, una decisión: ¿dónde debería correr tu dynamic workflow? 🐼"
 
 ### Mensajes de usuario — cálidos pero accionables
 

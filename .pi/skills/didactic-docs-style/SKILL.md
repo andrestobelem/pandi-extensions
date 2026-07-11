@@ -17,6 +17,16 @@ Este contrato es la fuente única del estándar de documentación didáctica del
 repo; los workflows que editan o generan docs deben cargarlo y pasarlo a cada
 agente editor/reviewer.
 
+## En 30 segundos
+
+Contrato único para que cada doc abra claro en media minuta, revele
+progresivamente y no sacrifique exactitud. Cargalo al escribir o regenerar
+Markdown — a mano o vía `didactic-docs` / `scaffold-docs-html`.
+Para tono/🐼 en prosa, deferí a `pandi-prose-style`.
+
+**Shape mínimo de apertura:** 2–3 frases → snippet ejecutable 3–8 líneas →
+referencia exhaustiva.
+
 ## Las 8 reglas
 
 1. **Apertura en 30 segundos.** Empezá con 2-3 frases en lenguaje claro: qué
@@ -65,5 +75,5 @@ Cada página `docs/scaffolds/<key>.md` además sigue este orden de secciones
 - Mejora: `.pi/workflows/didactic-docs.js` edita docs en paralelo bajo este
   contrato y luego corre un panel de review adversarial (exactitud + didáctica)
   → fixes → verificación (markdownlint + reconversión HTML).
-- Ambos workflows deben leer este archivo (`.pi/skills/didactic-docs-style/SKILL.md`)
-  como contrato de estilo, no una copia ad hoc.
+- Ambos workflows deben leer este archivo y `pandi-prose-style` como contratos
+  de estilo, no copias ad hoc.

@@ -1,18 +1,24 @@
 ---
 name: clean-craftsmanship
 description: >-
-  Aplica el clean craftsmanship al estilo Robert C. Martin ("Uncle Bob") al
+  Aplicá el clean craftsmanship al estilo Robert C. Martin ("Uncle Bob") al
   escribir o revisar código por legibilidad (nombres, funciones,
   comentarios), al diagnosticar pudrición de diseño con los principios SOLID
   y de componentes, al chequear los límites de Clean Architecture y la
   Dependency Rule, o al ejercer disciplinas de profesionalismo (las tres
   leyes de TDD como disciplina, saber decir que no, estimaciones honestas,
-  limpieza tipo Boy Scout). Usar cuando la pregunta es sobre oficio a nivel
+  limpieza tipo Boy Scout). Usá cuando la pregunta es sobre oficio a nivel
   de código, dirección de dependencias, si un límite justifica su costo, o
   conducta profesional bajo presión de cronograma.
 ---
 
-# Clean Craftsmanship
+# Clean craftsmanship
+
+## En 30 segundos
+
+- **Qué es:** oficio Uncle Bob — legibilidad, pudrición de diseño, Dependency Rule y conducta profesional.
+- **Problema:** desorden y dependencias mal gestionadas encarecen cada cambio futuro.
+- **Cuándo:** nombres/funciones, SOLID con síntomas observados, límites de arquitectura o estimaciones bajo presión.
 
 Usá este skill cuando una tarea pida oficio a nivel de código o juicio profesional: estructura de nombres y funciones, política de comentarios, detección de pudrición de diseño, chequeo de dirección de dependencias, decidir si una interfaz o capa justifica su costo, o manejar estimaciones, compromisos y presión de cronograma con honestidad.
 

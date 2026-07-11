@@ -5,6 +5,17 @@ description: Publica y mantiene las distribuciones pi-cante / pandi (el fork del
 
 # Publicación de las distribuciones pi-cante / pandi
 
+## En 30 segundos
+
+Publicá forks `pi-cante` / `pandi` desde el clon local del fork (`pi-cante`).
+Todos los scripts simulan por defecto; la receta operativa canónica está en
+`RELEASING.md` del fork.
+
+```bash
+node scripts/release-distros.mjs          # dry-run
+node scripts/release-distros.mjs --publish
+```
+
 ## Preparación: modelo mental primero
 
 - **Fork**: `andrestobelem/pi-cante`, clon local en `/Users/andrestobelem/ws/at/pi-cante`, fork de `earendil-works/pi` (el monorepo de pi; la CLI vive en el workspace `packages/coding-agent`).
@@ -140,7 +151,7 @@ pandi-extensions: publish-npm.mjs --publish
 Cada punto de esta lista costó depuración real:
 
 - `~/.npmrc` tiene `min-release-age=7`: los paquetes recién publicados devuelven 404 sin `--min-release-age=0` (los scripts ya lo pasan). npm también puede poner en cuarentena publicaciones en ráfaga de la org (~1h de propagación).
-- Los builds regeneran `packages/ai/src/providers/*.models.ts` como efecto colateral — descartalos con `git checkout -- packages/ai`; no los commitees.
+- Los builds regeneran `packages/ai/src/providers/*.models.ts` como efecto colateral — descartálos con `git checkout -- packages/ai`; no los commitees.
 - El hook de pre-commit del fork bloquea cambios en lockfiles sin `PI_ALLOW_LOCKFILE_CHANGE=1`.
 - `install-lock/` es interno del repo (no viaja en el tarball publicado); solo se publica el shrinkwrap, así que `set-distro` regenera únicamente el shrinkwrap.
 - Las extensiones son conscientes del host desde `local-memory/auto-compact/goal/loop/worktree@0.2.0` y `dynamic-workflows/rename@0.3.0`: los paths van por `CONFIG_DIR_NAME`, y los spawns de subagentes por el `piConfig.name` del host (leído vía `getPackageDir()` — `APP_NAME` no está exportado por el SDK).

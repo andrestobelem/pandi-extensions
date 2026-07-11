@@ -10,13 +10,23 @@ description: >-
   sigue por prioridad".
 ---
 
-# github-project
+# GitHub Project «pandi»
 
 Todo el trabajo de este repo se trackea como **issues del repo** ubicados en
 el **GitHub Project v2 board "pandi"** (owner: usuario
 `andrestobelem`, project `4`), manejado por completo desde la terminal con
 `gh`. Este skill guarda los IDs ya verificados y las recetas de comandos
 exactas para que ninguna sesión tenga que re-descubrirlos.
+
+## En 30 segundos
+
+Creá un issue etiquetado → agregalo al board → seteá Status/Priority con
+`gh project item-edit`. Cerrá el trabajo con `Closes #N` en el commit.
+
+```bash
+gh issue create --title "..." --body "..." --label task
+gh project item-add 4 --owner andrestobelem --url <issue-url>
+```
 
 ## Convenciones (el contrato)
 
@@ -35,9 +45,9 @@ exactas para que ninguna sesión tenga que re-descubrirlos.
   independientemente cerrables.
 - **El board del Project es la fuente de verdad** del estado de planificación:
   `Priority` (P0 más alta → P3) y `Size` (S/M/L) viven como campos del board,
-  no solo en artifacts de corridas de grooming. El workflow `grooming`
+  no solo en artifacts de corridas de grooming. El workflow `.pi/workflows/grooming.js`
   analiza y PROPONE comandos `item-edit` (propose-only); una persona los
-  ejecuta. `sdlc` elige el siguiente issue como el item `Todo` de mayor
+  ejecuta. `.pi/workflows/sdlc.js` elige el siguiente issue como el item `Todo` de mayor
   Priority. Los artifacts de corrida son snapshots; el board es el estado
   actual.
 - **Los epics son native sub-issues**, no solo texto en el body: linkeá los

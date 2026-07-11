@@ -1,7 +1,7 @@
 ---
 name: init-pandi-extensions
 description: >-
-  Usar cuando alguien acaba de CLONAR este repo `pandi-extensions` y quiere instalarlo,
+  Usar cuando la persona usuaria acaba de CLONAR este repo `pandi-extensions` y quiere instalarlo,
   configurarlo o hacer onboarding; es decir, dejar funcionando desde cero las extensiones,
   skills y dynamic workflows de Pi (o Claude Code). Recorre la instalación ordenada,
   consciente de la plataforma e idempotente: Node >=22.19 vía nvm, la CLI global de Pi,
@@ -90,7 +90,7 @@ npm run sync:docs:html            # mirror generado de docs/html
 npm run sync:personas             # README/HTML generados de personas
 ```
 
-Qué skill editar y en qué orden correr los sync: [`docs/handbooks/glosario-skills.md`](../../docs/handbooks/glosario-skills.md) (sección *Capas de generación y sync*).
+Qué skill editar y en qué orden correr los sync: [`docs/handbooks/glosario-skills.md`](../../../docs/handbooks/glosario-skills.md) (sección *Capas de generación y sync*).
 
 Después, **en el proyecto donde las quieras usar** (no necesariamente este repo):
 
