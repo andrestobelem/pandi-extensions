@@ -168,30 +168,23 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<li><a href="#procedencia-y-fuentes">Procedencia y fuentes</a></li>
 	</ol>
 </nav>
-<p>Un loop de agente que nunca termina quema dinero; uno que se da por &quot;done&quot; por
-cuenta propia suele equivocarse (un modelo que juzga su propio trabajo es
-poco confiable — Huang et al., arXiv:2310.01798). Este repositorio trae dos
-extensiones para cubrir ese problema: <strong><code>/goal</code></strong> avanza hacia un objetivo hasta
-que una verificación <em>independiente</em> lo confirma, y <strong><code>/loop</code></strong> repite una tarea
-en una cadencia acotada sin ninguna noción de &quot;finished&quot;. Usá <code>/goal</code> cuando
-podés escribir un criterio de éxito verificable; usá <code>/loop</code> para trabajo de
-monitoreo o polling sin estado final claro.</p>
+<p>Un loop de agente que nunca termina quema dinero; uno que se da por &quot;done&quot; por cuenta propia suele equivocarse (un
+modelo que juzga su propio trabajo es poco confiable — Huang et al., arXiv:2310.01798). Este repositorio trae dos
+extensiones para cubrir ese problema: <strong><code>/goal</code></strong> avanza hacia un objetivo hasta que una verificación <em>independiente</em> lo
+confirma, y <strong><code>/loop</code></strong> repite una tarea en una cadencia acotada sin ninguna noción de &quot;finished&quot;. Usá <code>/goal</code> cuando
+podés escribir un criterio de éxito verificable; usá <code>/loop</code> para trabajo de monitoreo o polling sin estado final claro.</p>
 <h2 id="en-30-segundos">En 30 segundos</h2>
 <pre><code class="hljs language-bash">/goal migrate tests to vitest -- all tests pass; no jest imports remain
 /loop watch the deploy and report when it stabilizes</code></pre>
-<p>Esta guía convierte la
-<a href="research/2026-06-28-loop-engineering.html">investigación sobre loop engineering</a>
-en uso concreto: la investigación explica <em>qué</em> es loop engineering y <em>por qué</em>
-funcionan los mecanismos del repo; esta guía explica <em>qué extensión elegir</em> y
-<em>cómo operarla</em>.</p>
+<p>Esta guía convierte la <a href="research/2026-06-28-loop-engineering.html">investigación sobre loop engineering</a> en uso
+concreto: la investigación explica <em>qué</em> es loop engineering y <em>por qué</em> funcionan los mecanismos del repo; esta guía
+explica <em>qué extensión elegir</em> y <em>cómo operarla</em>.</p>
 <blockquote>
-<p><strong>Definición (de la investigación).</strong> <em>Loop engineering</em> es la disciplina de
-<strong>diseñar, acotar y verificar</strong> loops iterativos/de feedback para que un loop
-haga progreso medible hacia una meta y <strong>se detenga por evidencia</strong> (<code>done</code> /
-<code>quiet</code> / <code>blocked</code>) en lugar de hacerlo por un timer, por auto-declaración o
-nunca. La versión corta: acotá el loop <strong>y</strong> mantené la señal de crítica
-independiente y no sesgada — <code>/goal</code> es la superficie que impone ambas cosas a
-la vez.</p>
+<p><strong>Definición (de la investigación).</strong> <em>Loop engineering</em> es la disciplina de <strong>diseñar, acotar y verificar</strong> loops
+iterativos/de feedback para que un loop haga progreso medible hacia una meta y <strong>se detenga por evidencia</strong> (<code>done</code> /
+<code>quiet</code> / <code>blocked</code>) en lugar de hacerlo por un timer, por auto-declaración o nunca. La versión corta: acotá el loop
+<strong>y</strong> mantené la señal de crítica independiente y no sesgada — <code>/goal</code> es la superficie que impone ambas cosas a la
+vez.</p>
 </blockquote>
 <h2 id="tldr--elegí-la-superficie-de-loop-correcta">TL;DR — elegí la superficie de loop correcta</h2>
 <div class="table-scroll"><table>
@@ -230,35 +223,29 @@ la vez.</p>
 </tbody></table></div>
 <h2 id="las-cuatro-superficies-de-loop">Las cuatro superficies de loop</h2>
 <h3><code>/goal</code> — loop cerrado con verificación independiente</h3>
-<p>Usá <code>/goal</code> siempre que exista una definición concreta y verificable de terminado.
-Ejecuta <code>pursuing → verifying → verifying-independent → done | blocked</code>: primero
-una comprobación de completitud, después un <strong>subagente adversarial separado y
-solo de lectura</strong> que emite <code>VERDICT: PASS | FAIL</code>. Solo un <code>PASS</code> independiente
-cierra el goal (<code>beginIndependentVerification</code> en
-<code>extensions/pandi-goal/verification.ts</code>). Esta es la respuesta arquitectónica
-directa del repo al resultado de que la autocorrección no es confiable.</p>
+<p>Usá <code>/goal</code> siempre que exista una definición concreta y verificable de terminado. Ejecuta
+<code>pursuing → verifying → verifying-independent → done | blocked</code>: primero una comprobación de completitud, después un
+<strong>subagente adversarial separado y solo de lectura</strong> que emite <code>VERDICT: PASS | FAIL</code>. Solo un <code>PASS</code> independiente
+cierra el goal (<code>beginIndependentVerification</code> en <code>extensions/pandi-goal/verification.ts</code>). Esta es la respuesta
+arquitectónica directa del repo al resultado de que la autocorrección no es confiable.</p>
 <pre><code class="hljs language-bash"><span class="hljs-comment"># Objetivo -- criterios de éxito después de `--`</span>
 /goal migrate tests to vitest -- all tests pass; no jest imports remain
 /goal status
 /goal stop</code></pre>
 <p>Guardrails que heredás gratis:</p>
 <ul>
-<li>Nunca hay loop infinito; <code>fireGoal</code> aplica el guard
-<code>goal.iteration &gt;= goal.maxIterations</code> en
+<li>Nunca hay loop infinito; <code>fireGoal</code> aplica el guard <code>goal.iteration &gt;= goal.maxIterations</code> en
 <code>extensions/pandi-goal/scheduler.ts</code>.</li>
-<li>Una afirmación sin evidencia verificable es <code>FAIL</code>; <code>runIndependentVerifier</code>
-fija ese contrato en <code>extensions/pandi-goal/verifier.ts</code>.</li>
-<li>Guard contra oscilación: <code>beginIndependentVerification</code> compara
-<code>independentVerifyAttempts</code> con <code>maxIndependentVerifications</code> (por defecto 2)
-y pasa el goal a <code>blocked</code> en vez de dejarlo girando para siempre
+<li>Una afirmación sin evidencia verificable es <code>FAIL</code>; <code>runIndependentVerifier</code> fija ese contrato en
+<code>extensions/pandi-goal/verifier.ts</code>.</li>
+<li>Guard contra oscilación: <code>beginIndependentVerification</code> compara <code>independentVerifyAttempts</code> con
+<code>maxIndependentVerifications</code> (por defecto 2) y pasa el goal a <code>blocked</code> en vez de dejarlo girando para siempre
 (<code>extensions/pandi-goal/verification.ts</code>).</li>
 </ul>
 <h3><code>/loop</code> — cadencia acotada, no confiar en el modelo</h3>
-<p>Usá <code>/loop</code> para trabajo recurrente que no tiene un <code>done</code> binario: monitoreo,
-polling, autopilot. El modelo propone un delay de wake; la extensión <strong>lo satura</strong>
-a una banda segura de <code>[60, 3600]s</code> para que un valor malo nunca desestabilice
-el loop (<code>MIN_DELAY_SECONDS</code> / <code>MAX_DELAY_SECONDS</code> en
-<code>extensions/pandi-loop/constants.ts</code>; <code>clampLoopDelaySeconds</code> en
+<p>Usá <code>/loop</code> para trabajo recurrente que no tiene un <code>done</code> binario: monitoreo, polling, autopilot. El modelo propone un
+delay de wake; la extensión <strong>lo satura</strong> a una banda segura de <code>[60, 3600]s</code> para que un valor malo nunca desestabilice
+el loop (<code>MIN_DELAY_SECONDS</code> / <code>MAX_DELAY_SECONDS</code> en <code>extensions/pandi-loop/constants.ts</code>; <code>clampLoopDelaySeconds</code> en
 <code>extensions/pandi-loop/loop-tools.ts</code>).</p>
 <pre><code class="hljs language-bash"><span class="hljs-comment"># Cadencia fija (el último token es el intervalo)</span>
 /loop check whether CI went green 10m
@@ -272,39 +259,31 @@ el loop (<code>MIN_DELAY_SECONDS</code> / <code>MAX_DELAY_SECONDS</code> en
 /loop status   /loop pause   /loop resume   /loop stop</code></pre>
 <p>Elegí la cadencia con intención:</p>
 <ul>
-<li>Poll corto (<code>&lt; 300s</code>, nunca exactamente 300) para estado externo rápido (CI,
-deploy) manteniendo cache caliente.</li>
+<li>Poll corto (<code>&lt; 300s</code>, nunca exactamente 300) para estado externo rápido (CI, deploy) manteniendo cache caliente.</li>
 <li>Fallback largo (<code>1200–1800s</code>) cuando está idle y no hay señal concreta.</li>
-<li>No consultes trabajo que el harness ya rastrea (subagentes, workflows) — usá un
-fallback largo y dejá que reporte de vuelta.</li>
+<li>No consultes trabajo que el harness ya rastrea (subagentes, workflows) — usá un fallback largo y dejá que reporte de
+vuelta.</li>
 </ul>
-<p>Defense in depth: <code>capExceeded</code> y <code>preWakeLimit</code> en
-<code>extensions/pandi-loop/caps.ts</code> combinan wall-clock, context-budget de mejor
-esfuerzo, iteraciones y watchdog; <code>fireWake</code> en
-<code>extensions/pandi-loop/scheduler.ts</code> aplica ese resultado antes de entregar un
-wake. Ojo: el tope de context-budget es un <strong>soft sensor</strong> — hace no-op
-silencioso cuando el uso se ignora, así que no dependas solo de él.</p>
+<p>Defense in depth: <code>capExceeded</code> y <code>preWakeLimit</code> en <code>extensions/pandi-loop/caps.ts</code> combinan wall-clock, context-budget
+de mejor esfuerzo, iteraciones y watchdog; <code>fireWake</code> en <code>extensions/pandi-loop/scheduler.ts</code> aplica ese resultado antes
+de entregar un wake. Ojo: el tope de context-budget es un <strong>soft sensor</strong> — hace no-op silencioso cuando el uso se
+ignora, así que no dependas solo de él.</p>
 <h3><code>loop-until-dry</code> — convergencia por rondas quietas</h3>
-<p>Cuando el objetivo es exhaustividad y no un solo <code>done</code> (auditorías, búsquedas
-a nivel repo), usá el scaffold <code>loop-until-dry</code>. Ejecuta finders en paralelo en
-cada ronda y se detiene cuando <strong>no aparecen hallazgos nuevos durante
-<code>quietRounds</code> rondas consecutivas</strong>: un detector de settle-to-tolerance, no un
-flip de quietud transitoria.</p>
+<p>Cuando el objetivo es exhaustividad y no un solo <code>done</code> (auditorías, búsquedas a nivel repo), usá el scaffold
+<code>loop-until-dry</code>. Ejecuta finders en paralelo en cada ronda y se detiene cuando <strong>no aparecen hallazgos nuevos durante
+<code>quietRounds</code> rondas consecutivas</strong>: un detector de settle-to-tolerance, no un flip de quietud transitoria.</p>
 <pre><code class="hljs language-bash">/workflow run loop-until-dry {<span class="hljs-string">&quot;target&quot;</span>:<span class="hljs-string">&quot;all places we parse SSE chunks&quot;</span>,<span class="hljs-string">&quot;quietRounds&quot;</span>:2,<span class="hljs-string">&quot;maxRounds&quot;</span>:8}</code></pre>
 <ul>
-<li><code>quietRounds</code> (por defecto 2) es un debounce/deadband, no un punto fijo
-probado.</li>
-<li><code>maxRounds</code> (por defecto 8) es el freno duro; cuando se detiene ahí, lo dice
-en voz alta con <code>stopped at maxRounds (not dry)</code> en
-<code>extensions/pandi-dynamic-workflows/scaffolds/loop-until-dry.js</code> — no hay
-topes silenciosos.</li>
+<li><code>quietRounds</code> (por defecto 2) es un debounce/deadband, no un punto fijo probado.</li>
+<li><code>maxRounds</code> (por defecto 8) es el freno duro; cuando se detiene ahí, lo dice en voz alta con
+<code>stopped at maxRounds (not dry)</code> en <code>extensions/pandi-dynamic-workflows/scaffolds/loop-until-dry.js</code> — no hay topes
+silenciosos.</li>
 </ul>
 <h3>Ultracode + Contract Gate — acotar primero el alcance</h3>
-<p>Antes de orquestar trabajo amplio o a nivel repo, dejá que el Contract Gate
-precise qué significa &quot;done&quot;. Corre una revisión pequeña y de solo lectura del
-contrato de tarea y emite <code>improvedTask</code>, <code>successCriteria</code>, <code>assumptions</code>,
-<code>nonGoals</code>, <code>routingHints</code>, <code>verificationPlan</code> y <code>blockers</code> — así el loop
-optimiza contra un objetivo acordado en vez de contra un prompt vago.</p>
+<p>Antes de orquestar trabajo amplio o a nivel repo, dejá que el Contract Gate precise qué significa &quot;done&quot;. Corre una
+revisión pequeña y de solo lectura del contrato de tarea y emite <code>improvedTask</code>, <code>successCriteria</code>, <code>assumptions</code>,
+<code>nonGoals</code>, <code>routingHints</code>, <code>verificationPlan</code> y <code>blockers</code> — así el loop optimiza contra un objetivo acordado en vez de
+contra un prompt vago.</p>
 <pre><code class="hljs language-bash">/effort ultracode          <span class="hljs-comment"># request xhigh + enable always-on routing</span>
 /ultracode-contract off    <span class="hljs-comment"># disable the Contract Gate for this session</span>
 /ultracode-mode off        <span class="hljs-comment"># turn the router off (lowering effort does not)</span></code></pre>
@@ -367,25 +346,21 @@ optimiza contra un objetivo acordado en vez de contra un prompt vago.</p>
 /loop status     /loop pause [<span class="hljs-built_in">id</span>]   /loop resume [<span class="hljs-built_in">id</span>]   /loop stop [<span class="hljs-built_in">id</span>]</code></pre>
 <h2 id="anti-patrones">Anti-patrones</h2>
 <ul>
-<li><strong>No</strong> uses <code>/loop</code> en una tarea que tenga un <code>done</code> verificable; para eso es
-<code>/goal</code>. <code>/loop</code> no tiene noción de &quot;finished&quot;.</li>
-<li><strong>No</strong> manejes la <em>misma</em> tarea con <code>/goal</code> y <code>/loop</code> esperando que el goal le
-fije la cadencia al loop. Son extensiones independientes, con estado separado,
-y <strong>no</strong> se componen; solo <code>ctx.isIdle()</code> evita que inyecten en un turno en
-vuelo. Elegí una sola superficie por tarea.</li>
-<li><strong>No</strong> confíes en el context-budget cap como garantía dura: es best-effort y
-puede hacer no-op silencioso.</li>
+<li><strong>No</strong> uses <code>/loop</code> en una tarea que tenga un <code>done</code> verificable; para eso es <code>/goal</code>. <code>/loop</code> no tiene noción de
+&quot;finished&quot;.</li>
+<li><strong>No</strong> manejes la <em>misma</em> tarea con <code>/goal</code> y <code>/loop</code> esperando que el goal le fije la cadencia al loop. Son
+extensiones independientes, con estado separado, y <strong>no</strong> se componen; solo <code>ctx.isIdle()</code> evita que inyecten en un
+turno en vuelo. Elegí una sola superficie por tarea.</li>
+<li><strong>No</strong> confíes en el context-budget cap como garantía dura: es best-effort y puede hacer no-op silencioso.</li>
 <li><strong>No</strong> reportes <code>done</code> cuando un loop apenas llegó a su cap. Mostrá el cap.</li>
 </ul>
 <h2 id="procedencia-y-fuentes">Procedencia y fuentes</h2>
 <p>Esta guía operacionaliza la investigación con fuentes de respaldo en
-<a href="research/2026-06-28-loop-engineering.html"><code>docs/research/2026-06-28-loop-engineering.md</code></a>,
-que contiene las citas externas (ReAct, Reflexion, Self-Refine, Huang et al.,
-teoría de control/feedback) y el grounding verificado <code>file:line</code> para cada
-mecanismo mencionado arriba. Ver también el
-<a href="research/2026-06-25-agentic-patterns-papers-workflows.html">mapa más amplio de patrones agentic</a>.
-El comentario de cabecera en <code>extensions/pandi-goal/index.ts</code> también documenta
-directamente en código la distinción <code>/loop</code> vs <code>/goal</code>.</p>
+<a href="research/2026-06-28-loop-engineering.html"><code>docs/research/2026-06-28-loop-engineering.md</code></a>, que contiene las citas
+externas (ReAct, Reflexion, Self-Refine, Huang et al., teoría de control/feedback) y el grounding verificado <code>file:line</code>
+para cada mecanismo mencionado arriba. Ver también el
+<a href="research/2026-06-25-agentic-patterns-papers-workflows.html">mapa más amplio de patrones agentic</a>. El comentario de
+cabecera en <code>extensions/pandi-goal/index.ts</code> también documenta directamente en código la distinción <code>/loop</code> vs <code>/goal</code>.</p>
 	</main>
 	<footer>Generado con el skill pandi-artifact-style · paleta: panda-syntax dark/light</footer>
 </div>

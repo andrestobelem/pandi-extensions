@@ -1,10 +1,8 @@
 # runId
 
-`runId` es el id único de la ejecución actual del workflow, inyectado como
-string global de solo lectura. Usalo para etiquetar logs, artifacts o mensajes
-para que una persona humana —u otra herramienta— pueda encontrar esta
-ejecución exacta más tarde, por ejemplo con `/workflow view <runId>` o
-`resume`.
+`runId` es el id único de la ejecución actual del workflow, inyectado como string global de solo lectura. Usalo para
+etiquetar logs, artifacts o mensajes para que una persona humana —u otra herramienta— pueda encontrar esta ejecución
+exacta más tarde, por ejemplo con `/workflow view <runId>` o `resume`.
 
 ```js
 log(`starting run ${runId}`);
@@ -19,15 +17,13 @@ await writeArtifact("meta.json", { runId });
 
 ## Cuándo usarlo y cuándo no
 
-- **Usalo** para correlacionar logs o artifacts con la ejecución, o para
-  referenciarla en mensajes (`/workflow view <runId>`, `resume`).
-- **No lo uses** en prompts ni en cache keys como token variable: cambia en
-  cada ejecución y rompería el prompt cache.
+- **Usalo** para correlacionar logs o artifacts con la ejecución, o para referenciarla en mensajes
+  (`/workflow view <runId>`, `resume`).
+- **No lo uses** en prompts ni en cache keys como token variable: cambia en cada ejecución y rompería el prompt cache.
 
 ## Cosas a tener en cuenta
 
-- Es de solo lectura. Preferí artifacts bajo `runDir` antes que incrustar
-  `runId` en el contenido.
+- Es de solo lectura. Preferí artifacts bajo `runDir` antes que incrustar `runId` en el contenido.
 
 ## Example
 

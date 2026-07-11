@@ -153,7 +153,10 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	<header>
 		<div class="kicker">docs/research</div>
 		<h1>Backlog de mejoras del dashboard</h1>
-		<p class="lede">Esta es la lista canónica de ítems pendientes y cerrados del ciclo de mejora del TUI <code>/workflow</code> del dashboard. El relato de cada pasada vive en <code>dashboard-improvement-log.md</code>; este archivo deja el estado actual, con una sola fuente de verdad para lo que sigue abierto. Cada ítem incluye id estable, título, motivo, rutas reales (verificadas) y estado (<code>open</code> / <code>done</code> / <code>human</code>).</p>
+		<p class="lede">Esta es la lista canónica de ítems pendientes y cerrados del ciclo de mejora del TUI <code>/workflow</code> del dashboard. El
+relato de cada pasada vive en <code>dashboard-improvement-log.md</code>; este archivo deja el estado actual, con una sola fuente de
+verdad para lo que sigue abierto. Cada ítem incluye id estable, título, motivo, rutas reales (verificadas) y estado
+(<code>open</code> / <code>done</code> / <code>human</code>).</p>
 	</header>
 	<main>
 <nav class="toc">
@@ -167,71 +170,76 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	</ol>
 </nav>
 <h2 id="en-30-segundos">En 30 segundos</h2>
-<p>Usá esta página para ver qué ya quedó cerrado, qué sigue abierto y qué requiere una decisión humana. Si vas a retomar el loop de mejoras, empezá por <strong>Abiertos</strong> y seguí cada ítem por su id estable.</p>
+<p>Usá esta página para ver qué ya quedó cerrado, qué sigue abierto y qué requiere una decisión humana. Si vas a retomar el
+loop de mejoras, empezá por <strong>Abiertos</strong> y seguí cada ítem por su id estable.</p>
 <h2 id="cerrados">Cerrados</h2>
 <ul>
 <li><strong>DW-DASH-001 — Extraer helper compartido del detalle de &quot;Selected agent&quot;</strong> · <code>done</code><ul>
-<li>Por qué: el bloque de detalle estaba duplicado casi idénticamente en dos rutas de render, así que cualquier cambio en el formato de campos podía divergir en silencio entre Monitor y Agents.</li>
-<li>Rutas: <code>extensions/pandi-dynamic-workflows/workflow-dashboard.ts</code>
-(<code>renderSelectedAgentDetail</code>), <code>extensions/pandi-dynamic-workflows/tests/integration/dashboard-selected-agent-detail.test.mjs</code>.</li>
+<li>Por qué: el bloque de detalle estaba duplicado casi idénticamente en dos rutas de render, así que cualquier cambio
+en el formato de campos podía divergir en silencio entre Monitor y Agents.</li>
+<li>Rutas: <code>extensions/pandi-dynamic-workflows/workflow-dashboard.ts</code> (<code>renderSelectedAgentDetail</code>),
+<code>extensions/pandi-dynamic-workflows/tests/integration/dashboard-selected-agent-detail.test.mjs</code>.</li>
 </ul>
 </li>
 <li><strong>DW-DASH-002 — Fijar el round-trip de quoting/parsing de <code>switch-session</code></strong> · <code>done</code><ul>
-<li>Por qué: <code>parseWorkflowCommandArgument</code> (la rama de argumentos de <code>switch-session</code>) no tenía cobertura; un recorte ingenuo de comillas rompería rutas de sesión con espacios o Unicode.</li>
+<li>Por qué: <code>parseWorkflowCommandArgument</code> (la rama de argumentos de <code>switch-session</code>) no tenía cobertura; un recorte
+ingenuo de comillas rompería rutas de sesión con espacios o Unicode.</li>
 <li>Rutas: <code>extensions/pandi-dynamic-workflows/tests/integration/switch-session-arg-roundtrip.test.mjs</code>,
 <code>extensions/pandi-dynamic-workflows/dashboard-orchestration.ts</code> (exporta el helper).</li>
 </ul>
 </li>
 <li><strong>DW-DASH-003 — Colapsar el formato duplicado de la línea por fila de agentes</strong> · <code>done</code><ul>
-<li>Por qué: <code>renderMonitorAgents</code> y <code>renderAgents</code> construían el sufijo de chips por fila <code>prompt schema tools skills extensions keys</code> byte a byte igual, con expresiones <code>muted(...)</code>/<code>success(...)</code>/<code>warning(...)</code>/<code>error(...)</code> duplicadas; solo diferían el prefijo, el segmento elapsed-vs-workflow y el chip <code>code:</code> de Monitor. Se extrajo un helper privado <code>renderAgentRowMeta(...)</code>, preservando el comportamiento, para construir la cadena común en un solo lugar.</li>
-<li>Rutas: <code>extensions/pandi-dynamic-workflows/workflow-dashboard.ts</code>
-(<code>renderAgentRowMeta</code>, usado en <code>renderMonitorAgents</code> y <code>renderAgents</code>),
+<li>Por qué: <code>renderMonitorAgents</code> y <code>renderAgents</code> construían el sufijo de chips por fila
+<code>prompt schema tools skills extensions keys</code> byte a byte igual, con expresiones
+<code>muted(...)</code>/<code>success(...)</code>/<code>warning(...)</code>/<code>error(...)</code> duplicadas; solo diferían el prefijo, el segmento
+elapsed-vs-workflow y el chip <code>code:</code> de Monitor. Se extrajo un helper privado <code>renderAgentRowMeta(...)</code>,
+preservando el comportamiento, para construir la cadena común en un solo lugar.</li>
+<li>Rutas: <code>extensions/pandi-dynamic-workflows/workflow-dashboard.ts</code> (<code>renderAgentRowMeta</code>, usado en
+<code>renderMonitorAgents</code> y <code>renderAgents</code>),
 <code>extensions/pandi-dynamic-workflows/tests/integration/dashboard-agent-row-meta.test.mjs</code>.</li>
 </ul>
 </li>
 <li><strong>DW-TOOL-001 — Hacer compatible el visor HTML de workflows con ambos harnesses</strong> · <code>done</code><ul>
-<li>Por qué: <code>build-workflow-artifact.mjs</code> (idéntico en <code>.pi/scripts/</code> y <code>.claude/scripts/</code>)
-solo manejaba scripts top-level estilo Claude; los workflows estilo ctx / export-default / CommonJS
-fallaban (&quot;Unexpected token &#39;export&#39;&quot; / &quot;module is not defined&quot;) y capturaban 0 nodos, así que
-el preview HTML quedaba vacío para <code>.pi/workflows/*.js</code>.</li>
-<li>Resolución: el builder ahora reescribe <code>export default …</code> → <code>globalThis.__default</code>, provee un stub
-CommonJS <code>module</code> y, después de ejecutar el body, llama a la entrada capturada con un <code>ctx</code> de
-registro cuyos métodos apuntan a los mismos stubs (los helpers quedan dentro del objeto <code>ctx</code> para
-no chocar con <code>const compact</code> propio de los scaffolds). Verificado: <code>continuous-improvement</code> pasó de
-0 a 5 nodos, <code>loop-engineering-*</code> ya corre y los scaffolds Claude quedaron sin cambios. Las dos copias
-divergieron a propósito: <code>.claude/scripts/build-workflow-artifact.mjs</code> ahora es un wrapper CLI fino
-sobre <code>.claude/scripts/lib/artifact.mjs</code> con <code>--run</code>/<code>--watch</code>/<code>--match</code>/<code>--open</code>/<code>--interval</code> para
-monitoreo en vivo, mientras <code>.pi/scripts/build-workflow-artifact.mjs</code> sigue siendo el builder
-monolítico pre-lanzamiento (por la self-contained-extension rule, no se comparte código runtime entre
-ambos); la separación es intencional y no se resincronizan. Se eliminó el adaptador descartable
-<code>.pi/tmp/build-ctx-workflow-html.mjs</code>.</li>
+<li>Por qué: <code>build-workflow-artifact.mjs</code> (idéntico en <code>.pi/scripts/</code> y <code>.claude/scripts/</code>) solo manejaba scripts
+top-level estilo Claude; los workflows estilo ctx / export-default / CommonJS fallaban (&quot;Unexpected token &#39;export&#39;&quot;
+/ &quot;module is not defined&quot;) y capturaban 0 nodos, así que el preview HTML quedaba vacío para <code>.pi/workflows/*.js</code>.</li>
+<li>Resolución: el builder ahora reescribe <code>export default …</code> → <code>globalThis.__default</code>, provee un stub CommonJS <code>module</code>
+y, después de ejecutar el body, llama a la entrada capturada con un <code>ctx</code> de registro cuyos métodos apuntan a los
+mismos stubs (los helpers quedan dentro del objeto <code>ctx</code> para no chocar con <code>const compact</code> propio de los
+scaffolds). Verificado: <code>continuous-improvement</code> pasó de 0 a 5 nodos, <code>loop-engineering-*</code> ya corre y los scaffolds
+Claude quedaron sin cambios. Las dos copias divergieron a propósito: <code>.claude/scripts/build-workflow-artifact.mjs</code>
+ahora es un wrapper CLI fino sobre <code>.claude/scripts/lib/artifact.mjs</code> con
+<code>--run</code>/<code>--watch</code>/<code>--match</code>/<code>--open</code>/<code>--interval</code> para monitoreo en vivo, mientras
+<code>.pi/scripts/build-workflow-artifact.mjs</code> sigue siendo el builder monolítico pre-lanzamiento (por la
+self-contained-extension rule, no se comparte código runtime entre ambos); la separación es intencional y no se
+resincronizan. Se eliminó el adaptador descartable <code>.pi/tmp/build-ctx-workflow-html.mjs</code>.</li>
 <li>Rutas: <code>.pi/scripts/build-workflow-artifact.mjs</code>, <code>.claude/scripts/build-workflow-artifact.mjs</code>,
 <code>.claude/scripts/lib/artifact.mjs</code>.</li>
 </ul>
 </li>
 <li><strong>DW-DASH-H1 — Confirmar la nueva baseline del gate (HEAD movido)</strong> · <code>done</code> (resolved)<ul>
-<li>Resolución: la baseline del gate quedó fijada en <code>HEAD == da0a449</code>, con el working tree limpio y sin
-archivos sucios ajenos. La preocupación anterior sobre <code>fad9875</code>/<code>9010157</code> ya no aplica; este ítem es
-obsoleto en la baseline actual.</li>
+<li>Resolución: la baseline del gate quedó fijada en <code>HEAD == da0a449</code>, con el working tree limpio y sin archivos sucios
+ajenos. La preocupación anterior sobre <code>fad9875</code>/<code>9010157</code> ya no aplica; este ítem es obsoleto en la baseline
+actual.</li>
 <li>Rutas: <code>.git/refs/heads/main</code> (actual <code>da0a449</code>).</li>
 </ul>
 </li>
 <li><strong>DW-DASH-H2 — Propiar/formatear/mantener el contract test de collectors</strong> · <code>done</code> (resolved)<ul>
-<li>Resolución: <code>dashboard-collectors-contract.test.mjs</code> ya está trackeado y commiteado (no untracked), así
-que desapareció la preocupación de procedencia. Corre en verde en el loop de verificación autodetectado y
-pasa <code>biome check</code>; no hace falta otra decisión humana.</li>
+<li>Resolución: <code>dashboard-collectors-contract.test.mjs</code> ya está trackeado y commiteado (no untracked), así que
+desapareció la preocupación de procedencia. Corre en verde en el loop de verificación autodetectado y pasa
+<code>biome check</code>; no hace falta otra decisión humana.</li>
 <li>Rutas: <code>extensions/pandi-dynamic-workflows/tests/integration/dashboard-collectors-contract.test.mjs</code>.</li>
 </ul>
 </li>
 <li><strong>DW-DASH-H3 — Atajo para saltar al próximo run activo en Runs/Activity</strong> · <code>done</code><ul>
 <li>Por qué: un keybinding para saltar al próximo run activo acelera el monitoreo de listas largas.</li>
 <li>Resolución: se implementó SIN tocar el archivo caliente <code>index.ts</code>. El dashboard concentra toda la navegación
-intra-componente en <code>workflow-dashboard.ts handleInput</code> (<code>index.ts</code> solo registra <code>Ctrl+Alt+W</code> para abrirlo),
-así que la hipótesis original de que tocaría <code>index.ts</code> era incorrecta. <code>]</code> / <code>[</code> ahora mueven la selección al
-próximo/anterior run <strong>running</strong> en la pestaña Runs y a la próxima/anterior entrada running en Activity
-(con wrap; no-op si no hay nada en ejecución), en espejo con el ciclo <code>[</code> / <code>]</code> de Monitor y con <code>f</code> en Agents.
-Quedó cubierto por <code>dashboard-jump-active-run.test.mjs</code> (9 checks); también se actualizó el overlay de ayuda y
-la barra de ayuda por pestaña.</li>
+intra-componente en <code>workflow-dashboard.ts handleInput</code> (<code>index.ts</code> solo registra <code>Ctrl+Alt+W</code> para abrirlo), así
+que la hipótesis original de que tocaría <code>index.ts</code> era incorrecta. <code>]</code> / <code>[</code> ahora mueven la selección al
+próximo/anterior run <strong>running</strong> en la pestaña Runs y a la próxima/anterior entrada running en Activity (con wrap;
+no-op si no hay nada en ejecución), en espejo con el ciclo <code>[</code> / <code>]</code> de Monitor y con <code>f</code> en Agents. Quedó cubierto
+por <code>dashboard-jump-active-run.test.mjs</code> (9 checks); también se actualizó el overlay de ayuda y la barra de ayuda
+por pestaña.</li>
 <li>Rutas: <code>extensions/pandi-dynamic-workflows/workflow-dashboard.ts</code>,
 <code>extensions/pandi-dynamic-workflows/tests/integration/dashboard-jump-active-run.test.mjs</code>.</li>
 </ul>

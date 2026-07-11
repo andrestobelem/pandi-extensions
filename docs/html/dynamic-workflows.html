@@ -153,7 +153,11 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	<header>
 		<div class="kicker">docs</div>
 		<h1>Dynamic Workflows — guía completa</h1>
-		<p class="lede">Un Dynamic Workflow es un <strong>script JavaScript confiable</strong> que Pi ejecuta para orquestar trabajo grande entre muchos subagentes. Conviene cuando una sola conversación no alcanza: necesitás repartir trabajo en paralelo con varios agentes <code>pi -p</code>, cubrir muchos ítems independientes o pedir verificación adversarial antes de decidir. Pensalo como <strong>MapReduce con agentes</strong>: <code>map</code> ejecuta muchos subagentes en paralelo sobre unidades independientes, y <code>reduce</code> hace la síntesis final para combinar resultados, resolver contradicciones y priorizar.</p>
+		<p class="lede">Un Dynamic Workflow es un <strong>script JavaScript confiable</strong> que Pi ejecuta para orquestar trabajo grande entre muchos
+subagentes. Conviene cuando una sola conversación no alcanza: necesitás repartir trabajo en paralelo con varios agentes
+<code>pi -p</code>, cubrir muchos ítems independientes o pedir verificación adversarial antes de decidir. Pensalo como <strong>MapReduce
+con agentes</strong>: <code>map</code> ejecuta muchos subagentes en paralelo sobre unidades independientes, y <code>reduce</code> hace la síntesis
+final para combinar resultados, resolver contradicciones y priorizar.</p>
 	</header>
 	<main>
 <nav class="toc">
@@ -172,9 +176,12 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<li><a href="#seguridad-y-costo">Seguridad y costo</a></li>
 	</ol>
 </nav>
-<p>Esta es la referencia profunda de la extensión <code>pandi-dynamic-workflows</code>. El <a href="index.html"><code>README.md</code></a> raíz tiene el resumen corto, y <a href="../extensions/pandi-dynamic-workflows/README.md"><code>extensions/pandi-dynamic-workflows/README.md</code></a> documenta el paquete instalable.</p>
+<p>Esta es la referencia profunda de la extensión <code>pandi-dynamic-workflows</code>. El <a href="index.html"><code>README.md</code></a> raíz tiene el
+resumen corto, y <a href="../extensions/pandi-dynamic-workflows/README.md"><code>extensions/pandi-dynamic-workflows/README.md</code></a>
+documenta el paquete instalable.</p>
 <h2 id="en-30-segundos">En 30 segundos</h2>
-<p>Un workflow es un módulo JS cuyo export por defecto es una función <code>async</code>. Lee su entrada desde la global <code>args</code> y llama helpers inyectados (<code>agent</code>, <code>agents</code>, <code>log</code>, <code>writeArtifact</code>, …): no usa <code>import</code>/<code>require</code>, ni <code>ctx</code>.</p>
+<p>Un workflow es un módulo JS cuyo export por defecto es una función <code>async</code>. Lee su entrada desde la global <code>args</code> y
+llama helpers inyectados (<code>agent</code>, <code>agents</code>, <code>log</code>, <code>writeArtifact</code>, …): no usa <code>import</code>/<code>require</code>, ni <code>ctx</code>.</p>
 <pre><code class="hljs language-js"><span class="hljs-comment">// .pi/workflows/drafts/review-two-files.js</span>
 <span class="hljs-comment">// El export default NO debe llamarse `workflow` (pisaría la global de composición).</span>
 <span class="hljs-comment">// Usá `main` — o un script top-level que termine en `return`.</span>
@@ -182,8 +189,18 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
   <span class="hljs-keyword">await</span> <span class="hljs-title function_">log</span>(<span class="hljs-string">&quot;start&quot;</span>, { args });
 
   <span class="hljs-keyword">const</span> items = [
-    { <span class="hljs-attr">label</span>: <span class="hljs-string">&quot;a&quot;</span>, <span class="hljs-attr">prompt</span>: <span class="hljs-string">&quot;Revisá src/a.ts en busca de bugs&quot;</span>, <span class="hljs-attr">tools</span>: [<span class="hljs-string">&quot;read&quot;</span>, <span class="hljs-string">&quot;grep&quot;</span>, <span class="hljs-string">&quot;find&quot;</span>, <span class="hljs-string">&quot;ls&quot;</span>], <span class="hljs-attr">agentType</span>: <span class="hljs-string">&quot;reviewer&quot;</span> },
-    { <span class="hljs-attr">label</span>: <span class="hljs-string">&quot;b&quot;</span>, <span class="hljs-attr">prompt</span>: <span class="hljs-string">&quot;Revisá src/b.ts en busca de bugs&quot;</span>, <span class="hljs-attr">tools</span>: [<span class="hljs-string">&quot;read&quot;</span>, <span class="hljs-string">&quot;grep&quot;</span>, <span class="hljs-string">&quot;find&quot;</span>, <span class="hljs-string">&quot;ls&quot;</span>], <span class="hljs-attr">agentType</span>: <span class="hljs-string">&quot;reviewer&quot;</span> },
+    {
+      <span class="hljs-attr">label</span>: <span class="hljs-string">&quot;a&quot;</span>,
+      <span class="hljs-attr">prompt</span>: <span class="hljs-string">&quot;Revisá src/a.ts en busca de bugs&quot;</span>,
+      <span class="hljs-attr">tools</span>: [<span class="hljs-string">&quot;read&quot;</span>, <span class="hljs-string">&quot;grep&quot;</span>, <span class="hljs-string">&quot;find&quot;</span>, <span class="hljs-string">&quot;ls&quot;</span>],
+      <span class="hljs-attr">agentType</span>: <span class="hljs-string">&quot;reviewer&quot;</span>,
+    },
+    {
+      <span class="hljs-attr">label</span>: <span class="hljs-string">&quot;b&quot;</span>,
+      <span class="hljs-attr">prompt</span>: <span class="hljs-string">&quot;Revisá src/b.ts en busca de bugs&quot;</span>,
+      <span class="hljs-attr">tools</span>: [<span class="hljs-string">&quot;read&quot;</span>, <span class="hljs-string">&quot;grep&quot;</span>, <span class="hljs-string">&quot;find&quot;</span>, <span class="hljs-string">&quot;ls&quot;</span>],
+      <span class="hljs-attr">agentType</span>: <span class="hljs-string">&quot;reviewer&quot;</span>,
+    },
   ];
 
   <span class="hljs-keyword">const</span> reviews = <span class="hljs-keyword">await</span> <span class="hljs-title function_">agents</span>(items, { <span class="hljs-attr">concurrency</span>: <span class="hljs-number">2</span>, <span class="hljs-attr">settle</span>: <span class="hljs-literal">true</span> }); <span class="hljs-comment">// fan-out; fallas → null</span>
@@ -196,17 +213,22 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <p>Ejecutalo (en una sesión TUI/RPC persistente esto arranca en <strong>background</strong> y devuelve <code>runId</code> al instante):</p>
 <pre><code class="hljs language-text">/workflow run review-two-files
 /workflow view latest</code></pre>
-<p>Ese es todo el ciclo — <strong>explorar → fan out → sintetizar → persistir artifacts</strong>. El resto de esta guía solo completa los conceptos, la referencia de primitivas y los detalles operativos.</p>
+<p>Ese es todo el ciclo — <strong>explorar → fan out → sintetizar → persistir artifacts</strong>. El resto de esta guía solo completa
+los conceptos, la referencia de primitivas y los detalles operativos.</p>
 <h2 id="la-forma-típica">La forma típica</h2>
 <ul>
 <li><strong>Exploración barata</strong>: primero descubrí la lista real de trabajo (<code>git ls-files</code>, diff, grep, glob, etc.).</li>
 <li><strong>Fan-out controlado</strong>: distribuí archivos, temas, hipótesis o perspectivas entre subagentes en paralelo.</li>
-<li><strong>Evidencia obligatoria</strong>: cada rama debe devolver datos verificables — archivo/línea, URL, comando observado o <code>NO_FINDINGS</code> / <code>INSUFFICIENT_EVIDENCE</code>.</li>
-<li><strong>Artifacts fuera del chat</strong>: persistí los resultados intermedios en el directorio del run en lugar de depender del contexto conversacional.</li>
-<li><strong>Síntesis como juez</strong>: un agente final deduplica, descarta afirmaciones sin respaldo, preserva la incertidumbre y devuelve una conclusión priorizada.</li>
+<li><strong>Evidencia obligatoria</strong>: cada rama debe devolver datos verificables — archivo/línea, URL, comando observado o
+<code>NO_FINDINGS</code> / <code>INSUFFICIENT_EVIDENCE</code>.</li>
+<li><strong>Artifacts fuera del chat</strong>: persistí los resultados intermedios en el directorio del run en lugar de depender del
+contexto conversacional.</li>
+<li><strong>Síntesis como juez</strong>: un agente final deduplica, descarta afirmaciones sin respaldo, preserva la incertidumbre y
+devuelve una conclusión priorizada.</li>
 </ul>
 <h2 id="cuándo-usarlos">Cuándo usarlos</h2>
-<p>Usá un workflow solo cuando haya una razón real de orquestación; una edición chica, una pregunta simple o unos pocos tool calls directos son mejor como single-agent.</p>
+<p>Usá un workflow solo cuando haya una razón real de orquestación; una edición chica, una pregunta simple o unos pocos
+tool calls directos son mejor como single-agent.</p>
 <div class="table-scroll"><table>
 <thead>
 <tr>
@@ -232,7 +254,8 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </tr>
 </tbody></table></div>
 <h2 id="qué-primitiva-uso">Qué primitiva uso?</h2>
-<p>Todo se compone desde <code>agent()</code> (una unidad de trabajo del modelo). Elegí la primitiva de mayor nivel según la forma del trabajo:</p>
+<p>Todo se compone desde <code>agent()</code> (una unidad de trabajo del modelo). Elegí la primitiva de mayor nivel según la forma del
+trabajo:</p>
 <pre class="mermaid">flowchart TD
   start([Tengo trabajo para orquestar]) --&gt; many{¿Más de&lt;br/&gt;un ítem?}
   many -- no --&gt; agent["agent()&lt;br/&gt;un subagente"]
@@ -246,12 +269,18 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
   start --&gt; compose{¿Subworkflow reutilizable,&lt;br/&gt;sin decisión humana entre medio?}
   compose -- yes --&gt; workflow["workflow()&lt;br/&gt;composición inline"]</pre>
 <ul>
-<li><strong><code>race</code> vs un juez</strong>: <code>race</code> optimiza la <em>latencia</em> (gana la primera respuesta aceptada). Elegir la <em>mejor por calidad</em> es un juez (<code>tournament</code>, <code>judge-escalate</code>) que necesita ver todos los candidatos.</li>
-<li><strong><code>parallel</code> vs <code>pipeline</code></strong>: usá <code>parallel</code> solo para una barrera real (dedup/merge global, early-exit con total cero, ranking cruzado entre ramas). <code>parallel → transform-with-no-cross-item-dependency → parallel</code> debería ser UN <code>pipeline</code>.</li>
-<li><strong><code>workflow</code> vs corridas secuenciadas</strong>: si entre dos subpasos no hay una decisión humana/externa, componé con <code>workflow()</code> en una sola corrida; si tenés que leer resultados y decidir la fase siguiente, encadená corridas separadas (<code>action=start/run</code> + <code>action=view</code>).</li>
+<li><strong><code>race</code> vs un juez</strong>: <code>race</code> optimiza la <em>latencia</em> (gana la primera respuesta aceptada). Elegir la <em>mejor por
+calidad</em> es un juez (<code>tournament</code>, <code>judge-escalate</code>) que necesita ver todos los candidatos.</li>
+<li><strong><code>parallel</code> vs <code>pipeline</code></strong>: usá <code>parallel</code> solo para una barrera real (dedup/merge global, early-exit con total
+cero, ranking cruzado entre ramas). <code>parallel → transform-with-no-cross-item-dependency → parallel</code> debería ser UN
+<code>pipeline</code>.</li>
+<li><strong><code>workflow</code> vs corridas secuenciadas</strong>: si entre dos subpasos no hay una decisión humana/externa, componé con
+<code>workflow()</code> en una sola corrida; si tenés que leer resultados y decidir la fase siguiente, encadená corridas
+separadas (<code>action=start/run</code> + <code>action=view</code>).</li>
 </ul>
 <h2 id="ciclo-de-ejecución">Ciclo de ejecución</h2>
-<p>Cuando lanzás un workflow (<code>/workflow run</code>/<code>start</code> o <code>dynamic_workflow action=run</code>/<code>start</code>), la extensión ejecuta este ciclo:</p>
+<p>Cuando lanzás un workflow (<code>/workflow run</code>/<code>start</code> o <code>dynamic_workflow action=run</code>/<code>start</code>), la extensión ejecuta este
+ciclo:</p>
 <pre class="mermaid">flowchart TD
   launch([run / start]) --&gt; resolve[1. Resolver workflow&lt;br/&gt;por nombre: project + global]
   resolve --&gt; create[2. Crear run: runId +&lt;br/&gt;.pi/workflows/runs/&amp;lt;run-id&amp;gt;/]
@@ -264,13 +293,20 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <p>Detalles de cada paso:</p>
 <ol>
 <li><strong>Resuelve el workflow</strong> por nombre, buscando workflows del proyecto y globales.</li>
-<li><strong>Crea una corrida</strong> con un <code>runId</code> y su propio directorio bajo <code>.pi/workflows/runs/&lt;run-id&gt;/</code> (o el root global equivalente).</li>
+<li><strong>Crea una corrida</strong> con un <code>runId</code> y su propio directorio bajo <code>.pi/workflows/runs/&lt;run-id&gt;/</code> (o el root global
+equivalente).</li>
 <li><strong>Persiste el estado inicial</strong>: <code>input.json</code>, <code>status.json</code>, <code>events.jsonl</code>, <code>codeHash</code> y una carpeta <code>agents/</code>.</li>
-<li><strong>Ejecuta el JS en un Worker</strong> con <strong>globals inyectadas</strong> (sin <code>ctx</code>, sin <code>import</code>/<code>require</code>). El workflow nunca importa Pi: llama helpers como <code>agent</code>, <code>agents</code>, <code>bash</code>, <code>writeArtifact</code> y <code>log</code>, y lee su entrada desde la global <code>args</code>.</li>
-<li><strong>Crea subagentes</strong>: cada <code>agent()</code> ejecuta un proceso <code>pi -p --no-session --mode json</code> con prompt, tools, skills, extensions, keys/env, model, effort y timeouts configurables.</li>
-<li><strong>Aplica límites</strong>: <code>concurrency</code> limita cuántos subagentes corren a la vez; <code>maxAgents</code> limita el total de subagentes que un run puede gastar; los timeouts matan agentes o workflows colgados.</li>
-<li><strong>Guarda progreso y artifacts</strong>: logs en <code>events.jsonl</code>, estado en <code>status.json</code>, salidas de subagentes en <code>agents/*.md</code>, más los artifacts definidos por el workflow.</li>
-<li><strong>Devuelve el resultado final</strong>: el valor de retorno del workflow se guarda en <code>result.json</code> y se muestra como resumen.</li>
+<li><strong>Ejecuta el JS en un Worker</strong> con <strong>globals inyectadas</strong> (sin <code>ctx</code>, sin <code>import</code>/<code>require</code>). El workflow nunca
+importa Pi: llama helpers como <code>agent</code>, <code>agents</code>, <code>bash</code>, <code>writeArtifact</code> y <code>log</code>, y lee su entrada desde la global
+<code>args</code>.</li>
+<li><strong>Crea subagentes</strong>: cada <code>agent()</code> ejecuta un proceso <code>pi -p --no-session --mode json</code> con prompt, tools, skills,
+extensions, keys/env, model, effort y timeouts configurables.</li>
+<li><strong>Aplica límites</strong>: <code>concurrency</code> limita cuántos subagentes corren a la vez; <code>maxAgents</code> limita el total de
+subagentes que un run puede gastar; los timeouts matan agentes o workflows colgados.</li>
+<li><strong>Guarda progreso y artifacts</strong>: logs en <code>events.jsonl</code>, estado en <code>status.json</code>, salidas de subagentes en
+<code>agents/*.md</code>, más los artifacts definidos por el workflow.</li>
+<li><strong>Devuelve el resultado final</strong>: el valor de retorno del workflow se guarda en <code>result.json</code> y se muestra como
+resumen.</li>
 </ol>
 <h2 id="api-de-globals-inyectadas">API de globals inyectadas</h2>
 <p>Estas globals son toda la interfaz de autoría. Las más importantes:</p>
@@ -320,26 +356,49 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </tbody></table></div>
 <p>Más sobre las claves:</p>
 <ul>
-<li><code>agent(prompt, opts)</code> — <strong>desenvuelve</strong> el resultado: texto plano sin schema, el objeto parseado con <code>{ schema }</code>, o <code>null</code> si el subagente falla. Cachea por defecto para resume; podés desactivarlo por llamada con <code>{ cache: false }</code>.</li>
-<li><code>agent(prompt, { schema })</code> — pide JSON validado y <strong>devuelve directamente el objeto parseado</strong>; reintenta con <code>schemaRetries</code> (default <code>2</code>). Si la salida no valida, el default (<code>schemaOnInvalid: &quot;throw&quot;</code>) lanza un error; usá <code>schemaOnInvalid: &quot;null&quot;</code> para recibir <code>null</code>. Para el envelope completo (<code>output</code>/<code>data</code>/<code>schemaOk</code>) usá el plural <code>agents([...])</code>.</li>
-<li><code>agent(prompt, { agentType: &quot;reviewer&quot; })</code> — aplica defaults de persona (<code>explore</code>, <code>reviewer</code>, <code>planner</code>, <code>architect</code>, <code>implementer</code>, <code>researcher</code>); las opciones explícitas ganan.</li>
-<li><code>agents(items, { concurrency, settle: true })</code> — una rama fallida no hunde el batch; devuelve <code>Array&lt;SubagentResult | null&gt;</code> con <code>null</code> para las ramas fallidas.</li>
-<li><code>pipeline(items, ...stages)</code> — flujo multi-etapa por ítem sin barrera global; cada etapa recibe <code>(prev, item, index)</code> y los ítems fallidos devuelven <code>null</code>.</li>
-<li><code>parallel([async () =&gt; ...])</code> — barrera explícita con concurrencia local acotada; cada thunk fallido devuelve <code>null</code>. Usalo solo cuando una etapa posterior necesite todos los resultados juntos.</li>
-<li><code>race(thunks, { accept? })</code> — abre N ramas y, en cuanto una produce un valor aceptado (por defecto <code>!= null</code>), <strong>cancela los perdedores en vuelo</strong> (SIGTERM real al subproceso, vía el <code>AbortSignal</code> que recibe cada thunk); devuelve <code>{ winner, index, status }</code> (<code>status: &quot;won&quot; | &quot;empty&quot;</code>). Forma típica: <code>race(items.map((s) =&gt; (signal) =&gt; agent(prompt, { signal })))</code>.</li>
-<li><code>ask(question, opts?)</code> — pausa una rama para preguntarle a una persona (<code>kind: &quot;input&quot; | &quot;confirm&quot; | &quot;select&quot;</code>, inferido desde <code>choices</code>/<code>default</code>). <strong>Seguro para resume</strong>: la respuesta queda journaled y se reutiliza al reanudar sin volver a preguntar. En modo headless (<code>hasUI=false</code>) devuelve <code>opts.default</code> o lanza un error claro; nunca queda colgado. Se puede cancelar dentro de <code>race()</code> con <code>{ signal }</code>.</li>
-<li><code>workflow(name, args)</code> — compone un sub-workflow reutilizable inline (profundidad 1), compartiendo el mismo run, límites, abort y cache/journal; emite eventos <code>workflow</code> para auditabilidad. Usalo para bibliotecas como <code>lib/verify-claims</code>, no para fases que necesitan una decisión humana en el medio.</li>
+<li><code>agent(prompt, opts)</code> — <strong>desenvuelve</strong> el resultado: texto plano sin schema, el objeto parseado con <code>{ schema }</code>, o
+<code>null</code> si el subagente falla. Cachea por defecto para resume; podés desactivarlo por llamada con <code>{ cache: false }</code>.</li>
+<li><code>agent(prompt, { schema })</code> — pide JSON validado y <strong>devuelve directamente el objeto parseado</strong>; reintenta con
+<code>schemaRetries</code> (default <code>2</code>). Si la salida no valida, el default (<code>schemaOnInvalid: &quot;throw&quot;</code>) lanza un error; usá
+<code>schemaOnInvalid: &quot;null&quot;</code> para recibir <code>null</code>. Para el envelope completo (<code>output</code>/<code>data</code>/<code>schemaOk</code>) usá el plural
+<code>agents([...])</code>.</li>
+<li><code>agent(prompt, { agentType: &quot;reviewer&quot; })</code> — aplica defaults de persona (<code>explore</code>, <code>reviewer</code>, <code>planner</code>,
+<code>architect</code>, <code>implementer</code>, <code>researcher</code>); las opciones explícitas ganan.</li>
+<li><code>agents(items, { concurrency, settle: true })</code> — una rama fallida no hunde el batch; devuelve
+<code>Array&lt;SubagentResult | null&gt;</code> con <code>null</code> para las ramas fallidas.</li>
+<li><code>pipeline(items, ...stages)</code> — flujo multi-etapa por ítem sin barrera global; cada etapa recibe <code>(prev, item, index)</code>
+y los ítems fallidos devuelven <code>null</code>.</li>
+<li><code>parallel([async () =&gt; ...])</code> — barrera explícita con concurrencia local acotada; cada thunk fallido devuelve <code>null</code>.
+Usalo solo cuando una etapa posterior necesite todos los resultados juntos.</li>
+<li><code>race(thunks, { accept? })</code> — abre N ramas y, en cuanto una produce un valor aceptado (por defecto <code>!= null</code>),
+<strong>cancela los perdedores en vuelo</strong> (SIGTERM real al subproceso, vía el <code>AbortSignal</code> que recibe cada thunk); devuelve
+<code>{ winner, index, status }</code> (<code>status: &quot;won&quot; | &quot;empty&quot;</code>). Forma típica:
+<code>race(items.map((s) =&gt; (signal) =&gt; agent(prompt, { signal })))</code>.</li>
+<li><code>ask(question, opts?)</code> — pausa una rama para preguntarle a una persona (<code>kind: &quot;input&quot; | &quot;confirm&quot; | &quot;select&quot;</code>,
+inferido desde <code>choices</code>/<code>default</code>). <strong>Seguro para resume</strong>: la respuesta queda journaled y se reutiliza al reanudar
+sin volver a preguntar. En modo headless (<code>hasUI=false</code>) devuelve <code>opts.default</code> o lanza un error claro; nunca queda
+colgado. Se puede cancelar dentro de <code>race()</code> con <code>{ signal }</code>.</li>
+<li><code>workflow(name, args)</code> — compone un sub-workflow reutilizable inline (profundidad 1), compartiendo el mismo run,
+límites, abort y cache/journal; emite eventos <code>workflow</code> para auditabilidad. Usalo para bibliotecas como
+<code>lib/verify-claims</code>, no para fases que necesitan una decisión humana en el medio.</li>
 </ul>
 <p>Helpers de apoyo:</p>
 <ul>
-<li><code>bash(command, opts)</code> — ejecuta shell desde el cwd del workflow; solo cacheable con <code>{ cache: true }</code> (comandos determinísticos only).</li>
+<li><code>bash(command, opts)</code> — ejecuta shell desde el cwd del workflow; solo cacheable con <code>{ cache: true }</code> (comandos
+determinísticos only).</li>
 <li><code>readFile/writeFile/appendFile/listFiles</code> — helpers de archivos confinados al cwd del workflow.</li>
-<li><code>writeArtifact/appendArtifact</code> — persiste datos del run fuera del chat (idempotente; no cacheado, reescrito al resume).</li>
+<li><code>writeArtifact/appendArtifact</code> — persiste datos del run fuera del chat (idempotente; no cacheado, reescrito al
+resume).</li>
 <li><code>log(message, details)</code> — registra progreso visible en el dashboard, la status line y <code>events.jsonl</code>.</li>
-<li><code>sleep(ms)</code> — pausa la rama actual durante <code>ms</code> milisegundos, por ejemplo para backoff entre probes de polling; abortable (resuelve antes/rechaza si el run/rama se aborta) y nunca cacheado, así que siempre se re-ejecuta al resume.</li>
-<li><code>phase(label)</code> — define una etiqueta liviana para las llamadas que siguen, visible en el dashboard como <code>P&lt;phase&gt; 1/n</code>, <code>P&lt;phase&gt; 2/n</code>, etc. en los agentes lanzados por la misma llamada a <code>agents(...)</code>; llamá <code>phase(null)</code> para limpiarla.</li>
-<li><code>compact(value, maxChars)</code> — serializa y trunca resultados grandes para pasárselos a una síntesis. <code>json(value, maxChars)</code> es un alias (misma serialización/truncado).</li>
-<li><code>args</code> — la entrada del workflow; <code>limits</code> — límites efectivos de solo lectura del run (<code>concurrency</code>, <code>maxAgents</code>, timeouts).</li>
+<li><code>sleep(ms)</code> — pausa la rama actual durante <code>ms</code> milisegundos, por ejemplo para backoff entre probes de polling;
+abortable (resuelve antes/rechaza si el run/rama se aborta) y nunca cacheado, así que siempre se re-ejecuta al resume.</li>
+<li><code>phase(label)</code> — define una etiqueta liviana para las llamadas que siguen, visible en el dashboard como
+<code>P&lt;phase&gt; 1/n</code>, <code>P&lt;phase&gt; 2/n</code>, etc. en los agentes lanzados por la misma llamada a <code>agents(...)</code>; llamá <code>phase(null)</code>
+para limpiarla.</li>
+<li><code>compact(value, maxChars)</code> — serializa y trunca resultados grandes para pasárselos a una síntesis.
+<code>json(value, maxChars)</code> es un alias (misma serialización/truncado).</li>
+<li><code>args</code> — la entrada del workflow; <code>limits</code> — límites efectivos de solo lectura del run (<code>concurrency</code>, <code>maxAgents</code>,
+timeouts).</li>
 </ul>
 <h3>Opciones comunes de subagentes</h3>
 <pre><code class="hljs language-js">{
@@ -355,9 +414,18 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
   <span class="hljs-attr">schemaOnInvalid</span>: <span class="hljs-string">&quot;throw&quot;</span>
 }</code></pre>
 <h3>Acceso por agente</h3>
-<p><code>tools</code>/<code>excludeTools</code> limitan las tools de Pi; por defecto, los allowlists explícitos también reciben <code>web_search</code> cuando el paquete <code>pi-codex-web-search</code> está disponible (opt out: <code>includeExtensions: false</code> o <code>excludeTools: [&quot;web_search&quot;]</code>). <code>skills: [&quot;path/to/skill&quot;]</code> carga skills explícitas (<code>includeSkills: true</code> las agrega al discovery, <code>includeSkills: false</code> lo desactiva); el discovery normal mantiene <code>context7-cli</code> disponible, y si pasás una lista explícita de skills, Dynamic Workflows agrega <code>context7-cli</code> cuando lo encuentra (opt out: <code>includeSkills: false</code>). <code>extensions: [&quot;path/to/ext.ts&quot;]</code> carga extensiones explícitas (<code>includeExtensions: true</code> habilita discovery). <code>keys: [&quot;GITHUB_TOKEN&quot;]</code> expone solo esas variables de entorno al agente en un entorno aislado (los valores se redacted en artifacts/dashboard). Usá <code>env: { NAME: &quot;value&quot; }</code> solo para inyectar un valor explícito; nunca escribas secretos en prompts.</p>
+<p><code>tools</code>/<code>excludeTools</code> limitan las tools de Pi; por defecto, los allowlists explícitos también reciben <code>web_search</code>
+cuando el paquete <code>pi-codex-web-search</code> está disponible (opt out: <code>includeExtensions: false</code> o
+<code>excludeTools: [&quot;web_search&quot;]</code>). <code>skills: [&quot;path/to/skill&quot;]</code> carga skills explícitas (<code>includeSkills: true</code> las agrega
+al discovery, <code>includeSkills: false</code> lo desactiva); el discovery normal mantiene <code>context7-cli</code> disponible, y si pasás
+una lista explícita de skills, Dynamic Workflows agrega <code>context7-cli</code> cuando lo encuentra (opt out:
+<code>includeSkills: false</code>). <code>extensions: [&quot;path/to/ext.ts&quot;]</code> carga extensiones explícitas (<code>includeExtensions: true</code>
+habilita discovery). <code>keys: [&quot;GITHUB_TOKEN&quot;]</code> expone solo esas variables de entorno al agente en un entorno aislado (los
+valores se redacted en artifacts/dashboard). Usá <code>env: { NAME: &quot;value&quot; }</code> solo para inyectar un valor explícito; nunca
+escribas secretos en prompts.</p>
 <h2 id="concurrencia">Concurrencia</h2>
-<p><code>concurrency</code> controla cuántos subagentes corren <code>pi -p</code> al mismo tiempo — no el total de trabajo. Un bug hunt de 40 archivos con <code>concurrency: 4</code> corre en olas de hasta 4 agentes simultáneos hasta terminar la lista.</p>
+<p><code>concurrency</code> controla cuántos subagentes corren <code>pi -p</code> al mismo tiempo — no el total de trabajo. Un bug hunt de 40
+archivos con <code>concurrency: 4</code> corre en olas de hasta 4 agentes simultáneos hasta terminar la lista.</p>
 <p>Límites relacionados:</p>
 <ul>
 <li><code>concurrency</code> = máximo de subagentes simultáneos (normalizado entre <code>1</code> y <code>16</code>; si no se setea, default <code>4</code>).</li>
@@ -365,13 +433,20 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li><code>maxFiles</code>, <code>angles</code>, <code>rounds</code>, etc. = límites específicos del workflow sobre la lista de trabajo.</li>
 </ul>
 <h3>Por qué el default es 4</h3>
-<p><code>4</code> es un punto seguro entre velocidad, costo y estabilidad: reduce mucho el tiempo total frente a serial sin multiplicar agresivamente el costo instantáneo, los rate limits o el ruido; protege al provider y a la máquina local de demasiados procesos <code>pi -p</code> simultáneos saturando CPU/I-O/terminales/logs; reduce fallas correlacionadas (timeouts, errores de rate limit) que crecen con el fan-out; y mantiene logs, artifacts y dashboard legibles. Es un <strong>default conservador, no una recomendación fija</strong> — los workflows largos deberían pasar límites explícitos según la tarea, el modelo y el presupuesto.</p>
+<p><code>4</code> es un punto seguro entre velocidad, costo y estabilidad: reduce mucho el tiempo total frente a serial sin
+multiplicar agresivamente el costo instantáneo, los rate limits o el ruido; protege al provider y a la máquina local de
+demasiados procesos <code>pi -p</code> simultáneos saturando CPU/I-O/terminales/logs; reduce fallas correlacionadas (timeouts,
+errores de rate limit) que crecen con el fan-out; y mantiene logs, artifacts y dashboard legibles. Es un <strong>default
+conservador, no una recomendación fija</strong> — los workflows largos deberían pasar límites explícitos según la tarea, el
+modelo y el presupuesto.</p>
 <h3>Elegir concurrencia dinámicamente</h3>
-<p>Que el default sea <code>4</code> no significa que los workflows deban hardcodear 4. Los workflows primero exploran, descubren la lista real de trabajo y recién entonces eligen el paralelismo. La decisión está por capas:</p>
+<p>Que el default sea <code>4</code> no significa que los workflows deban hardcodear 4. Los workflows primero exploran, descubren la
+lista real de trabajo y recién entonces eligen el paralelismo. La decisión está por capas:</p>
 <ul>
 <li><strong>Usuario/agente al lanzar</strong> puede pasar <code>concurrency</code> explícito cuando conoce presupuesto, provider o urgencia.</li>
 <li><strong>Runtime</strong> hace cumplir el límite efectivo (<code>limits.concurrency</code>) y el hard cap global.</li>
-<li><strong>Workflow</strong> elige una concurrencia local a partir del tamaño de la lista, el riesgo, el costo y el tipo de tarea, sin superar nunca <code>limits.concurrency</code>.</li>
+<li><strong>Workflow</strong> elige una concurrencia local a partir del tamaño de la lista, el riesgo, el costo y el tipo de tarea, sin
+superar nunca <code>limits.concurrency</code>.</li>
 </ul>
 <div class="table-scroll"><table>
 <thead>
@@ -417,8 +492,10 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <span class="hljs-keyword">const</span> reviews = <span class="hljs-keyword">await</span> <span class="hljs-title function_">agents</span>(items, { concurrency, <span class="hljs-attr">settle</span>: <span class="hljs-literal">true</span> });</code></pre>
 <ul>
 <li><code>limits.concurrency</code> es el límite efectivo del run y es de solo lectura.</li>
-<li><code>agents(..., { concurrency })</code> vuelve a clamplear, así nunca supera el límite del run; <code>pipeline()</code> y <code>parallel()</code> también usan <code>limits.concurrency</code> como su límite local.</li>
-<li>Las llamadas cacheadas al reanudar (<code>journal.jsonl</code> HIT) no ejecutan <code>pi -p</code>, así que no consumen slots de concurrencia ni cuentan contra <code>maxAgents</code>.</li>
+<li><code>agents(..., { concurrency })</code> vuelve a clamplear, así nunca supera el límite del run; <code>pipeline()</code> y <code>parallel()</code>
+también usan <code>limits.concurrency</code> como su límite local.</li>
+<li>Las llamadas cacheadas al reanudar (<code>journal.jsonl</code> HIT) no ejecutan <code>pi -p</code>, así que no consumen slots de
+concurrencia ni cuentan contra <code>maxAgents</code>.</li>
 </ul>
 <h2 id="corridas-en-background">Corridas en background</h2>
 <p>En una sesión TUI/RPC persistente, todos los workflows arrancan en background por defecto (<code>run</code>, <code>start</code> y <code>resume</code>):</p>
@@ -431,15 +508,24 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <p>Notas:</p>
 <ul>
 <li><code>run</code>/<code>start</code> devuelven enseguida el <code>runId</code>, <code>status.json</code> y el directorio de artifacts en TUI/RPC.</li>
-<li>Al completar o fallar, el workflow en background despierta al agente con un follow-up automático para inspeccionar <code>dynamic_workflow action=view name=&lt;runId&gt;</code> y continuar la tarea.</li>
-<li>En <code>/reload</code>, Pi interrumpe de forma controlada las corridas background activas y la instancia nueva las reanuda automáticamente con el mismo <code>runId</code> y los límites originales (<code>concurrency</code>, <code>maxAgents</code>, timeouts). Las llamadas ya journaled no se reejecutan; lo que estaba in-flight o no cacheado puede volver a correr, igual que en un resume manual.</li>
-<li>Si el proceso Pi se reinicia o muere, no hay handoff in-memory: una corrida incompleta aparece como <code>stale</code>. Reanudala con <code>/workflow resume &lt;runId&gt;</code> (ver &quot;Corridas reanudables&quot;).</li>
-<li>Monitoreá con <code>/workflow runs</code>, <code>/workflow view &lt;runId&gt;</code> o la pestaña <code>Monitor</code> del dashboard; cancelá con <code>/workflow cancel &lt;runId&gt;</code> o <code>dynamic_workflow action=cancel</code> (el dashboard solo cancela corridas activas en esta sesión).</li>
+<li>Al completar o fallar, el workflow en background despierta al agente con un follow-up automático para inspeccionar
+<code>dynamic_workflow action=view name=&lt;runId&gt;</code> y continuar la tarea.</li>
+<li>En <code>/reload</code>, Pi interrumpe de forma controlada las corridas background activas y la instancia nueva las reanuda
+automáticamente con el mismo <code>runId</code> y los límites originales (<code>concurrency</code>, <code>maxAgents</code>, timeouts). Las llamadas ya
+journaled no se reejecutan; lo que estaba in-flight o no cacheado puede volver a correr, igual que en un resume
+manual.</li>
+<li>Si el proceso Pi se reinicia o muere, no hay handoff in-memory: una corrida incompleta aparece como <code>stale</code>. Reanudala
+con <code>/workflow resume &lt;runId&gt;</code> (ver &quot;Corridas reanudables&quot;).</li>
+<li>Monitoreá con <code>/workflow runs</code>, <code>/workflow view &lt;runId&gt;</code> o la pestaña <code>Monitor</code> del dashboard; cancelá con
+<code>/workflow cancel &lt;runId&gt;</code> o <code>dynamic_workflow action=cancel</code> (el dashboard solo cancela corridas activas en esta
+sesión).</li>
 <li>Las corridas en background siguen gastando llamadas al modelo: usá límites explícitos.</li>
-<li><strong>Fallback en foreground</strong>: en modo print/json no hay una sesión persistente para sostener una corrida en background, así que <code>run</code> bloquea hasta completar.</li>
+<li><strong>Fallback en foreground</strong>: en modo print/json no hay una sesión persistente para sostener una corrida en background,
+así que <code>run</code> bloquea hasta completar.</li>
 </ul>
 <h2 id="corridas-reanudables-idempotentes">Corridas reanudables (idempotentes)</h2>
-<p>Cuando una corrida se interrumpe (la sesión de Pi murió y aparece <code>stale</code>, o terminó <code>failed</code>/<code>cancelled</code>), podés reanudarla sin volver a ejecutar los subagentes que ya terminaron (cada subagente es un <code>pi -p</code> caro):</p>
+<p>Cuando una corrida se interrumpe (la sesión de Pi murió y aparece <code>stale</code>, o terminó <code>failed</code>/<code>cancelled</code>), podés
+reanudarla sin volver a ejecutar los subagentes que ya terminaron (cada subagente es un <code>pi -p</code> caro):</p>
 <pre><code class="hljs language-text">/workflow resume latest              # background por defecto en TUI/RPC
 /workflow resume &lt;runId&gt;              # background por defecto en TUI/RPC
 /workflow resume &lt;runId&gt; --force       # incluso si el run ya está completed</code></pre>
@@ -447,59 +533,95 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span> <span class="hljs-attr">&quot;action&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;resume&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;&lt;runId&gt;&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;force&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span> <span class="hljs-punctuation">}</span></code></pre>
 <p>Cómo funciona:</p>
 <ul>
-<li>La corrida se reanuda <strong>en el mismo lugar</strong>: mismo <code>runId</code>, mismo directorio. Estados reanudables: <code>stale</code>, <code>failed</code>, <code>cancelled</code>. Una corrida <code>completed</code> requiere <code>force:true</code>.</li>
-<li>Cada corrida mantiene un <code>journal.jsonl</code> host-side con las llamadas completadas. La cache key es <strong>content-addressed</strong>: <code>sha256(method + normalized args)</code> con un contador por key; es correcta bajo concurrencia (<code>agents</code>) porque no depende de ids no determinísticos del host.</li>
+<li>La corrida se reanuda <strong>en el mismo lugar</strong>: mismo <code>runId</code>, mismo directorio. Estados reanudables: <code>stale</code>, <code>failed</code>,
+<code>cancelled</code>. Una corrida <code>completed</code> requiere <code>force:true</code>.</li>
+<li>Cada corrida mantiene un <code>journal.jsonl</code> host-side con las llamadas completadas. La cache key es
+<strong>content-addressed</strong>: <code>sha256(method + normalized args)</code> con un contador por key; es correcta bajo concurrencia
+(<code>agents</code>) porque no depende de ids no determinísticos del host.</li>
 <li><code>agent()</code> se cachea <strong>por defecto</strong>; desactivá por llamada con <code>agent(prompt, { cache: false })</code>.</li>
-<li>Para evitar filtrar secretos, la cache registra solo los nombres de <code>keys</code> y <code>env</code> redacted (<code>[set]</code>), nunca los valores; si un resultado depende del valor exacto/rotado de una credencial, usá <code>{ cache: false }</code>.</li>
-<li><code>bash()</code> se cachea solo <strong>opt-in</strong> con <code>bash(cmd, { cache: true })</code> (solo comandos determinísticos y sin side effects).</li>
+<li>Para evitar filtrar secretos, la cache registra solo los nombres de <code>keys</code> y <code>env</code> redacted (<code>[set]</code>), nunca los
+valores; si un resultado depende del valor exacto/rotado de una credencial, usá <code>{ cache: false }</code>.</li>
+<li><code>bash()</code> se cachea solo <strong>opt-in</strong> con <code>bash(cmd, { cache: true })</code> (solo comandos determinísticos y sin side
+effects).</li>
 <li><code>writeArtifact</code>/<code>writeFile</code> no se cachean: se reejecutan, y reescribir es idempotente. <code>log</code>/<code>sleep</code> nunca se cachean.</li>
 <li>Una llamada cacheada (HIT) no gasta un <code>pi -p</code> y no cuenta contra <code>maxAgents</code>.</li>
-<li>Una llamada que estaba <strong>in flight</strong> cuando murió la sesión no tiene registro en el journal: se reejecuta (costo: una llamada). Una llamada completada nunca se duplica.</li>
-<li><strong>Determinismo</strong>: la cache de una llamada depende exactamente de sus argumentos. Si construís el prompt o el comando con <code>Date.now()</code> o <code>Math.random()</code>, esa llamada cambia argumentos en cada intento y se reejecuta al resume (cache miss). Es una degradación segura: nunca da un resultado incorrecto, solo una reejecución.</li>
-<li>Un <code>codeHash</code> del workflow (sobre el código transformado) se guarda en <code>status.json</code>/<code>result.json</code> y en cada registro del journal. Si el código cambió desde la corrida original, <code>/workflow view</code> y resume avisan: las llamadas cuyos argumentos cambiaron se reejecutan (miss); el resto queda cacheado.</li>
-<li><code>/workflow runs</code> marca las corridas reanudables con <code>resumable</code> y muestra <code>cached:N</code>; <code>/workflow view &lt;runId&gt;</code> agrega una línea <code>Resume: /workflow resume &lt;runId&gt;</code>, el <code>codeHash</code>, el conteo de llamadas cacheadas y el aviso de cambio de código.</li>
+<li>Una llamada que estaba <strong>in flight</strong> cuando murió la sesión no tiene registro en el journal: se reejecuta (costo: una
+llamada). Una llamada completada nunca se duplica.</li>
+<li><strong>Determinismo</strong>: la cache de una llamada depende exactamente de sus argumentos. Si construís el prompt o el comando
+con <code>Date.now()</code> o <code>Math.random()</code>, esa llamada cambia argumentos en cada intento y se reejecuta al resume (cache
+miss). Es una degradación segura: nunca da un resultado incorrecto, solo una reejecución.</li>
+<li>Un <code>codeHash</code> del workflow (sobre el código transformado) se guarda en <code>status.json</code>/<code>result.json</code> y en cada registro
+del journal. Si el código cambió desde la corrida original, <code>/workflow view</code> y resume avisan: las llamadas cuyos
+argumentos cambiaron se reejecutan (miss); el resto queda cacheado.</li>
+<li><code>/workflow runs</code> marca las corridas reanudables con <code>resumable</code> y muestra <code>cached:N</code>; <code>/workflow view &lt;runId&gt;</code> agrega
+una línea <code>Resume: /workflow resume &lt;runId&gt;</code>, el <code>codeHash</code>, el conteo de llamadas cacheadas y el aviso de cambio de
+código.</li>
 <li>Atomicidad: <code>status.json</code>/<code>result.json</code> se escriben con temp+rename para que un crash no los corrompa.</li>
 </ul>
 <h2 id="catálogo-de-patrones-y-casos-de-uso">Catálogo de patrones y casos de uso</h2>
-<p>La pestaña <code>Patterns</code> y <code>/workflow patterns</code> muestran todos los scaffolds y casos de uso registrados. Los scaffolds se distribuyen como assets ejecutables <code>.js</code>, incluidos en el paquete y cargados de forma lazy desde la extensión; no dependen de archivos bajo <code>examples/workflows/</code>. Las claves del catálogo SON los nombres de archivo de los scaffolds (1:1, sin alias):</p>
+<p>La pestaña <code>Patterns</code> y <code>/workflow patterns</code> muestran todos los scaffolds y casos de uso registrados. Los scaffolds se
+distribuyen como assets ejecutables <code>.js</code>, incluidos en el paquete y cargados de forma lazy desde la extensión; no
+dependen de archivos bajo <code>examples/workflows/</code>. Las claves del catálogo SON los nombres de archivo de los scaffolds
+(1:1, sin alias):</p>
 <ul>
-<li><strong>Scaffolds primarios (12)</strong>: <code>fan-out-and-synthesize</code>, <code>scout-fanout</code>, <code>loop-until-dry</code>, <code>react-scout</code>, <code>adversarial-verify</code>, <code>judge-escalate</code>, <code>tournament</code>, <code>self-consistency</code>, <code>tree-of-thoughts</code>, <code>self-refine</code>, <code>reflexion</code>, <code>map-reduce</code>.</li>
-<li><strong>Scaffolds de composición (7)</strong>: <code>guardrails</code>, <code>router</code>, <code>orchestrator-workers</code>, <code>composition-driver</code>, <code>verify-claims-lib</code>, <code>workflow-factory</code>, <code>recursive-compose</code>.</li>
-<li><strong>Casos de uso (6)</strong>: <code>contract-gate</code>, <code>repo-bug-hunt</code>, <code>complex-research</code>, <code>bug-verify</code>, <code>adversarial-plan-review</code>, <code>large-migration</code>.</li>
+<li><strong>Scaffolds primarios (12)</strong>: <code>fan-out-and-synthesize</code>, <code>scout-fanout</code>, <code>loop-until-dry</code>, <code>react-scout</code>,
+<code>adversarial-verify</code>, <code>judge-escalate</code>, <code>tournament</code>, <code>self-consistency</code>, <code>tree-of-thoughts</code>, <code>self-refine</code>,
+<code>reflexion</code>, <code>map-reduce</code>.</li>
+<li><strong>Scaffolds de composición (7)</strong>: <code>guardrails</code>, <code>router</code>, <code>orchestrator-workers</code>, <code>composition-driver</code>,
+<code>verify-claims-lib</code>, <code>workflow-factory</code>, <code>recursive-compose</code>.</li>
+<li><strong>Casos de uso (6)</strong>: <code>contract-gate</code>, <code>repo-bug-hunt</code>, <code>complex-research</code>, <code>bug-verify</code>, <code>adversarial-plan-review</code>,
+<code>large-migration</code>.</li>
 </ul>
-<p>Un naming anterior, al estilo Claude (<code>classify-and-act</code>, <code>adversarial-verification</code>, <code>generate-and-filter</code>, <code>tournaments</code>, <code>loop-until-done</code>, <code>compose-verify-claims</code>, <code>lib-verify-claims</code>, <code>bug-hunt-repo-audit</code>, <code>plan-review</code>, <code>claim-bug-verification</code>) quedó retirado por el refactor de interfaz única y ya no resuelve como alias de patrón. Los intents legacy <code>deep-research</code> y <code>default</code> siguen vivos como skills que enrutan a <code>complex-research</code> y <code>fan-out-and-synthesize</code> respectivamente.</p>
+<p>Un naming anterior, al estilo Claude (<code>classify-and-act</code>, <code>adversarial-verification</code>, <code>generate-and-filter</code>,
+<code>tournaments</code>, <code>loop-until-done</code>, <code>compose-verify-claims</code>, <code>lib-verify-claims</code>, <code>bug-hunt-repo-audit</code>, <code>plan-review</code>,
+<code>claim-bug-verification</code>) quedó retirado por el refactor de interfaz única y ya no resuelve como alias de patrón. Los
+intents legacy <code>deep-research</code> y <code>default</code> siguen vivos como skills que enrutan a <code>complex-research</code> y
+<code>fan-out-and-synthesize</code> respectivamente.</p>
 <h3>Plantillas apoyadas en research</h3>
 <p>Mapeo de papers/frameworks comunes de agentes al diseño de workflows en Pi:</p>
 <ul>
 <li><strong>ReAct</strong> -&gt; scoutear/observar con tools antes del fan-out; mantener el razonamiento atado a la evidencia.</li>
-<li><strong>Self-consistency</strong> -&gt; muestrear ramas independientes y luego elegir por consistencia/evidencia, en vez de confiar en un solo camino.</li>
-<li><strong>Reflexion / Self-Refine</strong> -&gt; loops de generate -&gt; critique -&gt; refine, siempre acotados por rondas, quiet stops, <code>maxAgents</code> y timeout.</li>
+<li><strong>Self-consistency</strong> -&gt; muestrear ramas independientes y luego elegir por consistencia/evidencia, en vez de confiar en
+un solo camino.</li>
+<li><strong>Reflexion / Self-Refine</strong> -&gt; loops de generate -&gt; critique -&gt; refine, siempre acotados por rondas, quiet stops,
+<code>maxAgents</code> y timeout.</li>
 <li><strong>Tree of Thoughts</strong> -&gt; ramificar alternativas, evaluar/podar con un juez y luego comprometerse con un camino.</li>
 <li><strong>Multiagent debate</strong> -&gt; reviewers adversariales más síntesis-como-juez; los claims sin soporte se descartan.</li>
 <li><strong>AutoGen / CAMEL / MetaGPT</strong> -&gt; roles explícitos, artifacts estables y contratos de handoff claros.</li>
-<li><strong>SWE-agent / DSPy</strong> -&gt; importan la interfaz y los contratos: tools estrechos, schemas/formatos fijos y chequeos reproducibles.</li>
+<li><strong>SWE-agent / DSPy</strong> -&gt; importan la interfaz y los contratos: tools estrechos, schemas/formatos fijos y chequeos
+reproducibles.</li>
 </ul>
 <p>Usalos como patterns, no como ceremonia: cada rama necesita una razón, un contrato y una condición de parada.</p>
-<p>Ver notas detalladas en <a href="research/2026-06-25-agentic-patterns-papers-workflows.html"><code>docs/research/2026-06-25-agentic-patterns-papers-workflows.md</code></a>.</p>
+<p>Ver notas detalladas en
+<a href="research/2026-06-25-agentic-patterns-papers-workflows.html"><code>docs/research/2026-06-25-agentic-patterns-papers-workflows.md</code></a>.</p>
 <h3>Patrones de prompt recomendados</h3>
 <p>Los workflows funcionan mejor cuando cada prompt declara explícitamente su patrón:</p>
 <ul>
 <li><strong>Fan-out independiente</strong>: cada subagente debe producir un reporte útil aunque los demás fallen.</li>
 <li><strong>Contrato de evidencia</strong>: pedí archivo/línea, URL, comando observado o <code>INSUFFICIENT_EVIDENCE</code> / <code>NO_FINDINGS</code>.</li>
-<li><strong>Formato fijo</strong>: preferí <code>agent(prompt, { schema })</code> para JSON; si no, secciones fijas como <code>Verdict</code>, <code>Findings</code>, <code>Evidence</code>, <code>Risks</code>, <code>Fix</code>, <code>Verification</code>.</li>
-<li><strong>Síntesis como juez</strong>: el agente final deduplica, descarta afirmaciones sin respaldo, preserva la incertidumbre y elige un camino concreto.</li>
-<li><strong>Crítica adversarial</strong>: revisores con el objetivo explícito de encontrar edge cases, recortar alcance y marcar riesgos aceptados.</li>
+<li><strong>Formato fijo</strong>: preferí <code>agent(prompt, { schema })</code> para JSON; si no, secciones fijas como <code>Verdict</code>, <code>Findings</code>,
+<code>Evidence</code>, <code>Risks</code>, <code>Fix</code>, <code>Verification</code>.</li>
+<li><strong>Síntesis como juez</strong>: el agente final deduplica, descarta afirmaciones sin respaldo, preserva la incertidumbre y
+elige un camino concreto.</li>
+<li><strong>Crítica adversarial</strong>: revisores con el objetivo explícito de encontrar edge cases, recortar alcance y marcar
+riesgos aceptados.</li>
 <li><strong>Fallos parciales visibles</strong>: la síntesis debe mencionar agentes fallidos, vacíos, cancelados o con timeout.</li>
-<li><strong>Seguro por defecto</strong>: para audits, prompts con &quot;do not edit files&quot;, tools solo de lectura, solo los <code>skills</code>/<code>extensions</code> necesarios y solo los <code>keys</code> que esa rama necesita.</li>
+<li><strong>Seguro por defecto</strong>: para audits, prompts con &quot;do not edit files&quot;, tools solo de lectura, solo los
+<code>skills</code>/<code>extensions</code> necesarios y solo los <code>keys</code> que esa rama necesita.</li>
 </ul>
 <h2 id="seguridad-y-costo">Seguridad y costo</h2>
 <ul>
-<li><strong>Menor privilegio</strong>: para auditorías y exploración, usá tools de solo lectura y cargá solo los <code>skills</code>/<code>extensions</code> necesarios.</li>
-<li><strong>Secretos fuera del prompt</strong>: no pegues credenciales, tokens ni dumps completos; si hace falta contexto sensible, pasá nombres de claves y valores redacted.</li>
-<li><strong>Límites explícitos</strong>: fijá <code>maxAgents</code>, <code>concurrency</code>, <code>timeout</code> y alcance de archivos antes de arrancar, para acotar costo y latencia.</li>
+<li><strong>Menor privilegio</strong>: para auditorías y exploración, usá tools de solo lectura y cargá solo los <code>skills</code>/<code>extensions</code>
+necesarios.</li>
+<li><strong>Secretos fuera del prompt</strong>: no pegues credenciales, tokens ni dumps completos; si hace falta contexto sensible,
+pasá nombres de claves y valores redacted.</li>
+<li><strong>Límites explícitos</strong>: fijá <code>maxAgents</code>, <code>concurrency</code>, <code>timeout</code> y alcance de archivos antes de arrancar, para
+acotar costo y latencia.</li>
 <li><strong>Cierre temprano</strong>: si ya hay evidencia suficiente, terminá la corrida; no abras ramas extra “por si acaso”.</li>
-<li><strong>Caché con criterio</strong>: la caché reduce costo en resumes, pero solo conviene para entradas determinísticas; desactivala si el resultado depende de estado externo o credenciales rotadas.</li>
-<li><strong>Trazabilidad</strong>: preferí prompts que pidan evidencia verificable y artifacts persistentes, así el costo queda auditable.</li>
+<li><strong>Caché con criterio</strong>: la caché reduce costo en resumes, pero solo conviene para entradas determinísticas;
+desactivala si el resultado depende de estado externo o credenciales rotadas.</li>
+<li><strong>Trazabilidad</strong>: preferí prompts que pidan evidencia verificable y artifacts persistentes, así el costo queda
+auditable.</li>
 </ul>
 	</main>
 	<footer>Generado con el skill pandi-artifact-style · paleta: panda-syntax dark/light</footer>

@@ -153,7 +153,9 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	<header>
 		<div class="kicker">docs/handbooks</div>
 		<h1>Onboarding top-down para programadores</h1>
-		<p class="lede">Esta guía es el mapa corto para entender <code>pandi-extensions</code> sin perderse en los detalles. Empezá por el propósito del repo, bajá por subsistemas y recién después entrá a archivos concretos. Usala también como checklist cuando revises comentarios o prosa traducida: claridad primero, sin tocar tokens que el código parsea.</p>
+		<p class="lede">Esta guía es el mapa corto para entender <code>pandi-extensions</code> sin perderse en los detalles. Empezá por el propósito del
+repo, bajá por subsistemas y recién después entrá a archivos concretos. Usala también como checklist cuando revises
+comentarios o prosa traducida: claridad primero, sin tocar tokens que el código parsea.</p>
 	</header>
 	<main>
 <nav class="toc">
@@ -170,12 +172,15 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	</ol>
 </nav>
 <h2 id="en-30-segundos">En 30 segundos</h2>
-<p><code>pandi-extensions</code> empaqueta una suite de extensiones para Pi/Pandi: comandos UX, memoria, planificación, loops, goals, worktrees, containers, diagnósticos TypeScript, documentación, tema visual y, como núcleo más complejo, <code>pandi-dynamic-workflows</code>.</p>
+<p><code>pandi-extensions</code> empaqueta una suite de extensiones para Pi/Pandi: comandos UX, memoria, planificación, loops, goals,
+worktrees, containers, diagnósticos TypeScript, documentación, tema visual y, como núcleo más complejo,
+<code>pandi-dynamic-workflows</code>.</p>
 <p>La idea central es: <strong>convertir patrones agénticos en herramientas ejecutables, observables y verificables</strong>.</p>
 <p>Tres anclas para orientarte:</p>
 <ul>
 <li><code>README.md</code> explica el producto y la ruta de instalación.</li>
-<li><code>extensions/pandi-dynamic-workflows/</code> contiene el runtime de dynamic workflows, el patrón <code>router</code>, dashboards, reports y artifacts.</li>
+<li><code>extensions/pandi-dynamic-workflows/</code> contiene el runtime de dynamic workflows, el patrón <code>router</code>, dashboards,
+reports y artifacts.</li>
 <li><code>extensions/&lt;extension&gt;/tests/integration/</code> + <code>extensions/shared/test/</code> sostienen el loop de desarrollo seguro.</li>
 </ul>
 <h2 id="ruta-rápida-de-lectura">Ruta rápida de lectura</h2>
@@ -241,7 +246,8 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </tr>
 </tbody></table></div>
 <h3>Núcleo: <code>pandi-dynamic-workflows</code></h3>
-<p>Pensalo como el laboratorio del repo. Registra comandos/tools, resuelve workflows, ejecuta JavaScript confiable en un <code>Worker</code>, spawnea subagentes, escribe artifacts y deja evidencia reanudable.</p>
+<p>Pensalo como el laboratorio del repo. Registra comandos/tools, resuelve workflows, ejecuta JavaScript confiable en un
+<code>Worker</code>, spawnea subagentes, escribe artifacts y deja evidencia reanudable.</p>
 <p>Flujo mental:</p>
 <pre><code class="hljs language-text">humano/modelo
   → /workflow o dynamic_workflow
@@ -255,12 +261,14 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
   → .pi/workflows/runs/&lt;run-id&gt;/</code></pre>
 <p>Archivos clave:</p>
 <ul>
-<li><a href="../../extensions/pandi-dynamic-workflows/ARCHITECTURE.md"><code>ARCHITECTURE.md</code></a> — mapa canónico de deep modules y sus fachadas.</li>
+<li><a href="../../extensions/pandi-dynamic-workflows/ARCHITECTURE.md"><code>ARCHITECTURE.md</code></a> — mapa canónico de deep modules y sus
+fachadas.</li>
 <li><code>index.ts</code> — activación de la extensión; no contiene el engine.</li>
 <li><code>surface/command-handlers.ts</code> — handlers de <code>/workflow</code> y <code>/workflows</code>.</li>
 <li><code>surface/resolve.ts</code> — <code>listWorkflows</code>, <code>resolveWorkflow</code> y <code>resolveWorkflowForRun</code>.</li>
 <li><code>runtime/worker-source.ts</code> — globals inyectados dentro del workflow; <code>runtime/engine.ts</code> exporta <code>runWorkflow</code>.</li>
-<li><code>lifecycle/index.ts</code> — fachada de start, resume, cancel, cleanup, status y registry; <code>runtime/runs.ts</code> lista y resuelve runs.</li>
+<li><code>lifecycle/index.ts</code> — fachada de start, resume, cancel, cleanup, status y registry; <code>runtime/runs.ts</code> lista y
+resuelve runs.</li>
 <li><code>surface/catalog.ts</code>, <code>surface/pattern-scaffolds.ts</code> y <code>scaffolds/*.js</code> — catálogo de patrones.</li>
 <li><code>tui/dashboard.ts</code> y <code>observe/writer.ts</code> (<code>writeRunReport</code>) — superficies de inspección.</li>
 </ul>
@@ -308,7 +316,9 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td><code>extensions/pandi-loop/state.ts</code></td>
 </tr>
 </tbody></table></div>
-<p><code>pandi-goal</code> usa <code>gstatus</code> porque <code>GoalAssessment.status</code> ya nombra la decisión puntual de una autoevaluación (<code>continue</code>, <code>done</code>, <code>blocked</code>). No lo unifiques a mano: primero distinguí “estado durable del ciclo” de “veredicto de una iteración”.</p>
+<p><code>pandi-goal</code> usa <code>gstatus</code> porque <code>GoalAssessment.status</code> ya nombra la decisión puntual de una autoevaluación
+(<code>continue</code>, <code>done</code>, <code>blocked</code>). No lo unifiques a mano: primero distinguí “estado durable del ciclo” de “veredicto de
+una iteración”.</p>
 <p>Dos pares de nombres que conviene separar:</p>
 <div class="table-scroll"><table>
 <thead>
@@ -515,7 +525,8 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li><code>re-launch</code> → <code>relanzamiento</code></li>
 <li><code>scheduling</code> → <code>programación de wakes</code> o <code>planificación de ejecución</code></li>
 </ul>
-<p>Para prompts, usá también <a href="glosario-prompts.html"><code>glosario-prompts.md</code></a>: ahí vive la lista más estricta de tokens congelados.</p>
+<p>Para prompts, usá también <a href="glosario-prompts.html"><code>glosario-prompts.md</code></a>: ahí vive la lista más estricta de tokens
+congelados.</p>
 <h2 id="cómo-verificar-cambios-futuros">Cómo verificar cambios futuros</h2>
 <p>Comandos base antes de merge:</p>
 <pre><code class="hljs language-bash">npm run doctor
@@ -554,7 +565,8 @@ npm <span class="hljs-built_in">test</span></code></pre>
 <p>Gaps a recordar:</p>
 <ul>
 <li>No se ejecutó Pi real ni TUI real para validar cada flujo descrito.</li>
-<li>No se corrieron tests durante la auditoría original; los comandos de verificación quedan para la fase de implementación.</li>
+<li>No se corrieron tests durante la auditoría original; los comandos de verificación quedan para la fase de
+implementación.</li>
 <li>No se inspeccionó cada scaffold JS uno por uno.</li>
 <li>Los ejemplos de comentarios/prosa son semillas priorizadas, no inventario completo.</li>
 <li><code>docs/html/</code> es mirror generado: nunca lo edites a mano; regeneralo desde Markdown.</li>

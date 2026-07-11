@@ -73,6 +73,21 @@ test("checkDocCatalogAndLinks passes a minimal in-sync tree", () => {
 	}
 });
 
+test("checkDocCatalogAndLinks accepts a wrapped README headline", () => {
+	const root = makeDocsRoot();
+	try {
+		const readme = path.join(root, "README.md");
+		const wrapped = fs
+			.readFileSync(readme, "utf8")
+			.replace("extensions for [Pi]", "extensions\nfor [Pi]")
+			.replace("extensions load by default", "extensions\nload by default");
+		fs.writeFileSync(readme, wrapped);
+		assert.deepEqual(checkDocCatalogAndLinks(root), []);
+	} finally {
+		fs.rmSync(root, { recursive: true, force: true });
+	}
+});
+
 test("checkDocCatalogAndLinks reports catalog drift, stale text, and broken local links", () => {
 	const root = makeDocsRoot({
 		readmeLink: "docs/missing.md",

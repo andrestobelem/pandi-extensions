@@ -169,10 +169,13 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	</ol>
 </nav>
 <blockquote>
-<p>Búsqueda tipo <em>beam search</em> sobre soluciones parciales: expandí K pensamientos, puntúalos con un juez, podá al top-B y comprometé la mejor ruta.</p>
+<p>Búsqueda tipo <em>beam search</em> sobre soluciones parciales: expandí K pensamientos, puntúalos con un juez, podá al top-B y
+comprometé la mejor ruta.</p>
 </blockquote>
 <h2 id="en-30-segundos">En 30 segundos</h2>
-<p><code>tree-of-thoughts</code> explora un árbol de soluciones parciales en vez de elegir una sola respuesta de una vez. En cada nivel expande cada nodo vivo en <code>branching</code> hijos, los puntúa con un juez (<code>schema: SCORE</code>) y conserva solo los <code>beam</code> mejores. Úsalo cuando hay pasos intermedios evaluables y querés comparar caminos antes de comprometerte.</p>
+<p><code>tree-of-thoughts</code> explora un árbol de soluciones parciales en vez de elegir una sola respuesta de una vez. En cada
+nivel expande cada nodo vivo en <code>branching</code> hijos, los puntúa con un juez (<code>schema: SCORE</code>) y conserva solo los <code>beam</code>
+mejores. Úsalo cuando hay pasos intermedios evaluables y querés comparar caminos antes de comprometerte.</p>
 <h2 id="cómo-lanzarlo">Cómo lanzarlo</h2>
 <pre><code class="hljs language-text">/workflow new mi-tot --pattern=tree-of-thoughts
 /workflow run mi-tot &#x27;{&quot;problem&quot;:&quot;Design the gate rollout in 4 staged steps.&quot;,&quot;branching&quot;:3,&quot;beam&quot;:2,&quot;depth&quot;:3}&#x27;</code></pre>
@@ -212,58 +215,54 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
     EmptyCheck --&gt;|"sí"| NoPath["return 'Search produced no viable path.'"]
     EmptyCheck --&gt;|"no"| Commit</pre>
 <h2 id="qué-hace">Qué hace</h2>
-<p><code>tree-of-thoughts</code> implementa búsqueda en haz (<em>beam search</em>) sobre soluciones parciales, siguiendo el paper &quot;Tree of Thoughts: Deliberate Problem Solving with LLMs&quot; (arXiv:2305.10601). En lugar de comprometerse con una sola cadena de razonamiento, mantiene una frontera de nodos vivos y, en cada nivel, expande cada nodo en <code>branching</code> pensamientos candidatos distintos, los hace juzgar por un modelo evaluador con salida tipada (<code>score</code> 0-10 + <code>why</code>), y poda todo menos el top-<code>beam</code> por score. El backtracking es implícito: una rama que puntuaba bien temprano pero deja de mejorar simplemente no sobrevive al corte cuando otra la supera.</p>
-<p>El proceso se repite hasta <code>depth</code> niveles (o hasta que un nivel no produce hijos), y al final el nodo con mayor score de la frontera final se usa como base para sintetizar la respuesta definitiva.</p>
-<p>Es la versión general de <code>judge-escalate</code> (que es esto mismo con <code>depth=1, beam=1</code>, es decir best-of-N con a lo sumo una ronda extra). Cuando la poda por score absoluto no es confiable pero sí la comparación relativa entre pares, el scaffold hermano <code>tournament</code> reemplaza el juez-de-scoring por rondas de brackets pairwise.</p>
+<p><code>tree-of-thoughts</code> implementa búsqueda en haz (<em>beam search</em>) sobre soluciones parciales, siguiendo el paper &quot;Tree of
+Thoughts: Deliberate Problem Solving with LLMs&quot; (arXiv:2305.10601). En lugar de comprometerse con una sola cadena de
+razonamiento, mantiene una frontera de nodos vivos y, en cada nivel, expande cada nodo en <code>branching</code> pensamientos
+candidatos distintos, los hace juzgar por un modelo evaluador con salida tipada (<code>score</code> 0-10 + <code>why</code>), y poda todo
+menos el top-<code>beam</code> por score. El backtracking es implícito: una rama que puntuaba bien temprano pero deja de mejorar
+simplemente no sobrevive al corte cuando otra la supera.</p>
+<p>El proceso se repite hasta <code>depth</code> niveles (o hasta que un nivel no produce hijos), y al final el nodo con mayor score
+de la frontera final se usa como base para sintetizar la respuesta definitiva.</p>
+<p>Es la versión general de <code>judge-escalate</code> (que es esto mismo con <code>depth=1, beam=1</code>, es decir best-of-N con a lo sumo una
+ronda extra). Cuando la poda por score absoluto no es confiable pero sí la comparación relativa entre pares, el scaffold
+hermano <code>tournament</code> reemplaza el juez-de-scoring por rondas de brackets pairwise.</p>
 <h2 id="cuándo-usarlo">Cuándo usarlo</h2>
 <ul>
 <li>Planificación o diseño multi-paso donde cada paso condiciona al siguiente.</li>
-<li>Explorar un espacio de soluciones donde varias líneas de razonamiento parcial compiten y conviene descartar temprano las menos prometedoras.</li>
+<li>Explorar un espacio de soluciones donde varias líneas de razonamiento parcial compiten y conviene descartar temprano
+las menos prometedoras.</li>
 <li>Flujo expandir → puntuar → podar → comprometer, con backtracking automático vía el juez.</li>
-<li><strong>No usarlo</strong> si el problema no tiene pasos intermedios evaluables por separado; para eso alcanza <code>judge-escalate</code> o un simple <code>best-of-N</code>.</li>
+<li><strong>No usarlo</strong> si el problema no tiene pasos intermedios evaluables por separado; para eso alcanza <code>judge-escalate</code> o
+un simple <code>best-of-N</code>.</li>
 <li><strong>No usarlo</strong> si la comparación relativa entre pares vale más que un score absoluto; ahí conviene <code>tournament</code>.</li>
 </ul>
 <h2 id="cómo-funciona">Cómo funciona</h2>
-<p>El input se parsea y valida un único campo requerido: <code>problem</code> (alias
-<code>question</code>/<code>text</code>/<code>task</code>); sin él, el workflow lanza error. Tres parámetros
-de búsqueda controlan el árbol: <code>branching</code> (K hijos por nodo), <code>beam</code> (B
-sobrevivientes por nivel) y <code>depth</code> (niveles). Cada uno tiene mínimo, default
-y tope duro (ver tabla de Input) para mantener <code>beam × branching</code> bien por
-debajo del límite de 4096 thunks de <code>parallel()</code>.</p>
-<p><strong>Fase Expand</strong> (<code>phase(&quot;Expand&quot;)</code>): por cada nodo de la frontera actual y
-cada una de las <code>branching</code> ramas, se lanza un <code>agent()</code> en paralelo (una
-sola barrera por nivel vía <code>parallel()</code>) que propone UN próximo pensamiento
-concreto y distinto de sus hermanos, dado el problema y el camino parcial
-acumulado. Corre con modelo <code>sonnet</code> / effort <code>medium</code> por defecto (rol
-<code>expand</code>, overrideable). Los datos no confiables (problema, plan parcial) se
-envuelven con <code>fence()</code>, un delimitador derivado de un hash del contenido
-(no de tiempo/random) que impide que el contenido inyecte instrucciones o
-falsifique su propio cierre. Si ningún hijo se produce en un nivel, se loguea
-y se corta la búsqueda ahí (<code>break</code>).</p>
-<p><strong>Fase Evaluate</strong> (<code>phase(&quot;Evaluate&quot;)</code>): cada hijo generado se puntúa en
-paralelo con un <code>agent()</code> juez que devuelve JSON tipado (<code>schema: SCORE</code>,
-<code>score</code> 0-10 + <code>why</code>), modelo <code>opus</code> / effort <code>high</code> por defecto (rol
-<code>score</code>). El score se clampea a <code>[0, 10]</code> y se loguea si el valor crudo del
-modelo estaba fuera de rango. Los hijos se ordenan por score descendente y se
-recorta la frontera al top-<code>beam</code> (<code>ranked.slice(0, beam)</code>) — esa es la poda;
-el resto simplemente se descarta, sin retry ni fallback especial para fallos
-parciales (un hijo <code>null</code> se filtra con <code>.filter(Boolean)</code> antes de puntuar).</p>
-<p>Este ciclo Expand → Evaluate se repite hasta <code>depth</code> niveles. Si la frontera
-queda vacía al terminar, el workflow retorna el string
-<code>&quot;Search produced no viable path.&quot;</code> sin llegar a Commit.</p>
-<p><strong>Fase Commit</strong> (<code>phase(&quot;Commit&quot;)</code>): se toma <code>frontier[0]</code> (mayor score tras
-la última poda) y se pide a un <code>agent()</code> (modelo <code>opus</code>, effort <code>high</code>, rol
-<code>commit</code>) que escriba la respuesta final autocontenida, construida sobre el
-camino de razonamiento ganador (<code>best.path</code>), señalando incertidumbre
-residual si la hay.</p>
-<p>No hay caching explícito ni reintentos automáticos por nodo; la resiliencia
-viene de que cada nivel es un batch paralelo con barrera, y un hijo fallido
-(<code>null</code>) simplemente no compite por la poda.</p>
-<p>Los overrides por rol (<code>expand</code>, <code>score</code>, <code>commit</code>) de modelo, effort, tools,
-skills y exclusión de tools se resuelven vía <code>input.models[role]</code> /
-<code>input.efforts[role]</code> / etc., con fallback a los defaults globales
-(<code>input.model</code>, <code>input.effort</code>, ...) y finalmente al default hardcodeado de
-cada llamada.</p>
+<p>El input se parsea y valida un único campo requerido: <code>problem</code> (alias <code>question</code>/<code>text</code>/<code>task</code>); sin él, el workflow
+lanza error. Tres parámetros de búsqueda controlan el árbol: <code>branching</code> (K hijos por nodo), <code>beam</code> (B sobrevivientes
+por nivel) y <code>depth</code> (niveles). Cada uno tiene mínimo, default y tope duro (ver tabla de Input) para mantener
+<code>beam × branching</code> bien por debajo del límite de 4096 thunks de <code>parallel()</code>.</p>
+<p><strong>Fase Expand</strong> (<code>phase(&quot;Expand&quot;)</code>): por cada nodo de la frontera actual y cada una de las <code>branching</code> ramas, se lanza
+un <code>agent()</code> en paralelo (una sola barrera por nivel vía <code>parallel()</code>) que propone UN próximo pensamiento concreto y
+distinto de sus hermanos, dado el problema y el camino parcial acumulado. Corre con modelo <code>sonnet</code> / effort <code>medium</code>
+por defecto (rol <code>expand</code>, overrideable). Los datos no confiables (problema, plan parcial) se envuelven con <code>fence()</code>,
+un delimitador derivado de un hash del contenido (no de tiempo/random) que impide que el contenido inyecte instrucciones
+o falsifique su propio cierre. Si ningún hijo se produce en un nivel, se loguea y se corta la búsqueda ahí (<code>break</code>).</p>
+<p><strong>Fase Evaluate</strong> (<code>phase(&quot;Evaluate&quot;)</code>): cada hijo generado se puntúa en paralelo con un <code>agent()</code> juez que devuelve
+JSON tipado (<code>schema: SCORE</code>, <code>score</code> 0-10 + <code>why</code>), modelo <code>opus</code> / effort <code>high</code> por defecto (rol <code>score</code>). El score
+se clampea a <code>[0, 10]</code> y se loguea si el valor crudo del modelo estaba fuera de rango. Los hijos se ordenan por score
+descendente y se recorta la frontera al top-<code>beam</code> (<code>ranked.slice(0, beam)</code>) — esa es la poda; el resto simplemente se
+descarta, sin retry ni fallback especial para fallos parciales (un hijo <code>null</code> se filtra con <code>.filter(Boolean)</code> antes de
+puntuar).</p>
+<p>Este ciclo Expand → Evaluate se repite hasta <code>depth</code> niveles. Si la frontera queda vacía al terminar, el workflow
+retorna el string <code>&quot;Search produced no viable path.&quot;</code> sin llegar a Commit.</p>
+<p><strong>Fase Commit</strong> (<code>phase(&quot;Commit&quot;)</code>): se toma <code>frontier[0]</code> (mayor score tras la última poda) y se pide a un <code>agent()</code>
+(modelo <code>opus</code>, effort <code>high</code>, rol <code>commit</code>) que escriba la respuesta final autocontenida, construida sobre el camino de
+razonamiento ganador (<code>best.path</code>), señalando incertidumbre residual si la hay.</p>
+<p>No hay caching explícito ni reintentos automáticos por nodo; la resiliencia viene de que cada nivel es un batch paralelo
+con barrera, y un hijo fallido (<code>null</code>) simplemente no compite por la poda.</p>
+<p>Los overrides por rol (<code>expand</code>, <code>score</code>, <code>commit</code>) de modelo, effort, tools, skills y exclusión de tools se resuelven
+vía <code>input.models[role]</code> / <code>input.efforts[role]</code> / etc., con fallback a los defaults globales (<code>input.model</code>,
+<code>input.effort</code>, ...) y finalmente al default hardcodeado de cada llamada.</p>
 <h2 id="input-y-output">Input y output</h2>
 <div class="table-scroll"><table>
 <thead>
@@ -317,21 +316,15 @@ cada llamada.</p>
 <td>por rol o global</td>
 </tr>
 </tbody></table></div>
-<p><strong>Output:</strong> objeto <code>{ answer, bestScore, search }</code>, donde <code>answer</code> es el
-texto final sintetizado en Commit, <code>bestScore</code> el score (0-10) del camino
-ganador, y <code>search</code> un eco de <code>{ branching, beam, depth }</code> efectivamente
-usados (ya clampeados). Si la búsqueda no produce ningún camino viable,
-retorna el string <code>&quot;Search produced no viable path.&quot;</code> en su lugar. El
-scaffold no llama a <code>writeArtifact</code>; toda la salida viaja en el valor de
-retorno.</p>
+<p><strong>Output:</strong> objeto <code>{ answer, bestScore, search }</code>, donde <code>answer</code> es el texto final sintetizado en Commit, <code>bestScore</code>
+el score (0-10) del camino ganador, y <code>search</code> un eco de <code>{ branching, beam, depth }</code> efectivamente usados (ya
+clampeados). Si la búsqueda no produce ningún camino viable, retorna el string <code>&quot;Search produced no viable path.&quot;</code> en su
+lugar. El scaffold no llama a <code>writeArtifact</code>; toda la salida viaja en el valor de retorno.</p>
 <h2 id="fases">Fases</h2>
 <ol>
-<li><strong>Expand</strong> — expandir cada nodo de la frontera en K pensamientos
-candidatos (paralelo, una barrera por nivel).</li>
-<li><strong>Evaluate</strong> — puntuar cada hijo con un juez y podar al top-B
-sobrevivientes.</li>
-<li><strong>Commit</strong> — sintetizar la respuesta final a partir del mejor camino de
-la frontera resultante.</li>
+<li><strong>Expand</strong> — expandir cada nodo de la frontera en K pensamientos candidatos (paralelo, una barrera por nivel).</li>
+<li><strong>Evaluate</strong> — puntuar cada hijo con un juez y podar al top-B sobrevivientes.</li>
+<li><strong>Commit</strong> — sintetizar la respuesta final a partir del mejor camino de la frontera resultante.</li>
 </ol>
 	</main>
 	<footer>Generado con el skill pandi-artifact-style · paleta: panda-syntax dark/light</footer>

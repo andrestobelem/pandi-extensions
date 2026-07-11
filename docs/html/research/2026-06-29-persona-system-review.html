@@ -168,74 +168,73 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	</ol>
 </nav>
 <h2 id="en-30-segundos">En 30 segundos</h2>
-<p>Este documento revisa el subsistema de <strong>Personas</strong> de <code>pandi-dynamic-workflows</code>: dónde se definen, cómo se resuelven y fusionan, y qué riesgos de correctitud, seguridad y consistencia aparecen. La lectura está pensada como una revisión escéptica y read-only, con referencias <code>file:line</code> para verificar cada afirmación.</p>
+<p>Este documento revisa el subsistema de <strong>Personas</strong> de <code>pandi-dynamic-workflows</code>: dónde se definen, cómo se resuelven y
+fusionan, y qué riesgos de correctitud, seguridad y consistencia aparecen. La lectura está pensada como una revisión
+escéptica y read-only, con referencias <code>file:line</code> para verificar cada afirmación.</p>
 <h2 id="objetivo">Objetivo</h2>
-<p>Revisar el subsistema de <strong>Personas</strong> de <code>pandi-dynamic-workflows</code>: dónde se definen, cómo se resuelven/fusionan, y qué riesgos de correctitud, seguridad y consistencia tiene.</p>
+<p>Revisar el subsistema de <strong>Personas</strong> de <code>pandi-dynamic-workflows</code>: dónde se definen, cómo se resuelven/fusionan, y qué
+riesgos de correctitud, seguridad y consistencia tiene.</p>
 <h2 id="dónde-vive">Dónde vive</h2>
 <ul>
-<li><strong>Definición:</strong> <code>extensions/pandi-dynamic-workflows/agent-env-persona.ts</code>
-— <code>BUILTIN_AGENT_PERSONAS</code> (6 personas, líneas 27–58) + resolución/fusión/carga.</li>
-<li><strong>Personas de proyecto:</strong> archivos <code>.pi/personas/&lt;name&gt;.json</code> (<code>loadProjectPersona</code>, línea 228).
-Sí existen personas de proyecto en el repo: <code>.pi/personas/andrej-karpathy.json</code>, <code>uncle-bob.json</code>, <code>dave-farley.json</code>, <code>kent-beck.json</code>.</li>
+<li><strong>Definición:</strong> <code>extensions/pandi-dynamic-workflows/agent-env-persona.ts</code> — <code>BUILTIN_AGENT_PERSONAS</code> (6 personas,
+líneas 27–58) + resolución/fusión/carga.</li>
+<li><strong>Personas de proyecto:</strong> archivos <code>.pi/personas/&lt;name&gt;.json</code> (<code>loadProjectPersona</code>, línea 228). Sí existen personas
+de proyecto en el repo: <code>.pi/personas/andrej-karpathy.json</code>, <code>uncle-bob.json</code>, <code>dave-farley.json</code>, <code>kent-beck.json</code>.</li>
 <li><strong>Aplicación:</strong> <code>index.ts:713</code> → <code>applyPersonaOptions</code> (antes de <code>applyDefaultAgentAccess</code>).</li>
-<li><strong>Uso real:</strong> <code>.pi/workflows/*.js</code> (loop-engineering, modularize-audit) + tests + README.
-Las 6 personas: <code>explore·medium</code>, <code>reviewer·high</code>, <code>planner·high</code>, <code>architect·high</code>, <code>implementer·medium</code>,
-<code>researcher·high</code> — no coinciden exactamente con el README raíz ni con el skill <code>ultracode</code>.</li>
+<li><strong>Uso real:</strong> <code>.pi/workflows/*.js</code> (loop-engineering, modularize-audit) + tests + README. Las 6 personas:
+<code>explore·medium</code>, <code>reviewer·high</code>, <code>planner·high</code>, <code>architect·high</code>, <code>implementer·medium</code>, <code>researcher·high</code> — no
+coinciden exactamente con el README raíz ni con el skill <code>ultracode</code>.</li>
 </ul>
 <h2 id="lo-que-está-bien-no-tocar">Lo que está bien (no tocar)</h2>
 <ul>
-<li><p><strong>Gate de confianza</strong> (<code>agent-env-persona.ts:229</code>): proyecto no confiable → ignora
-<code>.pi/personas/*</code> y cae a built-in. Correcto: una persona puede setear <code>env</code>/<code>keys</code>/<code>tools</code>/
-<code>systemPrompt</code>, todos poderosos.</p>
+<li><p><strong>Gate de confianza</strong> (<code>agent-env-persona.ts:229</code>): proyecto no confiable → ignora <code>.pi/personas/*</code> y cae a built-in.
+Correcto: una persona puede setear <code>env</code>/<code>keys</code>/<code>tools</code>/ <code>systemPrompt</code>, todos poderosos.</p>
 </li>
-<li><p><strong>Path traversal bloqueado</strong>: el regex <code>/^[a-zA-Z0-9._-]+$/</code> (línea 223) prohíbe <code>/</code> y <code>\</code>, así
-que <code>${name}.json</code> no escapa del directorio de personas.</p>
+<li><p><strong>Path traversal bloqueado</strong>: el regex <code>/^[a-zA-Z0-9._-]+$/</code> (línea 223) prohíbe <code>/</code> y <code>\</code>, así que <code>${name}.json</code> no
+escapa del directorio de personas.</p>
 </li>
-<li><p><code>sanitizePersonaOptions</code> (línea 199) <strong>no</strong> copia <code>agentType</code> → un JSON de proyecto no puede
-re-disparar la resolución (sin recursión) ni inyectar <code>schema</code>/<code>prompt</code>.</p>
+<li><p><code>sanitizePersonaOptions</code> (línea 199) <strong>no</strong> copia <code>agentType</code> → un JSON de proyecto no puede re-disparar la resolución
+(sin recursión) ni inyectar <code>schema</code>/<code>prompt</code>.</p>
 </li>
-<li><p><code>appendSystemPrompt</code> se concatena de forma determinista (línea 211); la fusión es determinista;
-los niveles de <code>thinking</code> respetan el contrato documentado.</p>
+<li><p><code>appendSystemPrompt</code> se concatena de forma determinista (línea 211); la fusión es determinista; los niveles de
+<code>thinking</code> respetan el contrato documentado.</p>
 </li>
 </ul>
 <h2 id="hallazgos-por-peso">Hallazgos (por peso)</h2>
 <h3>1. <code>systemPrompt</code> se pisa, <code>appendSystemPrompt</code> se fusiona — asimetría</h3>
-<p><code>mergePersonaOptions</code> (líneas 210–219) hace <code>{...persona, ...options}</code>. La <strong>identidad</strong> de cada
-persona (lo que hace que <code>reviewer</code> sea escéptico) vive en <code>systemPrompt</code>, que es un campo
-pisable: si el caller pasa su propio <code>systemPrompt</code>, <strong>borra entero</strong> el de la persona y sólo
-<code>appendSystemPrompt</code> sobrevive (concatenado).</p>
-<p>Resultado: podés pedir <code>agentType:&quot;reviewer&quot;</code> y, si además pasás <code>systemPrompt</code>, la identidad de
-<code>reviewer</code> desaparece en silencio. Es coherente con “lo explícito gana”, pero el comportamiento
-identitario quedó en el campo clobbereable.</p>
-<p><strong>Fix:</strong> si las personas deben ser <em>defaults pegajosos</em>, mover su prompt de identidad a
-<code>appendSystemPrompt</code>; si no, documentar explícitamente el clobber. <strong>Es el punto más sustantivo.</strong></p>
+<p><code>mergePersonaOptions</code> (líneas 210–219) hace <code>{...persona, ...options}</code>. La <strong>identidad</strong> de cada persona (lo que hace
+que <code>reviewer</code> sea escéptico) vive en <code>systemPrompt</code>, que es un campo pisable: si el caller pasa su propio
+<code>systemPrompt</code>, <strong>borra entero</strong> el de la persona y sólo <code>appendSystemPrompt</code> sobrevive (concatenado).</p>
+<p>Resultado: podés pedir <code>agentType:&quot;reviewer&quot;</code> y, si además pasás <code>systemPrompt</code>, la identidad de <code>reviewer</code> desaparece
+en silencio. Es coherente con “lo explícito gana”, pero el comportamiento identitario quedó en el campo clobbereable.</p>
+<p><strong>Fix:</strong> si las personas deben ser <em>defaults pegajosos</em>, mover su prompt de identidad a <code>appendSystemPrompt</code>; si no,
+documentar explícitamente el clobber. <strong>Es el punto más sustantivo.</strong></p>
 <h3>2. Resolución case-insensitive para built-in, case-sensitive para proyecto</h3>
-<p>Built-in: <code>BUILTIN_AGENT_PERSONAS[name.toLowerCase()]</code> (línea 246). Proyecto: <code>${name}.json</code> con
-case preservado (líneas 230–231). En sistemas de archivos case-sensitive (Linux/CI), <code>agentType:&quot;Reviewer&quot;</code>
-<strong>no</strong> encuentra <code>Reviewer.json</code> pero <strong>sí</strong> el built-in <code>reviewer</code> → usa el built-in en silencio aunque
-hubiera un override de proyecto.</p>
+<p>Built-in: <code>BUILTIN_AGENT_PERSONAS[name.toLowerCase()]</code> (línea 246). Proyecto: <code>${name}.json</code> con case preservado (líneas
+230–231). En sistemas de archivos case-sensitive (Linux/CI), <code>agentType:&quot;Reviewer&quot;</code> <strong>no</strong> encuentra <code>Reviewer.json</code>
+pero <strong>sí</strong> el built-in <code>reviewer</code> → usa el built-in en silencio aunque hubiera un override de proyecto.</p>
 <p>En macOS, el comportamiento del sistema de archivos lo tapa.</p>
-<p><strong>Fix de 1 línea:</strong> bajar a minúscula en ambos lados (o en ninguno) para que built-in y proyecto
-resuelvan igual.</p>
+<p><strong>Fix de 1 línea:</strong> bajar a minúscula en ambos lados (o en ninguno) para que built-in y proyecto resuelvan igual.</p>
 <h3>3. <code>sanitizePersonaOptions</code> valida claves pero no tipos</h3>
-<p><code>agent-env-persona.ts:199–208</code> copia las claves whitelisteadas tal cual. Un <code>Reviewer.json</code> con
-<code>tools:&quot;read&quot;</code> (string en vez de array) pasa derecho; <code>applyDefaultAgentAccess</code> sólo se cubre con
-<code>Array.isArray(out.tools)</code> (línea 329), otros consumidores asumen array.</p>
+<p><code>agent-env-persona.ts:199–208</code> copia las claves whitelisteadas tal cual. Un <code>Reviewer.json</code> con <code>tools:&quot;read&quot;</code> (string
+en vez de array) pasa derecho; <code>applyDefaultAgentAccess</code> sólo se cubre con <code>Array.isArray(out.tools)</code> (línea 329), otros
+consumidores asumen array.</p>
 <p><strong>Riesgo:</strong> bajo (gateado por confianza). <strong>Fix:</strong> chequeo de tipo por clave al sanitizar.</p>
 <h3>4. <code>implementer</code>: el prompt promete editar, los tools no dejan</h3>
-<p><code>agent-env-persona.ts:46–51</code>: el <code>systemPrompt</code> dice &quot;Do not edit files unless explicitly allowed by the caller&quot;, pero el default es <code>READ_ONLY_AGENT_TOOLS</code>. &quot;Allowed&quot; exige que el caller
-<strong>también</strong> haga override de <code>tools</code> (con <code>approve</code> solo no alcanza).</p>
+<p><code>agent-env-persona.ts:46–51</code>: el <code>systemPrompt</code> dice &quot;Do not edit files unless explicitly allowed by the caller&quot;, pero
+el default es <code>READ_ONLY_AGENT_TOOLS</code>. &quot;Allowed&quot; exige que el caller <strong>también</strong> haga override de <code>tools</code> (con <code>approve</code>
+solo no alcanza).</p>
 <p>El comportamiento es seguro y conservador; sólo la redacción induce a error.</p>
 <p><strong>Fix:</strong> aclarar en el prompt que editar requiere que el caller provea tools de escritura.</p>
 <h3>5. Los scaffolds publicados NO usan personas (0/25)</h3>
-<p><code>agentType</code> aparece en <code>.pi/workflows/</code> (ejemplos), tests y README — pero ningún archivo de
-<code>scaffolds/</code> lo usa; ahí se rutea todo por <code>node(role)</code> + mapas <code>models{}</code>/<code>efforts{}</code>.</p>
-<p>Conviven dos mecanismos: <strong>persona</strong> (<code>systemPrompt</code> + <code>thinking</code>) vs <strong>node-role</strong> (<code>model</code>/<code>effort</code>).
-No es bug, pero los scaffolds hoy sólo heredan <code>model</code>/<code>effort</code>, no la <strong>identidad</strong> (el <code>systemPrompt</code>
-escéptico, etc.). Decisión pendiente: ¿adoptar <code>agentType</code> en los scaffolds?</p>
+<p><code>agentType</code> aparece en <code>.pi/workflows/</code> (ejemplos), tests y README — pero ningún archivo de <code>scaffolds/</code> lo usa; ahí se
+rutea todo por <code>node(role)</code> + mapas <code>models{}</code>/<code>efforts{}</code>.</p>
+<p>Conviven dos mecanismos: <strong>persona</strong> (<code>systemPrompt</code> + <code>thinking</code>) vs <strong>node-role</strong> (<code>model</code>/<code>effort</code>). No es bug, pero
+los scaffolds hoy sólo heredan <code>model</code>/<code>effort</code>, no la <strong>identidad</strong> (el <code>systemPrompt</code> escéptico, etc.). Decisión
+pendiente: ¿adoptar <code>agentType</code> en los scaffolds?</p>
 <h3>6. Brecha de documentación (menor)</h3>
-<p>El README de la extensión (<code>extensions/pandi-dynamic-workflows/README.md</code>) no menciona personas; sí
-lo hacen el README raíz (líneas 158, 402, 500, 525) y el skill.</p>
+<p>El README de la extensión (<code>extensions/pandi-dynamic-workflows/README.md</code>) no menciona personas; sí lo hacen el README
+raíz (líneas 158, 402, 500, 525) y el skill.</p>
 <h2 id="orden-sugerido-de-arreglo">Orden sugerido de arreglo</h2>
 <ol>
 <li><strong>#2</strong> — bug real cross-plataforma, fix de 1 línea.</li>

@@ -170,24 +170,33 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	</ol>
 </nav>
 <h2 id="en-30-segundos">En 30 segundos</h2>
-<p>Este documento resume una decisión de diseño: si Pi debía revisar cada tarea por defecto para decidir si conviene orquestarla con un dynamic workflow, al estilo de <code>ultracode</code> en Claude Code. La conclusión fue habilitar un router siempre activo para esa evaluación, pero sin forzar <code>xhigh</code> por ahora. Sirve como registro de la investigación, de las fuentes y de la implementación resultante.</p>
+<p>Este documento resume una decisión de diseño: si Pi debía revisar cada tarea por defecto para decidir si conviene
+orquestarla con un dynamic workflow, al estilo de <code>ultracode</code> en Claude Code. La conclusión fue habilitar un router
+siempre activo para esa evaluación, pero sin forzar <code>xhigh</code> por ahora. Sirve como registro de la investigación, de las
+fuentes y de la implementación resultante.</p>
 <h2 id="pedido">Pedido</h2>
-<p>La solicitud fue hacer que Pi evalúe cada tarea por defecto y decida si debe resolverse mediante un dynamic workflow, inspirado en el modo <code>ultracode</code> de Claude Code, y mantener ese comportamiento siempre activo.</p>
+<p>La solicitud fue hacer que Pi evalúe cada tarea por defecto y decida si debe resolverse mediante un dynamic workflow,
+inspirado en el modo <code>ultracode</code> de Claude Code, y mantener ese comportamiento siempre activo.</p>
 <h2 id="hallazgos-sobre-claude-code">Hallazgos sobre Claude Code</h2>
 <p>Según la documentación pública de Claude Code y Anthropic:</p>
 <ul>
 <li>Los dynamic workflows son scripts de JavaScript que Claude escribe y ejecuta para orquestar subagentes en paralelo.</li>
-<li>Se usan para auditorías grandes, migraciones, investigación profunda, verificación cruzada y tareas con ramas independientes.</li>
+<li>Se usan para auditorías grandes, migraciones, investigación profunda, verificación cruzada y tareas con ramas
+independientes.</li>
 <li>Pueden activarse al pedir un workflow o al usar la palabra <code>ultracode</code>.</li>
-<li>El modo <code>/effort ultracode</code> hace que Claude Code decida automáticamente si una tarea sustantiva debe convertirse en dynamic workflows.</li>
-<li><code>ultracode</code> combina razonamiento alto (<code>xhigh</code>) con orquestación automática de workflows; no es solo un nivel de esfuerzo del modelo.</li>
-<li>Los workflows pueden tener un costo potencialmente alto, así que la documentación recomienda límites explícitos, revisión del workflow y uso consciente.</li>
+<li>El modo <code>/effort ultracode</code> hace que Claude Code decida automáticamente si una tarea sustantiva debe convertirse en
+dynamic workflows.</li>
+<li><code>ultracode</code> combina razonamiento alto (<code>xhigh</code>) con orquestación automática de workflows; no es solo un nivel de
+esfuerzo del modelo.</li>
+<li>Los workflows pueden tener un costo potencialmente alto, así que la documentación recomienda límites explícitos,
+revisión del workflow y uso consciente.</li>
 </ul>
 <h3>Fuentes consultadas</h3>
 <ul>
 <li>Claude Code Docs — Dynamic workflows: <a href="https://code.claude.com/docs/en/workflows">https://code.claude.com/docs/en/workflows</a></li>
 <li>Claude Code Docs — Model configuration / effort ultracode: <a href="https://code.claude.com/docs/en/model-config">https://code.claude.com/docs/en/model-config</a></li>
-<li>Anthropic Blog — Introducing dynamic workflows in Claude Code: <a href="https://claude.com/blog/introducing-dynamic-workflows-in-claude-code">https://claude.com/blog/introducing-dynamic-workflows-in-claude-code</a></li>
+<li>Anthropic Blog — Introducing dynamic workflows in Claude Code:
+<a href="https://claude.com/blog/introducing-dynamic-workflows-in-claude-code">https://claude.com/blog/introducing-dynamic-workflows-in-claude-code</a></li>
 <li>Claude Code Docs — Subagents: <a href="https://code.claude.com/docs/en/sub-agents">https://code.claude.com/docs/en/sub-agents</a></li>
 <li>Claude Code Settings: <a href="https://docs.anthropic.com/en/docs/claude-code/settings">https://docs.anthropic.com/en/docs/claude-code/settings</a></li>
 </ul>
@@ -199,7 +208,8 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li>El router le pide a Pi evaluar en silencio cada tarea sustantiva antes de decidir el enfoque.</li>
 <li>Para tareas simples, Pi debe seguir normalmente.</li>
 <li>Para tareas potencialmente amplias, Pi debe hacer primero un scout inline barato antes de orquestar.</li>
-<li>Pi debe crear, reutilizar o ejecutar workflows solo cuando haya una razón clara: completitud, confianza o escala, con límites explícitos.</li>
+<li>Pi debe crear, reutilizar o ejecutar workflows solo cuando haya una razón clara: completitud, confianza o escala, con
+límites explícitos.</li>
 <li>Para trabajo de larga duración, debe preferir background (<code>start</code>) y luego inspeccionar con <code>runs/view</code>.</li>
 </ul>
 <h2 id="archivos-modificados">Archivos modificados</h2>
@@ -228,7 +238,9 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <h3>Limitación de la validación</h3>
 <p>El repositorio no tiene TypeScript instalado ni scripts <code>typecheck</code>; <code>npx tsc</code> no estaba disponible.</p>
 <h2 id="nota-de-alcance">Nota de alcance</h2>
-<p>Esta implementación replica el comportamiento de enrutamiento automático. Por ahora no fuerza el nivel de pensamiento a <code>xhigh</code> para evitar cambios inesperados en costo o comportamiento del modelo; el criterio principal pedido era decidir por defecto si conviene usar un workflow.</p>
+<p>Esta implementación replica el comportamiento de enrutamiento automático. Por ahora no fuerza el nivel de pensamiento a
+<code>xhigh</code> para evitar cambios inesperados en costo o comportamiento del modelo; el criterio principal pedido era decidir
+por defecto si conviene usar un workflow.</p>
 	</main>
 	<footer>Generado con el skill pandi-artifact-style · paleta: panda-syntax dark/light</footer>
 </div>

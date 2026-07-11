@@ -167,39 +167,33 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	</ol>
 </nav>
 <h2 id="estado">Estado</h2>
-<p>Diseño exploratorio. No implementa aislamiento ni cambia el contrato actual:
-los runners de Claude, Codex y Cursor son <strong>trusted-workspace only</strong>.</p>
-<p><code>node:vm</code> aporta un contexto de evaluación dentro del proceso host. Ni
-<code>node:vm</code> ni <code>worker_threads</code> son un sandbox de seguridad. Un child process que
-corre con la misma identidad del usuario tampoco constituye, por sí solo, una
-frontera de aislamiento OS.</p>
+<p>Diseño exploratorio. No implementa aislamiento ni cambia el contrato actual: los runners de Claude, Codex y Cursor son
+<strong>trusted-workspace only</strong>.</p>
+<p><code>node:vm</code> aporta un contexto de evaluación dentro del proceso host. Ni <code>node:vm</code> ni <code>worker_threads</code> son un sandbox de
+seguridad. Un child process que corre con la misma identidad del usuario tampoco constituye, por sí solo, una frontera
+de aislamiento OS.</p>
 <h2 id="threat-model">Threat model</h2>
-<p>La frontera futura debería proteger archivos, credenciales, variables de
-entorno, procesos y red del host frente a un workflow malicioso o comprometido.
-El workflow puede invocar capacidades inyectadas y provocar subprocesos de
-workers; por eso esos spawns también deben quedar dentro de la frontera elegida.</p>
-<p>Quedan fuera del threat model actual los workflows no revisados: el flag
-<code>--trust-workspace</code> confirma una decisión humana, no vuelve seguro el código.</p>
+<p>La frontera futura debería proteger archivos, credenciales, variables de entorno, procesos y red del host frente a un
+workflow malicioso o comprometido. El workflow puede invocar capacidades inyectadas y provocar subprocesos de workers;
+por eso esos spawns también deben quedar dentro de la frontera elegida.</p>
+<p>Quedan fuera del threat model actual los workflows no revisados: el flag <code>--trust-workspace</code> confirma una decisión
+humana, no vuelve seguro el código.</p>
 <h2 id="opción-a-child-process-con-capability-bridge">Opción A: child process con capability bridge</h2>
-<p>Mover la evaluación a un proceso hijo y exponer por IPC una API allowlist,
-versionada y deny-by-default:</p>
+<p>Mover la evaluación a un proceso hijo y exponer por IPC una API allowlist, versionada y deny-by-default:</p>
 <ul>
 <li>validar y limitar argumentos, tamaños, concurrencia y timeouts;</li>
 <li>filtrar entorno, directorio de trabajo y señales;</li>
 <li>conservar journal, cancelación y artifacts en el proceso coordinador;</li>
 <li>hacer explícita cada capacidad de filesystem, shell, red y spawn.</li>
 </ul>
-<p>Esta opción mejora separación de fallas y auditabilidad. No permite ejecutar
-código hostil mientras el hijo conserve acceso OS con la identidad del usuario.
-Para ese objetivo necesita controles adicionales del sistema operativo.</p>
+<p>Esta opción mejora separación de fallas y auditabilidad. No permite ejecutar código hostil mientras el hijo conserve
+acceso OS con la identidad del usuario. Para ese objetivo necesita controles adicionales del sistema operativo.</p>
 <h2 id="opción-b-gondolin">Opción B: Gondolin</h2>
-<p>Ejecutar evaluación, capability bridge y workers dentro de una micro-VM
-Gondolin ofrece una frontera OS más fuerte. Debe comprobarse que ningún spawn
-de Claude, Codex o Cursor escape al host y que sólo se compartan paths,
-credenciales y red declarados.</p>
-<p>El costo esperado es mayor: soporte de plataforma, arranque, distribución de
-CLIs y autenticación, transferencia de artifacts, cancelación y diagnóstico.
-La referencia existente está en
+<p>Ejecutar evaluación, capability bridge y workers dentro de una micro-VM Gondolin ofrece una frontera OS más fuerte. Debe
+comprobarse que ningún spawn de Claude, Codex o Cursor escape al host y que sólo se compartan paths, credenciales y red
+declarados.</p>
+<p>El costo esperado es mayor: soporte de plataforma, arranque, distribución de CLIs y autenticación, transferencia de
+artifacts, cancelación y diagnóstico. La referencia existente está en
 <a href="../gondolin-isolation.html"><code>docs/gondolin-isolation.md</code></a>.</p>
 <h2 id="criterios-de-decisión">Criterios de decisión</h2>
 <ul>
@@ -211,9 +205,8 @@ La referencia existente está en
 <li>Preservación de artifacts, journal, resume, cancelación y observabilidad.</li>
 <li>Tests adversariales aislados de la suite normal y revisión de supply chain.</li>
 </ul>
-<p>Usar child process si el objetivo probado es contener fallas y hacer explícitas
-las capacidades de workflows confiables. Elegir Gondolin si el requisito es
-aceptar workflows no confiables con una frontera OS verificable.</p>
+<p>Usar child process si el objetivo probado es contener fallas y hacer explícitas las capacidades de workflows confiables.
+Elegir Gondolin si el requisito es aceptar workflows no confiables con una frontera OS verificable.</p>
 <h2 id="non-goals">Non-goals</h2>
 <ul>
 <li>Implementar cualquiera de las opciones en P1-01.</li>

@@ -153,18 +153,22 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	<header>
 		<div class="kicker">docs/research</div>
 		<h1>Registro de mejoras del dashboard</h1>
-		<p class="lede">Crónica cronológica y de agregado único de los pasajes de mejora del dashboard TUI de <code>/workflow</code>.
-Si estás buscando trabajo pendiente, mirá <code>dashboard-improvement-backlog.md</code>; este archivo solo registra lo que ya se hizo.</p>
+		<p class="lede">Crónica cronológica y de agregado único de los pasajes de mejora del dashboard TUI de <code>/workflow</code>. Si estás buscando
+trabajo pendiente, mirá <code>dashboard-improvement-backlog.md</code>; este archivo solo registra lo que ya se hizo.</p>
 	</header>
 	<main>
 <h2 id="en-30-segundos">En 30 segundos</h2>
-<p>Este registro documenta cada pass de mejora del dashboard, en orden temporal. Sirve para reconstruir qué cambió, qué archivos tocó cada paso y cómo se verificó. El trabajo pendiente vive en <code>dashboard-improvement-backlog.md</code>, no acá.</p>
+<p>Este registro documenta cada pass de mejora del dashboard, en orden temporal. Sirve para reconstruir qué cambió, qué
+archivos tocó cada paso y cómo se verificó. El trabajo pendiente vive en <code>dashboard-improvement-backlog.md</code>, no acá.</p>
 <h2 id="2026-06-30--dw-dash-003-collapse-the-duplicated-per-row-agent-meta-suffix">2026-06-30 — DW-DASH-003: collapse the duplicated per-row agent meta suffix</h2>
 <ul>
 <li><p><strong>Mejora (pass):</strong></p>
 <ul>
-<li>El sufijo de chips por-fila de agente (<code>prompt schema tools skills extensions keys</code>) se construía byte-idéntico en <code>renderMonitorAgents</code> y <code>renderAgents</code>, con expresiones <code>muted(...)</code>/<code>success(...)</code>/<code>warning(...)</code>/<code>error(...)</code> duplicadas.</li>
-<li>Se extrajo un helper privado behavior-preserving <code>renderAgentRowMeta(agent, muted, success, error, warning)</code> que devuelve esa cadena común, invocado desde ambos render paths.</li>
+<li>El sufijo de chips por-fila de agente (<code>prompt schema tools skills extensions keys</code>) se construía byte-idéntico en
+<code>renderMonitorAgents</code> y <code>renderAgents</code>, con expresiones <code>muted(...)</code>/<code>success(...)</code>/<code>warning(...)</code>/<code>error(...)</code>
+duplicadas.</li>
+<li>Se extrajo un helper privado behavior-preserving <code>renderAgentRowMeta(agent, muted, success, error, warning)</code> que
+devuelve esa cadena común, invocado desde ambos render paths.</li>
 <li>Quedan FUERA del helper, en cada caller, las dos diferencias intencionales:<ul>
 <li>El chip <code>code:</code> de Monitor (entre <code>elapsed:</code> y el meta)</li>
 <li>El segmento <code>— &lt;workflow&gt; &lt;runId&gt;</code> de Agents (antes de <code>elapsed:</code>)</li>
@@ -175,9 +179,16 @@ Si estás buscando trabajo pendiente, mirá <code>dashboard-improvement-backlog.
 </li>
 <li><p><strong>Archivos REALES tocados (pass):</strong></p>
 <ul>
-<li><code>extensions/pandi-dynamic-workflows/workflow-dashboard.ts</code> — nuevo helper privado <code>renderAgentRowMeta</code> (def. antes de <code>renderMonitorAgents</code>); ambos callers reemplazan los ~6 <code>const</code> de chips por <code>const meta = this.renderAgentRowMeta(...)</code>.</li>
-<li><code>extensions/pandi-dynamic-workflows/tests/integration/dashboard-agent-row-meta.test.mjs</code> — test behavioral nuevo (patrón <code>buildExtension</code> + <code>loadModule</code> + <code>WorkflowDashboard.render(WIDTH)</code>): para un mismo agente verifica que el meta suffix (<code>prompt…keys</code>) es byte-idéntico entre la fila de Monitor y la de Agents, y que persisten las dos divergencias (<code>code:</code> solo en Monitor; <code>— &lt;workflow&gt; &lt;runId&gt;</code> solo en Agents). Autodescubierto por <code>scripts/test/run-all.mjs</code> (convención <code>tests/integration/*.test.mjs</code>) — manifest sin tocar.</li>
-<li><code>docs/research/dashboard-improvement-backlog.md</code> — DW-DASH-003 → Done; H1/H2 marcados resueltos al baseline <code>da0a449</code>.</li>
+<li><code>extensions/pandi-dynamic-workflows/workflow-dashboard.ts</code> — nuevo helper privado <code>renderAgentRowMeta</code> (def. antes
+de <code>renderMonitorAgents</code>); ambos callers reemplazan los ~6 <code>const</code> de chips por
+<code>const meta = this.renderAgentRowMeta(...)</code>.</li>
+<li><code>extensions/pandi-dynamic-workflows/tests/integration/dashboard-agent-row-meta.test.mjs</code> — test behavioral nuevo
+(patrón <code>buildExtension</code> + <code>loadModule</code> + <code>WorkflowDashboard.render(WIDTH)</code>): para un mismo agente verifica que el
+meta suffix (<code>prompt…keys</code>) es byte-idéntico entre la fila de Monitor y la de Agents, y que persisten las dos
+divergencias (<code>code:</code> solo en Monitor; <code>— &lt;workflow&gt; &lt;runId&gt;</code> solo en Agents). Autodescubierto por
+<code>scripts/test/run-all.mjs</code> (convención <code>tests/integration/*.test.mjs</code>) — manifest sin tocar.</li>
+<li><code>docs/research/dashboard-improvement-backlog.md</code> — DW-DASH-003 → Done; H1/H2 marcados resueltos al baseline
+<code>da0a449</code>.</li>
 </ul>
 </li>
 <li><p><strong>Verificación (verde):</strong></p>
@@ -189,9 +200,13 @@ Si estás buscando trabajo pendiente, mirá <code>dashboard-improvement-backlog.
 <li><code>node --check</code> de la <code>.mjs</code> nueva OK</li>
 </ul>
 </li>
-<li><p><strong>Verificación adversarial:</strong> mutando SOLO el caller de Agents (append <code>stray:1</code> tras <code>${meta}</code>) el test FALLA (<code>per-row meta suffix … byte-identical</code> → exit 1), probando que ancla la divergencia por-caller; revertido y re-verificado verde.</p>
+<li><p><strong>Verificación adversarial:</strong> mutando SOLO el caller de Agents (append <code>stray:1</code> tras <code>${meta}</code>) el test FALLA
+(<code>per-row meta suffix … byte-identical</code> → exit 1), probando que ancla la divergencia por-caller; revertido y
+re-verificado verde.</p>
 </li>
-<li><p><strong>Gate:</strong> baseline <code>da0a449</code>, working tree limpio al iniciar; cambios solo dentro del allow-set (<code>workflow-dashboard.ts</code>, <code>tests/integration/**</code>, <code>docs/research/**</code>). Sin tocar <code>index.ts</code> ni otros archivos calientes. Sin commit (lo hace el humano).</p>
+<li><p><strong>Gate:</strong> baseline <code>da0a449</code>, working tree limpio al iniciar; cambios solo dentro del allow-set
+(<code>workflow-dashboard.ts</code>, <code>tests/integration/**</code>, <code>docs/research/**</code>). Sin tocar <code>index.ts</code> ni otros archivos
+calientes. Sin commit (lo hace el humano).</p>
 </li>
 </ul>
 <h2 id="2026-06-30--collapse-duplicated-selected-agent-detail-block-finalize-gate-tripped">2026-06-30 — Collapse duplicated &quot;Selected agent&quot; detail block (finalize: gate tripped)</h2>
@@ -199,7 +214,8 @@ Si estás buscando trabajo pendiente, mirá <code>dashboard-improvement-backlog.
 <li><p><strong>Mejora (pass):</strong></p>
 <ul>
 <li>El bloque de detalle &quot;Selected agent&quot; estaba duplicado casi idéntico en <code>renderMonitorAgents</code> y <code>renderAgents</code>.</li>
-<li>Se extrajo a un helper privado compartido <code>renderSelectedAgentDetail(...)</code>, parametrizado SOLO por las tres diferencias reales:<ul>
+<li>Se extrajo a un helper privado compartido <code>renderSelectedAgentDetail(...)</code>, parametrizado SOLO por las tres
+diferencias reales:<ul>
 <li><code>headerLines</code> (workflow/run/parallel, solo Agents)</li>
 <li><code>includeSchemaInState</code> (sufijo <code>• schema …</code> solo Agents)</li>
 <li><code>compactWidth</code> (220 Monitor vs 260 Agents)</li>
@@ -211,9 +227,13 @@ Si estás buscando trabajo pendiente, mirá <code>dashboard-improvement-backlog.
 </li>
 <li><p><strong>Archivos REALES tocados (pass):</strong></p>
 <ul>
-<li><code>extensions/pandi-dynamic-workflows/workflow-dashboard.ts</code> — helper <code>renderSelectedAgentDetail</code> (def. ~L737; usado en Monitor ~L853 y Agents ~L927).</li>
-<li><code>extensions/pandi-dynamic-workflows/tests/integration/dashboard-selected-agent-detail.test.mjs</code> — ancla el contrato: líneas compartidas byte-idénticas entre ambos tabs + las tres diferencias intencionales (header / schema suffix / ancho 220 vs 260).</li>
-<li><code>extensions/pandi-dynamic-workflows/tests/integration/switch-session-arg-roundtrip.test.mjs</code> — fija el round-trip de quoting↔parsing de <code>parseWorkflowCommandArgument</code> para el comando <code>switch-session</code> (ruta antes sin cobertura).</li>
+<li><code>extensions/pandi-dynamic-workflows/workflow-dashboard.ts</code> — helper <code>renderSelectedAgentDetail</code> (def. ~L737; usado
+en Monitor ~L853 y Agents ~L927).</li>
+<li><code>extensions/pandi-dynamic-workflows/tests/integration/dashboard-selected-agent-detail.test.mjs</code> — ancla el contrato:
+líneas compartidas byte-idénticas entre ambos tabs + las tres diferencias intencionales (header / schema suffix /
+ancho 220 vs 260).</li>
+<li><code>extensions/pandi-dynamic-workflows/tests/integration/switch-session-arg-roundtrip.test.mjs</code> — fija el round-trip de
+quoting↔parsing de <code>parseWorkflowCommandArgument</code> para el comando <code>switch-session</code> (ruta antes sin cobertura).</li>
 </ul>
 </li>
 <li><p><strong>Finalize (esta corrida):</strong></p>
@@ -235,8 +255,10 @@ Si estás buscando trabajo pendiente, mirá <code>dashboard-improvement-backlog.
 <li><p><strong>Evidencia / estado:</strong></p>
 <ul>
 <li>GATE DURO DISPARADO.</li>
-<li>HEAD esperado por el driving prompt = <code>fad9875</code>; HEAD real = <code>9010157</code> (commits humanos <code>1c356e8</code>, <code>251c2c2</code>, <code>9010157</code> absorbieron los archivos sucios ajenos del inicio).</li>
-<li>Por la salvaguarda dura (&quot;si cambia HEAD → BLOCKED&quot;) no se re-baseliza en autopiloto: requiere confirmación humana del nuevo baseline antes de seguir.</li>
+<li>HEAD esperado por el driving prompt = <code>fad9875</code>; HEAD real = <code>9010157</code> (commits humanos <code>1c356e8</code>, <code>251c2c2</code>,
+<code>9010157</code> absorbieron los archivos sucios ajenos del inicio).</li>
+<li>Por la salvaguarda dura (&quot;si cambia HEAD → BLOCKED&quot;) no se re-baseliza en autopiloto: requiere confirmación humana
+del nuevo baseline antes de seguir.</li>
 <li>El trabajo del pass queda intacto en el working tree (allow-set) y documentado; pendientes → backlog.</li>
 </ul>
 </li>

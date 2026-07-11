@@ -2,113 +2,320 @@
 
 ## En 30 segundos
 
-Este documento reúne los hallazgos de una auditoría multiagente sobre `pi-dynamic-workflows`. Sirve para priorizar riesgos: primero los hallazgos **altos**, luego los **medios** y, al final, los **bajos**.
+Este documento reúne los hallazgos de una auditoría multiagente sobre `pi-dynamic-workflows`. Sirve para priorizar
+riesgos: primero los hallazgos **altos**, luego los **medios** y, al final, los **bajos**.
 
-Hay **45 hallazgos distintos**: 13 altos, 21 medios y 11 bajos. Las zonas más sensibles son el puente VM/worker-source, `journal`/resume y los contratos de `parallel`/`agents`.
+Hay **45 hallazgos distintos**: 13 altos, 21 medios y 11 bajos. Las zonas más sensibles son el puente VM/worker-source,
+`journal`/resume y los contratos de `parallel`/`agents`.
 
 | Severidad | Cantidad |
-|---|---:|
-| Alta | 13 |
-| Media | 21 |
-| Baja | 11 |
+| --------- | -------: |
+| Alta      |       13 |
+| Media     |       21 |
+| Baja      |       11 |
 
-> La auditoría nunca se agotó por completo — la cobertura es buena, pero no exhaustiva; el puente VM/worker-source, `journal`/resume y los contratos de `parallel`/`agents` son las zonas calientes.
+> La auditoría nunca se agotó por completo — la cobertura es buena, pero no exhaustiva; el puente VM/worker-source,
+> `journal`/resume y los contratos de `parallel`/`agents` son las zonas calientes.
 
 ## ALTO
 
-- **El extractor JSON solo prueba el primer `{` y `[` — devuelve el objeto equivocado cuando hay salidas con múltiples segmentos** — `json-extract.ts:24` _(review)_
-  - Arreglo: recopilar TODAS las posiciones de `{`/`[`, ordenarlas e iterar: `for (let i=0;i<textValue.length;i++){const c=textValue[i]; if(c==='{'||c==='[')starts.push(i);}`; luego ejecutar el walk balanceado existente para cada inicio. Cambio reversible mínimo en una línea. Falta un test que debería existir: un json-extract con salida mixta debe devolver el primer bloque JSON válido, no el segundo.
-- **`artifactPath` desde `events.jsonl` llega a `fs.readFile` sin contención de path — lectura arbitraria de archivos** — `agent-view.ts:22-24 (read at :54); source event-parser.ts:253` _(review)_
-  - Arreglo: en `resolveAgentArtifactPath`, reemplazar la rama `isAbsolute/path.join` con `resolveInsideRoot(run.runDir, ..., 'workflow run directory')` envuelta en `try/catch` que devuelva `undefined` al salir del root (la UI degrada con gracia). Rechazar rutas absolutas directamente, porque `resolveArtifactPath` ya lo hace.
-- **La garantía de determinismo de `Cache occ` es falsa para `ctx.parallel/ctx.pipeline` — resume puede devolver el resultado cacheado equivocado** — `index.ts:528-538 (nextOcc on message arrival) + worker-source.ts:61-113` _(review)_
-  - Arreglo: el slice seguro mínimo ahora es corregir el comentario para que diga que el determinismo solo aplica a `ctx.agents/mapLimit`, y agregar un guard que avise cuando `nextOcc` devuelve `occ>0` para una key vista por primera vez dentro de un frame `parallel`/`pipeline`. La corrección durable: derivar `occ` de un índice monótono asignado por el worker a cada branch/call.
-- **`resume` traga en silencio todos los errores de `input.json` y vuelve a ejecutar con input vacío / límites perdidos** — `run-lifecycle.ts:240-244` _(review)_
-  - Arreglo: distinguir `ENOENT` (fallback aceptable a `{}`) de errores de parseo/permisos: `catch (err) { if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err; }`. Exponer parse/EACCES en el estado del run reanudado. Test faltante: reanudar con un `input.json` corrupto debe hacer fallar el run de forma explícita.
-- **`handleDashboardChoice` sin protección en el loop de reapertura del dashboard crashea toda la TUI ante input inválido** — `dashboard-orchestration.ts:354 (throw sites in handleDashboardChoice ~:435,:463 and loadRerunInput ~:155-158)` _(review)_
-  - Arreglo: envolver la llamada a `handleDashboardChoice` en `:354` con `try/catch` que notifique vía `ctx.ui` y continúe el loop (sin rethrow); proteger el segundo `parseCliJsonOrText` de `loadRerunInput` para que devuelva `undefined` (cancelar) si falla el parseo. El slice reversible mínimo es el catch a nivel del loop. Falta test: un input inválido en la reapertura debe notificar el error y dejar la TUI en el loop, sin crashear.
-- **`agents()` global omite las transformaciones `effort->thinking` y `label->name` que sí aplica `agent()`** — `worker-source.ts:192-193` _(loop-1)_
-  - Arreglo: extraer la normalización de opciones en un helper `mapAgentOptions(opts)` (líneas 174-180) y aplicarlo dentro de un wrapper `agentsGlobal` que mapea las opciones de cada ítem antes de llamar a `ctx.agents`. Conectar `sandbox.agents` a ese wrapper. Test: una prueba unitaria a nivel worker asegure que `agents()` aplica la misma normalización de opciones que `agent()` para `effort` y `label`.
-- **`vm.runInContext` con `timeout` no limita el cuerpo asíncrono del workflow — una orquestación colgada o runaway nunca es detenida por `syncTimeoutMs`** — `worker-source.ts:233` _(loop-1)_
-  - Arreglo: o bien eliminar la opción `timeout` engañosa (y documentar que solo aplican timeouts por subagente), o envolver el resultado awaitable con un guard real de reloj de pared: `Promise.race([Promise.resolve(result), rejectAfter(limits.wallClockMs)])` con un budget explícito a nivel de orquestación. Test: un workflow async colgado debe expirar por wall-clock y no quedar vivo indefinidamente.
-- **`parallel()` y `pipeline()` colapsan errores lanzados a `null` — fallas genuinas no se distinguen de retornos intencionalmente `null`** — `worker-source.ts:75-81 (parallel), 103-111 (pipeline)` _(loop-1)_
-  - Arreglo: en el `catch`, emitir un log del host con el error antes de guardar `null` (`void hostCall('log',['parallel thunk '+index+' threw: '+(e?.stack||e)])`), para que las fallas queden visibles en el journal/events aunque se preserve el contrato de settle-to-null. Opcionalmente, exponer un contador de errores de parallel.
-- **`codeHash` por registro se escribe en el journal pero nunca se valida en replay — se sirven resultados cacheados viejos después de un cambio de código** — `journal.ts:94-113 (loadJournal); record.codeHash written in index.ts` _(loop-1)_
-  - Arreglo: en `loadJournal` (o al momento de lookup) saltar/invalidate cualquier record cuyo `codeHash !== current computeCodeHash`. Cambio seguro mínimo: filtrar records por `codeHash` durante la construcción del cache cuando se pasa un hash actual. Test: escribir un registro del journal bajo hash A, reanudar bajo hash B, asegurar que el record no se reutiliza y el cache queda vacío bajo el nuevo hash.
-- **`void open(...).finally()` no traga la rejection — un unhandled promise rejection puede tumbar el proceso** — `dashboard-down-editor.ts:273 (finding mislabeled as dashboard-orchestration.ts:265)` _(loop-1)_
-  - Arreglo: agregar un `.catch` antes/de junto con `.finally`: `open(...).then(()=>{}, (err)=>{ /* log via ctx.notify or console */ }).finally(()=>{ this.opening=false })`. Test: stubear `open` para que rechace y verificar que ninguna unhandled rejection escape y que `this.opening` vuelva a `false`.
-- **Las retries de esquema corren sobre output truncado en silencio; el retry prompt atribuye mal la falla a una incompatibilidad de schema** — `index.ts:944-962` _(loop-1)_
-  - Arreglo: ejecutar `extractJsonCandidate/validateStructuredData` sobre el output parseado NO truncado (truncar solo la copia guardada/en journal), o detectar truncamiento del host (`output.length === cap`) y reportarlo correctamente en el retry prompt. Test: alimentar un stdout válido en JSON de >24000 caracteres y asegurar que el error se atribuye al parseo real y no a un falso mismatch de schema.
-- **`agents(settle:true)` traga en silencio `maxAgents-exceeded` como un resultado `null` sin rastro en journal/eventos** — `pi-dynamic-workflows/index.ts:787-789, 1117` _(loop-2)_
-  - Arreglo: distinguir rechazo por capacidad de `null` por contenido. Cambio seguro mínimo: antes de lanzar en 788, emitir un evento/log estructurado (por ejemplo `appendEvent({type:"agent", state:"rejected", reason:"maxAgents"})`) para que el registro del run muestre el límite alcanzado; mejor aún, hacer que el handler `onError` de `mapLimit` etiquete.
-- **Carrera TOCTOU: dos llamadas concurrentes a `resumeWorkflow` pasan el guard de `activeRuns`; la segunda sobrescribe el `AbortController` de la primera y deja huérfano un run vivo** — `pi-dynamic-workflows/run-lifecycle.ts:213 (set at 135)` _(loop-2)_
-  - Arreglo: cerrar la ventana reservando `runId` de forma síncrona apenas pasa el guard — por ejemplo, setear una entrada placeholder en `activeRuns` (o un `Set<string>` de `runId` en vuelo) en la línea 213/214 antes de cualquier `await`, y luego reemplazarla por el `ActiveWorkflowRun` real en 135; rechazar el segundo caller en lugar de sobrescribir el `AbortController` activo.
+- **El extractor JSON solo prueba el primer `{` y `[` — devuelve el objeto equivocado cuando hay salidas con múltiples
+  segmentos** — `json-extract.ts:24` _(review)_
+  - Arreglo: recopilar TODAS las posiciones de `{`/`[`, ordenarlas e iterar:
+    `for (let i=0;i<textValue.length;i++){const c=textValue[i]; if(c==='{'||c==='[')starts.push(i);}`; luego ejecutar el
+    walk balanceado existente para cada inicio. Cambio reversible mínimo en una línea. Falta un test que debería
+    existir: un json-extract con salida mixta debe devolver el primer bloque JSON válido, no el segundo.
+- **`artifactPath` desde `events.jsonl` llega a `fs.readFile` sin contención de path — lectura arbitraria de archivos**
+  — `agent-view.ts:22-24 (read at :54); source event-parser.ts:253` _(review)_
+  - Arreglo: en `resolveAgentArtifactPath`, reemplazar la rama `isAbsolute/path.join` con
+    `resolveInsideRoot(run.runDir, ..., 'workflow run directory')` envuelta en `try/catch` que devuelva `undefined` al
+    salir del root (la UI degrada con gracia). Rechazar rutas absolutas directamente, porque `resolveArtifactPath` ya lo
+    hace.
+- **La garantía de determinismo de `Cache occ` es falsa para `ctx.parallel/ctx.pipeline` — resume puede devolver el
+  resultado cacheado equivocado** — `index.ts:528-538 (nextOcc on message arrival) + worker-source.ts:61-113` _(review)_
+  - Arreglo: el slice seguro mínimo ahora es corregir el comentario para que diga que el determinismo solo aplica a
+    `ctx.agents/mapLimit`, y agregar un guard que avise cuando `nextOcc` devuelve `occ>0` para una key vista por primera
+    vez dentro de un frame `parallel`/`pipeline`. La corrección durable: derivar `occ` de un índice monótono asignado
+    por el worker a cada branch/call.
+- **`resume` traga en silencio todos los errores de `input.json` y vuelve a ejecutar con input vacío / límites
+  perdidos** — `run-lifecycle.ts:240-244` _(review)_
+  - Arreglo: distinguir `ENOENT` (fallback aceptable a `{}`) de errores de parseo/permisos:
+    `catch (err) { if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err; }`. Exponer parse/EACCES en el
+    estado del run reanudado. Test faltante: reanudar con un `input.json` corrupto debe hacer fallar el run de forma
+    explícita.
+- **`handleDashboardChoice` sin protección en el loop de reapertura del dashboard crashea toda la TUI ante input
+  inválido** —
+  `dashboard-orchestration.ts:354 (throw sites in handleDashboardChoice ~:435,:463 and loadRerunInput ~:155-158)`
+  _(review)_
+  - Arreglo: envolver la llamada a `handleDashboardChoice` en `:354` con `try/catch` que notifique vía `ctx.ui` y
+    continúe el loop (sin rethrow); proteger el segundo `parseCliJsonOrText` de `loadRerunInput` para que devuelva
+    `undefined` (cancelar) si falla el parseo. El slice reversible mínimo es el catch a nivel del loop. Falta test: un
+    input inválido en la reapertura debe notificar el error y dejar la TUI en el loop, sin crashear.
+- **`agents()` global omite las transformaciones `effort->thinking` y `label->name` que sí aplica `agent()`** —
+  `worker-source.ts:192-193` _(loop-1)_
+  - Arreglo: extraer la normalización de opciones en un helper `mapAgentOptions(opts)` (líneas 174-180) y aplicarlo
+    dentro de un wrapper `agentsGlobal` que mapea las opciones de cada ítem antes de llamar a `ctx.agents`. Conectar
+    `sandbox.agents` a ese wrapper. Test: una prueba unitaria a nivel worker asegure que `agents()` aplica la misma
+    normalización de opciones que `agent()` para `effort` y `label`.
+- **`vm.runInContext` con `timeout` no limita el cuerpo asíncrono del workflow — una orquestación colgada o runaway
+  nunca es detenida por `syncTimeoutMs`** — `worker-source.ts:233` _(loop-1)_
+  - Arreglo: o bien eliminar la opción `timeout` engañosa (y documentar que solo aplican timeouts por subagente), o
+    envolver el resultado awaitable con un guard real de reloj de pared:
+    `Promise.race([Promise.resolve(result), rejectAfter(limits.wallClockMs)])` con un budget explícito a nivel de
+    orquestación. Test: un workflow async colgado debe expirar por wall-clock y no quedar vivo indefinidamente.
+- **`parallel()` y `pipeline()` colapsan errores lanzados a `null` — fallas genuinas no se distinguen de retornos
+  intencionalmente `null`** — `worker-source.ts:75-81 (parallel), 103-111 (pipeline)` _(loop-1)_
+  - Arreglo: en el `catch`, emitir un log del host con el error antes de guardar `null`
+    (`void hostCall('log',['parallel thunk '+index+' threw: '+(e?.stack||e)])`), para que las fallas queden visibles en
+    el journal/events aunque se preserve el contrato de settle-to-null. Opcionalmente, exponer un contador de errores de
+    parallel.
+- **`codeHash` por registro se escribe en el journal pero nunca se valida en replay — se sirven resultados cacheados
+  viejos después de un cambio de código** — `journal.ts:94-113 (loadJournal); record.codeHash written in index.ts`
+  _(loop-1)_
+  - Arreglo: en `loadJournal` (o al momento de lookup) saltar/invalidate cualquier record cuyo
+    `codeHash !== current computeCodeHash`. Cambio seguro mínimo: filtrar records por `codeHash` durante la construcción
+    del cache cuando se pasa un hash actual. Test: escribir un registro del journal bajo hash A, reanudar bajo hash B,
+    asegurar que el record no se reutiliza y el cache queda vacío bajo el nuevo hash.
+- **`void open(...).finally()` no traga la rejection — un unhandled promise rejection puede tumbar el proceso** —
+  `dashboard-down-editor.ts:273 (finding mislabeled as dashboard-orchestration.ts:265)` _(loop-1)_
+  - Arreglo: agregar un `.catch` antes/de junto con `.finally`:
+    `open(...).then(()=>{}, (err)=>{ /* log via ctx.notify or console */ }).finally(()=>{ this.opening=false })`. Test:
+    stubear `open` para que rechace y verificar que ninguna unhandled rejection escape y que `this.opening` vuelva a
+    `false`.
+- **Las retries de esquema corren sobre output truncado en silencio; el retry prompt atribuye mal la falla a una
+  incompatibilidad de schema** — `index.ts:944-962` _(loop-1)_
+  - Arreglo: ejecutar `extractJsonCandidate/validateStructuredData` sobre el output parseado NO truncado (truncar solo
+    la copia guardada/en journal), o detectar truncamiento del host (`output.length === cap`) y reportarlo correctamente
+    en el retry prompt. Test: alimentar un stdout válido en JSON de >24000 caracteres y asegurar que el error se
+    atribuye al parseo real y no a un falso mismatch de schema.
+- **`agents(settle:true)` traga en silencio `maxAgents-exceeded` como un resultado `null` sin rastro en
+  journal/eventos** — `pi-dynamic-workflows/index.ts:787-789, 1117` _(loop-2)_
+  - Arreglo: distinguir rechazo por capacidad de `null` por contenido. Cambio seguro mínimo: antes de lanzar en 788,
+    emitir un evento/log estructurado (por ejemplo `appendEvent({type:"agent", state:"rejected", reason:"maxAgents"})`)
+    para que el registro del run muestre el límite alcanzado; mejor aún, hacer que el handler `onError` de `mapLimit`
+    etiquete.
+- **Carrera TOCTOU: dos llamadas concurrentes a `resumeWorkflow` pasan el guard de `activeRuns`; la segunda sobrescribe
+  el `AbortController` de la primera y deja huérfano un run vivo** —
+  `pi-dynamic-workflows/run-lifecycle.ts:213 (set at 135)` _(loop-2)_
+  - Arreglo: cerrar la ventana reservando `runId` de forma síncrona apenas pasa el guard — por ejemplo, setear una
+    entrada placeholder en `activeRuns` (o un `Set<string>` de `runId` en vuelo) en la línea 213/214 antes de cualquier
+    `await`, y luego reemplazarla por el `ActiveWorkflowRun` real en 135; rechazar el segundo caller en lugar de
+    sobrescribir el `AbortController` activo.
 
 ## MEDIO
 
-- **`getRunDirs` rechaza para TODOS los runs si un solo directorio desaparece entre `readdir` y `stat`** — `run-store.ts:32-41` _(review)_
-  - Arreglo: envolver el `stat` por entrada en `try/catch` devolviendo `undefined` y filtrando, o usar `Promise.allSettled` dejando solo los fulfilled — alineado con el patrón ya correcto en `collectPiSessions`. Falta test: una lista con un directorio borrado durante la enumeración (rejection de `stat` simulada) debe saltarse ese directorio y seguir enumerando el resto.
-- **Los subagentes heredan el `process.env` completo del orquestador (todos los secretos) por defecto** — `index.ts:821-830 (env spread) + agent-env-persona.ts:127-129` _(review)_
-  - Arreglo: el slice seguro mínimo es quitar variables secretas conocidas de proveedores del `env` heredado salvo que estén listadas explícitamente en `keys`, y documentar el default con claridad en el campo schema de `keys`. Cambio mayor: invertir el default para que los subagentes reciban un env base mínimo salvo `inheritEnv:true`. Reversible vía el flag existente `inheritEnv`.
-- **Las rejections del callback `onStdout/onStderr` se convierten en unhandled promise rejections** — `process-spawn.ts:127,131` _(review)_
-  - Arreglo: o bien hacer `await` del callback dentro de un data handler async, o capturar la promesa devuelta con `.catch()` y enrutar el error a `finish()`. Slice mínimo: `void Promise.resolve(options.onStdout?.(chunk)).catch(()=>{})`. Test faltante: un callback que rechaza debe dejar de producir unhandled rejection y el error quede visible en stderr sin producir un unhandled rejection.
-- **`startPiSessionHeartbeat` puede filtrar un interval y resucitar un archivo de sesión borrado bajo shutdown rápido** — `pi-session.ts:133-136` _(review)_
-  - Arreglo: después de la primera escritura await, cortar si se perdió la ownership: `if (livePiSession !== runtime) return;` inmediatamente antes de crear el interval. Opcional: hacer no-op el cuerpo del interval cuando `livePiSession !== runtime`. Mantiene intacto el contrato start/stop. Falta test: invocar start y luego stop rápidamente no debe recrear el interval ni reescribir el archivo de sesión.
-- **`formatLiveRunView` recibe `width` explícitamente `undefined` en modo no-TUI, rompiendo el default `80`** — `run-status-ui.ts:156 (callsite) / 126-133 (defn)` _(review)_
-  - Arreglo: pasar un ancho concreto: `formatLiveRunView(logs, workflowName, 80, status)`. Cambio reversible mínimo. Falta test: llamar `setWorkflowWidget` con `ctx.mode!=='tui'` y verificar que el contenido del widget no esté vacío / contenga el nombre del workflow.
-- **`truncate()` puede devolver un output más largo que el máximo declarado cuando `max < 120`** — `format.ts:17-21` _(review)_
-  - Arreglo: presupuestar el footer contra `max`: `const budget = Math.min(max,120);` cortar a `max-budget` y omitir el footer cuando excedería `max`. Falta test: `truncate(longString, 1).length <= 1` (o footer omitido).
-- **Las entradas de timeline renderizan `NaN` en elapsed time cuando `run.startedAt` o `entry.time` están malformados** — `run-view.ts:109,112-115` _(review)_
-  - Arreglo: `const started = new Date(run.startedAt).getTime(); const validStarted = Number.isFinite(started) ? started : 0;` y proteger `entry.time` de forma similar, con fallback a elapsed `0`. Falta test: `formatRunView` con `startedAt=''` debe no incluir `NaN` en el output.
-- **`appendArtifact` usa `fs.appendFile` sin protección — agentes concurrentes pueden intercalar/corromper un artifact compartido** — `index.ts:610-617` _(review)_
-  - Arreglo: extraer un `appendFileSafe(filePath, data)` general en `file-append.ts` que ejecute la escritura dentro de `runExclusive` con key en `path.resolve(filePath)`, y llamarlo desde `appendArtifact`. Falta test: dos llamadas concurrentes a `appendArtifact` con el mismo nombre deben producir un archivo sin interleaving.
+- **`getRunDirs` rechaza para TODOS los runs si un solo directorio desaparece entre `readdir` y `stat`** —
+  `run-store.ts:32-41` _(review)_
+  - Arreglo: envolver el `stat` por entrada en `try/catch` devolviendo `undefined` y filtrando, o usar
+    `Promise.allSettled` dejando solo los fulfilled — alineado con el patrón ya correcto en `collectPiSessions`. Falta
+    test: una lista con un directorio borrado durante la enumeración (rejection de `stat` simulada) debe saltarse ese
+    directorio y seguir enumerando el resto.
+- **Los subagentes heredan el `process.env` completo del orquestador (todos los secretos) por defecto** —
+  `index.ts:821-830 (env spread) + agent-env-persona.ts:127-129` _(review)_
+  - Arreglo: el slice seguro mínimo es quitar variables secretas conocidas de proveedores del `env` heredado salvo que
+    estén listadas explícitamente en `keys`, y documentar el default con claridad en el campo schema de `keys`. Cambio
+    mayor: invertir el default para que los subagentes reciban un env base mínimo salvo `inheritEnv:true`. Reversible
+    vía el flag existente `inheritEnv`.
+- **Las rejections del callback `onStdout/onStderr` se convierten en unhandled promise rejections** —
+  `process-spawn.ts:127,131` _(review)_
+  - Arreglo: o bien hacer `await` del callback dentro de un data handler async, o capturar la promesa devuelta con
+    `.catch()` y enrutar el error a `finish()`. Slice mínimo:
+    `void Promise.resolve(options.onStdout?.(chunk)).catch(()=>{})`. Test faltante: un callback que rechaza debe dejar
+    de producir unhandled rejection y el error quede visible en stderr sin producir un unhandled rejection.
+- **`startPiSessionHeartbeat` puede filtrar un interval y resucitar un archivo de sesión borrado bajo shutdown rápido**
+  — `pi-session.ts:133-136` _(review)_
+  - Arreglo: después de la primera escritura await, cortar si se perdió la ownership:
+    `if (livePiSession !== runtime) return;` inmediatamente antes de crear el interval. Opcional: hacer no-op el cuerpo
+    del interval cuando `livePiSession !== runtime`. Mantiene intacto el contrato start/stop. Falta test: invocar start
+    y luego stop rápidamente no debe recrear el interval ni reescribir el archivo de sesión.
+- **`formatLiveRunView` recibe `width` explícitamente `undefined` en modo no-TUI, rompiendo el default `80`** —
+  `run-status-ui.ts:156 (callsite) / 126-133 (defn)` _(review)_
+  - Arreglo: pasar un ancho concreto: `formatLiveRunView(logs, workflowName, 80, status)`. Cambio reversible mínimo.
+    Falta test: llamar `setWorkflowWidget` con `ctx.mode!=='tui'` y verificar que el contenido del widget no esté vacío
+    / contenga el nombre del workflow.
+- **`truncate()` puede devolver un output más largo que el máximo declarado cuando `max < 120`** — `format.ts:17-21`
+  _(review)_
+  - Arreglo: presupuestar el footer contra `max`: `const budget = Math.min(max,120);` cortar a `max-budget` y omitir el
+    footer cuando excedería `max`. Falta test: `truncate(longString, 1).length <= 1` (o footer omitido).
+- **Las entradas de timeline renderizan `NaN` en elapsed time cuando `run.startedAt` o `entry.time` están malformados**
+  — `run-view.ts:109,112-115` _(review)_
+  - Arreglo:
+    `const started = new Date(run.startedAt).getTime(); const validStarted = Number.isFinite(started) ? started : 0;` y
+    proteger `entry.time` de forma similar, con fallback a elapsed `0`. Falta test: `formatRunView` con `startedAt=''`
+    debe no incluir `NaN` en el output.
+- **`appendArtifact` usa `fs.appendFile` sin protección — agentes concurrentes pueden intercalar/corromper un artifact
+  compartido** — `index.ts:610-617` _(review)_
+  - Arreglo: extraer un `appendFileSafe(filePath, data)` general en `file-append.ts` que ejecute la escritura dentro de
+    `runExclusive` con key en `path.resolve(filePath)`, y llamarlo desde `appendArtifact`. Falta test: dos llamadas
+    concurrentes a `appendArtifact` con el mismo nombre deben producir un archivo sin interleaving.
 - **`notify()` descarta en silencio warnings y errors en modo `json/headless`** — `notify.ts:37-43` _(review)_
-  - Arreglo: después de la rama de print agregar: `if (!ctx.hasUI) { (type==='info'?console.log:console.error)(message); return; }`. Falta test: `notify` en modo no-UI y no-print con tipo `'error'` escribe en stderr.
-- **`sanitizePersonaOptions` copia valores de campos sin validación de tipos** — `agent-env-persona.ts:199-208` _(review)_
-  - Arreglo: proteger claves tipadas como arrays: `const ARRAY_KEYS=new Set(['tools','excludeTools','skills','extensions','keys']);` y omitir con warning cuando el valor no sea array. Falta test: una persona con `tools` como string debe rechazarse/saltarse con un mensaje claro en lugar de fallar más adelante.
-- **Hueco de unit tests en las funciones puras de mayor riesgo (parsing, seguridad de paths, journal, graph, config)** — `json-extract.ts (whole) / path-safety.ts:1-49 / journal.ts:30-174 / graph-parse.ts:1-324 / config.ts:23-74` _(review)_
-  - Arreglo: agregar suites unitarias chicas y rápidas (también sirven como tests de caracterización nombrados en los hallazgos #1,#2,#17,#18,#19): `tests/unit/json-extract` (direct/fenced/first-broken/think-block/empty/nested), `tests/integration/path-safety` (mkdtemp sandbox: in-root ok, `../` lanza, absolute lanza, paths preexistentes siguen funcionando).
-- **`config.normalizeWorkflowInput` deja pasar primitivos number/boolean/array como input del workflow sin transformar** — `config.ts:47` _(loop-1)_
-  - Arreglo: tratar inputs no objeto y no string como error o envolverlos: `if (input && typeof input === 'object') return input; if (typeof input === 'string') return parseCliJsonOrText(input); return {}` (o lanzar con un mensaje claro). Test: `normalizeWorkflowInput(42)` devuelve `{}` (o lanza un error claro si se adopta la variante estricta).
-- **El paso `refine` de self-refine no tiene guard para `null` — un refinador muerto/omitido reemplaza silenciosamente el último borrador bueno por `null`** — `scaffolds/self-refine.js:229-236` _(loop-1)_
-  - Arreglo: después de la línea 236, agregar: ``if (draft == null) { failureNote = `round ${round}: refine returned null`; log(`self-refine ${failureNote} — returning last good draft`); draft = <captured previous>; break; }`` — capturar el draft anterior al refine para devolver el último intento bueno. Test: stubear `refine` para que devuelva `null` y verificar que el último draft bueno se conserva.
-- **`guardrails`: `protect.args=null` sin contenido evalúa la cadena literal `'null'` contra las reglas de input** — `scaffolds/guardrails.js:203` _(loop-1)_
-  - Arreglo: proteger el caso sin input antes de `runGuards`: `const toGuard = content ?? protect.args; if (toGuard == null) { log('guardrails: no content/args to guard — failing closed'); return { status:'TRIPPED', stage:'input', reason:'no input' } }`. Test: llamar al modo wrapper con `{}` (sin `content`, ni `protect.args`) debe fallar cerrado.
-- **`nextOcc()` se llama después de dos `await` — el orden de asignación de `occ` depende del timing de I/O, y eso amenaza la corrección del cache de resume** — `index.ts:713-714, 729` _(loop-1)_
-  - Arreglo: calcular la key y llamar `nextOcc(key)` de forma síncrona al principio de `runSubagent`, antes de los dos `await`, y luego arrastrar `occ` hasta el final. También corregir el comentario que ahora sería falso. Test: dos llamadas concurrentes a `agent()` con args idénticos, con `applyPersonaOptions` retrasado artificialmente en una de ellas, deben seguir produciendo.
-- **El listener de abort se registra después de `spawn()` — un abort ya disparado nunca mata al child** — `process-spawn.ts:103-115` _(loop-1)_
-  - Arreglo: inmediatamente después de registrar el listener (o antes de `spawn`), agregar `if (options.signal.aborted) { kill(); }`. Test: pasar un signal ya abortado y verificar que el child reciba `SIGTERM` rápidamente en lugar de esperar `timeoutMs`.
-- **`stableStringify` codifica `NaN/Infinity/undefined/function/symbol` todos como `'null'` — colisiones en cache-key entre argumentos distintos** — `journal.ts:35,39` _(loop-1)_
-  - Arreglo: codificar números no finitos y `undefined/function/symbol` con un sentinel distinto que no colisione con `JSON null`, por ejemplo tokens escapados tipo `'"__nan__"'`, `'"__undefined__"'`. Test: `computeCallKey('agent',[{a:NaN}]) !== computeCallKey('agent',[{a:null}])`.
-- **`active.promise` se asigna después de dos `await` — `abortActiveWorkflowRuns` puede leer `undefined` y saltearse el drenado gracioso** — `pi-dynamic-workflows/run-lifecycle.ts:135-197` _(loop-2)_
-  - Arreglo: asignar `active.promise` antes del primer `await`, o construir la promesa de forma síncrona y guardarla en `active` en la creación (línea 128-134) para que la entrada del map nunca sea observable sin su promise. Test faltante: disparar abort durante el `await` de `writeRunStatus` y afirmar que la promise no quede observable como `undefined` y que el abort posterior la drene correctamente.
-- **Los mensajes de log del workflow pueden spoofear el estado del monitor de agentes vía la regex `agent N start:` en `event-parser`** — `pi-dynamic-workflows/event-parser.ts:198-218` _(loop-2)_
-  - Arreglo: dejar de usar mensajes de texto libre como canal estructural. Alimentar el estado del monitor desde los eventos dedicados `{type:"agent"}` (ya emitidos en `index.ts:815`) en lugar de regex-parsing de logs, o etiquetar los logs estructurales del host con un campo reservado (por ejemplo `details.__hostAgentEvent`).
-- **`monitorRunIndex` fue omitido de `DashboardSelection` — el run enfocado se resetea a 0 cada vez que se reabre** — `pi-dynamic-workflows/workflow-dashboard.ts:67-76, 138-149` _(loop-2)_
-  - Arreglo: agregar `monitorRunIndex` a la interfaz `DashboardSelection`, devolverlo desde `getSelection()`, y restaurarlo con clamp en el constructor contra `monitorModels.length` (mirando el manejo de `monitorAgentIndex` en 133-134). Test faltante: abrir el dashboard, moverse al índice 2 del monitor run, hacer re-open y verificar que el índice se conserva.
-- **`liveWriteTail .catch(()=>{})` descarta en silencio todos los errores de escritura de stdout/stderr en vivo** — `pi-dynamic-workflows/index.ts:813` _(loop-2)_
-  - Arreglo: capturar el primer error de escritura en una bandera acotada al run y exponerlo una sola vez (un log/appendEvent al final del agente: `"live log truncated: <err>"`) en lugar de tragárselo por completo. Mantener la cadena sin rechazo, pero registrar que el artifact está incompleto. Test faltante: stubear `fs.appendFile` para que falle y verificar que el aviso se emite una sola vez.
+  - Arreglo: después de la rama de print agregar:
+    `if (!ctx.hasUI) { (type==='info'?console.log:console.error)(message); return; }`. Falta test: `notify` en modo
+    no-UI y no-print con tipo `'error'` escribe en stderr.
+- **`sanitizePersonaOptions` copia valores de campos sin validación de tipos** — `agent-env-persona.ts:199-208`
+  _(review)_
+  - Arreglo: proteger claves tipadas como arrays:
+    `const ARRAY_KEYS=new Set(['tools','excludeTools','skills','extensions','keys']);` y omitir con warning cuando el
+    valor no sea array. Falta test: una persona con `tools` como string debe rechazarse/saltarse con un mensaje claro en
+    lugar de fallar más adelante.
+- **Hueco de unit tests en las funciones puras de mayor riesgo (parsing, seguridad de paths, journal, graph, config)** —
+  `json-extract.ts (whole) / path-safety.ts:1-49 / journal.ts:30-174 / graph-parse.ts:1-324 / config.ts:23-74`
+  _(review)_
+  - Arreglo: agregar suites unitarias chicas y rápidas (también sirven como tests de caracterización nombrados en los
+    hallazgos #1,#2,#17,#18,#19): `tests/unit/json-extract` (direct/fenced/first-broken/think-block/empty/nested),
+    `tests/integration/path-safety` (mkdtemp sandbox: in-root ok, `../` lanza, absolute lanza, paths preexistentes
+    siguen funcionando).
+- **`config.normalizeWorkflowInput` deja pasar primitivos number/boolean/array como input del workflow sin transformar**
+  — `config.ts:47` _(loop-1)_
+  - Arreglo: tratar inputs no objeto y no string como error o envolverlos:
+
+    ```javascript
+    if (input && typeof input === "object") return input;
+    if (typeof input === "string") return parseCliJsonOrText(input);
+    return {};
+    ```
+
+    (o lanzar con un mensaje claro). Test: `normalizeWorkflowInput(42)` devuelve `{}` (o lanza un error claro si se
+    adopta la variante estricta).
+
+- **El paso `refine` de self-refine no tiene guard para `null` — un refinador muerto/omitido reemplaza silenciosamente
+  el último borrador bueno por `null`** — `scaffolds/self-refine.js:229-236` _(loop-1)_
+  - Arreglo: después de la línea 236, agregar:
+
+    ```javascript
+    if (draft == null) { failureNote = `round ${round}: refine returned null`; log(`self-refine ${failureNote} — returning last good draft`); draft = <captured previous>; break; }
+    ```
+
+    — capturar el draft anterior al refine para devolver el último intento bueno. Test: stubear `refine` para que
+    devuelva `null` y verificar que el último draft bueno se conserva.
+
+- **`guardrails`: `protect.args=null` sin contenido evalúa la cadena literal `'null'` contra las reglas de input** —
+  `scaffolds/guardrails.js:203` _(loop-1)_
+  - Arreglo: proteger el caso sin input antes de `runGuards`:
+
+    ```javascript
+    const toGuard = content ?? protect.args;
+    if (toGuard == null) {
+      log("guardrails: no content/args to guard — failing closed");
+      return { status: "TRIPPED", stage: "input", reason: "no input" };
+    }
+    ```
+
+    Test: llamar al modo wrapper con `{}` (sin `content`, ni `protect.args`) debe fallar cerrado.
+
+- **`nextOcc()` se llama después de dos `await` — el orden de asignación de `occ` depende del timing de I/O, y eso
+  amenaza la corrección del cache de resume** — `index.ts:713-714, 729` _(loop-1)_
+  - Arreglo: calcular la key y llamar `nextOcc(key)` de forma síncrona al principio de `runSubagent`, antes de los dos
+    `await`, y luego arrastrar `occ` hasta el final. También corregir el comentario que ahora sería falso. Test: dos
+    llamadas concurrentes a `agent()` con args idénticos, con `applyPersonaOptions` retrasado artificialmente en una de
+    ellas, deben seguir produciendo.
+- **El listener de abort se registra después de `spawn()` — un abort ya disparado nunca mata al child** —
+  `process-spawn.ts:103-115` _(loop-1)_
+  - Arreglo: inmediatamente después de registrar el listener (o antes de `spawn`), agregar
+    `if (options.signal.aborted) { kill(); }`. Test: pasar un signal ya abortado y verificar que el child reciba
+    `SIGTERM` rápidamente en lugar de esperar `timeoutMs`.
+- **`stableStringify` codifica `NaN/Infinity/undefined/function/symbol` todos como `'null'` — colisiones en cache-key
+  entre argumentos distintos** — `journal.ts:35,39` _(loop-1)_
+  - Arreglo: codificar números no finitos y `undefined/function/symbol` con un sentinel distinto que no colisione con
+    `JSON null`, por ejemplo tokens escapados tipo `'"__nan__"'`, `'"__undefined__"'`. Test:
+    `computeCallKey('agent',[{a:NaN}]) !== computeCallKey('agent',[{a:null}])`.
+- **`active.promise` se asigna después de dos `await` — `abortActiveWorkflowRuns` puede leer `undefined` y saltearse el
+  drenado gracioso** — `pi-dynamic-workflows/run-lifecycle.ts:135-197` _(loop-2)_
+  - Arreglo: asignar `active.promise` antes del primer `await`, o construir la promesa de forma síncrona y guardarla en
+    `active` en la creación (línea 128-134) para que la entrada del map nunca sea observable sin su promise. Test
+    faltante: disparar abort durante el `await` de `writeRunStatus` y afirmar que la promise no quede observable como
+    `undefined` y que el abort posterior la drene correctamente.
+- **Los mensajes de log del workflow pueden spoofear el estado del monitor de agentes vía la regex `agent N start:` en
+  `event-parser`** — `pi-dynamic-workflows/event-parser.ts:198-218` _(loop-2)_
+  - Arreglo: dejar de usar mensajes de texto libre como canal estructural. Alimentar el estado del monitor desde los
+    eventos dedicados `{type:"agent"}` (ya emitidos en `index.ts:815`) en lugar de regex-parsing de logs, o etiquetar
+    los logs estructurales del host con un campo reservado (por ejemplo `details.__hostAgentEvent`).
+- **`monitorRunIndex` fue omitido de `DashboardSelection` — el run enfocado se resetea a 0 cada vez que se reabre** —
+  `pi-dynamic-workflows/workflow-dashboard.ts:67-76, 138-149` _(loop-2)_
+  - Arreglo: agregar `monitorRunIndex` a la interfaz `DashboardSelection`, devolverlo desde `getSelection()`, y
+    restaurarlo con clamp en el constructor contra `monitorModels.length` (mirando el manejo de `monitorAgentIndex` en
+    133-134). Test faltante: abrir el dashboard, moverse al índice 2 del monitor run, hacer re-open y verificar que el
+    índice se conserva.
+- **`liveWriteTail .catch(()=>{})` descarta en silencio todos los errores de escritura de stdout/stderr en vivo** —
+  `pi-dynamic-workflows/index.ts:813` _(loop-2)_
+  - Arreglo: capturar el primer error de escritura en una bandera acotada al run y exponerlo una sola vez (un
+    log/appendEvent al final del agente: `"live log truncated: <err>"`) en lugar de tragárselo por completo. Mantener la
+    cadena sin rechazo, pero registrar que el artifact está incompleto. Test faltante: stubear `fs.appendFile` para que
+    falle y verificar que el aviso se emite una sola vez.
 
 ## BAJO
 
-- **`action=write` persiste el source del workflow sin validación estructural; el código inválido falla solo en tiempo de ejecución** — `command-handlers.ts:149-158` _(review)_
-  - Arreglo: en la rama `write`, ejecutar `transformWorkflowCode(params.code)` (descartando el resultado) antes de escribir para que los errores estructurales aparezcan al momento de escribir con el mismo mensaje, y rechazar código vacío o solo espacios. El archivo en disco sigue siendo el source original. Test faltante: escribir con un import estático corrupto debe fallar al escribir, no más tarde al ejecutar.
-- **Las interpolaciones de template literal `${...}` se tratan como contenido de string por el tokenizer del graph** — `graph-parse.ts:59-63` _(review)_
-  - Arreglo: seguir `${...}`: sobre `$`+`{` mientras se está en backtick, apilar la comilla y entrar en modo código con un contador de profundidad de llaves; sobre la `}` de cierre, restaurar la comilla. Alternativa mínima: emitir un símbolo de warning cuando una llamada cae dentro de una expresión template. Test faltante: unit test de graph-parse que asegure que una expresión template no se interpreta como string literal simple y devuelva `undefined`.
-- **`countTopLevelArrayItems` devuelve `count=1` para arrays formados solo por spread como `[...items]`** — `graph-parse.ts:208-213` _(review)_
-  - Arreglo: antes de retornar, si cualquier `element.trimStart().startsWith('...')`, devolver `undefined` para que la inferencia caiga al camino heurístico `many:true`. Guard de una línea. Test faltante: `countTopLevelArrayItems('[...items]') === undefined`.
-- **`looksLikeJson` lanza en texto plano que empieza con número, como `'1 agent per team'`** — `config.ts:23-24` _(review)_
-  - Arreglo: quitar la rama de dígito de `looksLikeJson` (dejar que el texto con apariencia numérica caiga a `{text:value}`), o exigir un match completo de JSON-number contra todo el valor. Test faltante: `parseCliJsonOrText('1 agent per team')` devuelve `{text:...}` en lugar de lanzar.
-- **El parámetro `background` está en el schema pero nunca se lee en el dispatch** — `command-handlers.ts:172-199 (schema index.ts:288-293)` _(review)_
-  - Arreglo: o bien sacar `background` de `workflowToolSchema`, o cablearlo (permitir que `params.background===false` omita background cuando la sesión puede correr en foreground). No cambiar el comportamiento background-by-default; solo hacer honesto el parámetro.
-- **`tournament`: cero entrantes (todos los seeds crashearon) devuelve string vacío con un log engañoso de 'only one entrant'** — `scaffolds/tournament.js:121-123` _(loop-1)_
-  - Arreglo: separar longitud 0 vs 1: `if (entrants.length === 0) { log('tournament: all seeds failed — no entrants'); return { winner:'', failure:'no entrants' } }` (o lanzar). Test: stubear todos los seed agents para devolver `null` y afirmar un fallo explícito en lugar de un string vacío silencioso.
-- **`compact()` subestima en 120 caracteres la cuenta de chars truncados del trailer** — `worker-source.ts:35` _(loop-1)_
-  - Arreglo: informar la cantidad real removida: `+ (text.length - (maxChars - 120)) + ' chars]'`. Test: `compact(str-of-len-N, M)` reporta `N-(M-120)`.
-- **`extractFirstStringLiteral` filtra interpolación raw `${...}` de template en labels de nodos del graph** — `pi-dynamic-workflows/graph-parse.ts:30` _(loop-2)_
-  - Arreglo: hacer consistente la rama backtick con la línea 36: cambiar `[^`]` por `[^`$]` para que los templates interpolados no se capturen (la función entonces cae / devuelve `undefined` para esos casos). Test faltante: `extractFirstStringLiteral("`Hello ${x}`")` no debería devolver una string que contenga `${`.
-- **`stableStringify` emite no-JSON para arrays dispersos (holes se renderizan vacíos, no `null`), corrompiendo la reproducibilidad de call-keys** — `pi-dynamic-workflows/journal.ts:40-45` _(loop-2)_
-  - Arreglo: normalizar holes en la rama de arrays: `current.map(item => encode(item))` ya visita holes como `undefined` si usás un loop basado en `length`. Reemplazar por `Array.from({length: current.length}, (_, i) => encode(current[i]))` para que los holes codifiquen como `"null"` (igual que `JSON.stringify`). Falta test: `[1,,3]` debe serializarse igual que `JSON.stringify`.
-- **La coerción falsy (`Number(x)||default`) ignora silenciosamente un `0` explícito para `quietRounds`/`maxRounds`/`finders` (y `maxVerify`)** — `pi-dynamic-workflows/scaffolds/loop-until-dry.js:100,103,106; adversarial-verify.js:143` _(loop-2)_
-  - Arreglo: reemplazar cada `Number(x)||d` por `Number.isFinite(+x) ? Math.floor(+x) : d` para que un `0` explícito se respete y luego se clamee de forma visible. Test faltante: pasar `{quietRounds:0}` debe registrar un clamp `0->1`, no un default silencioso de `2`.
-- **`journal occ` acepta cualquier número (NaN/Infinity/float enorme) y lo usa directo como índice de array** — `pi-dynamic-workflows/journal.ts:108-110` _(loop-2)_
-  - Arreglo: endurecer el guard a `Number.isInteger(record.occ) && record.occ >= 0 && record.occ < SAFE_MAX` (un cap acotado) y saltear el resto, en línea con la tolerancia a líneas rotas ya existente en `loadJournal`. Test faltante: cargar un journal con `occ:1e9` o `occ:NaN` debe saltar el record y seguir cargando el resto sin romper el replay.
+- **`action=write` persiste el source del workflow sin validación estructural; el código inválido falla solo en tiempo
+  de ejecución** — `command-handlers.ts:149-158` _(review)_
+  - Arreglo: en la rama `write`, ejecutar `transformWorkflowCode(params.code)` (descartando el resultado) antes de
+    escribir para que los errores estructurales aparezcan al momento de escribir con el mismo mensaje, y rechazar código
+    vacío o solo espacios. El archivo en disco sigue siendo el source original. Test faltante: escribir con un import
+    estático corrupto debe fallar al escribir, no más tarde al ejecutar.
+- **Las interpolaciones de template literal `${...}` se tratan como contenido de string por el tokenizer del graph** —
+  `graph-parse.ts:59-63` _(review)_
+  - Arreglo: seguir `${...}`: sobre `$`+`{` mientras se está en backtick, apilar la comilla y entrar en modo código con
+    un contador de profundidad de llaves; sobre la `}` de cierre, restaurar la comilla. Alternativa mínima: emitir un
+    símbolo de warning cuando una llamada cae dentro de una expresión template. Test faltante: unit test de graph-parse
+    que asegure que una expresión template no se interpreta como string literal simple y devuelva `undefined`.
+- **`countTopLevelArrayItems` devuelve `count=1` para arrays formados solo por spread como `[...items]`** —
+  `graph-parse.ts:208-213` _(review)_
+  - Arreglo: antes de retornar, si cualquier `element.trimStart().startsWith('...')`, devolver `undefined` para que la
+    inferencia caiga al camino heurístico `many:true`. Guard de una línea. Test faltante:
+    `countTopLevelArrayItems('[...items]') === undefined`.
+- **`looksLikeJson` lanza en texto plano que empieza con número, como `'1 agent per team'`** — `config.ts:23-24`
+  _(review)_
+  - Arreglo: quitar la rama de dígito de `looksLikeJson` (dejar que el texto con apariencia numérica caiga a
+    `{text:value}`), o exigir un match completo de JSON-number contra todo el valor. Test faltante:
+    `parseCliJsonOrText('1 agent per team')` devuelve `{text:...}` en lugar de lanzar.
+- **El parámetro `background` está en el schema pero nunca se lee en el dispatch** —
+  `command-handlers.ts:172-199 (schema index.ts:288-293)` _(review)_
+  - Arreglo: o bien sacar `background` de `workflowToolSchema`, o cablearlo (permitir que `params.background===false`
+    omita background cuando la sesión puede correr en foreground). No cambiar el comportamiento background-by-default;
+    solo hacer honesto el parámetro.
+- **`tournament`: cero entrantes (todos los seeds crashearon) devuelve string vacío con un log engañoso de 'only one
+  entrant'** — `scaffolds/tournament.js:121-123` _(loop-1)_
+  - Arreglo: separar longitud 0 vs 1:
+
+    ```javascript
+    if (entrants.length === 0) {
+      log("tournament: all seeds failed — no entrants");
+      return { winner: "", failure: "no entrants" };
+    }
+    ```
+
+    (o lanzar). Test: stubear todos los seed agents para devolver `null` y afirmar un fallo explícito en lugar de un
+    string vacío silencioso.
+
+- **`compact()` subestima en 120 caracteres la cuenta de chars truncados del trailer** — `worker-source.ts:35`
+  _(loop-1)_
+  - Arreglo: informar la cantidad real removida: `+ (text.length - (maxChars - 120)) + ' chars]'`. Test:
+    `compact(str-of-len-N, M)` reporta `N-(M-120)`.
+- **`extractFirstStringLiteral` filtra interpolación raw `${...}` de template en labels de nodos del graph** —
+  `pi-dynamic-workflows/graph-parse.ts:30` _(loop-2)_
+  - Arreglo: hacer consistente la rama backtick con la línea 36: cambiar la clase negada para excluir también `$`, de
+    ``[^`]`` a ``[^`$]``. Así los templates interpolados no se capturan y la función cae o devuelve `undefined`. Caso de
+    prueba faltante:
+
+    ```text
+    extractFirstStringLiteral("`Hello ${x}`")
+    ```
+
+    No debería devolver una string que contenga `${`.
+
+- **`stableStringify` emite no-JSON para arrays dispersos (holes se renderizan vacíos, no `null`), corrompiendo la
+  reproducibilidad de call-keys** — `pi-dynamic-workflows/journal.ts:40-45` _(loop-2)_
+  - Arreglo: normalizar holes en la rama de arrays: `current.map(item => encode(item))` ya visita holes como `undefined`
+    si usás un loop basado en `length`. Reemplazar por
+    `Array.from({length: current.length}, (_, i) => encode(current[i]))` para que los holes codifiquen como `"null"`
+    (igual que `JSON.stringify`). Falta test: `[1,,3]` debe serializarse igual que `JSON.stringify`.
+- **La coerción falsy (`Number(x)||default`) ignora silenciosamente un `0` explícito para
+  `quietRounds`/`maxRounds`/`finders` (y `maxVerify`)** —
+  `pi-dynamic-workflows/scaffolds/loop-until-dry.js:100,103,106; adversarial-verify.js:143` _(loop-2)_
+  - Arreglo: reemplazar cada `Number(x)||d` por `Number.isFinite(+x) ? Math.floor(+x) : d` para que un `0` explícito se
+    respete y luego se clamee de forma visible. Test faltante: pasar `{quietRounds:0}` debe registrar un clamp `0->1`,
+    no un default silencioso de `2`.
+- **`journal occ` acepta cualquier número (NaN/Infinity/float enorme) y lo usa directo como índice de array** —
+  `pi-dynamic-workflows/journal.ts:108-110` _(loop-2)_
+  - Arreglo: endurecer el guard a `Number.isInteger(record.occ) && record.occ >= 0 && record.occ < SAFE_MAX` (un cap
+    acotado) y saltear el resto, en línea con la tolerancia a líneas rotas ya existente en `loadJournal`. Test faltante:
+    cargar un journal con `occ:1e9` o `occ:NaN` debe saltar el record y seguir cargando el resto sin romper el replay.

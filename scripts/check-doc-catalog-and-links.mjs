@@ -54,8 +54,8 @@ function checkReadmeCatalog(repoRoot, failures) {
 	const count = uniqueExtensions.length;
 
 	const headline =
-		readme.match(/\*\*A suite of (\d+) extensions for \[Pi\]/) ??
-		readme.match(/\*\*Una suite de (\d+) extensiones(?: más un tema)? para \[Pi\]/);
+		readme.match(/\*\*A suite of (\d+) extensions\s+for\s+\[Pi\]/) ??
+		readme.match(/\*\*Una suite de (\d+) extensiones(?:\s+más un tema)?\s+para\s+\[Pi\]/);
 	if (!headline) {
 		failures.push("README headline extension count is missing");
 	} else if (Number(headline[1]) !== count) {
@@ -63,8 +63,8 @@ function checkReadmeCatalog(repoRoot, failures) {
 	}
 
 	const catalogIntro =
-		readme.match(/All (\d+) extensions load by default from the `pi\.extensions` field/) ??
-		readme.match(/Las (\d+) extensiones del repo se listan/);
+		readme.match(/All (\d+) extensions\s+load by default from the `pi\.extensions` field/) ??
+		readme.match(/Las (\d+) extensiones del repo\s+se listan/);
 	if (!catalogIntro) {
 		failures.push("README catalog intro extension count is missing");
 	} else if (Number(catalogIntro[1]) !== count) {

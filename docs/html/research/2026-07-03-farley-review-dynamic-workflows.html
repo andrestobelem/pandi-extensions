@@ -153,11 +153,9 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	<header>
 		<div class="kicker">docs/research</div>
 		<h1>Revisión Farley (MSE) de Pi Dynamic Workflows — 2026-07-03</h1>
-		<p class="lede">Revisión técnica de la extensión <code>pandi-dynamic-workflows</code> (engine/runtime,
-primitivas, catálogo de scaffolds, dashboard/graph) con la lente de Dave
-Farley (<em>Modern Software Engineering</em>): aprendizaje, TDD como feedback,
-gestión de complejidad, estabilidad + throughput. Contract Gate: PROCEED (run
-<code>…contract-gate-3abe7ce6</code>).</p>
+		<p class="lede">Revisión técnica de la extensión <code>pandi-dynamic-workflows</code> (engine/runtime, primitivas, catálogo de scaffolds,
+dashboard/graph) con la lente de Dave Farley (<em>Modern Software Engineering</em>): aprendizaje, TDD como feedback, gestión de
+complejidad, estabilidad + throughput. Contract Gate: PROCEED (run <code>…contract-gate-3abe7ce6</code>).</p>
 	</header>
 	<main>
 <nav class="toc">
@@ -172,85 +170,68 @@ gestión de complejidad, estabilidad + throughput. Contract Gate: PROCEED (run
 	</ol>
 </nav>
 <h2 id="en-30-segundos">En 30 segundos</h2>
-<p>Este informe resume qué encontró la revisión técnica, qué defectos reales ya
-salieron del proceso y cuáles seguían abiertos en el momento del análisis. Sirve
-para ubicar rápido los riesgos más importantes de <code>pandi-dynamic-workflows</code> y
+<p>Este informe resume qué encontró la revisión técnica, qué defectos reales ya salieron del proceso y cuáles seguían
+abiertos en el momento del análisis. Sirve para ubicar rápido los riesgos más importantes de <code>pandi-dynamic-workflows</code> y
 ver qué gaps de pruebas siguen pidiendo una corrección concreta.</p>
 <h2 id="cómo-se-produjo-y-qué-encontró-el-proceso-mismo">Cómo se produjo (y qué encontró el proceso mismo)</h2>
-<p>Dos workflows: <code>revisar-dw-farley</code> (16 reviewers + jurado adversarial 3×N +
-síntesis; <strong>falló dos veces por diseño</strong>: fan-out impredecible del jurado vs
-<code>maxAgents</code>, y schema estricto sobre unidades enormes) y
-<code>revisar-dw-farley-core</code> (5 reviewers en prosa + síntesis; <strong>completó</strong>). El
-proceso en sí encontró y ya corrigió dos defectos del runtime:</p>
+<p>Dos workflows: <code>revisar-dw-farley</code> (16 reviewers + jurado adversarial 3×N + síntesis; <strong>falló dos veces por diseño</strong>:
+fan-out impredecible del jurado vs <code>maxAgents</code>, y schema estricto sobre unidades enormes) y <code>revisar-dw-farley-core</code> (5
+reviewers en prosa + síntesis; <strong>completó</strong>). El proceso en sí encontró y ya corrigió dos defectos del runtime:</p>
 <ul>
-<li><strong>Bug real (arreglado, <code>9fb6b50</code>):</strong> un mensaje final tool-only del subagente
-extraía <code>&quot;&quot;</code> y <strong>pisaba todo el output real</strong> → <code>ok:true, output:&quot;&quot;</code> (pérdida
-silenciosa, dos reseñas de 8 min &quot;vacías&quot; recuperadas después del stream crudo).</li>
-<li><strong>Feature (enviada, <code>a501094</code>):</strong> progreso auto-derivado del batch
-(<code>Review 5/16</code>) en status line y panel — antes <code>done/started</code> mentía por omisión.</li>
+<li><strong>Bug real (arreglado, <code>9fb6b50</code>):</strong> un mensaje final tool-only del subagente extraía <code>&quot;&quot;</code> y <strong>pisaba todo el output
+real</strong> → <code>ok:true, output:&quot;&quot;</code> (pérdida silenciosa, dos reseñas de 8 min &quot;vacías&quot; recuperadas después del stream
+crudo).</li>
+<li><strong>Feature (enviada, <code>a501094</code>):</strong> progreso auto-derivado del batch (<code>Review 5/16</code>) en status line y panel — antes
+<code>done/started</code> mentía por omisión.</li>
 </ul>
 <h2 id="evaluación-general">Evaluación general</h2>
-<p>El kernel está deliberadamente diseñado (abort plumbing documentado, escrituras
-atómicas, journal content-addressed, reselect-by-key). El cluster de riesgo real
-es <strong>fallo silencioso / restauración de estado bajo concurrencia</strong>: caminos donde
-el sistema hace lo incorrecto sin ruido (resume duplicado, <code>latest</code> equivocado,
-foco que se resetea, errores tragados). Las tres unidades sintetizadas reportan
-<strong>cero cobertura de caracterización en los caminos riesgosos encontrados</strong> — el
-gap de TDD es exactamente donde están los defectos.</p>
+<p>El kernel está deliberadamente diseñado (abort plumbing documentado, escrituras atómicas, journal content-addressed,
+reselect-by-key). El cluster de riesgo real es <strong>fallo silencioso / restauración de estado bajo concurrencia</strong>: caminos
+donde el sistema hace lo incorrecto sin ruido (resume duplicado, <code>latest</code> equivocado, foco que se resetea, errores
+tragados). Las tres unidades sintetizadas reportan <strong>cero cobertura de caracterización en los caminos riesgosos
+encontrados</strong> — el gap de TDD es exactamente donde están los defectos.</p>
 <h2 id="hallazgos-priorizados-verificados-por-cita">Hallazgos priorizados (verificados por cita)</h2>
 <h3>Alta</h3>
 <ol>
-<li><strong>Resume duplicado concurrente puede corromper un run-dir</strong> —
-<code>run-lifecycle.ts:220</code> (guard) vs <code>:142</code> (<code>activeRuns.set</code> recién dentro de
-<code>startWorkflowBackground</code>, con <code>await</code>s entre medio). Dos resumes pasan el
-guard y corren contra el mismo journal. <em>Fix:</em> placeholder sincrónico en
-<code>activeRuns</code> inmediatamente tras el check. <em>Test faltante:</em> dos
-<code>resumeWorkflow</code> sin await del primero → el segundo debe serializar o tirar.</li>
-<li><strong><code>latest</code> resuelve por mtime, no por <code>startedAt</code></strong> — <code>run-store.ts:29-42</code>
-ordena <code>mtimeMs</code>; <code>run-state.ts:132-135</code> (cleanup) ordena <code>startedAt</code>.
-Cualquier rewrite de <code>status.json</code> en un run viejo lo hace &quot;latest&quot; para
+<li><strong>Resume duplicado concurrente puede corromper un run-dir</strong> — <code>run-lifecycle.ts:220</code> (guard) vs <code>:142</code>
+(<code>activeRuns.set</code> recién dentro de <code>startWorkflowBackground</code>, con <code>await</code>s entre medio). Dos resumes pasan el guard y
+corren contra el mismo journal. <em>Fix:</em> placeholder sincrónico en <code>activeRuns</code> inmediatamente tras el check. <em>Test
+faltante:</em> dos <code>resumeWorkflow</code> sin await del primero → el segundo debe serializar o tirar.</li>
+<li><strong><code>latest</code> resuelve por mtime, no por <code>startedAt</code></strong> — <code>run-store.ts:29-42</code> ordena <code>mtimeMs</code>; <code>run-state.ts:132-135</code>
+(cleanup) ordena <code>startedAt</code>. Cualquier rewrite de <code>status.json</code> en un run viejo lo hace &quot;latest&quot; para
 resume/view/cancel/delete. <em>Fix:</em> ordenar por <code>startedAt</code> del record.</li>
-<li><strong>El foco del Monitor se resetea en cada reopen</strong> —
-<code>workflow-dashboard.ts:72-80</code>: <code>DashboardSelection</code> persiste
-<code>monitorAgentIndex</code> pero no <code>monitorRunIndex</code>, anulando el mecanismo de
-restore que documenta.</li>
+<li><strong>El foco del Monitor se resetea en cada reopen</strong> — <code>workflow-dashboard.ts:72-80</code>: <code>DashboardSelection</code> persiste
+<code>monitorAgentIndex</code> pero no <code>monitorRunIndex</code>, anulando el mecanismo de restore que documenta.</li>
 </ol>
 <h3>Media</h3>
 <ol start="4">
-<li><strong><code>agents()</code> fail-fast deja hermanos huérfanos</strong> —
-<code>concurrency-primitives.ts</code>: al primer throw, los worker-loops hermanos siguen
-spawneando subagentes cuyo trabajo se descarta (queman presupuesto).</li>
-<li><strong><code>race()</code> descarta errores reales como &quot;empty&quot;</strong> — <code>worker-source.ts</code>: un
-bug genuino de un thunk es indistinguible de &quot;todas las branches declinaron&quot;.</li>
-<li><strong><code>/ultracode</code> registrado dos veces</strong> — <code>index.ts:1842</code> y <code>:1850</code>; el primer
-handler es inalcanzable (código muerto). <em>Verificado.</em></li>
-<li><strong>Param <code>background</code> del tool es no-op</strong> — anunciado en el schema
-(<code>index.ts:326</code> área), pero <code>params.background</code> no se consume en el dispatch.
-<em>Verificado.</em> Confunde al modelo que usa el tool.</li>
-<li><strong><code>action=write</code> no valida el código</strong> — no corre <code>transformWorkflowCode</code>
-antes de persistir; el código inválido round-tripea OK y falla recién en
-<code>run/start</code> (feedback tardío — anti-Farley).</li>
+<li><strong><code>agents()</code> fail-fast deja hermanos huérfanos</strong> — <code>concurrency-primitives.ts</code>: al primer throw, los worker-loops
+hermanos siguen spawneando subagentes cuyo trabajo se descarta (queman presupuesto).</li>
+<li><strong><code>race()</code> descarta errores reales como &quot;empty&quot;</strong> — <code>worker-source.ts</code>: un bug genuino de un thunk es indistinguible
+de &quot;todas las branches declinaron&quot;.</li>
+<li><strong><code>/ultracode</code> registrado dos veces</strong> — <code>index.ts:1842</code> y <code>:1850</code>; el primer handler es inalcanzable (código muerto).
+<em>Verificado.</em></li>
+<li><strong>Param <code>background</code> del tool es no-op</strong> — anunciado en el schema (<code>index.ts:326</code> área), pero <code>params.background</code> no
+se consume en el dispatch. <em>Verificado.</em> Confunde al modelo que usa el tool.</li>
+<li><strong><code>action=write</code> no valida el código</strong> — no corre <code>transformWorkflowCode</code> antes de persistir; el código inválido
+round-tripea OK y falla recién en <code>run/start</code> (feedback tardío — anti-Farley).</li>
 </ol>
 <h3>Diseño del propio catálogo (meta)</h3>
 <ol start="9">
-<li><strong>Fan-out impredecible en drafts tipo jurado</strong> (3×N hallazgos): el total de
-agentes depende del resultado → <code>maxAgents</code> revienta al final y se <strong>skipea la
-síntesis</strong> (el entregable). Regla: derivar el budget del work-list o acotar el
-jurado; degradar (sintetizar lo que hay) en vez de fallar.</li>
-<li><strong>Schema estricto sobre unidades grandes</strong> produce <code>schema:bad</code>/timeouts;
-la salida en prosa + síntesis-judge es más robusta (lección ya aplicada a las
-lentes del scaffold, ahora también a unidades).</li>
+<li><strong>Fan-out impredecible en drafts tipo jurado</strong> (3×N hallazgos): el total de agentes depende del resultado →
+<code>maxAgents</code> revienta al final y se <strong>skipea la síntesis</strong> (el entregable). Regla: derivar el budget del work-list o
+acotar el jurado; degradar (sintetizar lo que hay) en vez de fallar.</li>
+<li><strong>Schema estricto sobre unidades grandes</strong> produce <code>schema:bad</code>/timeouts; la salida en prosa + síntesis-judge es más
+robusta (lección ya aplicada a las lentes del scaffold, ahora también a unidades).</li>
 </ol>
 <h2 id="cobertura-honesta">Cobertura (honesta)</h2>
 <ul>
-<li><strong>Sintetizado:</strong> dashboard-tui, run-resume-state, concurrency-spawn (core run);
-engine-run y tool-dispatch (reseñas recuperadas del stream, citas spot-checked).</li>
-<li><strong>Revisado pero sin síntesis final:</strong> parsing, graph, unidades livianas y
-14/23 hallazgos que sobrevivieron el jurado del run grande (artifacts en
-<code>…revisar-dw-farley-2560a7c6/agents/</code>), lentes security/concurrency/errors
-(fallaron por schema/timeout).</li>
-<li><strong>No cubierto:</strong> catálogo de 25 scaffolds a nivel por-archivo (muestreo del run
-grande sin síntesis).</li>
+<li><strong>Sintetizado:</strong> dashboard-tui, run-resume-state, concurrency-spawn (core run); engine-run y tool-dispatch (reseñas
+recuperadas del stream, citas spot-checked).</li>
+<li><strong>Revisado pero sin síntesis final:</strong> parsing, graph, unidades livianas y 14/23 hallazgos que sobrevivieron el jurado
+del run grande (artifacts en <code>…revisar-dw-farley-2560a7c6/agents/</code>), lentes security/concurrency/errors (fallaron por
+schema/timeout).</li>
+<li><strong>No cubierto:</strong> catálogo de 25 scaffolds a nivel por-archivo (muestreo del run grande sin síntesis).</li>
 </ul>
 <h2 id="estado-loop-until-dry-2026-07-03-misma-sesión">Estado (loop-until-dry 2026-07-03, misma sesión)</h2>
 <div class="table-scroll"><table>
@@ -307,25 +288,20 @@ grande sin síntesis).</li>
 <td>✅ <code>c59da95</code> (notas en el skill ultracode + mirrors)</td>
 </tr>
 </tbody></table></div>
-<p>Bonus de la misma revisión: output tool-only pisaba la respuesta (<code>9fb6b50</code>),
-progreso auto-derivado <code>Review 5/16</code> (<code>a501094</code>), y <strong>resume ignoraba los
-límites explícitos</strong> — hallazgo en vivo, <code>a7db180</code> +
+<p>Bonus de la misma revisión: output tool-only pisaba la respuesta (<code>9fb6b50</code>), progreso auto-derivado <code>Review 5/16</code>
+(<code>a501094</code>), y <strong>resume ignoraba los límites explícitos</strong> — hallazgo en vivo, <code>a7db180</code> +
 <code>resume-honors-limit-params.test.mjs</code>.</p>
 <h3>Cierre de #4 (mismo día)</h3>
-<p>El seam &quot;faltante&quot; ya existía: <code>PI_DYNAMIC_WORKFLOWS_PI_COMMAND</code> fakea el binario
-de subagentes end-to-end (patrón de <code>race-cancellation.test.mjs</code>). El Red mostró
-el bug completo — hermanos in-flight corriendo a término Y workers ociosos
-tomando items NUEVOS tras el fallo — y además aclaró la semántica: un subagente
-que sale ≠0 RESUELVE con <code>ok:false</code>; el rechazo fail-fast viene de throws reales
-(schema <code>throw</code>, presupuesto <code>maxAgents</code>, abort). Fix: <code>mapLimit</code> estructurado
-(el primer rechazo aborta una señal scoped, ningún item encolado arranca, el
-error original se relanza tras el wind-down) + el fan-out de <code>agents()</code> corre
-cada item bajo esa señal vía <code>callSignal</code>. El <code>parallel</code>/<code>pipeline</code> del worker
-son settling (nunca rechazan), así que no comparten el bug.</p>
+<p>El seam &quot;faltante&quot; ya existía: <code>PI_DYNAMIC_WORKFLOWS_PI_COMMAND</code> fakea el binario de subagentes end-to-end (patrón de
+<code>race-cancellation.test.mjs</code>). El Red mostró el bug completo — hermanos in-flight corriendo a término Y workers ociosos
+tomando items NUEVOS tras el fallo — y además aclaró la semántica: un subagente que sale ≠0 RESUELVE con <code>ok:false</code>; el
+rechazo fail-fast viene de throws reales (schema <code>throw</code>, presupuesto <code>maxAgents</code>, abort). Fix: <code>mapLimit</code> estructurado
+(el primer rechazo aborta una señal scoped, ningún item encolado arranca, el error original se relanza tras el
+wind-down) + el fan-out de <code>agents()</code> corre cada item bajo esa señal vía <code>callSignal</code>. El <code>parallel</code>/<code>pipeline</code> del
+worker son settling (nunca rechazan), así que no comparten el bug.</p>
 <p>Con esto, los 10 hallazgos materiales de la revisión quedan cerrados.</p>
-<p>Runs: <code>2026-07-03T01-36-13-315Z-…farley-2560a7c6</code> (fallido ×2),
-<code>2026-07-03T02-27-27-539Z-…farley-core-125c92cf</code> (ok). Reseñas recuperadas:
-<code>.pi/tmp/farley/review-{engine-run,tool-dispatch}.md</code>.</p>
+<p>Runs: <code>2026-07-03T01-36-13-315Z-…farley-2560a7c6</code> (fallido ×2), <code>2026-07-03T02-27-27-539Z-…farley-core-125c92cf</code> (ok).
+Reseñas recuperadas: <code>.pi/tmp/farley/review-{engine-run,tool-dispatch}.md</code>.</p>
 	</main>
 	<footer>Generado con el skill pandi-artifact-style · paleta: panda-syntax dark/light</footer>
 </div>

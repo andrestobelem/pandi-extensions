@@ -172,7 +172,10 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <p>Muestrea N caminos de razonamiento independientes y decide por consenso, no por una sola ruta (arXiv:2203.11171).</p>
 </blockquote>
 <h2 id="en-30-segundos">En 30 segundos</h2>
-<p>Este patrón sirve cuando una sola cadena de pensamiento puede fallar, sobre todo en lógica, matemática y juicio. Lanza varias muestras independientes sobre la misma pregunta, cuenta votos sobre la respuesta normalizada y, si hay empate, usa un juez más capaz para desempatar. Elegilo cuando te importa medir el margen de consenso, no solo obtener una respuesta.</p>
+<p>Este patrón sirve cuando una sola cadena de pensamiento puede fallar, sobre todo en lógica, matemática y juicio. Lanza
+varias muestras independientes sobre la misma pregunta, cuenta votos sobre la respuesta normalizada y, si hay empate,
+usa un juez más capaz para desempatar. Elegilo cuando te importa medir el margen de consenso, no solo obtener una
+respuesta.</p>
 <h2 id="cómo-lanzarlo">Cómo lanzarlo</h2>
 <pre><code class="hljs language-text">/workflow new mi-run --pattern=self-consistency
 /workflow run mi-run {&quot;question&quot;:&quot;Does this code path leak the handle?&quot;,&quot;samples&quot;:7}</code></pre>
@@ -208,9 +211,15 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
     N --&gt; P
     O --&gt; P</pre>
 <h2 id="qué-hace">Qué hace</h2>
-<p><code>self-consistency</code> implementa el patrón del paper homónimo (Wang et al., arXiv:2203.11171): en vez de confiar en un único chain-of-thought, dispara <code>samples</code> intentos de razonamiento totalmente independientes sobre la misma pregunta. Cada muestra devuelve una respuesta final normalizada a una forma canónica corta más su razonamiento.</p>
-<p>La diferencia frente a <code>fan-out-and-synthesize</code> es que acá no se arma un resumen mezclado: se <strong>cuentan votos</strong> sobre un campo de respuesta estructurado y se reporta el margen de consenso. Así, un 5/5 y un 2/2/1 quedan distinguibles. Si hay empate, no se resuelve a dedo: se delega a un juez de mayor capacidad que pesa evidencia solo entre las respuestas empatadas.</p>
-<p>Es el contraparte de consenso de <code>adversarial-verify</code> (que poda una afirmación por mayoría de refutación): <code>self-consistency</code> se usa para <strong>acordar</strong> una respuesta; <code>adversarial-verify</code>, para <strong>refutar</strong> una afirmación puntual.</p>
+<p><code>self-consistency</code> implementa el patrón del paper homónimo (Wang et al., arXiv:2203.11171): en vez de confiar en un
+único chain-of-thought, dispara <code>samples</code> intentos de razonamiento totalmente independientes sobre la misma pregunta.
+Cada muestra devuelve una respuesta final normalizada a una forma canónica corta más su razonamiento.</p>
+<p>La diferencia frente a <code>fan-out-and-synthesize</code> es que acá no se arma un resumen mezclado: se <strong>cuentan votos</strong> sobre un
+campo de respuesta estructurado y se reporta el margen de consenso. Así, un 5/5 y un 2/2/1 quedan distinguibles. Si hay
+empate, no se resuelve a dedo: se delega a un juez de mayor capacidad que pesa evidencia solo entre las respuestas
+empatadas.</p>
+<p>Es el contraparte de consenso de <code>adversarial-verify</code> (que poda una afirmación por mayoría de refutación):
+<code>self-consistency</code> se usa para <strong>acordar</strong> una respuesta; <code>adversarial-verify</code>, para <strong>refutar</strong> una afirmación puntual.</p>
 <h2 id="cuándo-usarlo">Cuándo usarlo</h2>
 <div class="table-scroll"><table>
 <thead>
@@ -232,12 +241,18 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td><code>adversarial-verify</code></td>
 </tr>
 </tbody></table></div>
-<p>Úsalo cuando te importe medir cuánta coincidencia hay entre varios razonamientos independientes. No lo uses si la tarea no tiene una respuesta canónica corta: ahí el voto deja de ser una señal útil.</p>
+<p>Úsalo cuando te importe medir cuánta coincidencia hay entre varios razonamientos independientes. No lo uses si la tarea
+no tiene una respuesta canónica corta: ahí el voto deja de ser una señal útil.</p>
 <h2 id="cómo-funciona">Cómo funciona</h2>
-<p><strong>Validación de entrada.</strong> <code>question</code> (o <code>q</code>/<code>text</code>) es obligatorio; si falta, el workflow lanza <code>Error</code>. <code>samples</code> se convierte a entero y se clampa a <code>[2, 20]</code>; si el valor pedido se recorta, se registra con <code>log(...)</code>.</p>
-<p><strong>Sample.</strong> Lanza <code>samples</code> llamadas a <code>agent</code> en <code>parallel</code>, todas en el rol <code>sample</code> (<code>haiku</code>, <code>low</code>) y con <code>cache: false</code>. Cada prompt pide razonar paso a paso, normalizar la respuesta final y trata el contenido de la pregunta como datos dentro de <code>fence(&quot;topic&quot;, ...)</code>.</p>
-<p><strong>Tally.</strong> Filtra los <code>null</code> de las muestras fallidas, cuenta votos por <code>answer.toLowerCase()</code>, ordena por cantidad de votos y registra un resumen con líder, votos y empate.</p>
-<p><strong>Decide.</strong> Si hay un único líder, gana por <code>plurality</code>. Si hay empate, un <code>agent</code> <code>tiebreak</code> (<code>opus</code>, <code>high</code>) elige entre las respuestas empatadas; si devuelve una respuesta fuera de la lista, se usa <code>tied[0]</code> como fallback seguro.</p>
+<p><strong>Validación de entrada.</strong> <code>question</code> (o <code>q</code>/<code>text</code>) es obligatorio; si falta, el workflow lanza <code>Error</code>. <code>samples</code> se
+convierte a entero y se clampa a <code>[2, 20]</code>; si el valor pedido se recorta, se registra con <code>log(...)</code>.</p>
+<p><strong>Sample.</strong> Lanza <code>samples</code> llamadas a <code>agent</code> en <code>parallel</code>, todas en el rol <code>sample</code> (<code>haiku</code>, <code>low</code>) y con
+<code>cache: false</code>. Cada prompt pide razonar paso a paso, normalizar la respuesta final y trata el contenido de la pregunta
+como datos dentro de <code>fence(&quot;topic&quot;, ...)</code>.</p>
+<p><strong>Tally.</strong> Filtra los <code>null</code> de las muestras fallidas, cuenta votos por <code>answer.toLowerCase()</code>, ordena por cantidad de
+votos y registra un resumen con líder, votos y empate.</p>
+<p><strong>Decide.</strong> Si hay un único líder, gana por <code>plurality</code>. Si hay empate, un <code>agent</code> <code>tiebreak</code> (<code>opus</code>, <code>high</code>) elige
+entre las respuestas empatadas; si devuelve una respuesta fuera de la lista, se usa <code>tied[0]</code> como fallback seguro.</p>
 <p><strong>Observabilidad.</strong> No hay <code>writeArtifact</code>: la trazabilidad vive en <code>log(...)</code> y en el shape de retorno.</p>
 <h2 id="input-y-output">Input y output</h2>
 <div class="table-scroll"><table>
@@ -289,7 +304,8 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <p><strong>Salida normal:</strong> <code>{ answer, votes, method, totalSamples, counted, distribution, tiedAmong? }</code></p>
 <ul>
 <li><code>answer</code>: respuesta consensuada final.</li>
-<li><code>votes</code>: votos del líder original; si hubo empate y el juez eligió otra respuesta, este número sigue siendo el del líder.</li>
+<li><code>votes</code>: votos del líder original; si hubo empate y el juez eligió otra respuesta, este número sigue siendo el del
+líder.</li>
 <li><code>method</code>: <code>&quot;plurality&quot;</code> o <code>&quot;judge-tiebreak&quot;</code>.</li>
 <li><code>tiedAmong</code>: solo aparece si hubo empate.</li>
 <li><code>distribution</code>: <code>[{ answer, votes, samples }]</code>, con los índices de muestra que votaron cada respuesta.</li>
@@ -297,9 +313,11 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <p><strong>Salida de fallo total:</strong> la cadena <code>&quot;All samples failed; no consensus possible.&quot;</code>.</p>
 <h2 id="fases">Fases</h2>
 <ol>
-<li><strong>Sample</strong> — <code>samples</code> agentes independientes (<code>haiku·low</code>, <code>cache:false</code>) razonan la misma pregunta por separado y devuelven <code>{ answer, reasoning }</code>.</li>
+<li><strong>Sample</strong> — <code>samples</code> agentes independientes (<code>haiku·low</code>, <code>cache:false</code>) razonan la misma pregunta por separado y
+devuelven <code>{ answer, reasoning }</code>.</li>
 <li><strong>Tally</strong> — agrupa respuestas equivalentes por clave en minúsculas y cuenta votos y muestras asociadas.</li>
-<li><strong>Decide</strong> — gana por pluralidad si no hay empate; si lo hay, un juez (<code>opus·high</code>) elige entre las empatadas con fallback seguro si responde fuera de lista.</li>
+<li><strong>Decide</strong> — gana por pluralidad si no hay empate; si lo hay, un juez (<code>opus·high</code>) elige entre las empatadas con
+fallback seguro si responde fuera de lista.</li>
 </ol>
 	</main>
 	<footer>Generado con el skill pandi-artifact-style · paleta: panda-syntax dark/light</footer>

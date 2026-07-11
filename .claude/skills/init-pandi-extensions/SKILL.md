@@ -1,33 +1,13 @@
 ---
 name: init-pandi-extensions
-description: >-
-  Activar cuando la persona usuaria acaba de CLONAR este repo `pandi-extensions` y quiere instalarlo,
-  configurarlo o hacer onboarding; es decir, dejar funcionando desde cero las extensiones,
-  skills y dynamic workflows de Pi (o Claude Code). Recorre la instalación ordenada,
-  consciente de la plataforma e idempotente: Node >=22.19 vía nvm, la CLI global de Pi,
-  npm install, npm run doctor, npm test, pi install ./, luego /trust + /reload y un smoke
-  test. También cubre sync drift reportado por doctor (incluido ~/.claude) y extras
-  opcionales de web_search / Context7 / PNG-graph / sandbox. NO para crear extensiones
-  nuevas ni para un `npm install` genérico de paquetes no relacionados.
+description:
+  Inicializá un clon nuevo de `pandi-extensions` con onboarding idempotente y consciente de plataforma para Pi o Claude
+  Code. Usá para instalar o configurar desde cero extensiones, skills y dynamic workflows; resolver sync drift detectado
+  por `doctor`, incluido `~/.claude`; o configurar extras de web_search, Context7, PNG-graph o sandbox. Excluye crear
+  extensiones y el `npm install` genérico.
 ---
 
 # Inicializar este harness (`pandi-extensions`)
-
-Llevá un **fresh clone** de `pandi-extensions` a una instalación usable: las extensiones de Pi
-(`/workflow`, `/goal`, `/loop`, `/plan`, `/effort`, `/mdview`, …), las skills del proyecto y el
-catálogo de `dynamic_workflow`, disponibles tanto desde Pi como desde Claude Code.
-
-**Fuente de verdad:** la sección **"Quickstart"** del README, `docs/setup.md` para capacidades
-opcionales y `extensions/pandi-doctor/scripts/doctor.mjs`. Esta skill aporta el procedimiento
-ordenado y el criterio. Si dudás, corré `npm run doctor` y seguí README + docs en vez de adivinar.
-No inventes versiones ni pasos: leelos de `.nvmrc`, `package.json`, el README y `docs/setup.md`.
-
-## Cuándo usarla
-
-- "Acabo de clonar esto — ¿cómo lo instalo o lo dejo andando?", "haceme el onboarding", "dejame funcionando las extensiones".
-- Cuando querés que `/workflow`, `/effort`, `/goal`, etc. queden disponibles en Pi o Claude Code.
-
-No la uses para crear una extensión/skill nueva ni para hacer `npm install` de una librería no relacionada.
 
 ## En 30 segundos
 
@@ -37,14 +17,25 @@ No la uses para crear una extensión/skill nueva ni para hacer `npm install` de 
 4. Verificá con `npm test`.
 5. Instalá el bundle con `pi install ./` y, en el proyecto destino, hacé `/trust` + `/reload`.
 
+## Alcance y fuentes
+
+Llevá un **fresh clone** de `pandi-extensions` a una instalación usable: las extensiones de Pi (`/workflow`, `/goal`,
+`/loop`, `/plan`, `/effort`, `/mdview`, …), las skills del proyecto y el catálogo de `dynamic_workflow`, disponibles
+tanto desde Pi como desde Claude Code.
+
+**Fuente de verdad:** la sección **"Quickstart"** del README, `docs/setup.md` para capacidades opcionales y
+`extensions/pandi-doctor/scripts/doctor.mjs`. Esta skill aporta el procedimiento ordenado y el criterio. Si dudás, corré
+`npm run doctor` y seguí README + docs en vez de adivinar. Leé versiones y pasos de `.nvmrc`, `package.json`, el README
+y `docs/setup.md`.
+
 ## Precondiciones para chequear primero (solo lectura)
 
 1. ¿Estamos en el **repo root**? (`package.json` debe tener `name: pandi-extensions`.)
-2. ¿Qué tiene ya el entorno? Corré **`npm run doctor`**: es read-only, lista todos los requisitos
-   obligatorios y opcionales, y sale non-zero solo si falta uno MANDATORY. Dejá que su salida guíe
-   qué instalar o sincronizar; no reinstales lo que ya está OK.
-3. Anotá la plataforma: los comandos de instalación cambian (`macOS` = `brew`, Linux = package
-   manager de la distro; los sandboxes Apple `container` son solo para macOS Apple Silicon).
+2. ¿Qué tiene ya el entorno? Corré **`npm run doctor`**: es read-only, lista todos los requisitos obligatorios y
+   opcionales, y sale non-zero solo si falta uno MANDATORY. Dejá que su salida guíe qué instalar o sincronizar; no
+   reinstales lo que ya está OK.
+3. Anotá la plataforma: los comandos de instalación cambian (`macOS` = `brew`, Linux = package manager de la distro; los
+   sandboxes Apple `container` son solo para macOS Apple Silicon).
 
 ## Instalación ordenada (idempotente: segura de re-ejecutar)
 
@@ -71,10 +62,11 @@ npm test
 pi install ./                     # alternativa project-local: pi install -l ./
 ```
 
-**Cierre de instalación:** `node --version` satisface `.nvmrc`, `pi --version` responde, `npm run doctor` no reporta faltantes MANDATORY, `npm test` termina con exit 0 y `pi install ./` termina con exit 0.
+**Cierre de instalación:** `node --version` satisface `.nvmrc`, `pi --version` responde, `npm run doctor` no reporta
+faltantes MANDATORY, `npm test` termina con exit 0 y `pi install ./` termina con exit 0.
 
-Si `doctor` reporta mirror drift entre repo y global, corré exactamente el fix que imprime y después
-volvé a correr `npm run doctor`.
+Si `doctor` reporta mirror drift entre repo y global, corré exactamente el fix que imprime y después volvé a correr
+`npm run doctor`.
 
 Arreglos de sync comunes:
 
@@ -91,7 +83,9 @@ npm run sync:docs:html            # mirror generado de docs/html
 npm run sync:personas             # README/HTML generados de personas
 ```
 
-Qué skill editar y en qué orden correr los sync: [`docs/handbooks/glosario-skills.md`](../../../docs/handbooks/glosario-skills.md) (sección *Capas de generación y sync*).
+Qué skill editar y en qué orden correr los sync:
+[`docs/handbooks/glosario-skills.md`](../../../docs/handbooks/glosario-skills.md) (sección _Capas de generación y
+sync_).
 
 Después, **en el proyecto donde las quieras usar** (no necesariamente este repo):
 
@@ -111,40 +105,41 @@ Dentro de Pi:
 /doctor               # chequeo del entorno in-session (igual que `npm run doctor`, una vez cargado)
 ```
 
-También son buenas señales: `/doctor` in-session (o `npm run doctor` antes de instalar) en verde para
-los requisitos obligatorios y `npm test` pasando.
+También son buenas señales: `/doctor` in-session (o `npm run doctor` antes de instalar) en verde para los requisitos
+obligatorios y `npm test` pasando.
 
-**Cierre de smoke:** después de `/trust` + `/reload` en el proyecto destino, `/doctor` no reporta faltantes obligatorios y al menos `/effort status` y `/workflows` están disponibles.
+**Cierre de smoke:** después de `/trust` + `/reload` en el proyecto destino, `/doctor` no reporta faltantes obligatorios
+y al menos `/effort status` y `/workflows` están disponibles.
 
 ## Trabajar DENTRO de este repo (sin instalación)
 
-Este checkout ya cablea cada extensión mediante su propio `.pi/settings.json` (`packages: [...]`).
-Entonces, para hackear el repo, alcanza con correr `pi` en el repo root y hacer `/trust`. `pi install ./`
-solo hace falta para dejar las extensiones disponibles en tus OTROS proyectos.
+Este checkout ya cablea cada extensión mediante su propio `.pi/settings.json` (`packages: [...]`). Entonces, para
+hackear el repo, alcanza con correr `pi` en el repo root y hacer `/trust`. `pi install ./` solo hace falta para dejar
+las extensiones disponibles en tus OTROS proyectos.
 
 Para probar una extensión sin instalarla:
 
 - `pi --no-extensions -e ./extensions/pandi-dynamic-workflows/index.ts`
 - `pi --no-extensions -e .` para el bundle completo
 
-Como este checkout es **self-hosted** (la instalación global puede apuntar de vuelta a este repo y `pi`
-carga TypeScript de extensiones desde disco), un `/reload` aplica tus cambios sin commitear al instante,
-y una edición rota puede matar tu sesión. Para el loop completo de desarrollo y prueba (tests aislados
-primero, smoke en vivo en otro worktree/instancia y cuándo usar sandboxing), ver
+Como este checkout es **self-hosted** (la instalación global puede apuntar de vuelta a este repo y `pi` carga TypeScript
+de extensiones desde disco), un `/reload` aplica tus cambios sin commitear al instante, y una edición rota puede matar
+tu sesión. Para el loop completo de desarrollo y prueba (tests aislados primero, smoke en vivo en otro
+worktree/instancia y cuándo usar sandboxing), ver
 [`docs/developing-extensions.md`](../../../docs/developing-extensions.md).
 
 ### Pi dentro de un repo worktree
 
 En un worktree de este repo, primero probá `pi` a secas. Si arranca limpio, no hace falta wrapper.
 
-Si al arrancar aparecen conflictos por tools duplicadas (`dynamic_workflow`, `loop_schedule`, `goal_progress`, etc.),
-Pi está cargando ambas cosas:
+Si al arrancar aparecen conflictos por tools duplicadas (`dynamic_workflow`, `loop_schedule`, `goal_progress`, etc.), Pi
+está cargando ambas cosas:
 
 1. el checkout principal instalado globalmente desde `~/.pi/agent/settings.json`, y
 2. los paquetes del proyecto worktree desde el `.pi/settings.json` de ese worktree.
 
-En ese caso, usá en el worktree un wrapper ignorado por git que apunte Pi a un agent dir aislado cuya
-configuración omita el paquete del checkout global, pero conserve globals no conflictivos como `npm:pi-codex-web-search`:
+En ese caso, usá en el worktree un wrapper ignorado por git que apunte Pi a un agent dir aislado cuya configuración
+omita el paquete del checkout global, pero conserve globals no conflictivos como `npm:pi-codex-web-search`:
 
 ```bash
 # .pi/tmp/pi-refactor.sh
@@ -160,10 +155,9 @@ Abrí tabs/splits de Supacode con ese wrapper en vez de `pi` solo cuando aparezc
 ## Skill externa: `karpathy-guidelines`
 
 `karpathy-guidelines` es una skill EXTERNA, de la comunidad (de
-[multica-ai/andrej-karpathy-skills](https://github.com/multica-ai/andrej-karpathy-skills)). Este repo
-**no** la vendorea, pero `AGENTS.md` espera que esté *instalada*. Si `doctor` avisa que falta, bajala a
-tus skill dirs globales (Pi lee `~/.agents/skills/`; Claude Code lee `~/.claude/skills/`; idempotente,
-seguro de re-ejecutar):
+[multica-ai/andrej-karpathy-skills](https://github.com/multica-ai/andrej-karpathy-skills)). Este repo **no** la
+vendorea, pero `AGENTS.md` espera que esté _instalada_. Si `doctor` avisa que falta, bajala a tus skill dirs globales
+(Pi lee `~/.agents/skills/`; Claude Code lee `~/.claude/skills/`; idempotente, seguro de re-ejecutar):
 
 ```bash
 for d in ~/.agents/skills ~/.claude/skills; do
@@ -173,9 +167,8 @@ for d in ~/.agents/skills ~/.claude/skills; do
 done
 ```
 
-En Claude Code también podés usar el plugin upstream: `/plugin marketplace add
-multica-ai/andrej-karpathy-skills` y luego `/plugin install andrej-karpathy-skills`. `npm run doctor`
-reporta si la skill está presente.
+En Claude Code también podés usar el plugin upstream: `/plugin marketplace add multica-ai/andrej-karpathy-skills` y
+luego `/plugin install andrej-karpathy-skills`. `npm run doctor` reporta si la skill está presente.
 
 ## Capacidades opcionales (instalá solo si te lo piden o hace falta)
 
@@ -199,15 +192,15 @@ brew install container && container system kernel set --recommended && container
 npm run setup:gondolin && echo "then run:  pi -e .pi/tools/gondolin"
 ```
 
-Las instalaciones por extensión (en vez del bundle completo) están en la tabla
-"Paquetes individuales por extensión" del README, por ejemplo `pi install ./extensions/pandi-loop`.
+Las instalaciones por extensión (en vez del bundle completo) están en la tabla "Paquetes individuales por extensión" del
+README, por ejemplo `pi install ./extensions/pandi-loop`.
 
 ## Resolución de problemas
 
-- **Un comando no aparece después de instalar** → abrí Pi en el proyecto destino, hacé `/trust` y luego
-  `/reload` (o reiniciá). Los workflows project-scope necesitan trust.
+- **Un comando no aparece después de instalar** → abrí Pi en el proyecto destino, hacé `/trust` y luego `/reload` (o
+  reiniciá). Los workflows project-scope necesitan trust.
 - **`pi` not found** → el paso 1 no terminó o el bin global de npm no está en `PATH`.
-- **Node demasiado viejo** → `nvm use` (debe ser ≥ 22.19.0; Gondolin ≥ 23.6.0). El gate es `npm run doctor`,
-  que sale non-zero con Node viejo; el repo no declara `engines`, así que `npm install` no bloquea.
-- **Algo sigue sin estar claro** → volvé a correr `npm run doctor` y releé "Quickstart" en el README;
-  tomalos como autoridad por encima de este resumen.
+- **Node demasiado viejo** → `nvm use` (debe ser ≥ 22.19.0; Gondolin ≥ 23.6.0). El gate es `npm run doctor`, que sale
+  non-zero con Node viejo; el repo no declara `engines`, así que `npm install` no bloquea.
+- **Algo sigue sin estar claro** → volvé a correr `npm run doctor` y releé "Quickstart" en el README; tomalos como
+  autoridad por encima de este resumen.

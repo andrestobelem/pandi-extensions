@@ -153,7 +153,8 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	<header>
 		<div class="kicker">docs</div>
 		<h1>Documentación del proyecto</h1>
-		<p class="lede">Esta carpeta reúne el historial de trabajo del proyecto, sus decisiones, los workflows creados y las conversaciones relevantes. Es una referencia duradera y un rastro de auditoría al que siempre podés volver. 🐼</p>
+		<p class="lede">Esta carpeta reúne el historial de trabajo del proyecto, sus decisiones, los workflows creados y las conversaciones
+relevantes. Es una referencia duradera y un rastro de auditoría al que siempre podés volver. 🐼</p>
 	</header>
 	<main>
 <nav class="toc">
@@ -167,19 +168,24 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	</ol>
 </nav>
 <h2 id="en-30-segundos">En 30 segundos</h2>
-<p>Si querés ubicarte rápido, empezá por la guía de <code>Setup</code>, la documentación de <code>Dynamic Workflows</code> o los <code>Handbooks</code>. Si buscás contexto histórico o decisiones, entrá en <code>research/</code> o <code>memoria.md</code>.</p>
+<p>Si querés ubicarte rápido, empezá por la guía de <code>Setup</code>, la documentación de <code>Dynamic Workflows</code> o los <code>Handbooks</code>. Si
+buscás contexto histórico o decisiones, entrá en <code>research/</code> o <code>memoria.md</code>.</p>
 <h2 id="referencia-rápida">Referencia rápida</h2>
 <ul>
 <li><a href="index.html">README raíz</a> — entrada narrativa: qué es Pandi, cómo instalarlo y por dónde empezar</li>
 <li><a href="setup.html">Setup</a> — requisitos, capacidades opcionales, configuración y distribución</li>
-<li><a href="dynamic-workflows.html">Dynamic Workflows — guía completa</a> — ciclo de ejecución, API de globals, background y resume, concurrencia, patrones y seguridad</li>
-<li><a href="scaffolds/index.html">Scaffolds</a> — páginas didácticas del catálogo: cuándo usar cada patrón, diagrama y comando mínimo</li>
+<li><a href="dynamic-workflows.html">Dynamic Workflows — guía completa</a> — ciclo de ejecución, API de globals, background y resume,
+concurrencia, patrones y seguridad</li>
+<li><a href="scaffolds/index.html">Scaffolds</a> — páginas didácticas del catálogo: cuándo usar cada patrón, diagrama y comando
+mínimo</li>
 <li><a href="handbooks/README.html">Handbooks — referencia duradera del proyecto</a> — convenciones, onboarding y playbooks</li>
-<li><a href="handbooks/top-down-onboarding.html">Onboarding top-down para programadores</a> — ruta de lectura del repo, roles de trabajo y criterio para comentarios traducidos</li>
+<li><a href="handbooks/top-down-onboarding.html">Onboarding top-down para programadores</a> — ruta de lectura del repo, roles de
+trabajo y criterio para comentarios traducidos</li>
 <li><a href="kitty.html">Configuración de kitty</a> — terminal usado para desarrollo (config activa + tema)</li>
 <li><a href="memoria.html">Memoria de trabajo</a> — registro de trabajo y decisiones</li>
 </ul>
-<p>El sitio HTML generado vive en <code>docs/html/</code>. No se edita a mano: sale del Markdown con <code>npm run sync:docs:html</code> y <code>npm test</code> detecta drift.</p>
+<p>El sitio HTML generado vive en <code>docs/html/</code>. No se edita a mano: sale del Markdown con <code>npm run sync:docs:html</code> y
+<code>npm test</code> detecta drift.</p>
 <h2 id="investigación-y-análisis">Investigación y análisis</h2>
 <ul>
 <li><a href="research/index.html">Índice OKF de investigación</a> — mapa navegable de las notas en <code>docs/research/</code></li>
@@ -196,14 +202,18 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </ul>
 <h2 id="estructura-del-directorio">Estructura del directorio</h2>
 <ul>
-<li><code>docs/html/</code> — espejo HTML generado con estilo Pandi; no se edita a mano y se regenera con <code>npm run sync:docs:html</code> (<code>npm test</code> falla si hay drift)</li>
-<li><code>docs/handbooks/</code> — referencia duradera del proyecto (convenciones, onboarding y playbooks; empezá por <code>top-down-onboarding.md</code> si querés entender el código)</li>
+<li><code>docs/html/</code> — espejo HTML generado con estilo Pandi; no se edita a mano y se regenera con <code>npm run sync:docs:html</code>
+(<code>npm test</code> falla si hay drift)</li>
+<li><code>docs/handbooks/</code> — referencia duradera del proyecto (convenciones, onboarding y playbooks; empezá por
+<code>top-down-onboarding.md</code> si querés entender el código)</li>
 <li><code>docs/research/</code> — notas de investigación, fuentes consultadas y decisiones de implementación</li>
 <li><code>docs/scaffolds/</code> — libro de patrones agénticos corribles, una página por scaffold</li>
 <li><code>docs/*.md</code> — guías principales, setup, ingeniería de extensiones y memoria del proyecto</li>
 </ul>
 <h2 id="guía-de-documentación">Guía de documentación</h2>
-<p>Cada documento público debería abrir con 30 segundos de contexto, avanzar de ejemplo mínimo a referencia, y mantener links a Markdown fuente. Si necesitás una versión visual, regenerá <code>docs/html/</code>; si necesitás cambiar contenido, editá Markdown.</p>
+<p>Cada documento público debería abrir con 30 segundos de contexto, avanzar de ejemplo mínimo a referencia, y mantener
+links a Markdown fuente. Si necesitás una versión visual, regenerá <code>docs/html/</code>; si necesitás cambiar contenido, editá
+Markdown.</p>
 	</main>
 	<footer>Generado con el skill pandi-artifact-style · paleta: panda-syntax dark/light</footer>
 </div>

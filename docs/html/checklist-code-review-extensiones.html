@@ -153,8 +153,9 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	<header>
 		<div class="kicker">docs</div>
 		<h1>Checklist de code review — extensiones Pandi (pandi-extensions)</h1>
-		<p class="lede">Esta checklist ayuda a revisar cambios en extensiones sin perder de vista el alcance, la calidad técnica y la forma de publicar.
-Sirve para decidir rápido si un PR está listo o si todavía le faltan tests, limpieza o verificación de empaquetado.</p>
+		<p class="lede">Esta checklist ayuda a revisar cambios en extensiones sin perder de vista el alcance, la calidad técnica y la forma de
+publicar. Sirve para decidir rápido si un PR está listo o si todavía le faltan tests, limpieza o verificación de
+empaquetado.</p>
 	</header>
 	<main>
 <nav class="toc">
@@ -170,90 +171,86 @@ Sirve para decidir rápido si un PR está listo o si todavía le faltan tests, l
 	</ol>
 </nav>
 <h2 id="en-30-segundos">En 30 segundos</h2>
-<p>Si el cambio toca una extensión, revisá primero el alcance, después el contrato de diseño y por último la evidencia: tests, typecheck, lint, empaquetado y commit.
-Cada ítem trae el comando que lo verifica, así la review no depende de memoria.</p>
+<p>Si el cambio toca una extensión, revisá primero el alcance, después el contrato de diseño y por último la evidencia:
+tests, typecheck, lint, empaquetado y commit. Cada ítem trae el comando que lo verifica, así la review no depende de
+memoria.</p>
 <p>Fuentes: <code>AGENTS.md</code>, <code>docs/principios-ingenieria.md</code>, <code>package.json</code>, <code>extensions/*/package.json</code>,
 <code>scripts/test/run-all.mjs</code>. Cada ítem indica qué mirar y el comando que lo verifica.</p>
 <h2 id="1-contrato-y-alcance">1. Contrato y alcance</h2>
 <ul>
-<li><input disabled="" type="checkbox"> El PR o commit toca solo lo que pide la tarea (<code>git diff --stat</code>); sin &quot;mejoras&quot;
-adyacentes no pedidas ni refactors fuera de alcance.</li>
-<li><input disabled="" type="checkbox"> Una extensión nueva vive en <code>extensions/&lt;pi-ext&gt;/</code> con su propio <code>package.json</code> (no
-colgada de otra extensión ni de <code>extensions/shared/</code>).</li>
-<li><input disabled="" type="checkbox"> Si el cambio toca <code>extensions/shared/</code>, lo agregado vive bajo <code>extensions/shared/test/</code>
-(harness/fixtures), no runtime: <code>ls extensions/shared/</code> solo debe listar <code>test/</code>.</li>
+<li><input disabled="" type="checkbox"> El PR o commit toca solo lo que pide la tarea (<code>git diff --stat</code>); sin &quot;mejoras&quot; adyacentes no pedidas ni
+refactors fuera de alcance.</li>
+<li><input disabled="" type="checkbox"> Una extensión nueva vive en <code>extensions/&lt;pi-ext&gt;/</code> con su propio <code>package.json</code> (no colgada de otra extensión ni
+de <code>extensions/shared/</code>).</li>
+<li><input disabled="" type="checkbox"> Si el cambio toca <code>extensions/shared/</code>, lo agregado vive bajo <code>extensions/shared/test/</code> (harness/fixtures), no
+runtime: <code>ls extensions/shared/</code> solo debe listar <code>test/</code>.</li>
 </ul>
 <h2 id="2-diseño-y-duplicación-intencional">2. Diseño y duplicación intencional</h2>
 <ul>
-<li><input disabled="" type="checkbox"> Ningún import runtime cruza el límite de la extensión (ni siquiera hacia
-<code>../shared</code>, que solo vale en tests): <code>grep -rn &quot;from \&quot;\.\./&quot; extensions/*/*.ts</code> sale
-vacío (self-contained, jiti). Supone <code>.ts</code> plano en <code>extensions/&lt;ext&gt;/</code>; con
-subdirs usar <code>git grep &#39;from &quot;\.\./&#39; -- &#39;extensions/*/**.ts&#39; &#39;:!*/tests/*&#39;</code>
-(cubre depth-1 y subcarpetas por igual).</li>
-<li><input disabled="" type="checkbox"> Si el cambio intenta hacer DRY de <code>notify.ts</code>/<code>time.ts</code>/<code>session-state.ts</code>/parsers de flags
-moviéndolos a un módulo compartido entre extensiones, es un antipatrón: revertirlo
-y dejar la duplicación intra-repo (intencional). Dedup solo dentro de la misma extensión.</li>
-<li><input disabled="" type="checkbox"> Toda abstracción/config/flag nueva (incluidas ramas de un solo uso) tiene al menos
-un llamador o test real que la ejerza (<code>grep</code> del símbolo nuevo dentro del diff/PR);
-si es de un solo uso o no hay un caso real que la use, inlinear o cortar.</li>
+<li><input disabled="" type="checkbox"> Ningún import runtime cruza el límite de la extensión (ni siquiera hacia <code>../shared</code>, que solo vale en tests):
+<code>grep -rn &quot;from \&quot;\.\./&quot; extensions/*/*.ts</code> sale vacío (self-contained, jiti). Supone <code>.ts</code> plano en
+<code>extensions/&lt;ext&gt;/</code>; con subdirs usar <code>git grep &#39;from &quot;\.\./&#39; -- &#39;extensions/*/**.ts&#39; &#39;:!*/tests/*&#39;</code> (cubre
+depth-1 y subcarpetas por igual).</li>
+<li><input disabled="" type="checkbox"> Si el cambio intenta hacer DRY de <code>notify.ts</code>/<code>time.ts</code>/<code>session-state.ts</code>/parsers de flags moviéndolos a un
+módulo compartido entre extensiones, es un antipatrón: revertirlo y dejar la duplicación intra-repo (intencional).
+Dedup solo dentro de la misma extensión.</li>
+<li><input disabled="" type="checkbox"> Toda abstracción/config/flag nueva (incluidas ramas de un solo uso) tiene al menos un llamador o test real que la
+ejerza (<code>grep</code> del símbolo nuevo dentro del diff/PR); si es de un solo uso o no hay un caso real que la use,
+inlinear o cortar.</li>
 </ul>
 <h2 id="3-tests-tdd-completo">3. Tests (TDD completo)</h2>
 <ul>
-<li><input disabled="" type="checkbox"> El test que fija el bug o la feature se escribió antes del código (Red primero); si no se
-puede verificar test-first, el PR lo declara explícitamente en vez de llamarlo TDD.</li>
-<li><input disabled="" type="checkbox"> El test vive en <code>extensions/&lt;ext&gt;/tests/integration/*.test.mjs</code> (convención de
-descubrimiento): <code>node scripts/test/run-all.mjs --list</code> lo lista.</li>
+<li><input disabled="" type="checkbox"> El test que fija el bug o la feature se escribió antes del código (Red primero); si no se puede verificar
+test-first, el PR lo declara explícitamente en vez de llamarlo TDD.</li>
+<li><input disabled="" type="checkbox"> El test vive en <code>extensions/&lt;ext&gt;/tests/integration/*.test.mjs</code> (convención de descubrimiento):
+<code>node scripts/test/run-all.mjs --list</code> lo lista.</li>
 <li><input disabled="" type="checkbox"> La suite corre en verde: <code>node scripts/test/run-all.mjs</code>.</li>
-<li><input disabled="" type="checkbox"> El PR narra el paso de Refactor explícitamente (qué se simplificó o &quot;nada que
-cambiar, porque X&quot;) — no puede estar ausente ni implícito.</li>
-<li><input disabled="" type="checkbox"> Las suites excluidas del runner están listadas con motivo en <code>ignoredDraftSuites</code>
-(<code>scripts/test/run-all.mjs</code>) — nunca se saltan en silencio.</li>
+<li><input disabled="" type="checkbox"> El PR narra el paso de Refactor explícitamente (qué se simplificó o &quot;nada que cambiar, porque X&quot;) — no puede estar
+ausente ni implícito.</li>
+<li><input disabled="" type="checkbox"> Las suites excluidas del runner están listadas con motivo en <code>ignoredDraftSuites</code> (<code>scripts/test/run-all.mjs</code>) —
+nunca se saltan en silencio.</li>
 </ul>
 <h2 id="4-código">4. Código</h2>
 <ul>
 <li><input disabled="" type="checkbox"> Los tipos están correctos, sin <code>any</code> innecesario: <code>npm run typecheck</code> (<code>tsc -p tsconfig.json</code>,
 <code>include: extensions/**/*.ts</code>) pasa sin errores.</li>
-<li><input disabled="" type="checkbox"> El estilo y el lint están conformes con el repo: <code>npm run check</code> (biome, <code>biome.jsonc</code>) pasa sin
-warnings nuevos. Para corregir, NO usar <code>npm run check:fix</code> (reescribe todo el
-repo vía <code>biome check --write .</code>); usar <code>npx biome check --write &lt;archivos-tocados&gt;</code>
-y confirmar con <code>git diff --stat</code> que solo cambiaron los archivos esperados.</li>
-<li><input disabled="" type="checkbox"> Todo <code>try/catch</code>/rama de error/<code>if</code> defensivo nuevo tiene aserción en el
-<code>*-coverage.test.mjs</code> de la extensión (p. ej.
-<code>extensions/pandi-goal/tests/integration/index-coverage.test.mjs</code>); sin caso real
-que la dispare, eliminar la rama.</li>
+<li><input disabled="" type="checkbox"> El estilo y el lint están conformes con el repo: <code>npm run check</code> (biome, <code>biome.jsonc</code>) pasa sin warnings nuevos.
+Para corregir, NO usar <code>npm run check:fix</code> (reescribe todo el repo vía <code>biome check --write .</code>); usar
+<code>npx biome check --write &lt;archivos-tocados&gt;</code> y confirmar con <code>git diff --stat</code> que solo cambiaron los archivos
+esperados.</li>
+<li><input disabled="" type="checkbox"> Todo <code>try/catch</code>/rama de error/<code>if</code> defensivo nuevo tiene aserción en el <code>*-coverage.test.mjs</code> de la extensión (p.
+ej. <code>extensions/pandi-goal/tests/integration/index-coverage.test.mjs</code>); sin caso real que la dispare, eliminar la
+rama.</li>
 <li><input disabled="" type="checkbox"> El Markdown tocado (README, skills, docs) pasa <code>npm run lint:md</code> (markdownlint-cli2).</li>
 </ul>
 <h2 id="5-empaquetado-publish-standalone">5. Empaquetado (publish standalone)</h2>
 <ul>
-<li><input disabled="" type="checkbox"> <code>files[]</code> cubre todos los <code>.ts</code> importados por <code>index.ts</code> directa o transitivamente
-(siblings se importan con <code>.js</code>, resuelve al <code>.ts</code> real vía jiti). Supone <code>.ts</code> plano
-en <code>extensions/&lt;ext&gt;/</code>; con subdirs usar la misma forma <code>git grep</code> de 2.1:
-<code>git grep -hoE &#39;from &quot;\./[A-Za-z0-9_-]+\.(js|ts)&quot;&#39; -- &#39;extensions/&lt;ext&gt;/**.ts&#39; &#39;:!*/tests/*&#39; | sed &#39;s/\.js&quot;/.ts&quot;/&#39;</code> — cada <code>.ts</code> resultante debe estar en <code>files[]</code>.</li>
-<li><input disabled="" type="checkbox"> Las subcarpetas referenciadas (<code>scripts/</code>, <code>themes/</code>, <code>primitives/</code>, <code>skills/</code>) están
-declaradas en <code>files[]</code> (ver <code>pandi-doctor</code>→<code>scripts</code>, <code>pandi-dynamic-workflows</code>→
-<code>scaffolds</code>/<code>primitives</code>/<code>skills</code>, <code>pandi-theme</code>→<code>themes</code>).</li>
-<li><input disabled="" type="checkbox"> <code>pi.extensions</code> del <code>package.json</code> de la extensión apunta al entrypoint real y
-coincide con el manifiesto root.</li>
-<li><input disabled="" type="checkbox"> El manifiesto root se regenera, no se edita a mano, si cambió el catálogo:
-<code>npm run sync:manifest:check</code>.</li>
-<li><input disabled="" type="checkbox"> Las skills/guías vendorizadas por la extensión, si aplica, no driftan:
-<code>npm run sync:skills:check</code>, <code>npm run sync:agents:check</code>, <code>npm run doctor</code>.</li>
-<li><input disabled="" type="checkbox"> El tarball real: <code>npm pack -w extensions/&lt;ext&gt; --dry-run</code> (por RUTA; el nombre npm
-omite <code>pi-</code>, ej. <code>pandi-goal</code>→<code>@pandi-coding-agent/pandi-goal</code>) incluye todos los archivos
-runtime, no solo <code>index.ts</code>.</li>
+<li><input disabled="" type="checkbox"> <code>files[]</code> cubre todos los <code>.ts</code> importados por <code>index.ts</code> directa o transitivamente (siblings se importan con
+<code>.js</code>, resuelve al <code>.ts</code> real vía jiti). Supone <code>.ts</code> plano en <code>extensions/&lt;ext&gt;/</code>; con subdirs usar la misma
+forma <code>git grep</code> de 2.1:
+<code>git grep -hoE &#39;from &quot;\./[A-Za-z0-9_-]+\.(js|ts)&quot;&#39; -- &#39;extensions/&lt;ext&gt;/**.ts&#39;     &#39;:!*/tests/*&#39; | sed &#39;s/\.js&quot;/.ts&quot;/&#39;</code>
+— cada <code>.ts</code> resultante debe estar en <code>files[]</code>.</li>
+<li><input disabled="" type="checkbox"> Las subcarpetas referenciadas (<code>scripts/</code>, <code>themes/</code>, <code>primitives/</code>, <code>skills/</code>) están declaradas en <code>files[]</code> (ver
+<code>pandi-doctor</code>→<code>scripts</code>, <code>pandi-dynamic-workflows</code>→ <code>scaffolds</code>/<code>primitives</code>/<code>skills</code>, <code>pandi-theme</code>→<code>themes</code>).</li>
+<li><input disabled="" type="checkbox"> <code>pi.extensions</code> del <code>package.json</code> de la extensión apunta al entrypoint real y coincide con el manifiesto root.</li>
+<li><input disabled="" type="checkbox"> El manifiesto root se regenera, no se edita a mano, si cambió el catálogo: <code>npm run sync:manifest:check</code>.</li>
+<li><input disabled="" type="checkbox"> Las skills/guías vendorizadas por la extensión, si aplica, no driftan: <code>npm run sync:skills:check</code>,
+<code>npm run sync:agents:check</code>, <code>npm run doctor</code>.</li>
+<li><input disabled="" type="checkbox"> El tarball real: <code>npm pack -w extensions/&lt;ext&gt; --dry-run</code> (por RUTA; el nombre npm omite <code>pi-</code>, ej.
+<code>pandi-goal</code>→<code>@pandi-coding-agent/pandi-goal</code>) incluye todos los archivos runtime, no solo <code>index.ts</code>.</li>
 </ul>
 <h2 id="6-suite-completa-y-commit">6. Suite completa y commit</h2>
 <ul>
-<li><input disabled="" type="checkbox"> <code>npm test</code> (typecheck + biome check + lint:md + <code>sync:docs:html:check</code> + <code>sync:personas:check</code> + <code>test:unit</code> + <code>test:integration</code>) pasa completo,
-no solo la suite de la extensión tocada.</li>
-<li><input disabled="" type="checkbox"> El commit es atómico: un cambio coherente, con el test de fijación en el MISMO commit
-que el código (<code>git show --stat HEAD</code> confirma ambos juntos).</li>
+<li><input disabled="" type="checkbox"> <code>npm test</code> (typecheck + biome check + lint:md + <code>sync:docs:html:check</code> + <code>sync:personas:check</code> + <code>test:unit</code> +
+<code>test:integration</code>) pasa completo, no solo la suite de la extensión tocada.</li>
+<li><input disabled="" type="checkbox"> El commit es atómico: un cambio coherente, con el test de fijación en el MISMO commit que el código
+(<code>git show --stat HEAD</code> confirma ambos juntos).</li>
 <li><input disabled="" type="checkbox"> El mensaje usa Conventional Commits con scope explícito de la extensión, p. ej.
 <code>fix(pandi-goal): clear terminated goals</code> — sin scope genérico <code>fix: ...</code>.</li>
 <li><input disabled="" type="checkbox"> Sin <code>Co-Authored-By:</code> ni atribución a herramienta/IA:
 <code>git log -1 --format=%B | grep -i &quot;co-authored-by\|generated with&quot;</code> no matchea nada.</li>
-<li><input disabled="" type="checkbox"> Antes de amendar: <code>git log</code>/<code>git reflog</code> confirma que <code>HEAD</code> es el commit propio
-(sesiones concurrentes pueden haber commiteado encima).</li>
+<li><input disabled="" type="checkbox"> Antes de amendar: <code>git log</code>/<code>git reflog</code> confirma que <code>HEAD</code> es el commit propio (sesiones concurrentes pueden
+haber commiteado encima).</li>
 </ul>
 	</main>
 	<footer>Generado con el skill pandi-artifact-style · paleta: panda-syntax dark/light</footer>

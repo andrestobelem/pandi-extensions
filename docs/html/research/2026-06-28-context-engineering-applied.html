@@ -166,22 +166,25 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	</ol>
 </nav>
 <blockquote>
-<p><strong>Estado: ANÁLISIS.</strong> Complemento de <code>2026-06-28-context-engineering-focus.md</code>. Relee
-esa investigación como una auditoría concreta de las extensiones de este paquete: qué ya
-implementa cada palanca, dónde están las brechas y qué arreglos realmente valen la pena.
-Este documento no cambia código; es el entregable de “pensar a fondo” que precede a cualquier plan.</p>
+<p><strong>Estado: ANÁLISIS.</strong> Complemento de <code>2026-06-28-context-engineering-focus.md</code>. Relee esa investigación como una
+auditoría concreta de las extensiones de este paquete: qué ya implementa cada palanca, dónde están las brechas y qué
+arreglos realmente valen la pena. Este documento no cambia código; es el entregable de “pensar a fondo” que precede a
+cualquier plan.</p>
 </blockquote>
 <hr>
 <h2 id="1-reencuadre-central">1. Reencuadre central</h2>
-<p>La investigación presenta el contexto como un <strong>presupuesto finito de atención</strong>, no como un
-recipiente para llenar. Cuatro modos de falla concretos ordenan todo lo demás:</p>
+<p>La investigación presenta el contexto como un <strong>presupuesto finito de atención</strong>, no como un recipiente para llenar.
+Cuatro modos de falla concretos ordenan todo lo demás:</p>
 <ul>
-<li><strong>Lost in the middle</strong> — los modelos atienden más al inicio y al final del contexto, y descuidan el medio (curva en U).</li>
+<li><strong>Lost in the middle</strong> — los modelos atienden más al inicio y al final del contexto, y descuidan el medio (curva en
+U).</li>
 <li><strong>Context rot</strong> — la confiabilidad cae a medida que crece la entrada bruta, incluso en tareas triviales.</li>
 <li><strong>Distraction</strong> — una sola frase fuera de tema, pero parecida, desvía la atención.</li>
 <li><strong>Instruction-following decay</strong> — la obediencia a las reglas disminuye con la longitud, separable de la recuperación.</li>
 </ul>
-<p>La conclusión más llamativa para <em>este</em> paquete: <strong>la mayoría de las mitigaciones del paper ya existen aquí como mecanismos de runtime.</strong> La arquitectura es, en la práctica, “context engineering operacionalizado”. El valor está en (a) reconocerlo explícitamente y (b) cerrar seis o siete brechas puntuales.</p>
+<p>La conclusión más llamativa para <em>este</em> paquete: <strong>la mayoría de las mitigaciones del paper ya existen aquí como
+mecanismos de runtime.</strong> La arquitectura es, en la práctica, “context engineering operacionalizado”. El valor está en
+(a) reconocerlo explícitamente y (b) cerrar seis o siete brechas puntuales.</p>
 <hr>
 <h2 id="2-qué-ya-está-implementado-palanca-de-investigación--extensión">2. Qué ya está implementado (palanca de investigación → extensión)</h2>
 <div class="table-scroll"><table>
@@ -241,56 +244,50 @@ recipiente para llenar. Cuatro modos de falla concretos ordenan todo lo demás:<
 <hr>
 <h2 id="3-brechas-de-mayor-valor-priorizadas">3. Brechas de mayor valor (priorizadas)</h2>
 <h3>3.1 Compaction recuperable — la brecha más fuerte (§3b)</h3>
-<p><code>pandi-auto-compact</code> llama a <code>ctx.compact()</code> (un resumen del harness) <strong>sin acoplarlo a
-memory/artifacts</strong>. El paper es explícito: la summarization recursiva puede perder un dato que
-luego necesitás; <em>conservá el material crudo afuera para que la compactación sea recuperable,
-no destructiva</em>. El umbral del 30% es agresivo y bueno para el presupuesto de atención, pero
-amplifica el riesgo de errores en cascada. Solución: guardar el estado clave en <code>.pi/memory</code> o
-en un artifact del run antes de compactar (o pedirle al agente que lo haga).</p>
+<p><code>pandi-auto-compact</code> llama a <code>ctx.compact()</code> (un resumen del harness) <strong>sin acoplarlo a memory/artifacts</strong>. El paper es
+explícito: la summarization recursiva puede perder un dato que luego necesitás; <em>conservá el material crudo afuera para
+que la compactación sea recuperable, no destructiva</em>. El umbral del 30% es agresivo y bueno para el presupuesto de
+atención, pero amplifica el riesgo de errores en cascada. Solución: guardar el estado clave en <code>.pi/memory</code> o en un
+artifact del run antes de compactar (o pedirle al agente que lo haga).</p>
 <h3>3.2 Limpieza de tool results como palanca más barata que la compactación completa (§3b)</h3>
-<p>El paper distingue <em>tool-result clearing</em> (descartar payloads voluminosos ya consumidos,
-conservar la decisión) de la <em>compaction</em> completa. Hoy solo tenemos compactación al 30%.
-Una palanca intermedia que limpie salidas de herramientas ya digeridas aliviaría presión sin el
-riesgo de cascada de la summarization. Complementa a 3.1.</p>
+<p>El paper distingue <em>tool-result clearing</em> (descartar payloads voluminosos ya consumidos, conservar la decisión) de la
+<em>compaction</em> completa. Hoy solo tenemos compactación al 30%. Una palanca intermedia que limpie salidas de herramientas
+ya digeridas aliviaría presión sin el riesgo de cascada de la summarization. Complementa a 3.1.</p>
 <h3>3.3 Prompts de síntesis sensibles a la posición (§2, lost-in-the-middle)</h3>
-<p>Cuando la fase de síntesis de un workflow recibe N salidas de ramas, poné <strong>tarea + criterios al
-inicio Y al final</strong> del prompt de síntesis, y reordená la evidencia más fuerte hacia los
-bordes. Vale la pena codificarlo en prompts de síntesis y scaffolds de patrones: es barato y
-contrarresta directamente la U-curve.</p>
+<p>Cuando la fase de síntesis de un workflow recibe N salidas de ramas, poné <strong>tarea + criterios al inicio Y al final</strong> del
+prompt de síntesis, y reordená la evidencia más fuerte hacia los bordes. Vale la pena codificarlo en prompts de síntesis
+y scaffolds de patrones: es barato y contrarresta directamente la U-curve.</p>
 <h3>3.4 Prefijo estable de KV-cache en workflows (§3e, Manus + prompt caching)</h3>
-<p>Mantené prefijos de prompt de subagentes estables, empujá el contenido volátil o por ítem al
-final, y evitá <code>Date.now()</code>/<code>Math.random()</code> al principio. Esto importa por dos motivos: protege
-el cache del proveedor y determina si una llamada queda cacheada para <code>resume</code> (el journal del
-content-address cache). Conviene codificar la guía de “stable prefix” en la construcción de
-prompts.</p>
+<p>Mantené prefijos de prompt de subagentes estables, empujá el contenido volátil o por ítem al final, y evitá
+<code>Date.now()</code>/<code>Math.random()</code> al principio. Esto importa por dos motivos: protege el cache del proveedor y determina si
+una llamada queda cacheada para <code>resume</code> (el journal del content-address cache). Conviene codificar la guía de “stable
+prefix” en la construcción de prompts.</p>
 <h3>3.5 Guardia de autoridad sobre memory (§3a, anti-injection)</h3>
-<p><code>remember</code> escribe en el canal de sistema (hoy confiable). Agregá un <strong>non-goal</strong> explícito:
-nunca ingerir contenido no confiable de herramientas o retrieval hacia <code>.pi/memory</code>. Defensa en
-depth barata; los delimitadores no son una barrera de seguridad.</p>
+<p><code>remember</code> escribe en el canal de sistema (hoy confiable). Agregá un <strong>non-goal</strong> explícito: nunca ingerir contenido no
+confiable de herramientas o retrieval hacia <code>.pi/memory</code>. Defensa en depth barata; los delimitadores no son una barrera
+de seguridad.</p>
 <h3>3.6 Observabilidad del foco (§4: token growth, tool-error rate, trajectory)</h3>
-<p>La barra de auto-compactación (budget gauge) y el log de progreso del goal ya existen. <strong>La
-brecha:</strong> extender la observabilidad a los <strong>workflow runs</strong> — capturar por paso el crecimiento
-de tokens, la tasa de errores de herramientas y los retries como artifacts, en espíritu de los
-spans de OpenTelemetry GenAI. Esta es la parte de “medir el foco en vivo”.</p>
+<p>La barra de auto-compactación (budget gauge) y el log de progreso del goal ya existen. <strong>La brecha:</strong> extender la
+observabilidad a los <strong>workflow runs</strong> — capturar por paso el crecimiento de tokens, la tasa de errores de herramientas
+y los retries como artifacts, en espíritu de los spans de OpenTelemetry GenAI. Esta es la parte de “medir el foco en
+vivo”.</p>
 <h3>3.7 Evals estilo NoLiMa (§4: no depender de NIAH literal)</h3>
-<p>Las suites de integración verifican comportamiento; el verificador de goal ya es basado en
-evidencia (no lexical). Oportunidad menor: al agregar context evals, gatear sobre <strong>needles no
-lexicales + distractores</strong>, no sobre matches literales.</p>
+<p>Las suites de integración verifican comportamiento; el verificador de goal ya es basado en evidencia (no lexical).
+Oportunidad menor: al agregar context evals, gatear sobre <strong>needles no lexicales + distractores</strong>, no sobre matches
+literales.</p>
 <hr>
 <h2 id="4-recomendación">4. Recomendación</h2>
-<p>Los dos ítems de mayor ROI y menor riesgo son <strong>3.1 (compaction recuperable)</strong> y <strong>3.3
-(síntesis sensible a la posición)</strong>: atacan los dos modos de falla centrales del paper
-(cascade de compactación + lost-in-the-middle) con cambios quirúrgicos sobre extensiones ya
-bien entendidas. Orden sugerido: planear 3.1 primero (cruza <code>pandi-auto-compact</code> + memory/
-artifacts y merece un pass de diseño), y luego hacer 3.3 como follow-up acotado.</p>
+<p>Los dos ítems de mayor ROI y menor riesgo son <strong>3.1 (compaction recuperable)</strong> y <strong>3.3 (síntesis sensible a la
+posición)</strong>: atacan los dos modos de falla centrales del paper (cascade de compactación + lost-in-the-middle) con
+cambios quirúrgicos sobre extensiones ya bien entendidas. Orden sugerido: planear 3.1 primero (cruza
+<code>pandi-auto-compact</code> + memory/ artifacts y merece un pass de diseño), y luego hacer 3.3 como follow-up acotado.</p>
 <hr>
 <h2 id="5-estado-de-implementación">5. Estado de implementación</h2>
 <blockquote>
-<p><strong>Estado: IMPLEMENTADO.</strong> Las siete brechas priorizadas se publicaron como commits atómicos
-separados, cada uno verificado contra el gate completo de <code>npm test</code> (typecheck + eslint +
-prettier + markdownlint + integration). Cada cambio es quirúrgico y aditivo — sin breaking
-changes en contratos públicos — en línea con el ethos de “la complejidad debe ganarse su
-lugar”.</p>
+<p><strong>Estado: IMPLEMENTADO.</strong> Las siete brechas priorizadas se publicaron como commits atómicos separados, cada uno
+verificado contra el gate completo de <code>npm test</code> (typecheck + eslint + prettier + markdownlint + integration). Cada
+cambio es quirúrgico y aditivo — sin breaking changes en contratos públicos — en línea con el ethos de “la complejidad
+debe ganarse su lugar”.</p>
 </blockquote>
 <div class="table-scroll"><table>
 <thead>
@@ -336,9 +333,9 @@ lugar”.</p>
 <td><code>900650b</code></td>
 </tr>
 </tbody></table></div>
-<p>Cambio de apoyo: un helper de exportación de chat (<code>scripts/export-chat.mjs</code>, commit <code>2f56776</code>)
-escribe el HTML de la sesión en <code>.pi/chats/</code>, y <code>.gitignore</code>/<code>.prettierignore</code> ahora ignoran
-exports sueltos <code>pi-session-*.html</code> en la raíz para que el gate de formato siga verde.</p>
+<p>Cambio de apoyo: un helper de exportación de chat (<code>scripts/export-chat.mjs</code>, commit <code>2f56776</code>) escribe el HTML de la
+sesión en <code>.pi/chats/</code>, y <code>.gitignore</code>/<code>.prettierignore</code> ahora ignoran exports sueltos <code>pi-session-*.html</code> en la raíz
+para que el gate de formato siga verde.</p>
 	</main>
 	<footer>Generado con el skill pandi-artifact-style · paleta: panda-syntax dark/light</footer>
 </div>

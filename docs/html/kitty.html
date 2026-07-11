@@ -153,8 +153,8 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	<header>
 		<div class="kicker">docs</div>
 		<h1>Configuración de kitty (entorno de desarrollo)</h1>
-		<p class="lede">Esta guía registra la configuración activa de <a href="https://sw.kovidgoyal.net/kitty/">kitty</a>
-que usamos para trabajar en este repo: correr Pi, Supacode y los dynamic workflows.</p>
+		<p class="lede">Esta guía registra la configuración activa de <a href="https://sw.kovidgoyal.net/kitty/">kitty</a> que usamos para trabajar en este
+repo: correr Pi, Supacode y los dynamic workflows.</p>
 	</header>
 	<main>
 <nav class="toc">
@@ -168,28 +168,25 @@ que usamos para trabajar en este repo: correr Pi, Supacode y los dynamic workflo
 		<li><a href="#actualizar-esta-copia">Actualizar esta copia</a></li>
 	</ol>
 </nav>
-<p>Se versiona <strong>solo lo que está activo</strong>. El <code>kitty.conf</code> real generado por kitty
-trae ~3000 líneas de defaults comentados; acá guardamos únicamente los ajustes
-que cambiamos, para que sea legible y reproducible. Todo lo demás usa los defaults
-de kitty.</p>
+<p>Se versiona <strong>solo lo que está activo</strong>. El <code>kitty.conf</code> real generado por kitty trae ~3000 líneas de defaults
+comentados; acá guardamos únicamente los ajustes que cambiamos, para que sea legible y reproducible. Todo lo demás usa
+los defaults de kitty.</p>
 <ul>
 <li><strong>Fecha de captura:</strong> 2026-07-03</li>
 <li><strong>kitty:</strong> 0.47.4</li>
 <li><strong>Archivos:</strong> <a href="../config/kitty/kitty.conf"><code>config/kitty/kitty.conf</code></a>,
-<a href="../config/kitty/current-theme.conf"><code>config/kitty/current-theme.conf</code></a> y los
-temas automáticos día/noche <code>light-theme.auto.conf</code> / <code>dark-theme.auto.conf</code> /
-<code>no-preference-theme.auto.conf</code></li>
+<a href="../config/kitty/current-theme.conf"><code>config/kitty/current-theme.conf</code></a> y los temas automáticos día/noche
+<code>light-theme.auto.conf</code> / <code>dark-theme.auto.conf</code> / <code>no-preference-theme.auto.conf</code></li>
 </ul>
 <h2 id="en-30-segundos">En 30 segundos</h2>
-<p>Si querés reproducir este entorno, instalá los requisitos, copiá los archivos
-versionados a <code>~/.config/kitty/</code> y recargá kitty. Eso te deja el mismo tema
-(día/noche automático), fuente, scrollback, tabs, tamaño de ventana y control
-remoto que usamos en desarrollo.</p>
+<p>Si querés reproducir este entorno, instalá los requisitos, copiá los archivos versionados a <code>~/.config/kitty/</code> y recargá
+kitty. Eso te deja el mismo tema (día/noche automático), fuente, scrollback, tabs, tamaño de ventana y control remoto
+que usamos en desarrollo.</p>
 <h2 id="requisitos">Requisitos</h2>
 <ul>
 <li><strong>kitty</strong> ≥ 0.47 (<code>brew install --cask kitty</code> en macOS).</li>
-<li><strong>FiraCode Nerd Font Mono</strong> instalada (<code>brew install --cask font-fira-code-nerd-font</code>).
-Es una Nerd Font: incluye los glifos/íconos que usan los prompts y la TUI de Pi.</li>
+<li><strong>FiraCode Nerd Font Mono</strong> instalada (<code>brew install --cask font-fira-code-nerd-font</code>). Es una Nerd Font: incluye los
+glifos/íconos que usan los prompts y la TUI de Pi.</li>
 </ul>
 <h2 id="cómo-aplicarlo">Cómo aplicarlo</h2>
 <pre><code class="hljs language-bash"><span class="hljs-comment"># Backup de lo que tengas</span>
@@ -300,11 +297,10 @@ Es una Nerd Font: incluye los glifos/íconos que usan los prompts y la TUI de Pi
 <li><code>dark-theme.auto.conf</code> = <strong>Catppuccin-Mocha</strong> (oscuro)</li>
 <li><code>current-theme.conf</code> = Latte, solo como fallback vía <code>include</code></li>
 </ul>
-<p>Con los archivos <code>*-theme.auto.conf</code> presentes, kitty ≥ 0.38 alterna solo
-cuando macOS cambia entre modo claro y oscuro — no hace falta ningún script.</p>
+<p>Con los archivos <code>*-theme.auto.conf</code> presentes, kitty ≥ 0.38 alterna solo cuando macOS cambia entre modo claro y oscuro
+— no hace falta ningún script.</p>
 <h2 id="actualizar-esta-copia">Actualizar esta copia</h2>
-<p>Si cambiás algo en <code>~/.config/kitty/kitty.conf</code>, regenerá la versión activa y
-verificá que coincida:</p>
+<p>Si cambiás algo en <code>~/.config/kitty/kitty.conf</code>, regenerá la versión activa y verificá que coincida:</p>
 <pre><code class="hljs language-bash"><span class="hljs-comment"># Ver los ajustes activos en vivo</span>
 grep -vE <span class="hljs-string">&#x27;^\s*#&#x27;</span> ~/.config/kitty/kitty.conf | grep -vE <span class="hljs-string">&#x27;^\s*$&#x27;</span>
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// sync-skill-mirrors.mjs — espeja copias byte-idénticas de SKILL.md desde el canónico
-// `.pi/skills/<name>/SKILL.md` (fuente de verdad) hacia `.claude/skills/<name>/SKILL.md`, para que
-// un skill que debe estar disponible IDÉNTICO en ambos hosts (Pi y Claude Code) no pueda divergir.
+// sync-skill-mirrors.mjs — espeja árboles byte-idénticos desde el canónico
+// `.pi/skills/<name>/` (fuente de verdad) hacia `.claude/skills/<name>/`, para que un skill y sus
+// referencias estén disponibles IDÉNTICOS en ambos hosts (Pi y Claude Code).
 //
 // Solo se copian los skills listados en MIRRORED. Los skills intencionalmente host-specific
 // (por ejemplo `ultracode`, cuyos catalog paths difieren entre pi y claude) NO se listan y se
@@ -15,10 +15,10 @@
 //   node scripts/sync-skill-mirrors.mjs           # escribe mirrors desde .pi -> .claude
 //   node scripts/sync-skill-mirrors.mjs --check    # solo verifica; sale con 1 si hay drift (sin writes)
 
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { readMaybe } from "./lib/sync-file-tree.mjs";
+import { listFilesRec, readMaybe } from "./lib/sync-file-tree.mjs";
 import { discoverSkillClassification, REPO, reportUnclassifiedSkills, SKILLS_ROOT } from "./skill-classification.mjs";
 
 export function parseCheckOnly(args = process.argv.slice(2)) {
@@ -28,8 +28,8 @@ export function parseCheckOnly(args = process.argv.slice(2)) {
 export function mirroredSkillPairs(skillNames, { repo = REPO, skillsRoot = SKILLS_ROOT } = {}) {
 	return skillNames.map((name) => ({
 		name,
-		src: join(skillsRoot, name, "SKILL.md"),
-		dst: join(repo, ".claude", "skills", name, "SKILL.md"),
+		src: join(skillsRoot, name),
+		dst: join(repo, ".claude", "skills", name),
 	}));
 }
 
@@ -49,21 +49,37 @@ export async function syncSkillMirrors({
 	let wrote = 0;
 	const pairs = mirroredSkillPairs(classification.mirrored, { repo, skillsRoot });
 	for (const { name, src, dst } of pairs) {
-		const want = await readMaybe(src);
-		if (want === null) {
+		const expected = new Map();
+		for (const relativePath of await listFilesRec(src)) {
+			expected.set(relativePath, await readMaybe(join(src, relativePath)));
+		}
+		if (!expected.has("SKILL.md")) {
 			error(`[sync-skill-mirrors] ✗ missing source: .pi/skills/${name}/SKILL.md`);
 			drift++;
 			continue;
 		}
-		const have = await readMaybe(dst);
-		if (have === want) continue;
+
+		const actualFiles = await listFilesRec(dst);
+		let treeDrift = actualFiles.some((relativePath) => !expected.has(relativePath));
+		for (const [relativePath, want] of expected) {
+			if ((await readMaybe(join(dst, relativePath))) !== want) treeDrift = true;
+		}
+		if (!treeDrift) continue;
+
 		if (checkOnly) {
-			error(`[sync-skill-mirrors] ✗ drift: ${name} (.claude copy differs from .pi source)`);
+			error(`[sync-skill-mirrors] ✗ drift: ${name} (.claude tree differs from .pi source)`);
 			drift++;
 		} else {
-			await mkdir(dirname(dst), { recursive: true });
-			await writeFile(dst, want);
-			log(`[sync-skill-mirrors] wrote ${name}`);
+			for (const [relativePath, want] of expected) {
+				const output = join(dst, relativePath);
+				if ((await readMaybe(output)) === want) continue;
+				await mkdir(dirname(output), { recursive: true });
+				await writeFile(output, want);
+			}
+			for (const relativePath of actualFiles) {
+				if (!expected.has(relativePath)) await rm(join(dst, relativePath), { force: true });
+			}
+			log(`[sync-skill-mirrors] wrote ${name} (${expected.size} files)`);
 			wrote++;
 		}
 	}

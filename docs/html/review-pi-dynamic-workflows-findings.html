@@ -165,8 +165,10 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	</ol>
 </nav>
 <h2 id="en-30-segundos">En 30 segundos</h2>
-<p>Este documento reúne los hallazgos de una auditoría multiagente sobre <code>pi-dynamic-workflows</code>. Sirve para priorizar riesgos: primero los hallazgos <strong>altos</strong>, luego los <strong>medios</strong> y, al final, los <strong>bajos</strong>.</p>
-<p>Hay <strong>45 hallazgos distintos</strong>: 13 altos, 21 medios y 11 bajos. Las zonas más sensibles son el puente VM/worker-source, <code>journal</code>/resume y los contratos de <code>parallel</code>/<code>agents</code>.</p>
+<p>Este documento reúne los hallazgos de una auditoría multiagente sobre <code>pi-dynamic-workflows</code>. Sirve para priorizar
+riesgos: primero los hallazgos <strong>altos</strong>, luego los <strong>medios</strong> y, al final, los <strong>bajos</strong>.</p>
+<p>Hay <strong>45 hallazgos distintos</strong>: 13 altos, 21 medios y 11 bajos. Las zonas más sensibles son el puente VM/worker-source,
+<code>journal</code>/resume y los contratos de <code>parallel</code>/<code>agents</code>.</p>
 <div class="table-scroll"><table>
 <thead>
 <tr>
@@ -188,194 +190,411 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </tr>
 </tbody></table></div>
 <blockquote>
-<p>La auditoría nunca se agotó por completo — la cobertura es buena, pero no exhaustiva; el puente VM/worker-source, <code>journal</code>/resume y los contratos de <code>parallel</code>/<code>agents</code> son las zonas calientes.</p>
+<p>La auditoría nunca se agotó por completo — la cobertura es buena, pero no exhaustiva; el puente VM/worker-source,
+<code>journal</code>/resume y los contratos de <code>parallel</code>/<code>agents</code> son las zonas calientes.</p>
 </blockquote>
 <h2 id="alto">ALTO</h2>
 <ul>
-<li><strong>El extractor JSON solo prueba el primer <code>{</code> y <code>[</code> — devuelve el objeto equivocado cuando hay salidas con múltiples segmentos</strong> — <code>json-extract.ts:24</code> <em>(review)</em><ul>
-<li>Arreglo: recopilar TODAS las posiciones de <code>{</code>/<code>[</code>, ordenarlas e iterar: <code>for (let i=0;i&lt;textValue.length;i++){const c=textValue[i]; if(c===&#39;{&#39;||c===&#39;[&#39;)starts.push(i);}</code>; luego ejecutar el walk balanceado existente para cada inicio. Cambio reversible mínimo en una línea. Falta un test que debería existir: un json-extract con salida mixta debe devolver el primer bloque JSON válido, no el segundo.</li>
+<li><strong>El extractor JSON solo prueba el primer <code>{</code> y <code>[</code> — devuelve el objeto equivocado cuando hay salidas con múltiples
+segmentos</strong> — <code>json-extract.ts:24</code> <em>(review)</em><ul>
+<li>Arreglo: recopilar TODAS las posiciones de <code>{</code>/<code>[</code>, ordenarlas e iterar:
+<code>for (let i=0;i&lt;textValue.length;i++){const c=textValue[i]; if(c===&#39;{&#39;||c===&#39;[&#39;)starts.push(i);}</code>; luego ejecutar el
+walk balanceado existente para cada inicio. Cambio reversible mínimo en una línea. Falta un test que debería
+existir: un json-extract con salida mixta debe devolver el primer bloque JSON válido, no el segundo.</li>
 </ul>
 </li>
-<li><strong><code>artifactPath</code> desde <code>events.jsonl</code> llega a <code>fs.readFile</code> sin contención de path — lectura arbitraria de archivos</strong> — <code>agent-view.ts:22-24 (read at :54); source event-parser.ts:253</code> <em>(review)</em><ul>
-<li>Arreglo: en <code>resolveAgentArtifactPath</code>, reemplazar la rama <code>isAbsolute/path.join</code> con <code>resolveInsideRoot(run.runDir, ..., &#39;workflow run directory&#39;)</code> envuelta en <code>try/catch</code> que devuelva <code>undefined</code> al salir del root (la UI degrada con gracia). Rechazar rutas absolutas directamente, porque <code>resolveArtifactPath</code> ya lo hace.</li>
+<li><strong><code>artifactPath</code> desde <code>events.jsonl</code> llega a <code>fs.readFile</code> sin contención de path — lectura arbitraria de archivos</strong>
+— <code>agent-view.ts:22-24 (read at :54); source event-parser.ts:253</code> <em>(review)</em><ul>
+<li>Arreglo: en <code>resolveAgentArtifactPath</code>, reemplazar la rama <code>isAbsolute/path.join</code> con
+<code>resolveInsideRoot(run.runDir, ..., &#39;workflow run directory&#39;)</code> envuelta en <code>try/catch</code> que devuelva <code>undefined</code> al
+salir del root (la UI degrada con gracia). Rechazar rutas absolutas directamente, porque <code>resolveArtifactPath</code> ya lo
+hace.</li>
 </ul>
 </li>
-<li><strong>La garantía de determinismo de <code>Cache occ</code> es falsa para <code>ctx.parallel/ctx.pipeline</code> — resume puede devolver el resultado cacheado equivocado</strong> — <code>index.ts:528-538 (nextOcc on message arrival) + worker-source.ts:61-113</code> <em>(review)</em><ul>
-<li>Arreglo: el slice seguro mínimo ahora es corregir el comentario para que diga que el determinismo solo aplica a <code>ctx.agents/mapLimit</code>, y agregar un guard que avise cuando <code>nextOcc</code> devuelve <code>occ&gt;0</code> para una key vista por primera vez dentro de un frame <code>parallel</code>/<code>pipeline</code>. La corrección durable: derivar <code>occ</code> de un índice monótono asignado por el worker a cada branch/call.</li>
+<li><strong>La garantía de determinismo de <code>Cache occ</code> es falsa para <code>ctx.parallel/ctx.pipeline</code> — resume puede devolver el
+resultado cacheado equivocado</strong> — <code>index.ts:528-538 (nextOcc on message arrival) + worker-source.ts:61-113</code> <em>(review)</em><ul>
+<li>Arreglo: el slice seguro mínimo ahora es corregir el comentario para que diga que el determinismo solo aplica a
+<code>ctx.agents/mapLimit</code>, y agregar un guard que avise cuando <code>nextOcc</code> devuelve <code>occ&gt;0</code> para una key vista por primera
+vez dentro de un frame <code>parallel</code>/<code>pipeline</code>. La corrección durable: derivar <code>occ</code> de un índice monótono asignado
+por el worker a cada branch/call.</li>
 </ul>
 </li>
-<li><strong><code>resume</code> traga en silencio todos los errores de <code>input.json</code> y vuelve a ejecutar con input vacío / límites perdidos</strong> — <code>run-lifecycle.ts:240-244</code> <em>(review)</em><ul>
-<li>Arreglo: distinguir <code>ENOENT</code> (fallback aceptable a <code>{}</code>) de errores de parseo/permisos: <code>catch (err) { if ((err as NodeJS.ErrnoException).code !== &#39;ENOENT&#39;) throw err; }</code>. Exponer parse/EACCES en el estado del run reanudado. Test faltante: reanudar con un <code>input.json</code> corrupto debe hacer fallar el run de forma explícita.</li>
+<li><strong><code>resume</code> traga en silencio todos los errores de <code>input.json</code> y vuelve a ejecutar con input vacío / límites
+perdidos</strong> — <code>run-lifecycle.ts:240-244</code> <em>(review)</em><ul>
+<li>Arreglo: distinguir <code>ENOENT</code> (fallback aceptable a <code>{}</code>) de errores de parseo/permisos:
+<code>catch (err) { if ((err as NodeJS.ErrnoException).code !== &#39;ENOENT&#39;) throw err; }</code>. Exponer parse/EACCES en el
+estado del run reanudado. Test faltante: reanudar con un <code>input.json</code> corrupto debe hacer fallar el run de forma
+explícita.</li>
 </ul>
 </li>
-<li><strong><code>handleDashboardChoice</code> sin protección en el loop de reapertura del dashboard crashea toda la TUI ante input inválido</strong> — <code>dashboard-orchestration.ts:354 (throw sites in handleDashboardChoice ~:435,:463 and loadRerunInput ~:155-158)</code> <em>(review)</em><ul>
-<li>Arreglo: envolver la llamada a <code>handleDashboardChoice</code> en <code>:354</code> con <code>try/catch</code> que notifique vía <code>ctx.ui</code> y continúe el loop (sin rethrow); proteger el segundo <code>parseCliJsonOrText</code> de <code>loadRerunInput</code> para que devuelva <code>undefined</code> (cancelar) si falla el parseo. El slice reversible mínimo es el catch a nivel del loop. Falta test: un input inválido en la reapertura debe notificar el error y dejar la TUI en el loop, sin crashear.</li>
+<li><strong><code>handleDashboardChoice</code> sin protección en el loop de reapertura del dashboard crashea toda la TUI ante input
+inválido</strong> —
+<code>dashboard-orchestration.ts:354 (throw sites in handleDashboardChoice ~:435,:463 and loadRerunInput ~:155-158)</code>
+<em>(review)</em><ul>
+<li>Arreglo: envolver la llamada a <code>handleDashboardChoice</code> en <code>:354</code> con <code>try/catch</code> que notifique vía <code>ctx.ui</code> y
+continúe el loop (sin rethrow); proteger el segundo <code>parseCliJsonOrText</code> de <code>loadRerunInput</code> para que devuelva
+<code>undefined</code> (cancelar) si falla el parseo. El slice reversible mínimo es el catch a nivel del loop. Falta test: un
+input inválido en la reapertura debe notificar el error y dejar la TUI en el loop, sin crashear.</li>
 </ul>
 </li>
-<li><strong><code>agents()</code> global omite las transformaciones <code>effort-&gt;thinking</code> y <code>label-&gt;name</code> que sí aplica <code>agent()</code></strong> — <code>worker-source.ts:192-193</code> <em>(loop-1)</em><ul>
-<li>Arreglo: extraer la normalización de opciones en un helper <code>mapAgentOptions(opts)</code> (líneas 174-180) y aplicarlo dentro de un wrapper <code>agentsGlobal</code> que mapea las opciones de cada ítem antes de llamar a <code>ctx.agents</code>. Conectar <code>sandbox.agents</code> a ese wrapper. Test: una prueba unitaria a nivel worker asegure que <code>agents()</code> aplica la misma normalización de opciones que <code>agent()</code> para <code>effort</code> y <code>label</code>.</li>
+<li><strong><code>agents()</code> global omite las transformaciones <code>effort-&gt;thinking</code> y <code>label-&gt;name</code> que sí aplica <code>agent()</code></strong> —
+<code>worker-source.ts:192-193</code> <em>(loop-1)</em><ul>
+<li>Arreglo: extraer la normalización de opciones en un helper <code>mapAgentOptions(opts)</code> (líneas 174-180) y aplicarlo
+dentro de un wrapper <code>agentsGlobal</code> que mapea las opciones de cada ítem antes de llamar a <code>ctx.agents</code>. Conectar
+<code>sandbox.agents</code> a ese wrapper. Test: una prueba unitaria a nivel worker asegure que <code>agents()</code> aplica la misma
+normalización de opciones que <code>agent()</code> para <code>effort</code> y <code>label</code>.</li>
 </ul>
 </li>
-<li><strong><code>vm.runInContext</code> con <code>timeout</code> no limita el cuerpo asíncrono del workflow — una orquestación colgada o runaway nunca es detenida por <code>syncTimeoutMs</code></strong> — <code>worker-source.ts:233</code> <em>(loop-1)</em><ul>
-<li>Arreglo: o bien eliminar la opción <code>timeout</code> engañosa (y documentar que solo aplican timeouts por subagente), o envolver el resultado awaitable con un guard real de reloj de pared: <code>Promise.race([Promise.resolve(result), rejectAfter(limits.wallClockMs)])</code> con un budget explícito a nivel de orquestación. Test: un workflow async colgado debe expirar por wall-clock y no quedar vivo indefinidamente.</li>
+<li><strong><code>vm.runInContext</code> con <code>timeout</code> no limita el cuerpo asíncrono del workflow — una orquestación colgada o runaway
+nunca es detenida por <code>syncTimeoutMs</code></strong> — <code>worker-source.ts:233</code> <em>(loop-1)</em><ul>
+<li>Arreglo: o bien eliminar la opción <code>timeout</code> engañosa (y documentar que solo aplican timeouts por subagente), o
+envolver el resultado awaitable con un guard real de reloj de pared:
+<code>Promise.race([Promise.resolve(result), rejectAfter(limits.wallClockMs)])</code> con un budget explícito a nivel de
+orquestación. Test: un workflow async colgado debe expirar por wall-clock y no quedar vivo indefinidamente.</li>
 </ul>
 </li>
-<li><strong><code>parallel()</code> y <code>pipeline()</code> colapsan errores lanzados a <code>null</code> — fallas genuinas no se distinguen de retornos intencionalmente <code>null</code></strong> — <code>worker-source.ts:75-81 (parallel), 103-111 (pipeline)</code> <em>(loop-1)</em><ul>
-<li>Arreglo: en el <code>catch</code>, emitir un log del host con el error antes de guardar <code>null</code> (<code>void hostCall(&#39;log&#39;,[&#39;parallel thunk &#39;+index+&#39; threw: &#39;+(e?.stack||e)])</code>), para que las fallas queden visibles en el journal/events aunque se preserve el contrato de settle-to-null. Opcionalmente, exponer un contador de errores de parallel.</li>
+<li><strong><code>parallel()</code> y <code>pipeline()</code> colapsan errores lanzados a <code>null</code> — fallas genuinas no se distinguen de retornos
+intencionalmente <code>null</code></strong> — <code>worker-source.ts:75-81 (parallel), 103-111 (pipeline)</code> <em>(loop-1)</em><ul>
+<li>Arreglo: en el <code>catch</code>, emitir un log del host con el error antes de guardar <code>null</code>
+(<code>void hostCall(&#39;log&#39;,[&#39;parallel thunk &#39;+index+&#39; threw: &#39;+(e?.stack||e)])</code>), para que las fallas queden visibles en
+el journal/events aunque se preserve el contrato de settle-to-null. Opcionalmente, exponer un contador de errores de
+parallel.</li>
 </ul>
 </li>
-<li><strong><code>codeHash</code> por registro se escribe en el journal pero nunca se valida en replay — se sirven resultados cacheados viejos después de un cambio de código</strong> — <code>journal.ts:94-113 (loadJournal); record.codeHash written in index.ts</code> <em>(loop-1)</em><ul>
-<li>Arreglo: en <code>loadJournal</code> (o al momento de lookup) saltar/invalidate cualquier record cuyo <code>codeHash !== current computeCodeHash</code>. Cambio seguro mínimo: filtrar records por <code>codeHash</code> durante la construcción del cache cuando se pasa un hash actual. Test: escribir un registro del journal bajo hash A, reanudar bajo hash B, asegurar que el record no se reutiliza y el cache queda vacío bajo el nuevo hash.</li>
+<li><strong><code>codeHash</code> por registro se escribe en el journal pero nunca se valida en replay — se sirven resultados cacheados
+viejos después de un cambio de código</strong> — <code>journal.ts:94-113 (loadJournal); record.codeHash written in index.ts</code>
+<em>(loop-1)</em><ul>
+<li>Arreglo: en <code>loadJournal</code> (o al momento de lookup) saltar/invalidate cualquier record cuyo
+<code>codeHash !== current computeCodeHash</code>. Cambio seguro mínimo: filtrar records por <code>codeHash</code> durante la construcción
+del cache cuando se pasa un hash actual. Test: escribir un registro del journal bajo hash A, reanudar bajo hash B,
+asegurar que el record no se reutiliza y el cache queda vacío bajo el nuevo hash.</li>
 </ul>
 </li>
-<li><strong><code>void open(...).finally()</code> no traga la rejection — un unhandled promise rejection puede tumbar el proceso</strong> — <code>dashboard-down-editor.ts:273 (finding mislabeled as dashboard-orchestration.ts:265)</code> <em>(loop-1)</em><ul>
-<li>Arreglo: agregar un <code>.catch</code> antes/de junto con <code>.finally</code>: <code>open(...).then(()=&gt;{}, (err)=&gt;{ /* log via ctx.notify or console */ }).finally(()=&gt;{ this.opening=false })</code>. Test: stubear <code>open</code> para que rechace y verificar que ninguna unhandled rejection escape y que <code>this.opening</code> vuelva a <code>false</code>.</li>
+<li><strong><code>void open(...).finally()</code> no traga la rejection — un unhandled promise rejection puede tumbar el proceso</strong> —
+<code>dashboard-down-editor.ts:273 (finding mislabeled as dashboard-orchestration.ts:265)</code> <em>(loop-1)</em><ul>
+<li>Arreglo: agregar un <code>.catch</code> antes/de junto con <code>.finally</code>:
+<code>open(...).then(()=&gt;{}, (err)=&gt;{ /* log via ctx.notify or console */ }).finally(()=&gt;{ this.opening=false })</code>. Test:
+stubear <code>open</code> para que rechace y verificar que ninguna unhandled rejection escape y que <code>this.opening</code> vuelva a
+<code>false</code>.</li>
 </ul>
 </li>
-<li><strong>Las retries de esquema corren sobre output truncado en silencio; el retry prompt atribuye mal la falla a una incompatibilidad de schema</strong> — <code>index.ts:944-962</code> <em>(loop-1)</em><ul>
-<li>Arreglo: ejecutar <code>extractJsonCandidate/validateStructuredData</code> sobre el output parseado NO truncado (truncar solo la copia guardada/en journal), o detectar truncamiento del host (<code>output.length === cap</code>) y reportarlo correctamente en el retry prompt. Test: alimentar un stdout válido en JSON de &gt;24000 caracteres y asegurar que el error se atribuye al parseo real y no a un falso mismatch de schema.</li>
+<li><strong>Las retries de esquema corren sobre output truncado en silencio; el retry prompt atribuye mal la falla a una
+incompatibilidad de schema</strong> — <code>index.ts:944-962</code> <em>(loop-1)</em><ul>
+<li>Arreglo: ejecutar <code>extractJsonCandidate/validateStructuredData</code> sobre el output parseado NO truncado (truncar solo
+la copia guardada/en journal), o detectar truncamiento del host (<code>output.length === cap</code>) y reportarlo correctamente
+en el retry prompt. Test: alimentar un stdout válido en JSON de &gt;24000 caracteres y asegurar que el error se
+atribuye al parseo real y no a un falso mismatch de schema.</li>
 </ul>
 </li>
-<li><strong><code>agents(settle:true)</code> traga en silencio <code>maxAgents-exceeded</code> como un resultado <code>null</code> sin rastro en journal/eventos</strong> — <code>pi-dynamic-workflows/index.ts:787-789, 1117</code> <em>(loop-2)</em><ul>
-<li>Arreglo: distinguir rechazo por capacidad de <code>null</code> por contenido. Cambio seguro mínimo: antes de lanzar en 788, emitir un evento/log estructurado (por ejemplo <code>appendEvent({type:&quot;agent&quot;, state:&quot;rejected&quot;, reason:&quot;maxAgents&quot;})</code>) para que el registro del run muestre el límite alcanzado; mejor aún, hacer que el handler <code>onError</code> de <code>mapLimit</code> etiquete.</li>
+<li><strong><code>agents(settle:true)</code> traga en silencio <code>maxAgents-exceeded</code> como un resultado <code>null</code> sin rastro en
+journal/eventos</strong> — <code>pi-dynamic-workflows/index.ts:787-789, 1117</code> <em>(loop-2)</em><ul>
+<li>Arreglo: distinguir rechazo por capacidad de <code>null</code> por contenido. Cambio seguro mínimo: antes de lanzar en 788,
+emitir un evento/log estructurado (por ejemplo <code>appendEvent({type:&quot;agent&quot;, state:&quot;rejected&quot;, reason:&quot;maxAgents&quot;})</code>)
+para que el registro del run muestre el límite alcanzado; mejor aún, hacer que el handler <code>onError</code> de <code>mapLimit</code>
+etiquete.</li>
 </ul>
 </li>
-<li><strong>Carrera TOCTOU: dos llamadas concurrentes a <code>resumeWorkflow</code> pasan el guard de <code>activeRuns</code>; la segunda sobrescribe el <code>AbortController</code> de la primera y deja huérfano un run vivo</strong> — <code>pi-dynamic-workflows/run-lifecycle.ts:213 (set at 135)</code> <em>(loop-2)</em><ul>
-<li>Arreglo: cerrar la ventana reservando <code>runId</code> de forma síncrona apenas pasa el guard — por ejemplo, setear una entrada placeholder en <code>activeRuns</code> (o un <code>Set&lt;string&gt;</code> de <code>runId</code> en vuelo) en la línea 213/214 antes de cualquier <code>await</code>, y luego reemplazarla por el <code>ActiveWorkflowRun</code> real en 135; rechazar el segundo caller en lugar de sobrescribir el <code>AbortController</code> activo.</li>
+<li><strong>Carrera TOCTOU: dos llamadas concurrentes a <code>resumeWorkflow</code> pasan el guard de <code>activeRuns</code>; la segunda sobrescribe
+el <code>AbortController</code> de la primera y deja huérfano un run vivo</strong> —
+<code>pi-dynamic-workflows/run-lifecycle.ts:213 (set at 135)</code> <em>(loop-2)</em><ul>
+<li>Arreglo: cerrar la ventana reservando <code>runId</code> de forma síncrona apenas pasa el guard — por ejemplo, setear una
+entrada placeholder en <code>activeRuns</code> (o un <code>Set&lt;string&gt;</code> de <code>runId</code> en vuelo) en la línea 213/214 antes de cualquier
+<code>await</code>, y luego reemplazarla por el <code>ActiveWorkflowRun</code> real en 135; rechazar el segundo caller en lugar de
+sobrescribir el <code>AbortController</code> activo.</li>
 </ul>
 </li>
 </ul>
 <h2 id="medio">MEDIO</h2>
 <ul>
-<li><strong><code>getRunDirs</code> rechaza para TODOS los runs si un solo directorio desaparece entre <code>readdir</code> y <code>stat</code></strong> — <code>run-store.ts:32-41</code> <em>(review)</em><ul>
-<li>Arreglo: envolver el <code>stat</code> por entrada en <code>try/catch</code> devolviendo <code>undefined</code> y filtrando, o usar <code>Promise.allSettled</code> dejando solo los fulfilled — alineado con el patrón ya correcto en <code>collectPiSessions</code>. Falta test: una lista con un directorio borrado durante la enumeración (rejection de <code>stat</code> simulada) debe saltarse ese directorio y seguir enumerando el resto.</li>
+<li><p><strong><code>getRunDirs</code> rechaza para TODOS los runs si un solo directorio desaparece entre <code>readdir</code> y <code>stat</code></strong> —
+<code>run-store.ts:32-41</code> <em>(review)</em></p>
+<ul>
+<li>Arreglo: envolver el <code>stat</code> por entrada en <code>try/catch</code> devolviendo <code>undefined</code> y filtrando, o usar
+<code>Promise.allSettled</code> dejando solo los fulfilled — alineado con el patrón ya correcto en <code>collectPiSessions</code>. Falta
+test: una lista con un directorio borrado durante la enumeración (rejection de <code>stat</code> simulada) debe saltarse ese
+directorio y seguir enumerando el resto.</li>
 </ul>
 </li>
-<li><strong>Los subagentes heredan el <code>process.env</code> completo del orquestador (todos los secretos) por defecto</strong> — <code>index.ts:821-830 (env spread) + agent-env-persona.ts:127-129</code> <em>(review)</em><ul>
-<li>Arreglo: el slice seguro mínimo es quitar variables secretas conocidas de proveedores del <code>env</code> heredado salvo que estén listadas explícitamente en <code>keys</code>, y documentar el default con claridad en el campo schema de <code>keys</code>. Cambio mayor: invertir el default para que los subagentes reciban un env base mínimo salvo <code>inheritEnv:true</code>. Reversible vía el flag existente <code>inheritEnv</code>.</li>
+<li><p><strong>Los subagentes heredan el <code>process.env</code> completo del orquestador (todos los secretos) por defecto</strong> —
+<code>index.ts:821-830 (env spread) + agent-env-persona.ts:127-129</code> <em>(review)</em></p>
+<ul>
+<li>Arreglo: el slice seguro mínimo es quitar variables secretas conocidas de proveedores del <code>env</code> heredado salvo que
+estén listadas explícitamente en <code>keys</code>, y documentar el default con claridad en el campo schema de <code>keys</code>. Cambio
+mayor: invertir el default para que los subagentes reciban un env base mínimo salvo <code>inheritEnv:true</code>. Reversible
+vía el flag existente <code>inheritEnv</code>.</li>
 </ul>
 </li>
-<li><strong>Las rejections del callback <code>onStdout/onStderr</code> se convierten en unhandled promise rejections</strong> — <code>process-spawn.ts:127,131</code> <em>(review)</em><ul>
-<li>Arreglo: o bien hacer <code>await</code> del callback dentro de un data handler async, o capturar la promesa devuelta con <code>.catch()</code> y enrutar el error a <code>finish()</code>. Slice mínimo: <code>void Promise.resolve(options.onStdout?.(chunk)).catch(()=&gt;{})</code>. Test faltante: un callback que rechaza debe dejar de producir unhandled rejection y el error quede visible en stderr sin producir un unhandled rejection.</li>
+<li><p><strong>Las rejections del callback <code>onStdout/onStderr</code> se convierten en unhandled promise rejections</strong> —
+<code>process-spawn.ts:127,131</code> <em>(review)</em></p>
+<ul>
+<li>Arreglo: o bien hacer <code>await</code> del callback dentro de un data handler async, o capturar la promesa devuelta con
+<code>.catch()</code> y enrutar el error a <code>finish()</code>. Slice mínimo:
+<code>void Promise.resolve(options.onStdout?.(chunk)).catch(()=&gt;{})</code>. Test faltante: un callback que rechaza debe dejar
+de producir unhandled rejection y el error quede visible en stderr sin producir un unhandled rejection.</li>
 </ul>
 </li>
-<li><strong><code>startPiSessionHeartbeat</code> puede filtrar un interval y resucitar un archivo de sesión borrado bajo shutdown rápido</strong> — <code>pi-session.ts:133-136</code> <em>(review)</em><ul>
-<li>Arreglo: después de la primera escritura await, cortar si se perdió la ownership: <code>if (livePiSession !== runtime) return;</code> inmediatamente antes de crear el interval. Opcional: hacer no-op el cuerpo del interval cuando <code>livePiSession !== runtime</code>. Mantiene intacto el contrato start/stop. Falta test: invocar start y luego stop rápidamente no debe recrear el interval ni reescribir el archivo de sesión.</li>
+<li><p><strong><code>startPiSessionHeartbeat</code> puede filtrar un interval y resucitar un archivo de sesión borrado bajo shutdown rápido</strong>
+— <code>pi-session.ts:133-136</code> <em>(review)</em></p>
+<ul>
+<li>Arreglo: después de la primera escritura await, cortar si se perdió la ownership:
+<code>if (livePiSession !== runtime) return;</code> inmediatamente antes de crear el interval. Opcional: hacer no-op el cuerpo
+del interval cuando <code>livePiSession !== runtime</code>. Mantiene intacto el contrato start/stop. Falta test: invocar start
+y luego stop rápidamente no debe recrear el interval ni reescribir el archivo de sesión.</li>
 </ul>
 </li>
-<li><strong><code>formatLiveRunView</code> recibe <code>width</code> explícitamente <code>undefined</code> en modo no-TUI, rompiendo el default <code>80</code></strong> — <code>run-status-ui.ts:156 (callsite) / 126-133 (defn)</code> <em>(review)</em><ul>
-<li>Arreglo: pasar un ancho concreto: <code>formatLiveRunView(logs, workflowName, 80, status)</code>. Cambio reversible mínimo. Falta test: llamar <code>setWorkflowWidget</code> con <code>ctx.mode!==&#39;tui&#39;</code> y verificar que el contenido del widget no esté vacío / contenga el nombre del workflow.</li>
+<li><p><strong><code>formatLiveRunView</code> recibe <code>width</code> explícitamente <code>undefined</code> en modo no-TUI, rompiendo el default <code>80</code></strong> —
+<code>run-status-ui.ts:156 (callsite) / 126-133 (defn)</code> <em>(review)</em></p>
+<ul>
+<li>Arreglo: pasar un ancho concreto: <code>formatLiveRunView(logs, workflowName, 80, status)</code>. Cambio reversible mínimo.
+Falta test: llamar <code>setWorkflowWidget</code> con <code>ctx.mode!==&#39;tui&#39;</code> y verificar que el contenido del widget no esté vacío
+/ contenga el nombre del workflow.</li>
 </ul>
 </li>
-<li><strong><code>truncate()</code> puede devolver un output más largo que el máximo declarado cuando <code>max &lt; 120</code></strong> — <code>format.ts:17-21</code> <em>(review)</em><ul>
-<li>Arreglo: presupuestar el footer contra <code>max</code>: <code>const budget = Math.min(max,120);</code> cortar a <code>max-budget</code> y omitir el footer cuando excedería <code>max</code>. Falta test: <code>truncate(longString, 1).length &lt;= 1</code> (o footer omitido).</li>
+<li><p><strong><code>truncate()</code> puede devolver un output más largo que el máximo declarado cuando <code>max &lt; 120</code></strong> — <code>format.ts:17-21</code>
+<em>(review)</em></p>
+<ul>
+<li>Arreglo: presupuestar el footer contra <code>max</code>: <code>const budget = Math.min(max,120);</code> cortar a <code>max-budget</code> y omitir el
+footer cuando excedería <code>max</code>. Falta test: <code>truncate(longString, 1).length &lt;= 1</code> (o footer omitido).</li>
 </ul>
 </li>
-<li><strong>Las entradas de timeline renderizan <code>NaN</code> en elapsed time cuando <code>run.startedAt</code> o <code>entry.time</code> están malformados</strong> — <code>run-view.ts:109,112-115</code> <em>(review)</em><ul>
-<li>Arreglo: <code>const started = new Date(run.startedAt).getTime(); const validStarted = Number.isFinite(started) ? started : 0;</code> y proteger <code>entry.time</code> de forma similar, con fallback a elapsed <code>0</code>. Falta test: <code>formatRunView</code> con <code>startedAt=&#39;&#39;</code> debe no incluir <code>NaN</code> en el output.</li>
+<li><p><strong>Las entradas de timeline renderizan <code>NaN</code> en elapsed time cuando <code>run.startedAt</code> o <code>entry.time</code> están malformados</strong>
+— <code>run-view.ts:109,112-115</code> <em>(review)</em></p>
+<ul>
+<li>Arreglo:
+<code>const started = new Date(run.startedAt).getTime(); const validStarted = Number.isFinite(started) ? started : 0;</code> y
+proteger <code>entry.time</code> de forma similar, con fallback a elapsed <code>0</code>. Falta test: <code>formatRunView</code> con <code>startedAt=&#39;&#39;</code>
+debe no incluir <code>NaN</code> en el output.</li>
 </ul>
 </li>
-<li><strong><code>appendArtifact</code> usa <code>fs.appendFile</code> sin protección — agentes concurrentes pueden intercalar/corromper un artifact compartido</strong> — <code>index.ts:610-617</code> <em>(review)</em><ul>
-<li>Arreglo: extraer un <code>appendFileSafe(filePath, data)</code> general en <code>file-append.ts</code> que ejecute la escritura dentro de <code>runExclusive</code> con key en <code>path.resolve(filePath)</code>, y llamarlo desde <code>appendArtifact</code>. Falta test: dos llamadas concurrentes a <code>appendArtifact</code> con el mismo nombre deben producir un archivo sin interleaving.</li>
+<li><p><strong><code>appendArtifact</code> usa <code>fs.appendFile</code> sin protección — agentes concurrentes pueden intercalar/corromper un artifact
+compartido</strong> — <code>index.ts:610-617</code> <em>(review)</em></p>
+<ul>
+<li>Arreglo: extraer un <code>appendFileSafe(filePath, data)</code> general en <code>file-append.ts</code> que ejecute la escritura dentro de
+<code>runExclusive</code> con key en <code>path.resolve(filePath)</code>, y llamarlo desde <code>appendArtifact</code>. Falta test: dos llamadas
+concurrentes a <code>appendArtifact</code> con el mismo nombre deben producir un archivo sin interleaving.</li>
 </ul>
 </li>
-<li><strong><code>notify()</code> descarta en silencio warnings y errors en modo <code>json/headless</code></strong> — <code>notify.ts:37-43</code> <em>(review)</em><ul>
-<li>Arreglo: después de la rama de print agregar: <code>if (!ctx.hasUI) { (type===&#39;info&#39;?console.log:console.error)(message); return; }</code>. Falta test: <code>notify</code> en modo no-UI y no-print con tipo <code>&#39;error&#39;</code> escribe en stderr.</li>
+<li><p><strong><code>notify()</code> descarta en silencio warnings y errors en modo <code>json/headless</code></strong> — <code>notify.ts:37-43</code> <em>(review)</em></p>
+<ul>
+<li>Arreglo: después de la rama de print agregar:
+<code>if (!ctx.hasUI) { (type===&#39;info&#39;?console.log:console.error)(message); return; }</code>. Falta test: <code>notify</code> en modo
+no-UI y no-print con tipo <code>&#39;error&#39;</code> escribe en stderr.</li>
 </ul>
 </li>
-<li><strong><code>sanitizePersonaOptions</code> copia valores de campos sin validación de tipos</strong> — <code>agent-env-persona.ts:199-208</code> <em>(review)</em><ul>
-<li>Arreglo: proteger claves tipadas como arrays: <code>const ARRAY_KEYS=new Set([&#39;tools&#39;,&#39;excludeTools&#39;,&#39;skills&#39;,&#39;extensions&#39;,&#39;keys&#39;]);</code> y omitir con warning cuando el valor no sea array. Falta test: una persona con <code>tools</code> como string debe rechazarse/saltarse con un mensaje claro en lugar de fallar más adelante.</li>
+<li><p><strong><code>sanitizePersonaOptions</code> copia valores de campos sin validación de tipos</strong> — <code>agent-env-persona.ts:199-208</code>
+<em>(review)</em></p>
+<ul>
+<li>Arreglo: proteger claves tipadas como arrays:
+<code>const ARRAY_KEYS=new Set([&#39;tools&#39;,&#39;excludeTools&#39;,&#39;skills&#39;,&#39;extensions&#39;,&#39;keys&#39;]);</code> y omitir con warning cuando el
+valor no sea array. Falta test: una persona con <code>tools</code> como string debe rechazarse/saltarse con un mensaje claro en
+lugar de fallar más adelante.</li>
 </ul>
 </li>
-<li><strong>Hueco de unit tests en las funciones puras de mayor riesgo (parsing, seguridad de paths, journal, graph, config)</strong> — <code>json-extract.ts (whole) / path-safety.ts:1-49 / journal.ts:30-174 / graph-parse.ts:1-324 / config.ts:23-74</code> <em>(review)</em><ul>
-<li>Arreglo: agregar suites unitarias chicas y rápidas (también sirven como tests de caracterización nombrados en los hallazgos #1,#2,#17,#18,#19): <code>tests/unit/json-extract</code> (direct/fenced/first-broken/think-block/empty/nested), <code>tests/integration/path-safety</code> (mkdtemp sandbox: in-root ok, <code>../</code> lanza, absolute lanza, paths preexistentes siguen funcionando).</li>
+<li><p><strong>Hueco de unit tests en las funciones puras de mayor riesgo (parsing, seguridad de paths, journal, graph, config)</strong> —
+<code>json-extract.ts (whole) / path-safety.ts:1-49 / journal.ts:30-174 / graph-parse.ts:1-324 / config.ts:23-74</code>
+<em>(review)</em></p>
+<ul>
+<li>Arreglo: agregar suites unitarias chicas y rápidas (también sirven como tests de caracterización nombrados en los
+hallazgos #1,#2,#17,#18,#19): <code>tests/unit/json-extract</code> (direct/fenced/first-broken/think-block/empty/nested),
+<code>tests/integration/path-safety</code> (mkdtemp sandbox: in-root ok, <code>../</code> lanza, absolute lanza, paths preexistentes
+siguen funcionando).</li>
 </ul>
 </li>
-<li><strong><code>config.normalizeWorkflowInput</code> deja pasar primitivos number/boolean/array como input del workflow sin transformar</strong> — <code>config.ts:47</code> <em>(loop-1)</em><ul>
-<li>Arreglo: tratar inputs no objeto y no string como error o envolverlos: <code>if (input &amp;&amp; typeof input === &#39;object&#39;) return input; if (typeof input === &#39;string&#39;) return parseCliJsonOrText(input); return {}</code> (o lanzar con un mensaje claro). Test: <code>normalizeWorkflowInput(42)</code> devuelve <code>{}</code> (o lanza un error claro si se adopta la variante estricta).</li>
+<li><p><strong><code>config.normalizeWorkflowInput</code> deja pasar primitivos number/boolean/array como input del workflow sin transformar</strong>
+— <code>config.ts:47</code> <em>(loop-1)</em></p>
+<ul>
+<li><p>Arreglo: tratar inputs no objeto y no string como error o envolverlos:</p>
+<pre><code class="hljs language-javascript"><span class="hljs-keyword">if</span> (input &amp;&amp; <span class="hljs-keyword">typeof</span> input === <span class="hljs-string">&quot;object&quot;</span>) <span class="hljs-keyword">return</span> input;
+<span class="hljs-keyword">if</span> (<span class="hljs-keyword">typeof</span> input === <span class="hljs-string">&quot;string&quot;</span>) <span class="hljs-keyword">return</span> <span class="hljs-title function_">parseCliJsonOrText</span>(input);
+<span class="hljs-keyword">return</span> {};</code></pre>
+<p>(o lanzar con un mensaje claro). Test: <code>normalizeWorkflowInput(42)</code> devuelve <code>{}</code> (o lanza un error claro si se
+adopta la variante estricta).</p>
+</li>
 </ul>
 </li>
-<li><strong>El paso <code>refine</code> de self-refine no tiene guard para <code>null</code> — un refinador muerto/omitido reemplaza silenciosamente el último borrador bueno por <code>null</code></strong> — <code>scaffolds/self-refine.js:229-236</code> <em>(loop-1)</em><ul>
-<li>Arreglo: después de la línea 236, agregar: <code>if (draft == null) { failureNote = `round ${round}: refine returned null`; log(`self-refine ${failureNote} — returning last good draft`); draft = &lt;captured previous&gt;; break; }</code> — capturar el draft anterior al refine para devolver el último intento bueno. Test: stubear <code>refine</code> para que devuelva <code>null</code> y verificar que el último draft bueno se conserva.</li>
+<li><p><strong>El paso <code>refine</code> de self-refine no tiene guard para <code>null</code> — un refinador muerto/omitido reemplaza silenciosamente
+el último borrador bueno por <code>null</code></strong> — <code>scaffolds/self-refine.js:229-236</code> <em>(loop-1)</em></p>
+<ul>
+<li><p>Arreglo: después de la línea 236, agregar:</p>
+<pre><code class="hljs language-javascript"><span class="hljs-keyword">if</span> (draft == <span class="hljs-literal">null</span>) { failureNote = <span class="hljs-string">`round <span class="hljs-subst">${round}</span>: refine returned null`</span>; <span class="hljs-title function_">log</span>(<span class="hljs-string">`self-refine <span class="hljs-subst">${failureNote}</span> — returning last good draft`</span>); draft = <span class="language-xml"><span class="hljs-tag">&lt;<span class="hljs-name">captured</span> <span class="hljs-attr">previous</span>&gt;</span>; break; }</span></code></pre>
+<p>— capturar el draft anterior al refine para devolver el último intento bueno. Test: stubear <code>refine</code> para que
+devuelva <code>null</code> y verificar que el último draft bueno se conserva.</p>
+</li>
 </ul>
 </li>
-<li><strong><code>guardrails</code>: <code>protect.args=null</code> sin contenido evalúa la cadena literal <code>&#39;null&#39;</code> contra las reglas de input</strong> — <code>scaffolds/guardrails.js:203</code> <em>(loop-1)</em><ul>
-<li>Arreglo: proteger el caso sin input antes de <code>runGuards</code>: <code>const toGuard = content ?? protect.args; if (toGuard == null) { log(&#39;guardrails: no content/args to guard — failing closed&#39;); return { status:&#39;TRIPPED&#39;, stage:&#39;input&#39;, reason:&#39;no input&#39; } }</code>. Test: llamar al modo wrapper con <code>{}</code> (sin <code>content</code>, ni <code>protect.args</code>) debe fallar cerrado.</li>
+<li><p><strong><code>guardrails</code>: <code>protect.args=null</code> sin contenido evalúa la cadena literal <code>&#39;null&#39;</code> contra las reglas de input</strong> —
+<code>scaffolds/guardrails.js:203</code> <em>(loop-1)</em></p>
+<ul>
+<li><p>Arreglo: proteger el caso sin input antes de <code>runGuards</code>:</p>
+<pre><code class="hljs language-javascript"><span class="hljs-keyword">const</span> toGuard = content ?? protect.<span class="hljs-property">args</span>;
+<span class="hljs-keyword">if</span> (toGuard == <span class="hljs-literal">null</span>) {
+  <span class="hljs-title function_">log</span>(<span class="hljs-string">&quot;guardrails: no content/args to guard — failing closed&quot;</span>);
+  <span class="hljs-keyword">return</span> { <span class="hljs-attr">status</span>: <span class="hljs-string">&quot;TRIPPED&quot;</span>, <span class="hljs-attr">stage</span>: <span class="hljs-string">&quot;input&quot;</span>, <span class="hljs-attr">reason</span>: <span class="hljs-string">&quot;no input&quot;</span> };
+}</code></pre>
+<p>Test: llamar al modo wrapper con <code>{}</code> (sin <code>content</code>, ni <code>protect.args</code>) debe fallar cerrado.</p>
+</li>
 </ul>
 </li>
-<li><strong><code>nextOcc()</code> se llama después de dos <code>await</code> — el orden de asignación de <code>occ</code> depende del timing de I/O, y eso amenaza la corrección del cache de resume</strong> — <code>index.ts:713-714, 729</code> <em>(loop-1)</em><ul>
-<li>Arreglo: calcular la key y llamar <code>nextOcc(key)</code> de forma síncrona al principio de <code>runSubagent</code>, antes de los dos <code>await</code>, y luego arrastrar <code>occ</code> hasta el final. También corregir el comentario que ahora sería falso. Test: dos llamadas concurrentes a <code>agent()</code> con args idénticos, con <code>applyPersonaOptions</code> retrasado artificialmente en una de ellas, deben seguir produciendo.</li>
+<li><p><strong><code>nextOcc()</code> se llama después de dos <code>await</code> — el orden de asignación de <code>occ</code> depende del timing de I/O, y eso
+amenaza la corrección del cache de resume</strong> — <code>index.ts:713-714, 729</code> <em>(loop-1)</em></p>
+<ul>
+<li>Arreglo: calcular la key y llamar <code>nextOcc(key)</code> de forma síncrona al principio de <code>runSubagent</code>, antes de los dos
+<code>await</code>, y luego arrastrar <code>occ</code> hasta el final. También corregir el comentario que ahora sería falso. Test: dos
+llamadas concurrentes a <code>agent()</code> con args idénticos, con <code>applyPersonaOptions</code> retrasado artificialmente en una de
+ellas, deben seguir produciendo.</li>
 </ul>
 </li>
-<li><strong>El listener de abort se registra después de <code>spawn()</code> — un abort ya disparado nunca mata al child</strong> — <code>process-spawn.ts:103-115</code> <em>(loop-1)</em><ul>
-<li>Arreglo: inmediatamente después de registrar el listener (o antes de <code>spawn</code>), agregar <code>if (options.signal.aborted) { kill(); }</code>. Test: pasar un signal ya abortado y verificar que el child reciba <code>SIGTERM</code> rápidamente en lugar de esperar <code>timeoutMs</code>.</li>
+<li><p><strong>El listener de abort se registra después de <code>spawn()</code> — un abort ya disparado nunca mata al child</strong> —
+<code>process-spawn.ts:103-115</code> <em>(loop-1)</em></p>
+<ul>
+<li>Arreglo: inmediatamente después de registrar el listener (o antes de <code>spawn</code>), agregar
+<code>if (options.signal.aborted) { kill(); }</code>. Test: pasar un signal ya abortado y verificar que el child reciba
+<code>SIGTERM</code> rápidamente en lugar de esperar <code>timeoutMs</code>.</li>
 </ul>
 </li>
-<li><strong><code>stableStringify</code> codifica <code>NaN/Infinity/undefined/function/symbol</code> todos como <code>&#39;null&#39;</code> — colisiones en cache-key entre argumentos distintos</strong> — <code>journal.ts:35,39</code> <em>(loop-1)</em><ul>
-<li>Arreglo: codificar números no finitos y <code>undefined/function/symbol</code> con un sentinel distinto que no colisione con <code>JSON null</code>, por ejemplo tokens escapados tipo <code>&#39;&quot;__nan__&quot;&#39;</code>, <code>&#39;&quot;__undefined__&quot;&#39;</code>. Test: <code>computeCallKey(&#39;agent&#39;,[{a:NaN}]) !== computeCallKey(&#39;agent&#39;,[{a:null}])</code>.</li>
+<li><p><strong><code>stableStringify</code> codifica <code>NaN/Infinity/undefined/function/symbol</code> todos como <code>&#39;null&#39;</code> — colisiones en cache-key
+entre argumentos distintos</strong> — <code>journal.ts:35,39</code> <em>(loop-1)</em></p>
+<ul>
+<li>Arreglo: codificar números no finitos y <code>undefined/function/symbol</code> con un sentinel distinto que no colisione con
+<code>JSON null</code>, por ejemplo tokens escapados tipo <code>&#39;&quot;__nan__&quot;&#39;</code>, <code>&#39;&quot;__undefined__&quot;&#39;</code>. Test:
+<code>computeCallKey(&#39;agent&#39;,[{a:NaN}]) !== computeCallKey(&#39;agent&#39;,[{a:null}])</code>.</li>
 </ul>
 </li>
-<li><strong><code>active.promise</code> se asigna después de dos <code>await</code> — <code>abortActiveWorkflowRuns</code> puede leer <code>undefined</code> y saltearse el drenado gracioso</strong> — <code>pi-dynamic-workflows/run-lifecycle.ts:135-197</code> <em>(loop-2)</em><ul>
-<li>Arreglo: asignar <code>active.promise</code> antes del primer <code>await</code>, o construir la promesa de forma síncrona y guardarla en <code>active</code> en la creación (línea 128-134) para que la entrada del map nunca sea observable sin su promise. Test faltante: disparar abort durante el <code>await</code> de <code>writeRunStatus</code> y afirmar que la promise no quede observable como <code>undefined</code> y que el abort posterior la drene correctamente.</li>
+<li><p><strong><code>active.promise</code> se asigna después de dos <code>await</code> — <code>abortActiveWorkflowRuns</code> puede leer <code>undefined</code> y saltearse el
+drenado gracioso</strong> — <code>pi-dynamic-workflows/run-lifecycle.ts:135-197</code> <em>(loop-2)</em></p>
+<ul>
+<li>Arreglo: asignar <code>active.promise</code> antes del primer <code>await</code>, o construir la promesa de forma síncrona y guardarla en
+<code>active</code> en la creación (línea 128-134) para que la entrada del map nunca sea observable sin su promise. Test
+faltante: disparar abort durante el <code>await</code> de <code>writeRunStatus</code> y afirmar que la promise no quede observable como
+<code>undefined</code> y que el abort posterior la drene correctamente.</li>
 </ul>
 </li>
-<li><strong>Los mensajes de log del workflow pueden spoofear el estado del monitor de agentes vía la regex <code>agent N start:</code> en <code>event-parser</code></strong> — <code>pi-dynamic-workflows/event-parser.ts:198-218</code> <em>(loop-2)</em><ul>
-<li>Arreglo: dejar de usar mensajes de texto libre como canal estructural. Alimentar el estado del monitor desde los eventos dedicados <code>{type:&quot;agent&quot;}</code> (ya emitidos en <code>index.ts:815</code>) en lugar de regex-parsing de logs, o etiquetar los logs estructurales del host con un campo reservado (por ejemplo <code>details.__hostAgentEvent</code>).</li>
+<li><p><strong>Los mensajes de log del workflow pueden spoofear el estado del monitor de agentes vía la regex <code>agent N start:</code> en
+<code>event-parser</code></strong> — <code>pi-dynamic-workflows/event-parser.ts:198-218</code> <em>(loop-2)</em></p>
+<ul>
+<li>Arreglo: dejar de usar mensajes de texto libre como canal estructural. Alimentar el estado del monitor desde los
+eventos dedicados <code>{type:&quot;agent&quot;}</code> (ya emitidos en <code>index.ts:815</code>) en lugar de regex-parsing de logs, o etiquetar
+los logs estructurales del host con un campo reservado (por ejemplo <code>details.__hostAgentEvent</code>).</li>
 </ul>
 </li>
-<li><strong><code>monitorRunIndex</code> fue omitido de <code>DashboardSelection</code> — el run enfocado se resetea a 0 cada vez que se reabre</strong> — <code>pi-dynamic-workflows/workflow-dashboard.ts:67-76, 138-149</code> <em>(loop-2)</em><ul>
-<li>Arreglo: agregar <code>monitorRunIndex</code> a la interfaz <code>DashboardSelection</code>, devolverlo desde <code>getSelection()</code>, y restaurarlo con clamp en el constructor contra <code>monitorModels.length</code> (mirando el manejo de <code>monitorAgentIndex</code> en 133-134). Test faltante: abrir el dashboard, moverse al índice 2 del monitor run, hacer re-open y verificar que el índice se conserva.</li>
+<li><p><strong><code>monitorRunIndex</code> fue omitido de <code>DashboardSelection</code> — el run enfocado se resetea a 0 cada vez que se reabre</strong> —
+<code>pi-dynamic-workflows/workflow-dashboard.ts:67-76, 138-149</code> <em>(loop-2)</em></p>
+<ul>
+<li>Arreglo: agregar <code>monitorRunIndex</code> a la interfaz <code>DashboardSelection</code>, devolverlo desde <code>getSelection()</code>, y
+restaurarlo con clamp en el constructor contra <code>monitorModels.length</code> (mirando el manejo de <code>monitorAgentIndex</code> en
+133-134). Test faltante: abrir el dashboard, moverse al índice 2 del monitor run, hacer re-open y verificar que el
+índice se conserva.</li>
 </ul>
 </li>
-<li><strong><code>liveWriteTail .catch(()=&gt;{})</code> descarta en silencio todos los errores de escritura de stdout/stderr en vivo</strong> — <code>pi-dynamic-workflows/index.ts:813</code> <em>(loop-2)</em><ul>
-<li>Arreglo: capturar el primer error de escritura en una bandera acotada al run y exponerlo una sola vez (un log/appendEvent al final del agente: <code>&quot;live log truncated: &lt;err&gt;&quot;</code>) en lugar de tragárselo por completo. Mantener la cadena sin rechazo, pero registrar que el artifact está incompleto. Test faltante: stubear <code>fs.appendFile</code> para que falle y verificar que el aviso se emite una sola vez.</li>
+<li><p><strong><code>liveWriteTail .catch(()=&gt;{})</code> descarta en silencio todos los errores de escritura de stdout/stderr en vivo</strong> —
+<code>pi-dynamic-workflows/index.ts:813</code> <em>(loop-2)</em></p>
+<ul>
+<li>Arreglo: capturar el primer error de escritura en una bandera acotada al run y exponerlo una sola vez (un
+log/appendEvent al final del agente: <code>&quot;live log truncated: &lt;err&gt;&quot;</code>) en lugar de tragárselo por completo. Mantener la
+cadena sin rechazo, pero registrar que el artifact está incompleto. Test faltante: stubear <code>fs.appendFile</code> para que
+falle y verificar que el aviso se emite una sola vez.</li>
 </ul>
 </li>
 </ul>
 <h2 id="bajo">BAJO</h2>
 <ul>
-<li><strong><code>action=write</code> persiste el source del workflow sin validación estructural; el código inválido falla solo en tiempo de ejecución</strong> — <code>command-handlers.ts:149-158</code> <em>(review)</em><ul>
-<li>Arreglo: en la rama <code>write</code>, ejecutar <code>transformWorkflowCode(params.code)</code> (descartando el resultado) antes de escribir para que los errores estructurales aparezcan al momento de escribir con el mismo mensaje, y rechazar código vacío o solo espacios. El archivo en disco sigue siendo el source original. Test faltante: escribir con un import estático corrupto debe fallar al escribir, no más tarde al ejecutar.</li>
+<li><p><strong><code>action=write</code> persiste el source del workflow sin validación estructural; el código inválido falla solo en tiempo
+de ejecución</strong> — <code>command-handlers.ts:149-158</code> <em>(review)</em></p>
+<ul>
+<li>Arreglo: en la rama <code>write</code>, ejecutar <code>transformWorkflowCode(params.code)</code> (descartando el resultado) antes de
+escribir para que los errores estructurales aparezcan al momento de escribir con el mismo mensaje, y rechazar código
+vacío o solo espacios. El archivo en disco sigue siendo el source original. Test faltante: escribir con un import
+estático corrupto debe fallar al escribir, no más tarde al ejecutar.</li>
 </ul>
 </li>
-<li><strong>Las interpolaciones de template literal <code>${...}</code> se tratan como contenido de string por el tokenizer del graph</strong> — <code>graph-parse.ts:59-63</code> <em>(review)</em><ul>
-<li>Arreglo: seguir <code>${...}</code>: sobre <code>$</code>+<code>{</code> mientras se está en backtick, apilar la comilla y entrar en modo código con un contador de profundidad de llaves; sobre la <code>}</code> de cierre, restaurar la comilla. Alternativa mínima: emitir un símbolo de warning cuando una llamada cae dentro de una expresión template. Test faltante: unit test de graph-parse que asegure que una expresión template no se interpreta como string literal simple y devuelva <code>undefined</code>.</li>
+<li><p><strong>Las interpolaciones de template literal <code>${...}</code> se tratan como contenido de string por el tokenizer del graph</strong> —
+<code>graph-parse.ts:59-63</code> <em>(review)</em></p>
+<ul>
+<li>Arreglo: seguir <code>${...}</code>: sobre <code>$</code>+<code>{</code> mientras se está en backtick, apilar la comilla y entrar en modo código con
+un contador de profundidad de llaves; sobre la <code>}</code> de cierre, restaurar la comilla. Alternativa mínima: emitir un
+símbolo de warning cuando una llamada cae dentro de una expresión template. Test faltante: unit test de graph-parse
+que asegure que una expresión template no se interpreta como string literal simple y devuelva <code>undefined</code>.</li>
 </ul>
 </li>
-<li><strong><code>countTopLevelArrayItems</code> devuelve <code>count=1</code> para arrays formados solo por spread como <code>[...items]</code></strong> — <code>graph-parse.ts:208-213</code> <em>(review)</em><ul>
-<li>Arreglo: antes de retornar, si cualquier <code>element.trimStart().startsWith(&#39;...&#39;)</code>, devolver <code>undefined</code> para que la inferencia caiga al camino heurístico <code>many:true</code>. Guard de una línea. Test faltante: <code>countTopLevelArrayItems(&#39;[...items]&#39;) === undefined</code>.</li>
+<li><p><strong><code>countTopLevelArrayItems</code> devuelve <code>count=1</code> para arrays formados solo por spread como <code>[...items]</code></strong> —
+<code>graph-parse.ts:208-213</code> <em>(review)</em></p>
+<ul>
+<li>Arreglo: antes de retornar, si cualquier <code>element.trimStart().startsWith(&#39;...&#39;)</code>, devolver <code>undefined</code> para que la
+inferencia caiga al camino heurístico <code>many:true</code>. Guard de una línea. Test faltante:
+<code>countTopLevelArrayItems(&#39;[...items]&#39;) === undefined</code>.</li>
 </ul>
 </li>
-<li><strong><code>looksLikeJson</code> lanza en texto plano que empieza con número, como <code>&#39;1 agent per team&#39;</code></strong> — <code>config.ts:23-24</code> <em>(review)</em><ul>
-<li>Arreglo: quitar la rama de dígito de <code>looksLikeJson</code> (dejar que el texto con apariencia numérica caiga a <code>{text:value}</code>), o exigir un match completo de JSON-number contra todo el valor. Test faltante: <code>parseCliJsonOrText(&#39;1 agent per team&#39;)</code> devuelve <code>{text:...}</code> en lugar de lanzar.</li>
+<li><p><strong><code>looksLikeJson</code> lanza en texto plano que empieza con número, como <code>&#39;1 agent per team&#39;</code></strong> — <code>config.ts:23-24</code>
+<em>(review)</em></p>
+<ul>
+<li>Arreglo: quitar la rama de dígito de <code>looksLikeJson</code> (dejar que el texto con apariencia numérica caiga a
+<code>{text:value}</code>), o exigir un match completo de JSON-number contra todo el valor. Test faltante:
+<code>parseCliJsonOrText(&#39;1 agent per team&#39;)</code> devuelve <code>{text:...}</code> en lugar de lanzar.</li>
 </ul>
 </li>
-<li><strong>El parámetro <code>background</code> está en el schema pero nunca se lee en el dispatch</strong> — <code>command-handlers.ts:172-199 (schema index.ts:288-293)</code> <em>(review)</em><ul>
-<li>Arreglo: o bien sacar <code>background</code> de <code>workflowToolSchema</code>, o cablearlo (permitir que <code>params.background===false</code> omita background cuando la sesión puede correr en foreground). No cambiar el comportamiento background-by-default; solo hacer honesto el parámetro.</li>
+<li><p><strong>El parámetro <code>background</code> está en el schema pero nunca se lee en el dispatch</strong> —
+<code>command-handlers.ts:172-199 (schema index.ts:288-293)</code> <em>(review)</em></p>
+<ul>
+<li>Arreglo: o bien sacar <code>background</code> de <code>workflowToolSchema</code>, o cablearlo (permitir que <code>params.background===false</code>
+omita background cuando la sesión puede correr en foreground). No cambiar el comportamiento background-by-default;
+solo hacer honesto el parámetro.</li>
 </ul>
 </li>
-<li><strong><code>tournament</code>: cero entrantes (todos los seeds crashearon) devuelve string vacío con un log engañoso de &#39;only one entrant&#39;</strong> — <code>scaffolds/tournament.js:121-123</code> <em>(loop-1)</em><ul>
-<li>Arreglo: separar longitud 0 vs 1: <code>if (entrants.length === 0) { log(&#39;tournament: all seeds failed — no entrants&#39;); return { winner:&#39;&#39;, failure:&#39;no entrants&#39; } }</code> (o lanzar). Test: stubear todos los seed agents para devolver <code>null</code> y afirmar un fallo explícito en lugar de un string vacío silencioso.</li>
+<li><p><strong><code>tournament</code>: cero entrantes (todos los seeds crashearon) devuelve string vacío con un log engañoso de &#39;only one
+entrant&#39;</strong> — <code>scaffolds/tournament.js:121-123</code> <em>(loop-1)</em></p>
+<ul>
+<li><p>Arreglo: separar longitud 0 vs 1:</p>
+<pre><code class="hljs language-javascript"><span class="hljs-keyword">if</span> (entrants.<span class="hljs-property">length</span> === <span class="hljs-number">0</span>) {
+  <span class="hljs-title function_">log</span>(<span class="hljs-string">&quot;tournament: all seeds failed — no entrants&quot;</span>);
+  <span class="hljs-keyword">return</span> { <span class="hljs-attr">winner</span>: <span class="hljs-string">&quot;&quot;</span>, <span class="hljs-attr">failure</span>: <span class="hljs-string">&quot;no entrants&quot;</span> };
+}</code></pre>
+<p>(o lanzar). Test: stubear todos los seed agents para devolver <code>null</code> y afirmar un fallo explícito en lugar de un
+string vacío silencioso.</p>
+</li>
 </ul>
 </li>
-<li><strong><code>compact()</code> subestima en 120 caracteres la cuenta de chars truncados del trailer</strong> — <code>worker-source.ts:35</code> <em>(loop-1)</em><ul>
-<li>Arreglo: informar la cantidad real removida: <code>+ (text.length - (maxChars - 120)) + &#39; chars]&#39;</code>. Test: <code>compact(str-of-len-N, M)</code> reporta <code>N-(M-120)</code>.</li>
+<li><p><strong><code>compact()</code> subestima en 120 caracteres la cuenta de chars truncados del trailer</strong> — <code>worker-source.ts:35</code>
+<em>(loop-1)</em></p>
+<ul>
+<li>Arreglo: informar la cantidad real removida: <code>+ (text.length - (maxChars - 120)) + &#39; chars]&#39;</code>. Test:
+<code>compact(str-of-len-N, M)</code> reporta <code>N-(M-120)</code>.</li>
 </ul>
 </li>
-<li><strong><code>extractFirstStringLiteral</code> filtra interpolación raw <code>${...}</code> de template en labels de nodos del graph</strong> — <code>pi-dynamic-workflows/graph-parse.ts:30</code> <em>(loop-2)</em><ul>
-<li>Arreglo: hacer consistente la rama backtick con la línea 36: cambiar <code>[^</code>]<code>por</code>[^<code>$]</code> para que los templates interpolados no se capturen (la función entonces cae / devuelve <code>undefined</code> para esos casos). Test faltante: <code>extractFirstStringLiteral(&quot;</code>Hello ${x}<code>&quot;)</code> no debería devolver una string que contenga <code>${</code>.</li>
+<li><p><strong><code>extractFirstStringLiteral</code> filtra interpolación raw <code>${...}</code> de template en labels de nodos del graph</strong> —
+<code>pi-dynamic-workflows/graph-parse.ts:30</code> <em>(loop-2)</em></p>
+<ul>
+<li><p>Arreglo: hacer consistente la rama backtick con la línea 36: cambiar la clase negada para excluir también <code>$</code>, de
+<code>[^`]</code> a <code>[^`$]</code>. Así los templates interpolados no se capturan y la función cae o devuelve <code>undefined</code>. Caso de
+prueba faltante:</p>
+<pre><code class="hljs language-text">extractFirstStringLiteral(&quot;`Hello ${x}`&quot;)</code></pre>
+<p>No debería devolver una string que contenga <code>${</code>.</p>
+</li>
 </ul>
 </li>
-<li><strong><code>stableStringify</code> emite no-JSON para arrays dispersos (holes se renderizan vacíos, no <code>null</code>), corrompiendo la reproducibilidad de call-keys</strong> — <code>pi-dynamic-workflows/journal.ts:40-45</code> <em>(loop-2)</em><ul>
-<li>Arreglo: normalizar holes en la rama de arrays: <code>current.map(item =&gt; encode(item))</code> ya visita holes como <code>undefined</code> si usás un loop basado en <code>length</code>. Reemplazar por <code>Array.from({length: current.length}, (_, i) =&gt; encode(current[i]))</code> para que los holes codifiquen como <code>&quot;null&quot;</code> (igual que <code>JSON.stringify</code>). Falta test: <code>[1,,3]</code> debe serializarse igual que <code>JSON.stringify</code>.</li>
+<li><p><strong><code>stableStringify</code> emite no-JSON para arrays dispersos (holes se renderizan vacíos, no <code>null</code>), corrompiendo la
+reproducibilidad de call-keys</strong> — <code>pi-dynamic-workflows/journal.ts:40-45</code> <em>(loop-2)</em></p>
+<ul>
+<li>Arreglo: normalizar holes en la rama de arrays: <code>current.map(item =&gt; encode(item))</code> ya visita holes como <code>undefined</code>
+si usás un loop basado en <code>length</code>. Reemplazar por
+<code>Array.from({length: current.length}, (_, i) =&gt; encode(current[i]))</code> para que los holes codifiquen como <code>&quot;null&quot;</code>
+(igual que <code>JSON.stringify</code>). Falta test: <code>[1,,3]</code> debe serializarse igual que <code>JSON.stringify</code>.</li>
 </ul>
 </li>
-<li><strong>La coerción falsy (<code>Number(x)||default</code>) ignora silenciosamente un <code>0</code> explícito para <code>quietRounds</code>/<code>maxRounds</code>/<code>finders</code> (y <code>maxVerify</code>)</strong> — <code>pi-dynamic-workflows/scaffolds/loop-until-dry.js:100,103,106; adversarial-verify.js:143</code> <em>(loop-2)</em><ul>
-<li>Arreglo: reemplazar cada <code>Number(x)||d</code> por <code>Number.isFinite(+x) ? Math.floor(+x) : d</code> para que un <code>0</code> explícito se respete y luego se clamee de forma visible. Test faltante: pasar <code>{quietRounds:0}</code> debe registrar un clamp <code>0-&gt;1</code>, no un default silencioso de <code>2</code>.</li>
+<li><p><strong>La coerción falsy (<code>Number(x)||default</code>) ignora silenciosamente un <code>0</code> explícito para
+<code>quietRounds</code>/<code>maxRounds</code>/<code>finders</code> (y <code>maxVerify</code>)</strong> —
+<code>pi-dynamic-workflows/scaffolds/loop-until-dry.js:100,103,106; adversarial-verify.js:143</code> <em>(loop-2)</em></p>
+<ul>
+<li>Arreglo: reemplazar cada <code>Number(x)||d</code> por <code>Number.isFinite(+x) ? Math.floor(+x) : d</code> para que un <code>0</code> explícito se
+respete y luego se clamee de forma visible. Test faltante: pasar <code>{quietRounds:0}</code> debe registrar un clamp <code>0-&gt;1</code>,
+no un default silencioso de <code>2</code>.</li>
 </ul>
 </li>
-<li><strong><code>journal occ</code> acepta cualquier número (NaN/Infinity/float enorme) y lo usa directo como índice de array</strong> — <code>pi-dynamic-workflows/journal.ts:108-110</code> <em>(loop-2)</em><ul>
-<li>Arreglo: endurecer el guard a <code>Number.isInteger(record.occ) &amp;&amp; record.occ &gt;= 0 &amp;&amp; record.occ &lt; SAFE_MAX</code> (un cap acotado) y saltear el resto, en línea con la tolerancia a líneas rotas ya existente en <code>loadJournal</code>. Test faltante: cargar un journal con <code>occ:1e9</code> o <code>occ:NaN</code> debe saltar el record y seguir cargando el resto sin romper el replay.</li>
+<li><p><strong><code>journal occ</code> acepta cualquier número (NaN/Infinity/float enorme) y lo usa directo como índice de array</strong> —
+<code>pi-dynamic-workflows/journal.ts:108-110</code> <em>(loop-2)</em></p>
+<ul>
+<li>Arreglo: endurecer el guard a <code>Number.isInteger(record.occ) &amp;&amp; record.occ &gt;= 0 &amp;&amp; record.occ &lt; SAFE_MAX</code> (un cap
+acotado) y saltear el resto, en línea con la tolerancia a líneas rotas ya existente en <code>loadJournal</code>. Test faltante:
+cargar un journal con <code>occ:1e9</code> o <code>occ:NaN</code> debe saltar el record y seguir cargando el resto sin romper el replay.</li>
 </ul>
 </li>
 </ul>

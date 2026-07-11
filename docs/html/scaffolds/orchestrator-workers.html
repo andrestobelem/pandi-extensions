@@ -169,14 +169,22 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	</ol>
 </nav>
 <blockquote>
-<p>Un planner decompone un objetivo abierto en un grafo de subtareas con <code>dependsOn</code>; los workers lo ejecutan nivel por nivel; un integrator fusiona los resultados.</p>
+<p>Un planner decompone un objetivo abierto en un grafo de subtareas con <code>dependsOn</code>; los workers lo ejecutan nivel por
+nivel; un integrator fusiona los resultados.</p>
 </blockquote>
 <h2 id="en-30-segundos">En 30 segundos</h2>
-<p>Es el patrón para cuando tenés un objetivo abierto (&quot;construí X&quot;, &quot;investigá Y&quot;) y no sabés de antemano en qué subtareas se descompone ni qué depende de qué. Un orquestador (LLM) decide en tiempo de ejecución el plan — subtareas más un grafo de dependencias — y luego los workers lo ejecutan por niveles: primero las subtareas sin dependencias pendientes, en paralelo, y así sucesivamente hasta vaciar el grafo. Un integrator final fusiona todo en un único entregable. Elegilo cuando la forma del trabajo (cuántas partes, cómo se relacionan) es parte de lo que hay que descubrir, no algo que vos ya conocés de antemano.</p>
+<p>Es el patrón para cuando tenés un objetivo abierto (&quot;construí X&quot;, &quot;investigá Y&quot;) y no sabés de antemano en qué subtareas
+se descompone ni qué depende de qué. Un orquestador (LLM) decide en tiempo de ejecución el plan — subtareas más un grafo
+de dependencias — y luego los workers lo ejecutan por niveles: primero las subtareas sin dependencias pendientes, en
+paralelo, y así sucesivamente hasta vaciar el grafo. Un integrator final fusiona todo en un único entregable. Elegilo
+cuando la forma del trabajo (cuántas partes, cómo se relacionan) es parte de lo que hay que descubrir, no algo que vos
+ya conocés de antemano.</p>
 <h2 id="cómo-lanzarlo">Cómo lanzarlo</h2>
 <pre><code class="hljs language-text">/workflow new mi-run --pattern=orchestrator-workers
 /workflow run mi-run {&quot;goal&quot;:&quot;Diseñar e implementar un sistema de notificaciones por email&quot;,&quot;maxSubtasks&quot;:6,&quot;concurrency&quot;:3}</code></pre>
-<p><code>goal</code> es el único campo obligatorio (aliases: <code>task</code>, <code>text</code>). <code>context</code> agrega trasfondo compartido para planner y workers; <code>maxSubtasks</code> y <code>concurrency</code> acotan el ancho del plan y del fan-out por nivel — ver la tabla en <a href="#input-y-output">Input y output</a>.</p>
+<p><code>goal</code> es el único campo obligatorio (aliases: <code>task</code>, <code>text</code>). <code>context</code> agrega trasfondo compartido para planner y
+workers; <code>maxSubtasks</code> y <code>concurrency</code> acotan el ancho del plan y del fan-out por nivel — ver la tabla en
+<a href="#input-y-output">Input y output</a>.</p>
 <h2 id="diagrama">Diagrama</h2>
 <pre class="mermaid">flowchart TD
     A["Input: goal (req), context, maxSubtasks=8 (clamp 1..30), concurrency (opcional)"] --&gt; B{"goal vacío?"}
@@ -218,10 +226,24 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
     Q --&gt;|"no"| R["agent integrator opus·high\nfusiona outputs completed + nombra gaps\n(failed/unreached/stopReason)"]
     R --&gt; S["return { result, plan, workers }"]</pre>
 <h2 id="qué-hace">Qué hace</h2>
-<p><code>orchestrator-workers</code> implementa el patrón homónimo de Anthropic (&quot;Building Effective Agents&quot;): un orquestador LLM descompone un objetivo abierto en subtareas con dependencias explícitas, los workers las ejecutan respetando ese orden, y un integrator combina los resultados en un único entregable. A diferencia de un fan-out plano, el número y la forma de las subtareas — y las aristas de dependencia entre ellas — no se conocen en tiempo de autoría: el planner las produce por objetivo, en tiempo de ejecución, y el motor las ejecuta como un DAG.</p>
-<p>El ángulo de diseño del archivo es &quot;robustness-first&quot;: la ejecución es por niveles al estilo Kahn (cada iteración corre en paralelo todas las subtareas cuyas dependencias ya terminaron), acotada a como máximo <code>subtasks.length</code> niveles para que un grafo mal formado nunca pueda loopear infinitamente. Si un nivel no produce ninguna subtarea lista mientras quedan pendientes (ciclo de dependencias, o una dependencia que apunta a una tarea fallida/inexistente), se registra y la ejecución se detiene en vez de girar en vacío.</p>
-<p>Los fallos parciales son visibles, no silenciosos: un worker que devuelve <code>null</code> (settle) o una salida en blanco se registra como <code>status:&#39;failed&#39;</code>, pero sus dependientes igual corren (con esa dependencia marcada como fallida explícitamente en el prompt) y el gap se traslada al integrator. Las subtareas que el planificador nunca alcanzó (por ciclo, stuck o cap de nivel) se registran aparte como <code>status:&#39;unreached&#39;</code>. No hay caps silenciosos: el cap del planner (<code>maxSubtasks</code>) y cada condición de parada se loguean cuando recortan cobertura.</p>
-<p>El contrato de salida es estable en todos los casos: <code>{ result, plan, workers }</code> se devuelve incluso cuando el plan queda vacío o todas las subtareas fallan, para que la composición vía <code>workflow()</code> nunca tenga que tratar un caso especial de &quot;string pelado&quot;.</p>
+<p><code>orchestrator-workers</code> implementa el patrón homónimo de Anthropic (&quot;Building Effective Agents&quot;): un orquestador LLM
+descompone un objetivo abierto en subtareas con dependencias explícitas, los workers las ejecutan respetando ese orden,
+y un integrator combina los resultados en un único entregable. A diferencia de un fan-out plano, el número y la forma de
+las subtareas — y las aristas de dependencia entre ellas — no se conocen en tiempo de autoría: el planner las produce
+por objetivo, en tiempo de ejecución, y el motor las ejecuta como un DAG.</p>
+<p>El ángulo de diseño del archivo es &quot;robustness-first&quot;: la ejecución es por niveles al estilo Kahn (cada iteración corre
+en paralelo todas las subtareas cuyas dependencias ya terminaron), acotada a como máximo <code>subtasks.length</code> niveles para
+que un grafo mal formado nunca pueda loopear infinitamente. Si un nivel no produce ninguna subtarea lista mientras
+quedan pendientes (ciclo de dependencias, o una dependencia que apunta a una tarea fallida/inexistente), se registra y
+la ejecución se detiene en vez de girar en vacío.</p>
+<p>Los fallos parciales son visibles, no silenciosos: un worker que devuelve <code>null</code> (settle) o una salida en blanco se
+registra como <code>status:&#39;failed&#39;</code>, pero sus dependientes igual corren (con esa dependencia marcada como fallida
+explícitamente en el prompt) y el gap se traslada al integrator. Las subtareas que el planificador nunca alcanzó (por
+ciclo, stuck o cap de nivel) se registran aparte como <code>status:&#39;unreached&#39;</code>. No hay caps silenciosos: el cap del planner
+(<code>maxSubtasks</code>) y cada condición de parada se loguean cuando recortan cobertura.</p>
+<p>El contrato de salida es estable en todos los casos: <code>{ result, plan, workers }</code> se devuelve incluso cuando el plan
+queda vacío o todas las subtareas fallan, para que la composición vía <code>workflow()</code> nunca tenga que tratar un caso
+especial de &quot;string pelado&quot;.</p>
 <h2 id="cuándo-usarlo">Cuándo usarlo</h2>
 <ul>
 <li>Entregables de múltiples partes cuyo desglose no es obvio de antemano.</li>
@@ -230,16 +252,46 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </ul>
 <p><strong>No usarlo cuando:</strong></p>
 <ul>
-<li>La lista de trabajo ya es conocida y plana, sin dependencias entre ítems — <code>fan-out-and-synthesize</code> o <code>scout-fanout</code> son más simples y baratos.</li>
-<li>El corpus es grande pero homogéneo (mismo procesamiento repetido) — <code>map-reduce</code> evita el costo de planificar un DAG que no existe.</li>
-<li>Se necesita iterar el mismo finder hasta agotar hallazgos — <code>loop-until-dry</code> itera; este patrón ejecuta un DAG una sola vez.</li>
+<li>La lista de trabajo ya es conocida y plana, sin dependencias entre ítems — <code>fan-out-and-synthesize</code> o <code>scout-fanout</code>
+son más simples y baratos.</li>
+<li>El corpus es grande pero homogéneo (mismo procesamiento repetido) — <code>map-reduce</code> evita el costo de planificar un DAG
+que no existe.</li>
+<li>Se necesita iterar el mismo finder hasta agotar hallazgos — <code>loop-until-dry</code> itera; este patrón ejecuta un DAG una
+sola vez.</li>
 </ul>
 <h2 id="cómo-funciona">Cómo funciona</h2>
-<p><strong>Validación de entrada y overrides.</strong> <code>goal</code> es obligatorio (aliases <code>task</code>/<code>text</code>); si falta, lanza una excepción con un mensaje explícito. <code>context</code> es opcional. <code>maxSubtasks</code> se normaliza a entero con clamp 1..30 (default 8). <code>concurrency</code> es opcional (si no se especifica, <code>parallel</code> autogestiona el paralelismo del nivel). Cada rol (<code>planner</code>, <code>worker</code>, <code>integrator</code>) admite overrides de <code>model</code>/<code>effort</code>/<code>tools</code>/<code>skills</code>/<code>excludeTools</code> vía <code>input.models[role]</code> etc., con precedencia por-rol &gt; global &gt; default del call-site.</p>
-<p><strong>Fase Plan.</strong> Un único <code>agent</code> planner (<code>opus</code>, effort <code>high</code>) recibe el goal y el contexto (envueltos en <code>fence()</code>, un delimitador anti-inyección derivado de un hash del contenido) y debe devolver JSON contra un schema <code>PLAN</code>: un array <code>subtasks</code> de <code>{ id, description, dependsOn[] }</code>, más una <code>rationale</code> opcional. El prompt exige ids únicos, descripciones autocontenidas, <code>dependsOn</code> solo cuando hay una necesidad real de output ajeno (para maximizar paralelismo), y que el grafo sea un DAG sin ciclos. Tras la respuesta: se descartan subtareas sin <code>id</code>/<code>description</code>; se eliminan ids duplicados (logueado); si el resultado queda vacío, se usa un fallback de una sola subtarea = el goal completo; si excede <code>maxSubtasks</code>, se recorta y se loguea cuánto se perdió; y se normalizan las <code>dependsOn</code> descartando referencias colgantes o auto-referencias (logueado).</p>
-<p><strong>Fase Execute.</strong> Loop leveled Kahn-style acotado a <code>maxLevels = subtasks.length</code>. En cada iteración se calculan las subtareas &quot;ready&quot; (no done, con todas sus deps en <code>done</code>). Si no hay ninguna ready mientras quedan pendientes, se detecta ciclo/stuck, se loguean los ids atascados y se detiene (<code>stopReason = &#39;stuck-or-cycle&#39;</code>); si se alcanzara el cap de niveles (inalcanzable bajo la invariante de progreso monótono, pero mantenido como seguro barato) se detiene con <code>stopReason = &#39;level-cap&#39;</code>. Cada nivel ready se ejecuta con <code>parallel</code> (settle implícito): cada <code>agent</code> worker (<code>sonnet</code>, effort <code>medium</code>, label <code>worker-&lt;id&gt;</code>) recibe su subtarea, el goal, el contexto opcional, y los outputs de sus dependencias ya completadas (o una nota explícita si esa dependencia falló/no produjo output). Un output no-string o vacío tras <code>trim()</code> se trata como fallo estricto (<code>status:&#39;failed&#39;</code>), nunca como éxito silencioso; en ambos casos (éxito o fallo) el id se marca <code>done</code> para que sus dependientes se desbloqueen. Al terminar el loop, toda subtarea que nunca llegó a <code>done</code> se registra como <code>status:&#39;unreached&#39;</code>.</p>
-<p><strong>Fase Integrate.</strong> Si ninguna subtarea completó, se retorna de inmediato el contrato estable con un <code>result</code> que explica el <code>stopReason</code> y lista fallidas/no-alcanzadas — sin invocar al integrator. Si hay al menos una completada, un único <code>agent</code> integrator (<code>opus</code>, effort <code>high</code>) recibe: una nota de cobertura (<code>planned/completed/failed/unreached</code> + <code>stopReason</code>), el detalle de subtareas fallidas y no-alcanzadas, el goal, el contexto, y los outputs de todas las subtareas <code>completed</code> (fenced). Debe fusionar overlaps/contradicciones, preservar evidencia citada, nunca inventar resultados para lo fallido/no-alcanzado, y cerrar con una nota explícita de &quot;Coverage &amp; gaps&quot;.</p>
-<p><strong>Manejo de fallos parciales:</strong> ambas ramas de fan-out (solo la de Execute) usan <code>parallel</code> con settle; un worker fallido no aborta el nivel ni el resto del DAG, solo se registra y se comunica a sus dependientes y al integrator. <strong>Caching:</strong> no se observa ningún mecanismo explícito de caché; cada <code>agent</code> se invoca fresco.</p>
+<p><strong>Validación de entrada y overrides.</strong> <code>goal</code> es obligatorio (aliases <code>task</code>/<code>text</code>); si falta, lanza una excepción con
+un mensaje explícito. <code>context</code> es opcional. <code>maxSubtasks</code> se normaliza a entero con clamp 1..30 (default 8).
+<code>concurrency</code> es opcional (si no se especifica, <code>parallel</code> autogestiona el paralelismo del nivel). Cada rol (<code>planner</code>,
+<code>worker</code>, <code>integrator</code>) admite overrides de <code>model</code>/<code>effort</code>/<code>tools</code>/<code>skills</code>/<code>excludeTools</code> vía <code>input.models[role]</code>
+etc., con precedencia por-rol &gt; global &gt; default del call-site.</p>
+<p><strong>Fase Plan.</strong> Un único <code>agent</code> planner (<code>opus</code>, effort <code>high</code>) recibe el goal y el contexto (envueltos en <code>fence()</code>, un
+delimitador anti-inyección derivado de un hash del contenido) y debe devolver JSON contra un schema <code>PLAN</code>: un array
+<code>subtasks</code> de <code>{ id, description, dependsOn[] }</code>, más una <code>rationale</code> opcional. El prompt exige ids únicos,
+descripciones autocontenidas, <code>dependsOn</code> solo cuando hay una necesidad real de output ajeno (para maximizar
+paralelismo), y que el grafo sea un DAG sin ciclos. Tras la respuesta: se descartan subtareas sin <code>id</code>/<code>description</code>; se
+eliminan ids duplicados (logueado); si el resultado queda vacío, se usa un fallback de una sola subtarea = el goal
+completo; si excede <code>maxSubtasks</code>, se recorta y se loguea cuánto se perdió; y se normalizan las <code>dependsOn</code> descartando
+referencias colgantes o auto-referencias (logueado).</p>
+<p><strong>Fase Execute.</strong> Loop leveled Kahn-style acotado a <code>maxLevels = subtasks.length</code>. En cada iteración se calculan las
+subtareas &quot;ready&quot; (no done, con todas sus deps en <code>done</code>). Si no hay ninguna ready mientras quedan pendientes, se
+detecta ciclo/stuck, se loguean los ids atascados y se detiene (<code>stopReason = &#39;stuck-or-cycle&#39;</code>); si se alcanzara el cap
+de niveles (inalcanzable bajo la invariante de progreso monótono, pero mantenido como seguro barato) se detiene con
+<code>stopReason = &#39;level-cap&#39;</code>. Cada nivel ready se ejecuta con <code>parallel</code> (settle implícito): cada <code>agent</code> worker
+(<code>sonnet</code>, effort <code>medium</code>, label <code>worker-&lt;id&gt;</code>) recibe su subtarea, el goal, el contexto opcional, y los outputs de sus
+dependencias ya completadas (o una nota explícita si esa dependencia falló/no produjo output). Un output no-string o
+vacío tras <code>trim()</code> se trata como fallo estricto (<code>status:&#39;failed&#39;</code>), nunca como éxito silencioso; en ambos casos (éxito
+o fallo) el id se marca <code>done</code> para que sus dependientes se desbloqueen. Al terminar el loop, toda subtarea que nunca
+llegó a <code>done</code> se registra como <code>status:&#39;unreached&#39;</code>.</p>
+<p><strong>Fase Integrate.</strong> Si ninguna subtarea completó, se retorna de inmediato el contrato estable con un <code>result</code> que
+explica el <code>stopReason</code> y lista fallidas/no-alcanzadas — sin invocar al integrator. Si hay al menos una completada, un
+único <code>agent</code> integrator (<code>opus</code>, effort <code>high</code>) recibe: una nota de cobertura (<code>planned/completed/failed/unreached</code> +
+<code>stopReason</code>), el detalle de subtareas fallidas y no-alcanzadas, el goal, el contexto, y los outputs de todas las
+subtareas <code>completed</code> (fenced). Debe fusionar overlaps/contradicciones, preservar evidencia citada, nunca inventar
+resultados para lo fallido/no-alcanzado, y cerrar con una nota explícita de &quot;Coverage &amp; gaps&quot;.</p>
+<p><strong>Manejo de fallos parciales:</strong> ambas ramas de fan-out (solo la de Execute) usan <code>parallel</code> con settle; un worker
+fallido no aborta el nivel ni el resto del DAG, solo se registra y se comunica a sus dependientes y al integrator.
+<strong>Caching:</strong> no se observa ningún mecanismo explícito de caché; cada <code>agent</code> se invoca fresco.</p>
 <h2 id="input-y-output">Input y output</h2>
 <p><strong>Input</strong> (JSON-stringified en <code>args</code>, parseado defensivamente):</p>
 <div class="table-scroll"><table>
@@ -297,15 +349,22 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <p><strong>Output:</strong> <code>{ result, plan, workers }</code> — siempre este shape, en toda salida sin excepción.</p>
 <ul>
 <li><code>result</code>: el entregable fusionado por el integrator, o un mensaje explicativo si nada completó.</li>
-<li><code>plan</code>: <code>{ goal, rationale, subtasks, maxSubtasks, schedule, stopReason, unreached }</code> — el plan normalizado, la traza de niveles ejecutados (<code>schedule</code>, array de arrays de ids), la razón de parada (<code>completed</code> | <code>level-cap</code> | <code>stuck-or-cycle</code>), y los ids nunca alcanzados.</li>
-<li><code>workers</code>: array de registros por subtarea <code>{ id, description, dependsOn, status, output }</code> con <code>status</code> en <code>completed</code> | <code>failed</code> | <code>unreached</code>.</li>
+<li><code>plan</code>: <code>{ goal, rationale, subtasks, maxSubtasks, schedule, stopReason, unreached }</code> — el plan normalizado, la traza
+de niveles ejecutados (<code>schedule</code>, array de arrays de ids), la razón de parada (<code>completed</code> | <code>level-cap</code> |
+<code>stuck-or-cycle</code>), y los ids nunca alcanzados.</li>
+<li><code>workers</code>: array de registros por subtarea <code>{ id, description, dependsOn, status, output }</code> con <code>status</code> en
+<code>completed</code> | <code>failed</code> | <code>unreached</code>.</li>
 </ul>
-<p>No se observan llamadas a <code>writeArtifact</code> en este scaffold: toda la observabilidad pasa por <code>log(...)</code> (progreso por nivel, caps aplicados, deps colgantes, stuck/ciclo, resumen final) y por el shape de retorno.</p>
+<p>No se observan llamadas a <code>writeArtifact</code> en este scaffold: toda la observabilidad pasa por <code>log(...)</code> (progreso por
+nivel, caps aplicados, deps colgantes, stuck/ciclo, resumen final) y por el shape de retorno.</p>
 <h2 id="fases">Fases</h2>
 <ol>
-<li><strong>Plan</strong> — un <code>agent</code> planner (opus·high) descompone el goal en subtareas con <code>dependsOn</code>, contra un schema; se dedupean ids, se aplica el cap <code>maxSubtasks</code> (logueado), y se normalizan dependencias colgantes.</li>
-<li><strong>Execute</strong> — loop leveled Kahn-style: en cada nivel, un <code>agent</code> worker (sonnet·medium) por subtarea ready, en <code>parallel</code> con settle; detecta y detiene ante ciclos/stuck; marca fallos y no-alcanzadas explícitamente.</li>
-<li><strong>Integrate</strong> — un <code>agent</code> integrator (opus·high) fusiona los outputs de las subtareas completadas en un único entregable, señalando cobertura y gaps (fallidas/no-alcanzadas).</li>
+<li><strong>Plan</strong> — un <code>agent</code> planner (opus·high) descompone el goal en subtareas con <code>dependsOn</code>, contra un schema; se
+dedupean ids, se aplica el cap <code>maxSubtasks</code> (logueado), y se normalizan dependencias colgantes.</li>
+<li><strong>Execute</strong> — loop leveled Kahn-style: en cada nivel, un <code>agent</code> worker (sonnet·medium) por subtarea ready, en
+<code>parallel</code> con settle; detecta y detiene ante ciclos/stuck; marca fallos y no-alcanzadas explícitamente.</li>
+<li><strong>Integrate</strong> — un <code>agent</code> integrator (opus·high) fusiona los outputs de las subtareas completadas en un único
+entregable, señalando cobertura y gaps (fallidas/no-alcanzadas).</li>
 </ol>
 	</main>
 	<footer>Generado con el skill pandi-artifact-style · paleta: panda-syntax dark/light</footer>

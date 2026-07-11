@@ -169,17 +169,26 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	</ol>
 </nav>
 <h2 id="en-30-segundos">En 30 segundos</h2>
-<p>Este documento resume qué patrones de prompting conviene aplicar a los dynamic workflows y qué archivos se actualizaron con esos criterios. La idea es simple: cada subagent debe poder rendir por sí solo, la síntesis debe filtrar afirmaciones sin evidencia y los fallos parciales no se deben perder. Si estás ajustando prompts, acá tenés el mapa corto de decisiones y verificación.</p>
+<p>Este documento resume qué patrones de prompting conviene aplicar a los dynamic workflows y qué archivos se actualizaron
+con esos criterios. La idea es simple: cada subagent debe poder rendir por sí solo, la síntesis debe filtrar
+afirmaciones sin evidencia y los fallos parciales no se deben perder. Si estás ajustando prompts, acá tenés el mapa
+corto de decisiones y verificación.</p>
 <h2 id="objetivo">Objetivo</h2>
 <p>Aplicar lo aprendido sobre patrones de workflow agentic a los prompts que usan nuestros dynamic workflows.</p>
 <h2 id="patrones-aplicados">Patrones aplicados</h2>
 <ul>
-<li><strong>Fan-out independiente</strong>: cada subagent recibe instrucciones para producir un resultado autocontenido, aunque fallen otros agentes.</li>
-<li><strong>Contrato de evidencia</strong>: exigir citas a archivos/líneas, URLs, comandos observados, o marcar <code>INSUFFICIENT_EVIDENCE</code> / <code>NO_FINDINGS</code>.</li>
-<li><strong>Formato fijo</strong>: los prompts piden secciones repetibles como veredicto, hallazgos, evidencia, riesgos, fix y verificación.</li>
-<li><strong>Synthesis-as-judge</strong>: los agentes de síntesis deben deduplicar, descartar afirmaciones sin evidencia, preservar la incertidumbre y elegir una recomendación concreta.</li>
-<li><strong>Crítica adversarial</strong>: los reviewers tienen el objetivo explícito de encontrar edge cases, reducir el alcance y marcar riesgos aceptados.</li>
-<li><strong>Manejo de fallos parciales</strong>: la síntesis debe mencionar agentes fallidos, vacíos, cancelados o agotados por timeout.</li>
+<li><strong>Fan-out independiente</strong>: cada subagent recibe instrucciones para producir un resultado autocontenido, aunque fallen
+otros agentes.</li>
+<li><strong>Contrato de evidencia</strong>: exigir citas a archivos/líneas, URLs, comandos observados, o marcar <code>INSUFFICIENT_EVIDENCE</code>
+/ <code>NO_FINDINGS</code>.</li>
+<li><strong>Formato fijo</strong>: los prompts piden secciones repetibles como veredicto, hallazgos, evidencia, riesgos, fix y
+verificación.</li>
+<li><strong>Synthesis-as-judge</strong>: los agentes de síntesis deben deduplicar, descartar afirmaciones sin evidencia, preservar la
+incertidumbre y elegir una recomendación concreta.</li>
+<li><strong>Crítica adversarial</strong>: los reviewers tienen el objetivo explícito de encontrar edge cases, reducir el alcance y
+marcar riesgos aceptados.</li>
+<li><strong>Manejo de fallos parciales</strong>: la síntesis debe mencionar agentes fallidos, vacíos, cancelados o agotados por
+timeout.</li>
 <li><strong>Seguridad por defecto</strong>: en auditorías, se refuerza &quot;do not edit files&quot; y las herramientas quedan en modo read-only.</li>
 </ul>
 <h2 id="workflows-actualizados">Workflows actualizados</h2>
@@ -207,11 +216,13 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <li><code>README.md</code>: sección &quot;Recommended prompt patterns&quot;.</li>
 <li><code>.pi/skills/dynamic-workflows/SKILL.md</code>: sección &quot;Prompting Patterns&quot;.</li>
 <li><code>docs/memoria.md</code>: preferencia persistente.</li>
-<li><code>docs/research/2026-06-25-karpathy-programming-recommendations.md</code>: síntesis recuperada de Karpathy como criterios de prompt/workflow.</li>
+<li><code>docs/research/2026-06-25-karpathy-programming-recommendations.md</code>: síntesis recuperada de Karpathy como criterios de
+prompt/workflow.</li>
 </ul>
 <h2 id="decisiones">Decisiones</h2>
 <ul>
-<li>No se lanzó otro workflow para esta tarea porque los workflows más recientes con subagents quedaron colgados sin procesos visibles. Se hizo, en cambio, un refactor directo y verificable.</li>
+<li>No se lanzó otro workflow para esta tarea porque los workflows más recientes con subagents quedaron colgados sin
+procesos visibles. Se hizo, en cambio, un refactor directo y verificable.</li>
 <li>Todavía no se agregó un helper compartido de prompts para evitar acoplar ejemplos simples al runtime interno.</li>
 <li>Se priorizó mejorar prompts antes que cambiar la API.</li>
 </ul>

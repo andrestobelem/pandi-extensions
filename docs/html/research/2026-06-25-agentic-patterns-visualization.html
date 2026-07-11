@@ -168,17 +168,24 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<li><a href="#validación">Validación</a></li>
 	</ol>
 </nav>
-<p>Este trabajo mejora <code>/workflow graph</code> para que deje de verse como una lista lineal de llamadas y, en cambio, muestre los patrones agénticos relevantes: fan-out de muchos subagents por paso, pipelines por lanes/stages, barreras paralelas, síntesis/judge y loops aproximados.</p>
-<p>La señal clave es visual: si un paso lanza muchos agentes, eso tiene que verse en el diagrama. Además, el PNG inline debe aparecer más grande para que la estructura se lea sin esfuerzo.</p>
+<p>Este trabajo mejora <code>/workflow graph</code> para que deje de verse como una lista lineal de llamadas y, en cambio, muestre los
+patrones agénticos relevantes: fan-out de muchos subagents por paso, pipelines por lanes/stages, barreras paralelas,
+síntesis/judge y loops aproximados.</p>
+<p>La señal clave es visual: si un paso lanza muchos agentes, eso tiene que verse en el diagrama. Además, el PNG inline
+debe aparecer más grande para que la estructura se lea sin esfuerzo.</p>
 <h2 id="en-30-segundos">En 30 segundos</h2>
-<p>Sirve cuando el grafo te está ocultando la forma real del workflow. Usalo para distinguir rápido entre secuencia, fan-out, paralelismo y síntesis, y para comprobar que una etapa con muchos agentes no quedó aplastada en una sola flecha.</p>
+<p>Sirve cuando el grafo te está ocultando la forma real del workflow. Usalo para distinguir rápido entre secuencia,
+fan-out, paralelismo y síntesis, y para comprobar que una etapa con muchos agentes no quedó aplastada en una sola
+flecha.</p>
 <h2 id="cómo-probarlo">Cómo probarlo</h2>
 <pre><code class="hljs language-bash">PI_DYNAMIC_WORKFLOWS_PI_COMMAND=<span class="hljs-literal">true</span> pi --no-extensions -e ./extensions/dynamic-workflows.ts --no-session -p <span class="hljs-string">&quot;/workflow graph generated/agentic-viz-patterns-research&quot;</span></code></pre>
 <h2 id="fuentes-revisadas">Fuentes revisadas</h2>
 <p><strong>Documentación y frameworks:</strong></p>
 <ul>
-<li>Anthropic, <strong>Building effective agents</strong>: prompt chaining, routing, parallelization, orchestrator-workers, evaluator-optimizer.</li>
-<li>LangGraph, <strong>Workflows and agents</strong>: Mermaid/graph rendering of workflows, parallelization, routing, orchestrator-worker, evaluator-optimizer.</li>
+<li>Anthropic, <strong>Building effective agents</strong>: prompt chaining, routing, parallelization, orchestrator-workers,
+evaluator-optimizer.</li>
+<li>LangGraph, <strong>Workflows and agents</strong>: Mermaid/graph rendering of workflows, parallelization, routing,
+orchestrator-worker, evaluator-optimizer.</li>
 <li>Mermaid, <strong>Flowchart syntax</strong>: <code>subgraph</code>, local direction, edges to/from subgraphs, labels and shapes.</li>
 <li>Mermaid CLI (<code>mmdc</code>): flags <code>-w/--width</code>, <code>-H/--height</code>, <code>-s/--scale</code>, <code>-t</code>, <code>-b</code>, JSON config.</li>
 </ul>
@@ -199,27 +206,31 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </ul>
 <h2 id="gramática-visual-recomendada">Gramática visual recomendada</h2>
 <ul>
-<li><strong>◆ fan-out:</strong> <code>ctx.agents(...)</code>; mostrar <code>P1 ×items.length agents</code>, <code>concurrency</code>, <code>settle:true</code>, fork, workers visibles y join.</li>
+<li><strong>◆ fan-out:</strong> <code>ctx.agents(...)</code>; mostrar <code>P1 ×items.length agents</code>, <code>concurrency</code>, <code>settle:true</code>, fork, workers
+visibles y join.</li>
 <li><strong>▣ pipeline:</strong> <code>ctx.pipeline(items, ...stages)</code>; mostrar <code>×items.length lanes</code> y la cantidad de stages.</li>
 <li><strong>⧉ barrier:</strong> <code>ctx.parallel([...])</code>; mostrar ramas concurrentes y join/barrier.</li>
 <li><strong>● agent:</strong> un subagent individual de Pi.</li>
 <li><strong>◇ workflow:</strong> sub-workflow delegado.</li>
 <li><strong>▤ artifact:</strong> evidencia persistida fuera del chat.</li>
 <li><strong>$ bash:</strong> comando del host.</li>
-<li><strong>Feedback loops:</strong> patrones ReAct/Reflexion/Self-Refine; se marcan como loops con condición de corte cuando se detecta <code>for</code>/<code>while</code>.</li>
+<li><strong>Feedback loops:</strong> patrones ReAct/Reflexion/Self-Refine; se marcan como loops con condición de corte cuando se
+detecta <code>for</code>/<code>while</code>.</li>
 </ul>
 <h2 id="decisiones-implementadas">Decisiones implementadas</h2>
 <ol>
 <li><p><strong>Modelo de grafo enriquecido</strong></p>
 <ul>
 <li><code>WorkflowGraphStep</code> ahora puede llevar <code>fanout</code> y <code>children</code>.</li>
-<li>Se infiere cardinalidad estática conservadora: <code>angles.map(...)</code> → <code>angles.length</code>; arrays literales → número; desconocido → <code>dynamic</code>.</li>
+<li>Se infiere cardinalidad estática conservadora: <code>angles.map(...)</code> → <code>angles.length</code>; arrays literales → número;
+desconocido → <code>dynamic</code>.</li>
 <li><code>concurrency</code>, <code>settle:true</code> y la cantidad de stages se extraen cuando aparecen en los argumentos.</li>
 </ul>
 </li>
 <li><p><strong>Agrupación de llamadas anidadas</strong></p>
 <ul>
-<li>Las llamadas <code>ctx.agent</code>/helpers dentro de <code>ctx.pipeline</code>, <code>ctx.parallel</code> o <code>ctx.agents</code> se muestran como hijos del paso de orquestación, no como pasos seriales independientes.</li>
+<li>Las llamadas <code>ctx.agent</code>/helpers dentro de <code>ctx.pipeline</code>, <code>ctx.parallel</code> o <code>ctx.agents</code> se muestran como hijos del
+paso de orquestación, no como pasos seriales independientes.</li>
 </ul>
 </li>
 <li><p><strong>Mermaid con subgraphs</strong></p>
@@ -238,16 +249,20 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </li>
 <li><p><strong>Documentación</strong></p>
 <ul>
-<li>El README y el skill documentan que <code>/workflow graph</code> ahora muestra fan-out <code>×N</code>, lanes/branches y un PNG inline grande.</li>
+<li>El README y el skill documentan que <code>/workflow graph</code> ahora muestra fan-out <code>×N</code>, lanes/branches y un PNG inline
+grande.</li>
 </ul>
 </li>
 </ol>
 <h2 id="límites-aceptados">Límites aceptados</h2>
 <ul>
 <li>El grafo sigue siendo una vista estática: no ejecuta JS ni conoce el valor real de <code>files.length</code> antes de la corrida.</li>
-<li>Los conteos reales post-run existen en <code>phaseTotal</code>/<code>phaseIndex</code>/<code>phaseLabel</code> para <code>ctx.agents(...)</code>; una mejora futura aware de la corrida puede combinar el grafo estático con los eventos de ejecución.</li>
-<li>La inferencia por regex sigue siendo heurística; un AST sería más robusto, pero esta mejora evita las serializaciones falsas más visibles sin subir demasiado el costo/dependencias.</li>
-<li>Los fan-outs enormes se colapsan con elipsis para mejorar la legibilidad; el PNG muestra que hay muchos agentes sin intentar dibujar cientos por defecto.</li>
+<li>Los conteos reales post-run existen en <code>phaseTotal</code>/<code>phaseIndex</code>/<code>phaseLabel</code> para <code>ctx.agents(...)</code>; una mejora
+futura aware de la corrida puede combinar el grafo estático con los eventos de ejecución.</li>
+<li>La inferencia por regex sigue siendo heurística; un AST sería más robusto, pero esta mejora evita las serializaciones
+falsas más visibles sin subir demasiado el costo/dependencias.</li>
+<li>Los fan-outs enormes se colapsan con elipsis para mejorar la legibilidad; el PNG muestra que hay muchos agentes sin
+intentar dibujar cientos por defecto.</li>
 </ul>
 <h2 id="validación">Validación</h2>
 <p>Probá la implementación:</p>

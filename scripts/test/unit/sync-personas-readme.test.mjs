@@ -10,9 +10,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const SCRIPT = path.join(REPO, "scripts", "sync-personas-readme.mjs");
-const { renderPersonasReadme, renderPromptMarkdown, loadPersonas, syncPersonasReadme } = await import(
-	pathToFileURL(SCRIPT).href
-);
+const { formatPersonasReadme, renderPersonasReadme, renderPromptMarkdown, loadPersonas, syncPersonasReadme } =
+	await import(pathToFileURL(SCRIPT).href);
 
 const persona = (over = {}) => ({
 	tools: ["read", "grep", "find", "ls"],
@@ -43,6 +42,15 @@ test("renderPersonasReadme renders header, meta, and prompts verbatim in name or
 	assert.ok(md.endsWith("\n"));
 });
 
+test("formatPersonasReadme applies the repository Markdown style", async () => {
+	const md = await formatPersonasReadme([
+		{ name: "alpha", data: persona() },
+		{ name: "beta", data: persona({ skills: ["a-skill"] }) },
+	]);
+	assert.doesNotMatch(md, /^\| --- \|/mu);
+	assert.match(md, /^\| -+ \|/mu);
+});
+
 test("renderPromptMarkdown turns (N) markers into an ordered list with bolded leads", () => {
 	const text =
 		"Do the frame: (1) Fear check — name it. (2) Step — keep it green; commit. Name and refuse: dogma. Keep it lean.";
@@ -68,6 +76,13 @@ test("renderPromptMarkdown leaves non-checklist parenthesised numbers alone", ()
 		renderPromptMarkdown("See item (3) in the appendix. Next sentence."),
 		"See item (3) in the appendix.\n\nNext sentence.",
 	);
+});
+
+test("renderPromptMarkdown wraps prose at 120 characters without losing words", () => {
+	const source = `${"A descriptive phrase with several words ".repeat(8)}without an earlier sentence boundary.`;
+	const rendered = renderPromptMarkdown(source);
+	assert.ok(rendered.split("\n").every((line) => line.length <= 120));
+	assert.equal(collapse(rendered), collapse(source));
 });
 
 // El mirror debe seguir VERBATIM: quitar del prompt renderizado el andamiaje Markdown (markers de lista,
@@ -108,6 +123,13 @@ test("renderPersonasReadme notes an empty persona set", () => {
 	assert.match(renderPersonasReadme([]), /_No personas defined\._/);
 });
 
+test("renderPersonasReadme moves long metadata to a fenced block", () => {
+	const md = renderPersonasReadme([
+		{ name: "alpha", data: persona({ tools: Array.from({ length: 30 }, (_, index) => `tool-${index}`) }) },
+	]);
+	assert.match(md, /- \*\*tools\*\*:\n\n {2}```json/);
+});
+
 test("loadPersonas reads *.json sorted by name and ignores other files", () => {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "personas-load-"));
 	try {
@@ -126,7 +148,7 @@ test("loadPersonas reads *.json sorted by name and ignores other files", () => {
 	}
 });
 
-test("syncPersonasReadme writes MD + HTML mirrors, is idempotent, and check never writes", () => {
+test("syncPersonasReadme writes MD + HTML mirrors, is idempotent, and check never writes", async () => {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), "personas-sync-"));
 	try {
 		const dir = path.join(root, ".pi", "personas");
@@ -136,7 +158,7 @@ test("syncPersonasReadme writes MD + HTML mirrors, is idempotent, and check neve
 		const html = path.join(dir, "README.html");
 
 		// La primera pasada escribe ambos mirrors; la segunda es un no-op.
-		assert.equal(syncPersonasReadme(root, {}).changed, true);
+		assert.equal((await syncPersonasReadme(root, {})).changed, true);
 		assert.ok(fs.existsSync(readme));
 		assert.ok(fs.existsSync(html));
 		const rendered = fs.readFileSync(html, "utf8");
@@ -144,18 +166,18 @@ test("syncPersonasReadme writes MD + HTML mirrors, is idempotent, and check neve
 		// El H1 cae en el header de pandi (los comentarios GENERATED del inicio se quitan antes del render).
 		assert.match(rendered, /<h1>Project personas<\/h1>/);
 		assert.match(rendered, /solo/);
-		assert.equal(syncPersonasReadme(root, {}).changed, false);
+		assert.equal((await syncPersonasReadme(root, {})).changed, false);
 
 		// Una edición manual en cualquiera de los mirrors genera drift: check la reporta SIN escribir; sync la restaura.
 		fs.writeFileSync(readme, "hand-edited\n");
-		assert.equal(syncPersonasReadme(root, { check: true }).changed, true);
+		assert.equal((await syncPersonasReadme(root, { check: true })).changed, true);
 		assert.equal(fs.readFileSync(readme, "utf8"), "hand-edited\n");
-		assert.equal(syncPersonasReadme(root, {}).changed, true);
+		assert.equal((await syncPersonasReadme(root, {})).changed, true);
 		assert.match(fs.readFileSync(readme, "utf8"), /## solo/);
 		fs.writeFileSync(html, "<!doctype html>hand-edited");
-		assert.equal(syncPersonasReadme(root, { check: true }).changed, true);
+		assert.equal((await syncPersonasReadme(root, { check: true })).changed, true);
 		assert.equal(fs.readFileSync(html, "utf8"), "<!doctype html>hand-edited");
-		assert.equal(syncPersonasReadme(root, {}).changed, true);
+		assert.equal((await syncPersonasReadme(root, {})).changed, true);
 		assert.match(fs.readFileSync(html, "utf8"), /<h1>Project personas<\/h1>/);
 	} finally {
 		fs.rmSync(root, { recursive: true, force: true });

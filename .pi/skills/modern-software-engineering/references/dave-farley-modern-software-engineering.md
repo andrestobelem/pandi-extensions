@@ -9,12 +9,15 @@ Investigación fuente:
 
 ## Tesis
 
-La ingeniería de software moderna no es un proceso más pesado. Es el uso disciplinado de pensamiento científico, empírico y pragmático para construir mejor software más rápido.
+La ingeniería de software moderna no es un proceso más pesado. Es el uso disciplinado de pensamiento científico,
+empírico y pragmático para construir mejor software más rápido.
 
 ## Dos competencias centrales
 
-1. **Aprendizaje:** el desarrollo de software es descubrimiento y diseño. Trabajá de forma iterativa e incremental, buscá feedback rápido y de alta calidad, formulá hipótesis, medí resultados y decidí a partir de evidencia.
-2. **Gestión de la complejidad:** los sistemas reales no entran en la cabeza de una sola persona. Usá principios de diseño que mantengan los sistemas comprensibles y cambiables.
+1. **Aprendizaje:** el desarrollo de software es descubrimiento y diseño. Trabajá de forma iterativa e incremental,
+   buscá feedback rápido y de alta calidad, formulá hipótesis, medí resultados y decidí a partir de evidencia.
+2. **Gestión de la complejidad:** los sistemas reales no entran en la cabeza de una sola persona. Usá principios de
+   diseño que mantengan los sistemas comprensibles y cambiables.
 
 ## Principios de diseño para manejar la complejidad
 
@@ -46,13 +49,15 @@ Adoptá una práctica, herramienta o proceso cuando mejore una de estas dimensio
 
 ## TDD como aprendizaje ejecutable
 
-En este skill, TDD se trata como el loop concreto por defecto para trabajo que cambia comportamiento, porque convierte el aprendizaje en feedback ejecutable:
+En este skill, TDD se trata como el loop concreto por defecto para trabajo que cambia comportamiento, porque convierte
+el aprendizaje en feedback ejecutable:
 
 1. **Red:** capturá el comportamiento deseado, bug o characterization como un test/check que falle.
 2. **Green:** hacé el cambio más pequeño que pase.
 3. **Refactor:** mejorá el diseño mientras preservás tests en verde.
 
-TDD no debería volverse ceremonia. Si el trabajo es solo de docs, investigación exploratoria, un spike descartable o diagnóstico de runtime/operaciones, usá otro loop rápido de evidencia y decláralo explícitamente.
+TDD no debería volverse ceremonia. Si el trabajo es solo de docs, investigación exploratoria, un spike descartable o
+diagnóstico de runtime/operaciones, usá otro loop rápido de evidencia y decláralo explícitamente.
 
 ## Preguntas prácticas para aplicar
 

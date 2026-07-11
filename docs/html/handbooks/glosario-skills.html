@@ -153,9 +153,9 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	<header>
 		<div class="kicker">docs/handbooks</div>
 		<h1>Glosario de skills: nombres, capas y deferencia</h1>
-		<p class="lede">Este glosario desambigua cómo nombrar <strong>producto</strong>, <strong>skills</strong>, <strong>tools</strong>, <strong>patrones</strong> y <strong>comandos</strong>
-en prosa, docs y skills del repo. Para tokens congelados dentro de prompts (tools, schema keys,
-<code>PASS</code>/<code>NO_FINDINGS</code>, etc.), ver <a href="glosario-prompts.html"><code>glosario-prompts.md</code></a>.</p>
+		<p class="lede">Este glosario desambigua cómo nombrar <strong>producto</strong>, <strong>skills</strong>, <strong>tools</strong>, <strong>patrones</strong> y <strong>comandos</strong> en prosa, docs y
+skills del repo. Para tokens congelados dentro de prompts (tools, schema keys, <code>PASS</code>/<code>NO_FINDINGS</code>, etc.), ver
+<a href="glosario-prompts.html"><code>glosario-prompts.md</code></a>.</p>
 	</header>
 	<main>
 <nav class="toc">
@@ -176,7 +176,8 @@ en prosa, docs y skills del repo. Para tokens congelados dentro de prompts (tool
 <li><strong>Producto en prosa:</strong> <code>dynamic workflows</code> (minúsculas).</li>
 <li><strong>Skill Pi:</strong> <code>ultracode</code> · <strong>Skill Claude:</strong> <code>dynamic-workflows</code> (mirror byte-idéntico salvo <code>name</code>/H1).</li>
 <li><strong>Tool Pi:</strong> <code>dynamic_workflow</code> · <strong>Tool Claude:</strong> <code>Workflow</code>.</li>
-<li><strong>Persona:</strong> <code>persona usuaria</code> (canónico); no <code>usuario</code> salvo cuenta técnica (<code>tu usuario</code> de Pi) o username de GitHub.</li>
+<li><strong>Persona:</strong> <code>persona usuaria</code> (canónico); no <code>usuario</code> salvo cuenta técnica (<code>tu usuario</code> de Pi) o username de
+GitHub.</li>
 <li><strong>Concepto:</strong> <code>vibe-coding</code> (grafía canónica); en citas de fuentes externas conservá la forma original.</li>
 </ul>
 <h2 id="tabla-de-decisión-qué-nombre-usar">Tabla de decisión: qué nombre usar</h2>
@@ -395,7 +396,9 @@ en prosa, docs y skills del repo. Para tokens congelados dentro de prompts (tool
 <td>Externo; <code>npm run doctor</code> reporta instalación</td>
 </tr>
 </tbody></table></div>
-<p>Regla práctica: <strong>orquestación</strong> → <code>ultracode</code>; <strong>criterio de delegación</strong> → <code>ai-assisted-engineering</code>; <strong>TDD y evidencia</strong> → <code>modern-software-engineering</code>; <strong>tamaño de paso</strong> → <code>empirical-software-design</code>; <strong>diseño limpio</strong> → <code>clean-craftsmanship</code>.</p>
+<p>Regla práctica: <strong>orquestación</strong> → <code>ultracode</code>; <strong>criterio de delegación</strong> → <code>ai-assisted-engineering</code>; <strong>TDD y
+evidencia</strong> → <code>modern-software-engineering</code>; <strong>tamaño de paso</strong> → <code>empirical-software-design</code>; <strong>diseño limpio</strong> →
+<code>clean-craftsmanship</code>.</p>
 <h2 id="mayúsculas-cuándo-sí">Mayúsculas: cuándo sí</h2>
 <div class="table-scroll"><table>
 <thead>
@@ -422,9 +425,8 @@ en prosa, docs y skills del repo. Para tokens congelados dentro de prompts (tool
 </tr>
 </tbody></table></div>
 <h2 id="capas-de-generación-y-sync">Capas de generación y sync</h2>
-<p>Los skills <strong>no se editan en los destinos generados</strong>. La fuente canónica es siempre
-<code>.pi/skills/&lt;name&gt;/</code>. Desde ahí, tres pipelines distintos (clasificación en
-<code>scripts/skill-classification.mjs</code>):</p>
+<p>Los skills <strong>no se editan en los destinos generados</strong>. La fuente canónica es siempre <code>.pi/skills/&lt;name&gt;/</code>. Desde ahí,
+tres pipelines distintos (clasificación en <code>scripts/skill-classification.mjs</code>):</p>
 <div class="table-scroll"><table>
 <thead>
 <tr>
@@ -498,12 +500,13 @@ en prosa, docs y skills del repo. Para tokens congelados dentro de prompts (tool
 <li><code>npm run sync:claude:ultracode</code> → <code>npm run sync:skills:vendor</code> → <code>npm run sync:skills</code> (si el skill es mirrored).</li>
 <li><code>npm run doctor</code> o los tests de parity de <code>pandi-dynamic-workflows</code>.</li>
 </ol>
-<p>Skills <strong>project-local</strong> (no mirrored ni vendored): <code>didactic-docs-style</code>, <code>pandi-prose-style</code>,
-<code>pandi-artifact-style</code>, <code>markdownlint-cli2</code>, <code>md-to-html</code>, <code>sync-doc-mirrors</code> — viven solo en <code>.pi/skills/</code>.</p>
+<p>Skills <strong>project-local</strong> (no mirrored ni vendored): <code>didactic-docs-style</code>, <code>pandi-prose-style</code>, <code>pandi-artifact-style</code>,
+<code>markdownlint-cli2</code>, <code>md-to-html</code>, <code>sync-doc-mirrors</code> — viven solo en <code>.pi/skills/</code>.</p>
 <h2 id="próximos-pasos">Próximos pasos</h2>
 <ul>
 <li>Traducís o redactás un skill → consultá esta tabla antes de elegir mayúsculas o sinónimos.</li>
-<li>Agregás un patrón al catálogo → actualizá <a href="workflow-catalog.html"><code>workflow-catalog.md</code></a> en el mismo cambio si el patrón es user-facing.</li>
+<li>Agregás un patrón al catálogo → actualizá <a href="workflow-catalog.html"><code>workflow-catalog.md</code></a> en el mismo cambio si el
+patrón es user-facing.</li>
 <li>Token congelado en un prompt → <a href="glosario-prompts.html"><code>glosario-prompts.md</code></a>.</li>
 </ul>
 	</main>

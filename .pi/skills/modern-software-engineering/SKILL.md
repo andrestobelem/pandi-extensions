@@ -1,118 +1,57 @@
 ---
 name: modern-software-engineering
-description: >-
-  Aplicá principios de Modern Software Engineering al estilo Dave Farley al
-  diseñar, revisar o mejorar sistemas de software, dynamic workflows, tests,
-  pipelines de delivery o prácticas de ingeniería. Usá para optimizar el
-  aprendizaje, hacer de TDD el loop de feedback por defecto para cambios de
-  comportamiento, gestionar la complejidad y evaluar cambios por estabilidad y
-  throughput.
+description:
+  Aplicá ingeniería de software moderna al diseñar, revisar o mejorar arquitectura, refactors, tests, delivery o dynamic
+  workflows. Usá para formular una hipótesis, elegir TDD o evidencia equivalente, controlar complejidad y evaluar una
+  decisión por estabilidad y throughput.
 ---
 
-# Ingeniería de Software Moderna
+# Ingeniería de software moderna
 
 ## En 30 segundos
 
-- **Qué es:** ingeniería práctica al estilo Farley — aprender rápido con feedback de calidad.
-- **Problema:** cambios sin hipótesis ni checks ejecutables postergan el aprendizaje.
-- **Cuándo:** arquitectura, tests, delivery, dynamic workflows o decidir si un cambio vale la pena.
+- **Qué es:** ingeniería como aprendizaje disciplinado mediante feedback ejecutable.
+- **Problema:** cambios grandes o sin hipótesis postergan la evidencia y acumulan complejidad.
 
-Usá este skill cuando una tarea pida criterio de ingeniería de software: arquitectura, refactoring, code review, estrategia de tests, mejoras de delivery/proceso, diseño de workflows o decidir si un cambio vale la pena.
+Tratá cada cambio como una hipótesis refutable. Para fundamentos y fuentes, consultá
+`references/dave-farley-modern-software-engineering.md`.
 
-Este skill se basa en la investigación del proyecto destilada desde _Modern Software Engineering: Doing What Works to Build Better Software Faster_ de Dave Farley y notas relacionadas. Ver `references/dave-farley-modern-software-engineering.md` para el resumen compacto de la fuente.
+## Proceso
 
-## Lente central
+| Paso                     | Acción                                                                                                                                                                                                                   | Cierre                                                                                     |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| 1. Formular              | Expresá el objetivo de aprendizaje y la observación que refutaría la propuesta.                                                                                                                                          | La hipótesis distingue claramente éxito, falla e incertidumbre.                            |
+| 2. Recortar              | Elegí el incremento útil más chico que sea seguro, reversible y entregable.                                                                                                                                              | El paso reduce una incertidumbre concreta sin una reescritura especulativa.                |
+| 3. Diseñar feedback      | Para comportamiento, usá **Red → Green → Refactor**: test o reproducción en rojo, implementación mínima en verde y pasada explícita de refactor. Si TDD no aplica, nombrá la evidencia equivalente antes de implementar. | El check falla por la razón esperada o la evidencia sustituta está definida y justificada. |
+| 4. Gestionar complejidad | Durante Refactor, revisá modularidad, cohesión, separación de responsabilidades, information hiding, abstracción y coupling.                                                                                             | La complejidad accidental disminuye o queda aceptada con una razón observable.             |
+| 5. Evaluar delivery      | Estimá el efecto sobre confiabilidad, recovery, frecuencia y seguridad de entrega.                                                                                                                                       | El cambio no mejora throughput ocultando un costo de estabilidad, ni al revés.             |
+| 6. Verificar             | Corré los checks relevantes, preservá comandos/resultados y comparalos con la hipótesis.                                                                                                                                 | La evidencia permite avanzar, frenar o revertir sin depender de confianza declarada.       |
 
-La ingeniería de software moderna es ciencia práctica aplicada al desarrollo de software:
+En dynamic workflows, diseñá primero el check que juzga la corrida; exigí artifacts concretos por rama; preservá fallas
+y cobertura; y agregá review adversarial solo cuando aumente la calidad del feedback.
 
-1. **Optimizá para aprender.** Tratá cada cambio como una hipótesis y buscá el feedback de mayor calidad en el menor tiempo posible.
-2. **Usá TDD para cambios de comportamiento.** Empezá con un check ejecutable que falle, hacelo pasar con el cambio más chico, refactorizá manteniendo los tests en verde y luego aterrizalo como un Conventional Commit atómico con scope explícito.
-3. **Gestioná la complejidad.** Mantené los sistemas lo bastante entendibles como para cambiarlos con seguridad.
-4. **Usá evidencia.** Preferí tests, output de CI, observaciones de runtime y artifacts preservados por encima de moda, autoridad, intuición o consenso de IA.
-5. **Juzgá por estabilidad y throughput.** Una práctica sirve cuando mejora calidad/confiabilidad/recuperación y/o delivery frecuente y eficiente sin dañar la otra dimensión.
+## Contrato de salida
 
-## TDD como loop de feedback por defecto
+Incluí solo los campos aplicables:
 
-Cuando el trabajo cambia comportamiento, preferí TDD como primer mecanismo de aprendizaje:
+- **Objetivo de aprendizaje:** hipótesis y señal que la refutaría.
+- **Paso más chico:** incremento reversible elegido.
+- **Feedback:** Red inicial o evidencia equivalente, más resultado observado.
+- **Complejidad:** efecto sobre cohesión, límites, information hiding y coupling.
+- **Estabilidad/throughput:** trade-off esperado y observado.
+- **Condición de stop:** evidencia para seguir, frenar o revertir.
 
-1. **Nombrá el comportamiento o riesgo que querés aprender.** ¿Qué incertidumbre estamos reduciendo?
-2. **Red:** escribí o describí el test/check mínimo que falle y lo exponga. Para bugs, reproducí el bug. Para refactors, agregá characterization tests. Para comportamiento nuevo, especificá el resultado esperado en un test.
-3. **Green:** hacé el cambio de implementación más pequeño que pase.
-4. **Refactor:** mejorá nombres, límites, cohesión, coupling, duplicación y claridad mientras los tests siguen en verde.
-5. **Verify:** corré los checks locales relevantes y la señal de CI; cuando se pueda, capturá el comando y el resultado exactos.
-6. **Commit:** aterrizá el cambio como un commit atómico usando Conventional Commits con scope explícito (por ejemplo, `fix(pandi-goal): …`). Un solo cambio coherente por commit, con el test que fija el comportamiento en el mismo commit que el código que cubre.
+## Criterio de cierre
 
-Si TDD no es la herramienta correcta para la tarea, decí por qué y nombrá la evidencia de reemplazo: resultado de spike, señal de CI, observación de runtime, feedback de la persona usuaria, métrica u otro check ejecutable.
+Terminá cuando la hipótesis, el recorte y el feedback estén vinculados con evidencia observada; la pasada de Refactor
+haya ocurrido y su resultado esté narrado, incluso si no había nada que cambiar; y el efecto sobre estabilidad y
+throughput sea explícito. Sin esa evidencia, reportá aprendizaje pendiente.
 
-## Forma de respuesta requerida al usar este skill
+## Fronteras y deferencias
 
-Para planes, reviews o guía de implementación, incluí estos puntos salvo que sean claramente irrelevantes:
-
-- **Objetivo de aprendizaje:** la incertidumbre o el riesgo que se está probando.
-- **Paso más chico y seguro:** el recorte reversible más angosto.
-- **Plan de TDD/feedback:** el test o check que debería fallar primero, o la evidencia de reemplazo explícita.
-- **Chequeo de complejidad:** impacto en modularidad, cohesión, separación de responsabilidades, encapsulamiento de información, abstracción y acoplamiento.
-- **Chequeo de estabilidad/throughput:** efecto esperado sobre confiabilidad, recuperación, velocidad de delivery y seguridad del cambio.
-- **Condición de stop:** qué evidencia alcanza para seguir, frenar o revertir.
-
-## Cómo aplicarlo
-
-Al ayudar con un diseño, review, plan, implementación o dynamic workflow:
-
-1. **Expresá el objetivo de aprendizaje como una hipótesis testeable.** ¿Qué observación la refutaría?
-2. **Elegí el recorte útil más chico.** Preferí un incremento reversible, un spike o un workflow angosto antes que una reescritura amplia.
-3. **Empezá con TDD si cambia comportamiento.** Nombrá el test fallido, fixture, golden output, smoke check, señal de CI o medición que va a probar o refutar la hipótesis.
-4. **Mantené incrementos chicos y reversibles.** Evitá reescrituras grandes y especulativas salvo que la evidencia medida las exija.
-5. **Reducí complejidad de forma deliberada.** Revisá modularidad, cohesión, separación de responsabilidades, encapsulamiento de información, límites de abstracción y acoplamiento durante el paso de Refactor, no como diseño especulativo.
-6. **Evaluá estabilidad y throughput.** Explicá el impacto esperado en calidad, confiabilidad, recuperación, frecuencia de deploy y eficiencia de delivery.
-7. **Reportá evidencia, no confianza.** Cerrá con comandos, resultados de tests/CI, señales observadas o incertidumbre explícita.
-
-**Cierre:** antes de continuar o entregar, vinculá la hipótesis, el recorte reversible, el feedback elegido y el impacto esperado con la evidencia observada; declaralos como motivo para seguir, frenar o revertir.
-
-## Checklist de review
-
-Usá estas preguntas en code review, design review y plan review:
-
-- **TDD:** ¿Qué test fallido, characterization test o check ejecutable impulsó este cambio? Si no hubo ninguno, ¿la excepción está justificada y qué evidencia lo reemplazó?
-- **Aprendizaje:** ¿Qué probó o refutó este cambio? ¿Acorta o demora el feedback?
-- **Incrementalidad:** ¿Puede entregarse o validarse en un recorte reversible más chico?
-- **Calidad de tests:** ¿Los tests son rápidos, deterministas, significativos, enfocados en comportamiento, mantenibles y aptos para CI?
-- **Nivel de test:** ¿El comportamiento está testeado en el nivel útil más barato, con cobertura de integración/aceptación para riesgos entre límites?
-- **Deployability:** ¿Preserva caminos seguros de release, rollback y recovery?
-- **Modularidad:** ¿Las responsabilidades están aisladas detrás de interfaces claras?
-- **Cohesión:** ¿Las piezas que cambian juntas viven juntas?
-- **Coupling:** ¿Esto introduce dependencias que encarecen cambios futuros?
-- **Information hiding:** ¿Los detalles internos quedan ocultos o los callers necesitan saber demasiado?
-- **Estabilidad:** ¿Qué modos de falla, señales de confiabilidad o caminos de recovery cambiaron?
-- **Throughput:** ¿Esto hará que futuros cambios sean más rápidos, más lentos o más seguros?
-- **Evidencia:** ¿Las afirmaciones están respaldadas por tests, comandos, métricas, logs, artifacts o evidencia concreta en el código?
-
-## Guía para dynamic workflows
-
-Para Pi Dynamic Workflows en particular:
-
-- Usá workflows para acortar loops de aprendizaje cuando el trabajo sea amplio, incierto o se beneficie de perspectivas realmente independientes.
-- Empezá el diseño del workflow desde el loop de test/feedback: ¿qué check ejecutable o artifact decidirá si el workflow tuvo éxito?
-- Mantené ramas de workflow independientes, chicas y productoras de evidencia. Cada rama debería devolver artifacts concretos, no solo opiniones.
-- Persistí artifacts para que el aprendizaje sobreviva a la compactación del chat: output de tests, casos fallidos, pasos de reproducción, decisiones sintetizadas, alternativas descartadas y riesgos no resueltos.
-- Agregá synthesis-as-judge y review adversarial cuando la corrección importe, pero exigí tests ejecutables o evidencia concreta antes de aceptar conclusiones.
-- Mantené los workflows generados chicos y específicos de la tarea hasta que evidencia repetida muestre valor reutilizable.
-- Tratá `maxAgents`, concurrency, elección de modelo, condiciones de stop y paths de artifacts como controles de ingeniería. Definilos desde el objetivo de aprendizaje, costo, riesgo y estrategia de verificación en lugar de copiar defaults.
-- Preferí un workflow chico más un check rápido antes que una orquestación grande que demore el feedback u oculte la responsabilidad.
-
-## Anti-patrones a señalar
-
-- Implementar comportamiento antes de especificar el test fallido o check ejecutable.
-- Tratar TDD como opcional cuando la tarea cambia comportamiento sin nombrar evidencia de reemplazo.
-- Reescrituras grandes y especulativas que postergan el aprendizaje.
-- Abstracciones, configurabilidad o proceso agregados sin evidencia de que mejoren estabilidad, throughput o control de complejidad.
-- Tests lentos, flaky o demasiado integrados usados donde servirían tests rápidos y enfocados.
-- Consenso entre agentes, síntesis o código generado por IA tratados como equivalentes a tests que pasan.
-- Afirmaciones de éxito sin comandos, resultados de CI, evidencia de review, métricas o comportamiento observable.
-
-## Guardrails
-
-- No agregues burocracia, ceremonias, abstracciones ni configurabilidad salvo que mejoren aprendizaje, estabilidad, throughput o control de complejidad.
-- No optimices velocidad local salteando tests o evidencia.
-- No confundas output generado por IA con corrección; exigí review y verificación.
-- Si el mejor próximo paso es un test chico, un spike o una medición, preferilo antes que un gran diseño.
+| Decisión                                                          | Skill responsable           |
+| ----------------------------------------------------------------- | --------------------------- |
+| Cuánto delegar a IA y qué ownership conserva la persona           | `ai-assisted-engineering`   |
+| Test list, step size y tidy first/after/later/never dentro de TDD | `empirical-software-design` |
+| Legibilidad, SOLID con síntomas y Dependency Rule                 | `clean-craftsmanship`       |
+| Composición y ejecución del workflow multiagente                  | `ultracode`                 |

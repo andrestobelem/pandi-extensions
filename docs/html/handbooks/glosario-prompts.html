@@ -153,11 +153,9 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	<header>
 		<div class="kicker">docs/handbooks</div>
 		<h1>Glosario de prompts: qué queda en inglés</h1>
-		<p class="lede">Los prompts internos del repo se escriben en español claro y preciso, pero hay
-una lista de invariantes que <strong>nunca se traducen</strong>: todo lo que una máquina
-parsea, matchea o cachea. Traducir uno de estos tokens rompe un verifier o un
-test en silencio. Este glosario es la fuente canónica para cualquier
-traducción — humana o por workflow.</p>
+		<p class="lede">Los prompts internos del repo se escriben en español claro y preciso, pero hay una lista de invariantes que <strong>nunca se
+traducen</strong>: todo lo que una máquina parsea, matchea o cachea. Traducir uno de estos tokens rompe un verifier o un test
+en silencio. Este glosario es la fuente canónica para cualquier traducción — humana o por workflow.</p>
 	</header>
 	<main>
 <nav class="toc">
@@ -173,13 +171,12 @@ traducción — humana o por workflow.</p>
 </nav>
 <ul>
 <li><strong>Fecha:</strong> 2026-07-04</li>
-<li><strong>Contrato padre:</strong> <a href="../../.pi/skills/pandi-prose-style/SKILL.md"><code>pandi-prose-style</code></a>
-(fila &quot;Subagent / workflow prompts&quot; de la matriz de dosis)</li>
+<li><strong>Contrato padre:</strong> <a href="../../.pi/skills/pandi-prose-style/SKILL.md"><code>pandi-prose-style</code></a> (fila &quot;Subagent / workflow
+prompts&quot; de la matriz de dosis)</li>
 </ul>
 <h2 id="en-30-segundos">En 30 segundos</h2>
-<p>Si estás traduciendo un prompt y una palabra aparece en alguna tabla de abajo,
-dejala byte-idéntica. Si no estás seguro de si algo es funcional, dejalo
-byte-idéntico y marcalo para revisión — nunca adivines.</p>
+<p>Si estás traduciendo un prompt y una palabra aparece en alguna tabla de abajo, dejala byte-idéntica. Si no estás seguro
+de si algo es funcional, dejalo byte-idéntico y marcalo para revisión — nunca adivines.</p>
 <h2 id="1-nombres-que-el-código-resuelve">1. Nombres que el código resuelve</h2>
 <div class="table-scroll"><table>
 <thead>
@@ -216,8 +213,8 @@ byte-idéntico y marcalo para revisión — nunca adivines.</p>
 </tr>
 </tbody></table></div>
 <h2 id="2-tokens-de-contrato-que-un-parser-matchea">2. Tokens de contrato que un parser matchea</h2>
-<p>Estos son el <strong>riesgo #1</strong>: aparecen dentro de prosa de prompt pidiendo al
-modelo que responda con un token exacto, y otro agente o función lo parsea.</p>
+<p>Estos son el <strong>riesgo #1</strong>: aparecen dentro de prosa de prompt pidiendo al modelo que responda con un token exacto, y
+otro agente o función lo parsea.</p>
 <div class="table-scroll"><table>
 <thead>
 <tr>
@@ -246,27 +243,23 @@ modelo que responda con un token exacto, y otro agente o función lo parsea.</p>
 <td><code>status.json</code> de runs; dashboards</td>
 </tr>
 </tbody></table></div>
-<p>La regla práctica: si el prompt dice <em>&quot;respond with exactly …&quot;</em> (o
-equivalente), lo que sigue queda en inglés aunque la oración se traduzca.</p>
+<p>La regla práctica: si el prompt dice <em>&quot;respond with exactly …&quot;</em> (o equivalente), lo que sigue queda en inglés aunque la
+oración se traduzca.</p>
 <h2 id="3-estructura-que-sobrevive-intacta-a-la-traducción">3. Estructura que sobrevive intacta a la traducción</h2>
 <p>No son palabras sino formas — se preservan al traducir:</p>
 <ul>
-<li><strong>Prefijos estables de prompt-cache</strong>: framing fijo primero, contenido
-volátil al final. La traducción no reordena.</li>
+<li><strong>Prefijos estables de prompt-cache</strong>: framing fijo primero, contenido volátil al final. La traducción no reordena.</li>
 <li><strong>Fences de datos no confiables</strong> (delimitadores de contenido externo).</li>
-<li><strong>Criterios de éxito repetidos al inicio Y al final</strong> del prompt de
-síntesis/juez (mitiga lost-in-the-middle).</li>
+<li><strong>Criterios de éxito repetidos al inicio Y al final</strong> del prompt de síntesis/juez (mitiga lost-in-the-middle).</li>
 <li><strong>Contratos de tools</strong> (qué recibe y qué devuelve cada tool).</li>
 </ul>
 <h2 id="4-lo-que-sí-se-traduce">4. Lo que sí se traduce</h2>
-<p>Todo lo demás: instrucciones, explicaciones de rol, criterios en prosa,
-descripciones de tools (<code>description:</code> que lee el modelo), mensajes al
-usuario. En español preciso, tono cero, sin 🐼 (los prompts no admiten
-condimento — matriz de <code>pandi-prose-style</code>).</p>
+<p>Todo lo demás: instrucciones, explicaciones de rol, criterios en prosa, descripciones de tools (<code>description:</code> que lee
+el modelo), mensajes al usuario. En español preciso, tono cero, sin 🐼 (los prompts no admiten condimento — matriz de
+<code>pandi-prose-style</code>).</p>
 <h2 id="próximos-pasos">Próximos pasos</h2>
-<p>Las waves 2 y 3 del plan de traducción usan este glosario como contrato de
-entrada para cada worker y cada reviewer adversarial. Si encontrás un token
-congelado que falta acá, agregalo en el mismo commit que la traducción que lo
+<p>Las waves 2 y 3 del plan de traducción usan este glosario como contrato de entrada para cada worker y cada reviewer
+adversarial. Si encontrás un token congelado que falta acá, agregalo en el mismo commit que la traducción que lo
 descubrió.</p>
 	</main>
 	<footer>Generado con el skill pandi-artifact-style · paleta: panda-syntax dark/light</footer>

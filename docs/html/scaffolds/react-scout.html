@@ -169,16 +169,15 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	</ol>
 </nav>
 <blockquote>
-<p>Loop ReAct de reason → act → observe: cada paso apoya el siguiente pensamiento en una observación real de solo lectura.</p>
+<p>Loop ReAct de reason → act → observe: cada paso apoya el siguiente pensamiento en una observación real de solo
+lectura.</p>
 </blockquote>
 <h2 id="en-30-segundos">En 30 segundos</h2>
-<p>En vez de dejar que un solo agente improvise una respuesta, <code>react-scout</code>
-alterna explícitamente razonamiento y acción: un &quot;actor&quot; propone un
-PENSAMIENTO y una única ACCIÓN de solo lectura, un &quot;observador&quot; independiente
-la ejecuta y devuelve evidencia citada, y esa evidencia se agrega a una traza
-que el siguiente pensamiento debe usar. Elegilo cuando necesitás una
-investigación fundada en evidencia real (no en prosa suelta) antes de
-comprometerte a una respuesta o de lanzar un fan-out más caro.</p>
+<p>En vez de dejar que un solo agente improvise una respuesta, <code>react-scout</code> alterna explícitamente razonamiento y acción:
+un &quot;actor&quot; propone un PENSAMIENTO y una única ACCIÓN de solo lectura, un &quot;observador&quot; independiente la ejecuta y
+devuelve evidencia citada, y esa evidencia se agrega a una traza que el siguiente pensamiento debe usar. Elegilo cuando
+necesitás una investigación fundada en evidencia real (no en prosa suelta) antes de comprometerte a una respuesta o de
+lanzar un fan-out más caro.</p>
 <h2 id="cómo-lanzarlo">Cómo lanzarlo</h2>
 <pre><code class="hljs language-bash">/workflow new mi-scout --pattern=react-scout</code></pre>
 <p>Entrada típica:</p>
@@ -200,73 +199,51 @@ comprometerte a una respuesta o de lanzar un fan-out más caro.</p>
     Loop -- no --&gt; Answer["Fase Answer: agent sintetizador (opus)\nresponde SOLO con la traza,\ncita evidencia o INSUFFICIENT_EVIDENCE"]
     Answer --&gt; Out(["Salida: answer, trace, steps, converged"])</pre>
 <h2 id="qué-hace">Qué hace</h2>
-<p><code>react-scout</code> implementa el patrón ReAct (arXiv:2210.03629): en lugar de que
-un modelo genere una respuesta de una sola vez, el workflow fuerza un ciclo
-explícito de razonar → actuar → observar. En cada paso, un agente &quot;actor&quot;
-(rol <code>reason</code>) mira la pregunta y la traza acumulada, y decide UNA sola
-acción de solo lectura a ejecutar a continuación (grep, read, find o
-web_search), o declara que ya tiene evidencia suficiente (<code>done: true</code>).</p>
-<p>Un segundo agente, el &quot;observador&quot; (rol <code>observe</code>), es independiente del
-actor y ejecuta exclusivamente esa acción solicitada — nada más — devolviendo
-hallazgos citados (file:line, ruta o URL) o <code>NO_FINDINGS</code>. Esta separación
-evita que el actor alucine evidencia: solo puede razonar sobre lo que el
-observador realmente encontró.</p>
-<p>El ciclo se repite hasta que el actor declara <code>done</code> o se agota el
-presupuesto de pasos (<code>maxSteps</code>). Al final, un tercer agente sintetizador
-(rol <code>answer</code>) redacta la respuesta usando ÚNICAMENTE la traza acumulada,
-citando evidencia por cada afirmación, o declarando <code>INSUFFICIENT_EVIDENCE</code>
-si la traza no alcanza.</p>
-<p>Es explícitamente la interfaz canónica para un fan-out: se puede correr
-primero para fundamentar una hipótesis o lista de trabajo, y luego pasar
-<code>result.trace</code> a <code>scout-fanout</code> o <code>fan-out-and-synthesize</code>.</p>
+<p><code>react-scout</code> implementa el patrón ReAct (arXiv:2210.03629): en lugar de que un modelo genere una respuesta de una sola
+vez, el workflow fuerza un ciclo explícito de razonar → actuar → observar. En cada paso, un agente &quot;actor&quot; (rol
+<code>reason</code>) mira la pregunta y la traza acumulada, y decide UNA sola acción de solo lectura a ejecutar a continuación
+(grep, read, find o web_search), o declara que ya tiene evidencia suficiente (<code>done: true</code>).</p>
+<p>Un segundo agente, el &quot;observador&quot; (rol <code>observe</code>), es independiente del actor y ejecuta exclusivamente esa acción
+solicitada — nada más — devolviendo hallazgos citados (file:line, ruta o URL) o <code>NO_FINDINGS</code>. Esta separación evita que
+el actor alucine evidencia: solo puede razonar sobre lo que el observador realmente encontró.</p>
+<p>El ciclo se repite hasta que el actor declara <code>done</code> o se agota el presupuesto de pasos (<code>maxSteps</code>). Al final, un
+tercer agente sintetizador (rol <code>answer</code>) redacta la respuesta usando ÚNICAMENTE la traza acumulada, citando evidencia
+por cada afirmación, o declarando <code>INSUFFICIENT_EVIDENCE</code> si la traza no alcanza.</p>
+<p>Es explícitamente la interfaz canónica para un fan-out: se puede correr primero para fundamentar una hipótesis o lista
+de trabajo, y luego pasar <code>result.trace</code> a <code>scout-fanout</code> o <code>fan-out-and-synthesize</code>.</p>
 <h2 id="cuándo-usarlo">Cuándo usarlo</h2>
 <ul>
-<li>Investigación fundada en evidencia real antes de comprometerse a una
-respuesta o acción.</li>
+<li>Investigación fundada en evidencia real antes de comprometerse a una respuesta o acción.</li>
 <li>Producir una traza (<code>trace</code>) para entregarle a un fan-out posterior.</li>
-<li>Fundar cada paso de razonamiento en una observación concreta del repo o la
-web, en vez de dejar que el modelo &quot;recuerde&quot; o infiera.</li>
-<li><strong>No usarlo</strong> para preguntas triviales que un solo agente con tools ya
-resuelve en un paso, ni cuando se necesita escritura/mutación (el loop es
-deliberadamente de solo lectura).</li>
+<li>Fundar cada paso de razonamiento en una observación concreta del repo o la web, en vez de dejar que el modelo
+&quot;recuerde&quot; o infiera.</li>
+<li><strong>No usarlo</strong> para preguntas triviales que un solo agente con tools ya resuelve en un paso, ni cuando se necesita
+escritura/mutación (el loop es deliberadamente de solo lectura).</li>
 </ul>
 <h2 id="cómo-funciona">Cómo funciona</h2>
-<p>El flujo parsea la entrada, valida <code>question</code> (obligatorio) y limita
-<code>maxSteps</code> entre 1 y 50 (predeterminado 6, registrando si hubo ajuste). Las
-observaciones/acciones permitidas por defecto son
-<code>[&quot;read&quot;, &quot;grep&quot;, &quot;find&quot;, &quot;ls&quot;, &quot;web_search&quot;]</code> (todas de solo lectura),
-configurables vía <code>input.tools</code>.</p>
-<p>Soporta overrides por rol vía <code>input.model</code>/<code>input.effort</code> (default global) o
-<code>input.models[role]</code>/<code>input.efforts[role]</code> (override por rol: <code>reason</code>,
-<code>observe</code>, <code>answer</code>), igual que <code>toolsByRole</code>, <code>skillsByRole</code> y
-<code>excludeByRole</code>.</p>
+<p>El flujo parsea la entrada, valida <code>question</code> (obligatorio) y limita <code>maxSteps</code> entre 1 y 50 (predeterminado 6,
+registrando si hubo ajuste). Las observaciones/acciones permitidas por defecto son
+<code>[&quot;read&quot;, &quot;grep&quot;, &quot;find&quot;, &quot;ls&quot;, &quot;web_search&quot;]</code> (todas de solo lectura), configurables vía <code>input.tools</code>.</p>
+<p>Soporta overrides por rol vía <code>input.model</code>/<code>input.effort</code> (default global) o <code>input.models[role]</code>/<code>input.efforts[role]</code>
+(override por rol: <code>reason</code>, <code>observe</code>, <code>answer</code>), igual que <code>toolsByRole</code>, <code>skillsByRole</code> y <code>excludeByRole</code>.</p>
 <p>Cada iteración del <code>while</code> tiene dos fases:</p>
 <ol>
-<li><strong>Reason</strong> — llama <code>agent(...)</code> con un schema tipado (<code>STEP</code>: <code>thought</code>,
-<code>done</code>, <code>action</code>, <code>query</code>) usando <code>model: &quot;sonnet&quot;</code>, <code>effort: &quot;medium&quot;</code>
-por defecto. El prompt pone la pregunta y la traza (truncada a los últimos
-12000 caracteres si es muy larga, preservando lo más reciente) dentro de
-fences con delimitador derivado por hash del contenido (<code>fence(...)</code>),
-para blindar contra inyección de instrucciones en datos no confiables. Si
-el reason falla o devuelve vacío, se registra un sentinela en la traza y
-se corta el loop (no cuenta como convergencia).</li>
-<li><strong>Observe</strong> — si el actor no dijo <code>done</code>/<code>none</code>/query vacía, se llama a un
-segundo <code>agent(...)</code> (rol <code>observe</code>, <code>model: &quot;haiku&quot;</code>, <code>effort: &quot;low&quot;</code>,
-con las <code>tools</code> configuradas) que ejecuta EXACTAMENTE la acción y query
-pedidas, y debe citar evidencia (<code>file:line</code>, ruta o URL) o responder
-<code>NO_FINDINGS</code>. Si falla, se registra un sentinela textual y el loop
-continúa (no se pierde la traza). Cada observación se marca <code>uncited</code> si
-no trae ninguna cita reconocible, para que los pasos siguientes puedan
-descontarla.</li>
+<li><strong>Reason</strong> — llama <code>agent(...)</code> con un schema tipado (<code>STEP</code>: <code>thought</code>, <code>done</code>, <code>action</code>, <code>query</code>) usando
+<code>model: &quot;sonnet&quot;</code>, <code>effort: &quot;medium&quot;</code> por defecto. El prompt pone la pregunta y la traza (truncada a los últimos
+12000 caracteres si es muy larga, preservando lo más reciente) dentro de fences con delimitador derivado por hash del
+contenido (<code>fence(...)</code>), para blindar contra inyección de instrucciones en datos no confiables. Si el reason falla o
+devuelve vacío, se registra un sentinela en la traza y se corta el loop (no cuenta como convergencia).</li>
+<li><strong>Observe</strong> — si el actor no dijo <code>done</code>/<code>none</code>/query vacía, se llama a un segundo <code>agent(...)</code> (rol <code>observe</code>,
+<code>model: &quot;haiku&quot;</code>, <code>effort: &quot;low&quot;</code>, con las <code>tools</code> configuradas) que ejecuta EXACTAMENTE la acción y query pedidas, y
+debe citar evidencia (<code>file:line</code>, ruta o URL) o responder <code>NO_FINDINGS</code>. Si falla, se registra un sentinela textual
+y el loop continúa (no se pierde la traza). Cada observación se marca <code>uncited</code> si no trae ninguna cita reconocible,
+para que los pasos siguientes puedan descontarla.</li>
 </ol>
-<p>Cuando el actor declara <code>done</code> (o se acaba <code>maxSteps</code>), corre la fase
-<strong>Answer</strong>: un tercer <code>agent(...)</code> (<code>model: &quot;opus&quot;</code>, <code>effort: &quot;high&quot;</code>)
-sintetiza la respuesta usando solo la traza, citando evidencia, o devolviendo
-<code>INSUFFICIENT_EVIDENCE</code> si no alcanza. Si el agente de respuesta devuelve
-<code>null</code> (subagente caído o el usuario lo saltó), se sustituye por un mensaje
-explícito de insuficiencia en vez de propagar <code>null</code> en silencio.</p>
-<p>No hay caché explícita ni artifacts escritos por este scaffold; el
-resultado se devuelve directamente al llamador.</p>
+<p>Cuando el actor declara <code>done</code> (o se acaba <code>maxSteps</code>), corre la fase <strong>Answer</strong>: un tercer <code>agent(...)</code>
+(<code>model: &quot;opus&quot;</code>, <code>effort: &quot;high&quot;</code>) sintetiza la respuesta usando solo la traza, citando evidencia, o devolviendo
+<code>INSUFFICIENT_EVIDENCE</code> si no alcanza. Si el agente de respuesta devuelve <code>null</code> (subagente caído o el usuario lo
+saltó), se sustituye por un mensaje explícito de insuficiencia en vez de propagar <code>null</code> en silencio.</p>
+<p>No hay caché explícita ni artifacts escritos por este scaffold; el resultado se devuelve directamente al llamador.</p>
 <h2 id="input-y-output">Input y output</h2>
 <div class="table-scroll"><table>
 <thead>

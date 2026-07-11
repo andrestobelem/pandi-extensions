@@ -170,37 +170,89 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<li><a href="#8-brechas-de-cobertura-y-qué-verificar-después">8. Brechas de cobertura y qué verificar después</a></li>
 	</ol>
 </nav>
-<p><strong>Proveniencia de registro.</strong> Generado por el workflow dinámico <code>loop-engineering-deep-research</code> (run <code>2026-06-28T10-08-08-680Z-drafts-loop-engineering-deep-research-ebc0fa72</code>), enrutado por un Contract Gate de solo lectura (interpretación C) y confirmado por un verificador independiente de citación/trazabilidad de solo lectura (veredicto PASS). No se modificó código fuente. La evidencia por rama y el informe del verificador viven en ese directorio de run dentro de <code>.pi/workflows/runs/</code>.</p>
+<p><strong>Proveniencia de registro.</strong> Generado por el workflow dinámico <code>loop-engineering-deep-research</code> (run
+<code>2026-06-28T10-08-08-680Z-drafts-loop-engineering-deep-research-ebc0fa72</code>), enrutado por un Contract Gate de solo
+lectura (interpretación C) y confirmado por un verificador independiente de citación/trazabilidad de solo lectura
+(veredicto PASS). No se modificó código fuente. La evidencia por rama y el informe del verificador viven en ese
+directorio de run dentro de <code>.pi/workflows/runs/</code>.</p>
 <h2 id="en-30-segundos">En 30 segundos</h2>
-<p>Este documento explica qué significa <em>loop engineering</em> y cómo ese patrón aparece en este repo. La idea central es simple: diseñar loops que <strong>actúan → observan → verifican → continúan</strong> hasta cumplir una condición de parada basada en evidencia.</p>
-<p>La conclusión práctica es más importante que el nombre: un loop confiable necesita límites explícitos, una señal de crítica independiente y una salida que no dependa de la autodeclaración del modelo.</p>
+<p>Este documento explica qué significa <em>loop engineering</em> y cómo ese patrón aparece en este repo. La idea central es
+simple: diseñar loops que <strong>actúan → observan → verifican → continúan</strong> hasta cumplir una condición de parada basada en
+evidencia.</p>
+<p>La conclusión práctica es más importante que el nombre: un loop confiable necesita límites explícitos, una señal de
+crítica independiente y una salida que no dependa de la autodeclaración del modelo.</p>
 <blockquote>
-<p><strong>Nota de proveniencia y honestidad.</strong> El encabezado de la tarea reportó &quot;Branches: 5 / Completed: 5 / Failed: 0&quot;, pero los payloads reales muestran que <strong>solo 2 de 5 ramas devolvieron contenido</strong>: <code>research-reflexion-self-refine</code> y <code>research-control-feedback-theory</code>. Tres ramas devolvieron <strong>salida vacía</strong>: <code>research-react-observe-act</code>, <code>research-bounding-failure-modes-term</code>, <code>research-repo-grounding</code>.</p>
-<p>Para no inventar cobertura, el sintetizador <strong>volvió a leer de forma independiente cada archivo del repo en la grounding read-list</strong> (todos los <code>file:line</code> de abajo fueron verificados en este run) y <strong>ejecutó su propia búsqueda web</strong> para resolver la pregunta sobre el término. Las URLs externas de teoría de control se <strong>preservaron desde la rama 3</strong> y no se volvieron a buscar en la síntesis (marcado en §8). Los papers externos sobre loops de agentes citados por la rama 2 (Reflexion, Self-Refine, Huang et al.) fueron recuperados por esa rama; ReAct no fue recuperado de forma independiente por ninguna rama (marcado INSUFFICIENT_EVIDENCE).</p>
+<p><strong>Nota de proveniencia y honestidad.</strong> El encabezado de la tarea reportó &quot;Branches: 5 / Completed: 5 / Failed: 0&quot;,
+pero los payloads reales muestran que <strong>solo 2 de 5 ramas devolvieron contenido</strong>: <code>research-reflexion-self-refine</code> y
+<code>research-control-feedback-theory</code>. Tres ramas devolvieron <strong>salida vacía</strong>: <code>research-react-observe-act</code>,
+<code>research-bounding-failure-modes-term</code>, <code>research-repo-grounding</code>.</p>
+<p>Para no inventar cobertura, el sintetizador <strong>volvió a leer de forma independiente cada archivo del repo en la
+grounding read-list</strong> (todos los <code>file:line</code> de abajo fueron verificados en este run) y <strong>ejecutó su propia búsqueda
+web</strong> para resolver la pregunta sobre el término. Las URLs externas de teoría de control se <strong>preservaron desde la
+rama 3</strong> y no se volvieron a buscar en la síntesis (marcado en §8). Los papers externos sobre loops de agentes citados
+por la rama 2 (Reflexion, Self-Refine, Huang et al.) fueron recuperados por esa rama; ReAct no fue recuperado de forma
+independiente por ninguna rama (marcado INSUFFICIENT_EVIDENCE).</p>
 </blockquote>
-<p><strong>Actualización — pase de verificación de fuentes (2026-06-28).</strong> Un seguimiento puntual cerró los principales ítems <code>INSUFFICIENT_EVIDENCE</code> mediante búsqueda web directa: ReAct (arXiv:2210.03629) ahora está confirmado por fuente primaria (Yao et al., ICLR 2023); los contraargumentos del debate sobre autocorrección (arXiv:2405.14092 <em>ProCo</em>; arXiv:2406.15673) se leyeron en vez de citarse solo por título; el límite experimental de Self-Refine es <strong>4 iteraciones</strong>; y el repo citado por el paper de Reflexion <code>github.com/noahshinn024/reflexion</code> ahora aloja un proyecto <strong>no relacionado</strong> &quot;Bugbounty POC&quot; (el código original ya no está en esa URL). Las entradas de §3 y §8 reflejan este pase.</p>
+<p><strong>Actualización — pase de verificación de fuentes (2026-06-28).</strong> Un seguimiento puntual cerró los principales ítems
+<code>INSUFFICIENT_EVIDENCE</code> mediante búsqueda web directa: ReAct (arXiv:2210.03629) ahora está confirmado por fuente
+primaria (Yao et al., ICLR 2023); los contraargumentos del debate sobre autocorrección (arXiv:2405.14092 <em>ProCo</em>;
+arXiv:2406.15673) se leyeron en vez de citarse solo por título; el límite experimental de Self-Refine es <strong>4
+iteraciones</strong>; y el repo citado por el paper de Reflexion <code>github.com/noahshinn024/reflexion</code> ahora aloja un proyecto
+<strong>no relacionado</strong> &quot;Bugbounty POC&quot; (el código original ya no está en esa URL). Las entradas de §3 y §8 reflejan este
+pase.</p>
 <h2 id="1-resumen-ejecutivo">1. Resumen ejecutivo</h2>
-<p><strong>&quot;Loop engineering&quot; es un término industrial real y reciente (mitad de 2026), no una disciplina académica ya estabilizada.</strong> Nombra un patrón más viejo: diseñar el sistema que le pide repetidamente a un agente que <em>actúe → observe → verifique → continúe</em> hasta que se dispare una condición de parada basada en evidencia. Fuentes clave: <a href="https://addyosmani.com/blog/loop-engineering/">Addy Osmani</a>, <a href="https://www.langchain.com/blog/the-art-of-loop-engineering">LangChain</a>, <a href="https://code.claude.com/docs/en/how-claude-code-works">Claude Code docs</a> y <a href="https://www.theregister.com/ai-and-ml/2026/06/24/loop-engineering-latest-ai-buzzword-still-needs-humans-in-the-loop/5261735">The Register, 2026-06-24</a> (cobertura escéptica).</p>
-<p>La literatura converge en una lección dura: <strong>un loop iterativo de mejora propia solo es tan confiable como (a) la independencia/calidad de su señal de crítica y (b) sus límites.</strong></p>
-<p>La autocorrección puramente intrínseca puede <em>degradar</em> los resultados cuando no existe una señal externa/oráculo (<a href="https://arxiv.org/abs/2310.01798">Huang et al., arXiv:2310.01798</a>). Tanto Reflexion como Self-Refine incluyen límites explícitos de terminación (<a href="https://arxiv.org/abs/2303.11366">arXiv:2303.11366</a>; <a href="https://arxiv.org/abs/2303.17651">arXiv:2303.17651</a>).</p>
-<p><strong>Este repo operacionaliza bien esa lección.</strong> A través de tres superficies de loop implementa de forma consistente terminación acotada, clamping de “no confiar en el modelo”, caps explícitos (no silenciosos) y — lo más importante — un <em>verificador adversarial independiente y de solo lectura</em> que no acepta cerrar un goal por la autodeclaración del modelo (<code>extensions/pandi-goal/index.ts:36-51</code>, <code>:362-386</code>). La mejor decisión de diseño es la separación de pandi-goal entre auto-chequeo (<code>verifying</code>) y juicio independiente (<code>verifying-independent</code>), una respuesta arquitectónica directa a Huang et al.</p>
+<p><strong>&quot;Loop engineering&quot; es un término industrial real y reciente (mitad de 2026), no una disciplina académica ya
+estabilizada.</strong> Nombra un patrón más viejo: diseñar el sistema que le pide repetidamente a un agente que <em>actúe →
+observe → verifique → continúe</em> hasta que se dispare una condición de parada basada en evidencia. Fuentes clave:
+<a href="https://addyosmani.com/blog/loop-engineering/">Addy Osmani</a>,
+<a href="https://www.langchain.com/blog/the-art-of-loop-engineering">LangChain</a>,
+<a href="https://code.claude.com/docs/en/how-claude-code-works">Claude Code docs</a> y
+<a href="https://www.theregister.com/ai-and-ml/2026/06/24/loop-engineering-latest-ai-buzzword-still-needs-humans-in-the-loop/5261735">The Register, 2026-06-24</a>
+(cobertura escéptica).</p>
+<p>La literatura converge en una lección dura: <strong>un loop iterativo de mejora propia solo es tan confiable como (a) la
+independencia/calidad de su señal de crítica y (b) sus límites.</strong></p>
+<p>La autocorrección puramente intrínseca puede <em>degradar</em> los resultados cuando no existe una señal externa/oráculo
+(<a href="https://arxiv.org/abs/2310.01798">Huang et al., arXiv:2310.01798</a>). Tanto Reflexion como Self-Refine incluyen límites
+explícitos de terminación (<a href="https://arxiv.org/abs/2303.11366">arXiv:2303.11366</a>;
+<a href="https://arxiv.org/abs/2303.17651">arXiv:2303.17651</a>).</p>
+<p><strong>Este repo operacionaliza bien esa lección.</strong> A través de tres superficies de loop implementa de forma consistente
+terminación acotada, clamping de “no confiar en el modelo”, caps explícitos (no silenciosos) y — lo más importante — un
+<em>verificador adversarial independiente y de solo lectura</em> que no acepta cerrar un goal por la autodeclaración del modelo
+(<code>extensions/pandi-goal/index.ts:36-51</code>, <code>:362-386</code>). La mejor decisión de diseño es la separación de pandi-goal entre
+auto-chequeo (<code>verifying</code>) y juicio independiente (<code>verifying-independent</code>), una respuesta arquitectónica directa a
+Huang et al.</p>
 <p><strong>Los principales gaps son limitaciones, no defectos:</strong></p>
 <ul>
-<li>El cap de presupuesto de contexto es best-effort y hace no-op en silencio si el uso es desconocido (<code>extensions/pandi-loop/caps.ts:36-40</code>).</li>
+<li>El cap de presupuesto de contexto es best-effort y hace no-op en silencio si el uso es desconocido
+(<code>extensions/pandi-loop/caps.ts:36-40</code>).</li>
 <li>&quot;Quiet rounds&quot; es una heurística empírica de convergencia, no un criterio probado de punto fijo.</li>
-<li>La afirmación de la read-list de que el clamp de cadencia dinámica vive en <code>extensions/pandi-loop/interval.ts</code> es <strong>incorrecta</strong> — vive en <code>extensions/pandi-loop/index.ts:1253-1259</code>.</li>
+<li>La afirmación de la read-list de que el clamp de cadencia dinámica vive en <code>extensions/pandi-loop/interval.ts</code> es
+<strong>incorrecta</strong> — vive en <code>extensions/pandi-loop/index.ts:1253-1259</code>.</li>
 </ul>
 <h2 id="2-qué-significa-loop-engineering-es-ya-un-término-establecido">2. Qué significa &quot;loop engineering&quot; (¿es ya un término establecido?)</h2>
-<p><strong>Veredicto: establecido como término industrial emergente (CONFIRMADO por búsqueda web en este run), pero no como disciplina académica estandarizada.</strong> Definilo en la primera mención.</p>
+<p><strong>Veredicto: establecido como término industrial emergente (CONFIRMADO por búsqueda web en este run), pero no como
+disciplina académica estandarizada.</strong> Definilo en la primera mención.</p>
 <p>Evidencia encontrada:</p>
 <ul>
-<li><strong>Addy Osmani</strong> enmarca <em>loop engineering</em> como <em>diseñar el sistema que le pide a un agente</em> — automatización, worktrees, skills, connectors, subagents y estado externo. <a href="https://addyosmani.com/blog/loop-engineering/">addyosmani.com/blog/loop-engineering</a></li>
-<li><strong>LangChain</strong> (&quot;The Art of Loop Engineering&quot;) enmarca a los agentes como loops de tool-calling, extendidos a loops de verificación y loops event-driven. <a href="https://www.langchain.com/blog/the-art-of-loop-engineering">langchain.com/blog/the-art-of-loop-engineering</a></li>
-<li><strong>Claude Code docs</strong> describen el loop agéntico como <em>reunir contexto → actuar → verificar resultados → repetir hasta completar</em>. <a href="https://code.claude.com/docs/en/how-claude-code-works">code.claude.com/docs/en/how-claude-code-works</a></li>
-<li><strong>OpenAI</strong> (agent improvement loop cookbook) señala que el área todavía evoluciona; la idea durable es conectar feedback, testing e implementación en un solo loop. <a href="https://developers.openai.com/cookbook/examples/agents_sdk/agent_improvement_loop">developers.openai.com/.../agent_improvement_loop</a></li>
-<li><strong>The Register (2026-06-24)</strong> lo caracteriza como un <em>nuevo buzzword de IA</em> y advierte que la automatización sigue necesitando controles de costo y humanos en el loop. <a href="https://www.theregister.com/ai-and-ml/2026/06/24/loop-engineering-latest-ai-buzzword-still-needs-humans-in-the-loop/5261735">theregister.com/.../loop_engineering...</a></li>
+<li><strong>Addy Osmani</strong> enmarca <em>loop engineering</em> como <em>diseñar el sistema que le pide a un agente</em> — automatización,
+worktrees, skills, connectors, subagents y estado externo.
+<a href="https://addyosmani.com/blog/loop-engineering/">addyosmani.com/blog/loop-engineering</a></li>
+<li><strong>LangChain</strong> (&quot;The Art of Loop Engineering&quot;) enmarca a los agentes como loops de tool-calling, extendidos a loops de
+verificación y loops event-driven.
+<a href="https://www.langchain.com/blog/the-art-of-loop-engineering">langchain.com/blog/the-art-of-loop-engineering</a></li>
+<li><strong>Claude Code docs</strong> describen el loop agéntico como <em>reunir contexto → actuar → verificar resultados → repetir hasta
+completar</em>. <a href="https://code.claude.com/docs/en/how-claude-code-works">code.claude.com/docs/en/how-claude-code-works</a></li>
+<li><strong>OpenAI</strong> (agent improvement loop cookbook) señala que el área todavía evoluciona; la idea durable es conectar
+feedback, testing e implementación en un solo loop.
+<a href="https://developers.openai.com/cookbook/examples/agents_sdk/agent_improvement_loop">developers.openai.com/.../agent_improvement_loop</a></li>
+<li><strong>The Register (2026-06-24)</strong> lo caracteriza como un <em>nuevo buzzword de IA</em> y advierte que la automatización sigue
+necesitando controles de costo y humanos en el loop.
+<a href="https://www.theregister.com/ai-and-ml/2026/06/24/loop-engineering-latest-ai-buzzword-still-needs-humans-in-the-loop/5261735">theregister.com/.../loop_engineering...</a></li>
 </ul>
-<p><strong>Definición de trabajo sintetizada (este artifact):</strong> <em>loop engineering</em> es la disciplina de <strong>diseñar, acotar y verificar</strong> loops iterativos/de feedback alrededor de sistemas agénticos y de software. Un loop debe hacer progreso medible hacia una meta y <strong>parar en evidencia</strong> (done/quiet/blocked) en vez de hacerlo por reloj, por autodeclaración o nunca. Este es el marco paraguas que el repo ya practica bajo otros nombres: <code>/loop</code>, <code>loop-until-done</code>, <code>/goal</code>.</p>
+<p><strong>Definición de trabajo sintetizada (este artifact):</strong> <em>loop engineering</em> es la disciplina de <strong>diseñar, acotar y
+verificar</strong> loops iterativos/de feedback alrededor de sistemas agénticos y de software. Un loop debe hacer progreso
+medible hacia una meta y <strong>parar en evidencia</strong> (done/quiet/blocked) en vez de hacerlo por reloj, por autodeclaración o
+nunca. Este es el marco paraguas que el repo ya practica bajo otros nombres: <code>/loop</code>, <code>loop-until-done</code>, <code>/goal</code>.</p>
 <h2 id="3-fundamentos-y-trabajos-previos--con-citas">3. Fundamentos y trabajos previos — con citas</h2>
 <div class="table-scroll"><table>
 <thead>
@@ -242,18 +294,43 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>Preservado desde la rama 3; <strong>no se volvió a buscar en la síntesis</strong> (ver §8).</td>
 </tr>
 </tbody></table></div>
-<p>El índice interno del repo ya mapea estos papers a prácticas de workflow, incluyendo &quot;loops with an explicit brake … must have a stop condition: max rounds, quiet rounds, maxAgents, timeout, or budget&quot; (<code>docs/research/2026-06-25-agentic-patterns-papers-workflows.md:51-52</code>, derived-principle 6).</p>
+<p>El índice interno del repo ya mapea estos papers a prácticas de workflow, incluyendo &quot;loops with an explicit brake …
+must have a stop condition: max rounds, quiet rounds, maxAgents, timeout, or budget&quot;
+(<code>docs/research/2026-06-25-agentic-patterns-papers-workflows.md:51-52</code>, derived-principle 6).</p>
 <h2 id="4-principios-centrales-de-loop-engineering">4. Principios centrales de loop engineering</h2>
-<p>Sintetizados a partir de las fuentes anteriores y verificados contra el repo (§6). Cada principio empareja un ancla de literatura/teoría con el mecanismo del repo.</p>
+<p>Sintetizados a partir de las fuentes anteriores y verificados contra el repo (§6). Cada principio empareja un ancla de
+literatura/teoría con el mecanismo del repo.</p>
 <ol>
-<li><strong>Terminación acotada (sin loops infinitos).</strong> Todo loop necesita una condición de parada. Reflexion acota la memoria; Self-Refine acota iteraciones (<a href="https://arxiv.org/abs/2303.11366">2303.11366</a>, <a href="https://arxiv.org/abs/2303.17651">2303.17651</a>). Repo: pandi-goal declara &quot;Never an infinite loop&quot; (<code>extensions/pandi-goal/index.ts:51</code>).</li>
-<li><strong>Caps de iteración / tiempo / presupuesto (defensa en profundidad).</strong> Múltiples frenos independientes: deadline estricto de wall-clock, cuenta de iteraciones y un cap de presupuesto de contexto best-effort (<code>extensions/pandi-loop/caps.ts:20-40</code>; <code>extensions/pandi-loop/index.ts:416-419</code>, <code>:486-490</code>), más un watchdog &quot;zombie backstop&quot; por encima del deadline (<code>extensions/pandi-loop/index.ts:1046-1074</code>).</li>
-<li><strong>Clamping de cadencia (&quot;never trust the model&quot;).</strong> El valor de actuator elegido por el modelo (delay) se <em>satura</em> a una banda segura — el análogo en loops agénticos del actuator-limiting para evitar una ganancia desestabilizante (<a href="https://www.ni.com/en/shop/labview/pid-theory-explained.html">NI PID</a>). Repo: la cadencia dinámica se clampa a <code>[60,3600]s</code> (<code>extensions/pandi-loop/index.ts:1253-1259</code>); el intervalo fijo se clampa a <code>[1s,24h]</code> y se rechaza <code>0s</code> (<code>extensions/pandi-loop/interval.ts:17-40</code>).</li>
-<li><strong>Convergencia / quiet-rounds (settle-to-tolerance).</strong> Parar cuando el &quot;error&quot; medido (hallazgos nuevos) se mantiene ≈0 durante K muestras consecutivas — un detector discreto de asentamiento, el análogo closed-loop de una respuesta amortiguada que se asienta dentro de tolerancia (<a href="https://web.mit.edu/2.14/www/Handouts/PoleZero.pdf">MIT pole-zero</a>). Repo: <code>loop-until-done</code> usa <code>quietRounds</code> por defecto 2 y <code>maxRounds</code> por defecto 8 (<code>templates.ts:351-359</code>).</li>
-<li><strong>Reanudabilidad.</strong> Estado de loop/goal persistido y rehidratable con un <em>único</em> tick de catch-up (sin ráfaga de despertares perdidos) (<code>extensions/pandi-loop/index.ts:966-968</code>; <code>extensions/pandi-goal/index.ts:484-545,852-865</code>).</li>
-<li><strong>Gate de acciones destructivas.</strong> El autopilot (disparado por wake) gatea acciones claramente irreversibles o de gran radio de impacto; los turnos humanos nunca se gatean; el sesgo es &quot;cuando hay duda, no bloquear&quot; (<code>extensions/pandi-loop/gate.ts:16-59,75-117</code>).</li>
-<li><strong>Progreso + verificación INDEPENDIENTE.</strong> La lección decisiva de Huang et al.: que un modelo juzgue su propio razonamiento es poco confiable, así que los loops deben cerrarse sobre una señal <em>externa</em>. Repo: verificación en dos etapas — un chequeo de completitud SELF (<code>verifying</code>) y luego un subagent adversarial separado, de solo lectura, que emite <code>VERDICT: PASS|FAIL</code> (<code>verifying-independent</code>); solo un PASS independiente cierra el goal (<code>extensions/pandi-goal/index.ts:34-55,221-315,733-757</code>).</li>
-<li><strong>Sin caps silenciosos.</strong> Un loop que se detiene por presupuesto pero reporta &quot;done&quot; oculta incompletitud. Repo registra <code>&quot;stopped at maxRounds (not dry)&quot;</code> (<code>templates.ts:392-394</code>).</li>
+<li><strong>Terminación acotada (sin loops infinitos).</strong> Todo loop necesita una condición de parada. Reflexion acota la
+memoria; Self-Refine acota iteraciones (<a href="https://arxiv.org/abs/2303.11366">2303.11366</a>,
+<a href="https://arxiv.org/abs/2303.17651">2303.17651</a>). Repo: pandi-goal declara &quot;Never an infinite loop&quot;
+(<code>extensions/pandi-goal/index.ts:51</code>).</li>
+<li><strong>Caps de iteración / tiempo / presupuesto (defensa en profundidad).</strong> Múltiples frenos independientes: deadline
+estricto de wall-clock, cuenta de iteraciones y un cap de presupuesto de contexto best-effort
+(<code>extensions/pandi-loop/caps.ts:20-40</code>; <code>extensions/pandi-loop/index.ts:416-419</code>, <code>:486-490</code>), más un watchdog
+&quot;zombie backstop&quot; por encima del deadline (<code>extensions/pandi-loop/index.ts:1046-1074</code>).</li>
+<li><strong>Clamping de cadencia (&quot;never trust the model&quot;).</strong> El valor de actuator elegido por el modelo (delay) se <em>satura</em> a
+una banda segura — el análogo en loops agénticos del actuator-limiting para evitar una ganancia desestabilizante
+(<a href="https://www.ni.com/en/shop/labview/pid-theory-explained.html">NI PID</a>). Repo: la cadencia dinámica se clampa a
+<code>[60,3600]s</code> (<code>extensions/pandi-loop/index.ts:1253-1259</code>); el intervalo fijo se clampa a <code>[1s,24h]</code> y se rechaza <code>0s</code>
+(<code>extensions/pandi-loop/interval.ts:17-40</code>).</li>
+<li><strong>Convergencia / quiet-rounds (settle-to-tolerance).</strong> Parar cuando el &quot;error&quot; medido (hallazgos nuevos) se mantiene
+≈0 durante K muestras consecutivas — un detector discreto de asentamiento, el análogo closed-loop de una respuesta
+amortiguada que se asienta dentro de tolerancia
+(<a href="https://web.mit.edu/2.14/www/Handouts/PoleZero.pdf">MIT pole-zero</a>). Repo: <code>loop-until-done</code> usa <code>quietRounds</code> por
+defecto 2 y <code>maxRounds</code> por defecto 8 (<code>templates.ts:351-359</code>).</li>
+<li><strong>Reanudabilidad.</strong> Estado de loop/goal persistido y rehidratable con un <em>único</em> tick de catch-up (sin ráfaga de
+despertares perdidos) (<code>extensions/pandi-loop/index.ts:966-968</code>; <code>extensions/pandi-goal/index.ts:484-545,852-865</code>).</li>
+<li><strong>Gate de acciones destructivas.</strong> El autopilot (disparado por wake) gatea acciones claramente irreversibles o de
+gran radio de impacto; los turnos humanos nunca se gatean; el sesgo es &quot;cuando hay duda, no bloquear&quot;
+(<code>extensions/pandi-loop/gate.ts:16-59,75-117</code>).</li>
+<li><strong>Progreso + verificación INDEPENDIENTE.</strong> La lección decisiva de Huang et al.: que un modelo juzgue su propio
+razonamiento es poco confiable, así que los loops deben cerrarse sobre una señal <em>externa</em>. Repo: verificación en dos
+etapas — un chequeo de completitud SELF (<code>verifying</code>) y luego un subagent adversarial separado, de solo lectura, que
+emite <code>VERDICT: PASS|FAIL</code> (<code>verifying-independent</code>); solo un PASS independiente cierra el goal
+(<code>extensions/pandi-goal/index.ts:34-55,221-315,733-757</code>).</li>
+<li><strong>Sin caps silenciosos.</strong> Un loop que se detiene por presupuesto pero reporta &quot;done&quot; oculta incompletitud. Repo
+registra <code>&quot;stopped at maxRounds (not dry)&quot;</code> (<code>templates.ts:392-394</code>).</li>
 </ol>
 <h2 id="5-modos-de-falla-y-mitigaciones">5. Modos de falla y mitigaciones</h2>
 <div class="table-scroll"><table>
@@ -296,7 +373,8 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </tr>
 </tbody></table></div>
 <h2 id="6-fundamento-en-este-repo">6. Fundamento en este repo</h2>
-<p>Todos los <code>file:line</code> fueron verificados en este run. <strong>Alignment</strong> = el mecanismo coincide con el principio; <strong>Gap</strong> = limitación/discrepancia.</p>
+<p>Todos los <code>file:line</code> fueron verificados en este run. <strong>Alignment</strong> = el mecanismo coincide con el principio; <strong>Gap</strong> =
+limitación/discrepancia.</p>
 <div class="table-scroll"><table>
 <thead>
 <tr>
@@ -378,36 +456,85 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </tbody></table></div>
 <h2 id="7-gaps-limitaciones-y-observaciones-opcionales-sin-diffs">7. Gaps, limitaciones y observaciones OPCIONALES (sin diffs)</h2>
 <p>Solo observaciones; no se proponen cambios de código.</p>
-<p><strong>Actualización — observaciones aplicadas (2026-06-28).</strong> Un seguimiento aplicó los ítems seguros y quirúrgicos de abajo: <strong>#3</strong> (inexactitud de la read-list) se corrigió en la grounding read-list del workflow de investigación y en los prompts del reviewer (<code>.pi/workflows/drafts/loop-engineering-deep-research.js</code>) para que un re-run ya no atribuya erróneamente el clamp dinámico <code>[60,3600]s</code> a <code>interval.ts</code>; <strong>#6</strong> (dos caps de verificación distintos) y <strong>#5</strong> (costo del verificador independiente) se abordaron con comentarios de cruce sobre <code>MAX_VERIFY_ATTEMPTS</code> (<code>extensions/pandi-goal/constants.ts:43-49</code>) y <code>DEFAULT_MAX_INDEPENDENT_VERIFICATIONS</code> (<code>extensions/pandi-goal/constants.ts:58-64</code>). <strong>#1</strong> se dejó igual: <code>extensions/pandi-loop/caps.ts:20-40</code> ya documenta el best-effort/silent no-op en su docstring. <strong>#2</strong> (eval sweep de <code>quietRounds</code>/<code>maxRounds</code>) y <strong>#4</strong> (allowlist finita del destructive-gate) siguen abiertos por diseño — el primero necesita datos, el segundo es una asimetría aceptada deliberada. La guía práctica derivada de esta investigación vive en <a href="../loop-engineering-with-extensions.html"><code>docs/loop-engineering-with-extensions.md</code></a>.</p>
+<p><strong>Actualización — observaciones aplicadas (2026-06-28).</strong> Un seguimiento aplicó los ítems seguros y quirúrgicos de
+abajo: <strong>#3</strong> (inexactitud de la read-list) se corrigió en la grounding read-list del workflow de investigación y en los
+prompts del reviewer (<code>.pi/workflows/drafts/loop-engineering-deep-research.js</code>) para que un re-run ya no atribuya
+erróneamente el clamp dinámico <code>[60,3600]s</code> a <code>interval.ts</code>; <strong>#6</strong> (dos caps de verificación distintos) y <strong>#5</strong> (costo
+del verificador independiente) se abordaron con comentarios de cruce sobre <code>MAX_VERIFY_ATTEMPTS</code>
+(<code>extensions/pandi-goal/constants.ts:43-49</code>) y <code>DEFAULT_MAX_INDEPENDENT_VERIFICATIONS</code>
+(<code>extensions/pandi-goal/constants.ts:58-64</code>). <strong>#1</strong> se dejó igual: <code>extensions/pandi-loop/caps.ts:20-40</code> ya documenta
+el best-effort/silent no-op en su docstring. <strong>#2</strong> (eval sweep de <code>quietRounds</code>/<code>maxRounds</code>) y <strong>#4</strong> (allowlist finita
+del destructive-gate) siguen abiertos por diseño — el primero necesita datos, el segundo es una asimetría aceptada
+deliberada. La guía práctica derivada de esta investigación vive en
+<a href="../loop-engineering-with-extensions.html"><code>docs/loop-engineering-with-extensions.md</code></a>.</p>
 <ol>
-<li><strong>El cap best-effort de presupuesto es un sensor blando.</strong>
-Cuando <code>getContextUsage()</code> no está disponible, solo quedan los frenos de wall-clock + iteración (<code>extensions/pandi-loop/caps.ts:36-40</code>). <em>Observación opcional:</em> conviene documentar (ya parcialmente hecho en el docstring) que el cap de contexto puede hacer no-op en silencio, para que los operadores no confíen demasiado en él.</li>
-<li><strong>Quiet-rounds ≠ convergencia demostrada.</strong>
-<code>quiet===2</code> es un debounce/deadband, no una garantía de fixed-point/contraction; una quietud transitoria (buscadores buscando el lugar equivocado) puede disparar una falsa parada (<code>templates.ts:351</code>, <code>:389</code>). <em>Opcional:</em> el tradeoff precisión vs costo de los defaults <code>quietRounds</code>/<code>maxRounds</code> parece basado en criterio, no en datos — un eval sweep lo convertiría en evidencia.</li>
-<li><strong>Inexactitud de la read-list (gap documental, no bug de código).</strong>
-La grounding read-list atribuye el clamp dinámico <code>[60,3600]s</code> a <code>extensions/pandi-loop/interval.ts</code>; en realidad vive en <code>extensions/pandi-loop/index.ts:1253-1259</code>. Solo el clamp fijo <code>[1s,24h]</code> está en <code>extensions/pandi-loop/interval.ts:17-40</code>. <em>Opcional:</em> corregir la read-list/comentarios para futuros lectores.</li>
-<li><strong>La allowlist del destructive-gate es finita.</strong> <code>extensions/pandi-loop/gate.ts:58-59,75-117,196-219</code> enumera patrones conocidos como peligrosos con sesgo &quot;when unsure, do not block&quot;; un comando destructivo nuevo fuera de la allowlist pasa en autopilot. Es una asimetría aceptada deliberadamente, no un defecto.</li>
-<li><strong>Costo del verificador independiente.</strong>
-Cada paso <code>verifying-independent</code> lanza un proceso separado <code>pi -p</code> (<code>extensions/pandi-goal/index.ts:236-315</code>). Huang et al. advierten que la crítica multironda debería compararse contra baselines más baratos (por ejemplo, self-consistency). <em>Opcional:</em> conviene explicitar que más rondas de verificación no son gratis.</li>
-<li><strong>Dos caps de verificación distintos pueden confundir.</strong>
-<code>MAX_VERIFY_ATTEMPTS=3</code> (auto-chequeo de completitud) vs <code>DEFAULT_MAX_INDEPENDENT_VERIFICATIONS=2</code> (independiente) son gates distintos (<code>extensions/pandi-goal/constants.ts:43-49</code>, <code>extensions/pandi-goal/constants.ts:58-64</code>). Correcto e intencional, pero merece una cross-reference de una línea para mantenedores.</li>
+<li><strong>El cap best-effort de presupuesto es un sensor blando.</strong> Cuando <code>getContextUsage()</code> no está disponible, solo quedan
+los frenos de wall-clock + iteración (<code>extensions/pandi-loop/caps.ts:36-40</code>). <em>Observación opcional:</em> conviene
+documentar (ya parcialmente hecho en el docstring) que el cap de contexto puede hacer no-op en silencio, para que los
+operadores no confíen demasiado en él.</li>
+<li><strong>Quiet-rounds ≠ convergencia demostrada.</strong> <code>quiet===2</code> es un debounce/deadband, no una garantía de
+fixed-point/contraction; una quietud transitoria (buscadores buscando el lugar equivocado) puede disparar una falsa
+parada (<code>templates.ts:351</code>, <code>:389</code>). <em>Opcional:</em> el tradeoff precisión vs costo de los defaults
+<code>quietRounds</code>/<code>maxRounds</code> parece basado en criterio, no en datos — un eval sweep lo convertiría en evidencia.</li>
+<li><strong>Inexactitud de la read-list (gap documental, no bug de código).</strong> La grounding read-list atribuye el clamp dinámico
+<code>[60,3600]s</code> a <code>extensions/pandi-loop/interval.ts</code>; en realidad vive en <code>extensions/pandi-loop/index.ts:1253-1259</code>.
+Solo el clamp fijo <code>[1s,24h]</code> está en <code>extensions/pandi-loop/interval.ts:17-40</code>. <em>Opcional:</em> corregir la
+read-list/comentarios para futuros lectores.</li>
+<li><strong>La allowlist del destructive-gate es finita.</strong> <code>extensions/pandi-loop/gate.ts:58-59,75-117,196-219</code> enumera
+patrones conocidos como peligrosos con sesgo &quot;when unsure, do not block&quot;; un comando destructivo nuevo fuera de la
+allowlist pasa en autopilot. Es una asimetría aceptada deliberadamente, no un defecto.</li>
+<li><strong>Costo del verificador independiente.</strong> Cada paso <code>verifying-independent</code> lanza un proceso separado <code>pi -p</code>
+(<code>extensions/pandi-goal/index.ts:236-315</code>). Huang et al. advierten que la crítica multironda debería compararse
+contra baselines más baratos (por ejemplo, self-consistency). <em>Opcional:</em> conviene explicitar que más rondas de
+verificación no son gratis.</li>
+<li><strong>Dos caps de verificación distintos pueden confundir.</strong> <code>MAX_VERIFY_ATTEMPTS=3</code> (auto-chequeo de completitud) vs
+<code>DEFAULT_MAX_INDEPENDENT_VERIFICATIONS=2</code> (independiente) son gates distintos
+(<code>extensions/pandi-goal/constants.ts:43-49</code>, <code>extensions/pandi-goal/constants.ts:58-64</code>). Correcto e intencional,
+pero merece una cross-reference de una línea para mantenedores.</li>
 </ol>
 <h2 id="8-brechas-de-cobertura-y-qué-verificar-después">8. Brechas de cobertura y qué verificar después</h2>
 <p><strong>Ramas fallidas/vacías (conteo honesto):</strong></p>
 <ul>
-<li><code>research-react-observe-act</code> — <strong>VACÍA en el run original; RESUELTA 2026-06-28.</strong> ReAct (arXiv:2210.03629) ahora está confirmado por fuente primaria: Yao, Zhao, Yu, Du, Shafran, Narasimhan, Cao; v3 = <strong>ICLR 2023</strong> camera-ready; intercala trazas de razonamiento, acciones y observaciones del entorno; evaluado en HotpotQA, FEVER, ALFWorld y WebShop (<a href="https://arxiv.org/abs/2210.03629">abstract</a>, <a href="https://react-lm.github.io/">sitio oficial</a>).</li>
-<li><code>research-bounding-failure-modes-term</code> — <strong>VACÍA.</strong> El sintetizador completó la pregunta sobre el término con su propia búsqueda web (§2, 5 fuentes). <em>Verificar después:</em> un pase dedicado de taxonomía de failure modes para paridad con las otras ramas.</li>
-<li><code>research-repo-grounding</code> — <strong>VACÍA.</strong> El sintetizador la completó leyendo directamente cada archivo de la read-list (todos los <code>file:line</code> aquí fueron verificados en este run).</li>
+<li><code>research-react-observe-act</code> — <strong>VACÍA en el run original; RESUELTA 2026-06-28.</strong> ReAct (arXiv:2210.03629) ahora está
+confirmado por fuente primaria: Yao, Zhao, Yu, Du, Shafran, Narasimhan, Cao; v3 = <strong>ICLR 2023</strong> camera-ready;
+intercala trazas de razonamiento, acciones y observaciones del entorno; evaluado en HotpotQA, FEVER, ALFWorld y
+WebShop (<a href="https://arxiv.org/abs/2210.03629">abstract</a>, <a href="https://react-lm.github.io/">sitio oficial</a>).</li>
+<li><code>research-bounding-failure-modes-term</code> — <strong>VACÍA.</strong> El sintetizador completó la pregunta sobre el término con su
+propia búsqueda web (§2, 5 fuentes). <em>Verificar después:</em> un pase dedicado de taxonomía de failure modes para paridad
+con las otras ramas.</li>
+<li><code>research-repo-grounding</code> — <strong>VACÍA.</strong> El sintetizador la completó leyendo directamente cada archivo de la read-list
+(todos los <code>file:line</code> aquí fueron verificados en este run).</li>
 </ul>
 <p><strong>Otros ítems para verificar:</strong></p>
 <ul>
-<li><strong>Las URLs de teoría de control se preservaron desde la rama 3 y NO se volvieron a buscar en la síntesis</strong> (el presupuesto web de la síntesis se gastó en la pregunta sobre el término). Tratá las mapeos F1–F7 como <em>interpretación respaldada por las citas de la rama 3</em>, pendiente de una re-búsqueda independiente de Åström &amp; Murray / MathWorks / ISA / NI / MIT.</li>
-<li><strong>No se encontró una formalización teórico-control de loops LLM revisada por pares.</strong> Los mapeos &quot;quiet rounds = settling/deadband&quot; y &quot;clamp = actuator saturation&quot; son <strong>analogías (INTERPRETATION)</strong>, no resultados probados de contraction/fixed-point. <em>Verificar después:</em> buscar trabajos que modelen la iteración de refinamiento como una contraction mapping con una cota de convergencia.</li>
-<li><strong>Debate sobre autocorrección — contraargumentos ya leídos (RESUELTO 2026-06-28).</strong> Huang et al. (<a href="https://arxiv.org/abs/2310.01798">2310.01798</a>) se sostiene para loops intrínsecos <em>ingenuos/sesgados</em>. <a href="https://arxiv.org/abs/2405.14092">arXiv:2405.14092</a> (Wu et al., EMNLP 2024 — <em>ProCo</em>) muestra que la autocorrección intrínseca estructurada (ocultar una condición clave → verificar → resolver de nuevo) supera la autocorrección simple (+6.8 EM QA / +14.1 arithmetic / +9.6 commonsense, GPT-3.5-Turbo-1106); <a href="https://arxiv.org/abs/2406.15673">arXiv:2406.15673</a> (Liu et al.) informa que la autocorrección intrínseca funciona a <strong>temperature 0 con prompts no sesgados</strong>, mientras que prompts sesgados del tipo &quot;find problems&quot; revierten respuestas correctas (límites: 4 modelos, 2 datasets, sin error bars). Conclusión: acotar el loop <em>y</em> mantener la señal de crítica independiente/no sesgada — exactamente lo que impone el verificador externo de pandi-goal.</li>
-<li><strong>Límite de iteraciones de Self-Refine y repo de Reflexion (RESUELTO 2026-06-28).</strong> Self-Refine corre hasta una señal de parada de la tarea <strong>acotada a 4 iteraciones</strong> en los experimentos del paper (§3.1; Fig 4 muestra rendimientos decrecientes después de ~3 iteraciones) (<a href="https://arxiv.org/pdf/2303.17651">arXiv:2303.17651</a>). ⚠️ El repo citado por el paper de Reflexion <code>https://github.com/noahshinn024/reflexion</code> <strong>ya no aloja el código original</strong> — actualmente muestra un proyecto no relacionado &quot;Bugbounty POC&quot; (~2 commits); tratá esa URL como una cita vieja o reutilizada y preferí el PDF del paper (<a href="https://arxiv.org/pdf/2303.11366">arXiv:2303.11366</a>).</li>
+<li><strong>Las URLs de teoría de control se preservaron desde la rama 3 y NO se volvieron a buscar en la síntesis</strong> (el
+presupuesto web de la síntesis se gastó en la pregunta sobre el término). Tratá las mapeos F1–F7 como <em>interpretación
+respaldada por las citas de la rama 3</em>, pendiente de una re-búsqueda independiente de Åström &amp; Murray / MathWorks /
+ISA / NI / MIT.</li>
+<li><strong>No se encontró una formalización teórico-control de loops LLM revisada por pares.</strong> Los mapeos &quot;quiet rounds =
+settling/deadband&quot; y &quot;clamp = actuator saturation&quot; son <strong>analogías (INTERPRETATION)</strong>, no resultados probados de
+contraction/fixed-point. <em>Verificar después:</em> buscar trabajos que modelen la iteración de refinamiento como una
+contraction mapping con una cota de convergencia.</li>
+<li><strong>Debate sobre autocorrección — contraargumentos ya leídos (RESUELTO 2026-06-28).</strong> Huang et al.
+(<a href="https://arxiv.org/abs/2310.01798">2310.01798</a>) se sostiene para loops intrínsecos <em>ingenuos/sesgados</em>.
+<a href="https://arxiv.org/abs/2405.14092">arXiv:2405.14092</a> (Wu et al., EMNLP 2024 — <em>ProCo</em>) muestra que la autocorrección
+intrínseca estructurada (ocultar una condición clave → verificar → resolver de nuevo) supera la autocorrección simple
+(+6.8 EM QA / +14.1 arithmetic / +9.6 commonsense, GPT-3.5-Turbo-1106);
+<a href="https://arxiv.org/abs/2406.15673">arXiv:2406.15673</a> (Liu et al.) informa que la autocorrección intrínseca funciona a
+<strong>temperature 0 con prompts no sesgados</strong>, mientras que prompts sesgados del tipo &quot;find problems&quot; revierten respuestas
+correctas (límites: 4 modelos, 2 datasets, sin error bars). Conclusión: acotar el loop <em>y</em> mantener la señal de
+crítica independiente/no sesgada — exactamente lo que impone el verificador externo de pandi-goal.</li>
+<li><strong>Límite de iteraciones de Self-Refine y repo de Reflexion (RESUELTO 2026-06-28).</strong> Self-Refine corre hasta una señal
+de parada de la tarea <strong>acotada a 4 iteraciones</strong> en los experimentos del paper (§3.1; Fig 4 muestra rendimientos
+decrecientes después de ~3 iteraciones) (<a href="https://arxiv.org/pdf/2303.17651">arXiv:2303.17651</a>). ⚠️ El repo citado por
+el paper de Reflexion <code>https://github.com/noahshinn024/reflexion</code> <strong>ya no aloja el código original</strong> — actualmente
+muestra un proyecto no relacionado &quot;Bugbounty POC&quot; (~2 commits); tratá esa URL como una cita vieja o reutilizada y
+preferí el PDF del paper (<a href="https://arxiv.org/pdf/2303.11366">arXiv:2303.11366</a>).</li>
 </ul>
 <hr>
-<p><em>No se editaron archivos de código fuente. Toda afirmación externa lleva una URL; toda afirmación del repo lleva <code>file:line</code> verificado en este run; los ítems no verificables están marcados como INSUFFICIENT_EVIDENCE o INTERPRETATION.</em></p>
+<p><em>No se editaron archivos de código fuente. Toda afirmación externa lleva una URL; toda afirmación del repo lleva
+<code>file:line</code> verificado en este run; los ítems no verificables están marcados como INSUFFICIENT_EVIDENCE o
+INTERPRETATION.</em></p>
 	</main>
 	<footer>Generado con el skill pandi-artifact-style · paleta: panda-syntax dark/light</footer>
 </div>

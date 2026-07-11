@@ -1,6 +1,8 @@
 # limits
 
-`limits` expone los topes efectivos del run (`concurrency`, budgets, `timeouts`) como una global congelada y de solo lectura. Sirve para que un workflow ajuste su propio fan-out a lo que el run permite de verdad, en vez de adivinar o hardcodear números. Usalo cuando estés por lanzar N subagentes y necesites saber cuántos pueden correr a la vez.
+`limits` expone los topes efectivos del run (`concurrency`, budgets, `timeouts`) como una global congelada y de solo
+lectura. Sirve para que un workflow ajuste su propio fan-out a lo que el run permite de verdad, en vez de adivinar o
+hardcodear números. Usalo cuando estés por lanzar N subagentes y necesites saber cuántos pueden correr a la vez.
 
 ```js
 const want = files.length;
@@ -25,16 +27,17 @@ Devuelve un objeto de topes (ver arriba), congelado: reasignar campos o mutarlos
 
 ## Cuándo usarlo y cuándo no
 
-| Situación | Hacé esto |
-| --- | --- |
-| Ajustar fan-out al budget del run | `Math.min(desired, limits.concurrency)` |
-| Decidir cuántas ramas lanzar | Verificá `limits.maxAgents` |
-| Llamar `agents()`/`parallel()`/`pipeline()` | No hace falta clamp manual: ya ajustan `concurrency` a `limits.concurrency` |
-| Intentar subir el tope en runtime | No: `limits` está congelado; los topes vienen del tool call que inició el run |
+| Situación                                   | Hacé esto                                                                     |
+| ------------------------------------------- | ----------------------------------------------------------------------------- |
+| Ajustar fan-out al budget del run           | `Math.min(desired, limits.concurrency)`                                       |
+| Decidir cuántas ramas lanzar                | Verificá `limits.maxAgents`                                                   |
+| Llamar `agents()`/`parallel()`/`pipeline()` | No hace falta clamp manual: ya ajustan `concurrency` a `limits.concurrency`   |
+| Intentar subir el tope en runtime           | No: `limits` está congelado; los topes vienen del tool call que inició el run |
 
 ## Cosas a tener en cuenta
 
-- Aunque sea read-only (`frozen`), ajustar el *total agent count* contra `maxAgents` sigue siendo tu responsabilidad: nada lo aplica automáticamente.
+- Aunque sea read-only (`frozen`), ajustar el _total agent count_ contra `maxAgents` sigue siendo tu responsabilidad:
+  nada lo aplica automáticamente.
 - **Logueá cualquier clamp** que apliques para que el tope quede inspeccionable en los run artifacts.
 
 ## Example

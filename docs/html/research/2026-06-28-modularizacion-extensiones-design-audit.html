@@ -175,22 +175,20 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	</ol>
 </nav>
 <h2 id="objetivo">Objetivo</h2>
-<p>Auditar el diseño del monorepo de 9 extensiones Pi y producir un plan incremental,
-<strong>behavior-preserving</strong>, para: (1) modularizar el código, (2) sacar duplicación a módulos
-compartidos, (3) modularizar los tests, (4) revisar el diseño con lente Kent Beck / Dave
-Farley, y (5) aplicar los mismos conceptos (DRY / single-source) a los prompts.</p>
+<p>Auditar el diseño del monorepo de 9 extensiones Pi y producir un plan incremental, <strong>behavior-preserving</strong>, para: (1)
+modularizar el código, (2) sacar duplicación a módulos compartidos, (3) modularizar los tests, (4) revisar el diseño con
+lente Kent Beck / Dave Farley, y (5) aplicar los mismos conceptos (DRY / single-source) a los prompts.</p>
 <h2 id="en-30-segundos">En 30 segundos</h2>
-<p>Este informe resume una auditoría de diseño del monorepo de 9 extensiones Pi y propone una ruta
-incremental para modularizar sin cambiar el comportamiento observable. Sirve para decidir qué
-extraer primero, qué dejar como está y dónde está el riesgo real: estado mutable compartido,
-bootstrap de tests duplicado y prompts que conviene tratar como fuente única de verdad.
-Si vas a tocar una extensión grande o a mover código compartido, empezá por acá.</p>
+<p>Este informe resume una auditoría de diseño del monorepo de 9 extensiones Pi y propone una ruta incremental para
+modularizar sin cambiar el comportamiento observable. Sirve para decidir qué extraer primero, qué dejar como está y
+dónde está el riesgo real: estado mutable compartido, bootstrap de tests duplicado y prompts que conviene tratar como
+fuente única de verdad. Si vas a tocar una extensión grande o a mover código compartido, empezá por acá.</p>
 <h2 id="procedencia">Procedencia</h2>
 <ul>
 <li><p><strong>Contract Gate</strong> (4 reviewers read-only + síntesis): contrato de tarea, sin blockers.</p>
 </li>
-<li><p><strong>Design Audit</strong> (9 analizadores por extensión + 4 transversales + síntesis-as-judge),
-ejecutado como dynamic workflow read-only.</p>
+<li><p><strong>Design Audit</strong> (9 analizadores por extensión + 4 transversales + síntesis-as-judge), ejecutado como dynamic workflow
+read-only.</p>
 <p>Artifacts del run:</p>
 <ul>
 <li><code>.pi/workflows/drafts/modularizar-extensiones-design-audit.js</code> →</li>
@@ -200,7 +198,8 @@ ejecutado como dynamic workflow read-only.</p>
 </li>
 <li><p><strong>Limitación conocida:</strong></p>
 <ul>
-<li>1 de 9 analizadores por extensión (<code>pandi-goal</code>) falló validación de schema; la síntesis usó 8 ext + 4 transversales.</li>
+<li>1 de 9 analizadores por extensión (<code>pandi-goal</code>) falló validación de schema; la síntesis usó 8 ext + 4
+transversales.</li>
 <li>La salida de síntesis se truncó al final de §7 (la fila 3.17 quedó cortada).</li>
 <li>El roadmap máquina-legible completo está en <code>roadmap.json</code>.</li>
 <li>Las secciones §8/§9 se restauran abajo desde el plan de verificación del contrato.</li>
@@ -249,8 +248,10 @@ ejecutado como dynamic workflow read-only.</p>
 <td>npm test 23/23 (incl. plan-gate 45 asserts)</td>
 </tr>
 </tbody></table></div>
-<p><strong>Validado empíricamente:</strong> el seam <code>extensions/shared/*.ts</code> importado vía <code>../shared/x.js</code> se empaqueta (files glob), se typechequea transitivamente (tsc sigue imports), y se bundlea en los tests (esbuild reescribe <code>.js</code>→<code>.ts</code>).</p>
-<p><em>Lección Karpathy:</em> un glob <code>*/</code> dentro de un comentario JSDoc cierra el bloque — inspecciona el dato (corregido en <code>time.ts</code>).</p>
+<p><strong>Validado empíricamente:</strong> el seam <code>extensions/shared/*.ts</code> importado vía <code>../shared/x.js</code> se empaqueta (files glob),
+se typechequea transitivamente (tsc sigue imports), y se bundlea en los tests (esbuild reescribe <code>.js</code>→<code>.ts</code>).</p>
+<p><em>Lección Karpathy:</em> un glob <code>*/</code> dentro de un comentario JSDoc cierra el bloque — inspecciona el dato (corregido en
+<code>time.ts</code>).</p>
 <p><strong>Decisión de diseño (skip consciente):</strong> Ronda 2.2 <code>projectHash</code> se OMITIÓ.</p>
 <ul>
 <li>No es una función compartida limpia sino una expresión inline: <code>crypto.createHash(&quot;sha1&quot;)...slice(0,12)</code></li>
@@ -263,7 +264,9 @@ ejecutado como dynamic workflow read-only.</p>
 <li><strong>Fuente de verdad:</strong> únicamente los analizadores verificados (8 por extensión + 4 transversales).</li>
 <li><strong>Cobertura:</strong> <code>ext=8 válidos</code>, <code>cross=4 válidos</code>, <code>1 analizador por extensión fallido</code> (ver §9).</li>
 <li><strong>Citas:</strong> toda afirmación de hecho lleva cita <code>file:line</code>; lo que no la tiene se marca como inferencia o se omite.</li>
-<li><strong>Restricción rectora:</strong> refactor incremental, <strong>sin cambio de comportamiento observable</strong>, módulos a <strong>profundidad uno</strong>, <code>index.ts</code> como agregador delgado, <code>npm test</code> verde antes/después de cada commit, Conventional Commits atómicos, Kent Beck tidy-first (todo aquí es estructural), Dave Farley (cohesión + fast feedback), sin big-bang.</li>
+<li><strong>Restricción rectora:</strong> refactor incremental, <strong>sin cambio de comportamiento observable</strong>, módulos a <strong>profundidad
+uno</strong>, <code>index.ts</code> como agregador delgado, <code>npm test</code> verde antes/después de cada commit, Conventional Commits
+atómicos, Kent Beck tidy-first (todo aquí es estructural), Dave Farley (cohesión + fast feedback), sin big-bang.</li>
 </ul>
 </blockquote>
 <hr>
@@ -271,8 +274,10 @@ ejecutado como dynamic workflow read-only.</p>
 <h3>Estado general de salud</h3>
 <p>El conjunto es sano en su mayoría:</p>
 <ul>
-<li><strong>Pequeñas y cohesivas (6 extensiones):</strong> <code>pandi-local-memory</code> 31 LOC, <code>pandi-auto-compact</code> 120, <code>pandi-mdview</code> 181, <code>pandi-effort</code> 247, <code>pandi-bg</code> 637, <code>pandi-plan</code> 656</li>
-<li><strong>Monolitos genuinos (2 extensiones):</strong> <code>pandi-dynamic-workflows</code> 7143 LOC, <code>pandi-loop</code> 1599 LOC (~13–16 concerns cada uno)</li>
+<li><strong>Pequeñas y cohesivas (6 extensiones):</strong> <code>pandi-local-memory</code> 31 LOC, <code>pandi-auto-compact</code> 120, <code>pandi-mdview</code> 181,
+<code>pandi-effort</code> 247, <code>pandi-bg</code> 637, <code>pandi-plan</code> 656</li>
+<li><strong>Monolitos genuinos (2 extensiones):</strong> <code>pandi-dynamic-workflows</code> 7143 LOC, <code>pandi-loop</code> 1599 LOC (~13–16 concerns
+cada uno)</li>
 </ul>
 <h3>Oportunidades de DRY transversal</h3>
 <p>Estrecha y de alta calidad:</p>
@@ -281,18 +286,23 @@ ejecutado como dynamic workflow read-only.</p>
 <li><code>formatEta()</code> — 2 copias byte-idénticas</li>
 <li>Trío <code>projectHash</code>/<code>writeSidecar</code> atómico/<code>dual-root state dir</code> — variantes near-identical</li>
 </ul>
-<p>Justifican un módulo compartido. El resto que &quot;parece&quot; duplicado (cuerpos de <code>persist</code>/<code>rehydrate</code>/<code>formatStatus</code>, esquemas TypeBox, prompts de Ultracode) son <strong>shapes y paráfrasis deliberadas, no código compartible</strong>. Fusionarlos acoplaría máquinas de estado divergentes con riesgo High.</p>
+<p>Justifican un módulo compartido. El resto que &quot;parece&quot; duplicado (cuerpos de <code>persist</code>/<code>rehydrate</code>/<code>formatStatus</code>,
+esquemas TypeBox, prompts de Ultracode) son <strong>shapes y paráfrasis deliberadas, no código compartible</strong>. Fusionarlos
+acoplaría máquinas de estado divergentes con riesgo High.</p>
 <h3>Duplicación de prompts</h3>
-<p>Hay <strong>un único</strong> duplicado byte-a-byte real: el bloque &quot;Research-backed templates&quot; en 4 sitios. Lo demás ya está centralizado en funciones <code>format*</code> de <code>templates.ts</code>, que es el patrón positivo a replicar.</p>
+<p>Hay <strong>un único</strong> duplicado byte-a-byte real: el bloque &quot;Research-backed templates&quot; en 4 sitios. Lo demás ya está
+centralizado en funciones <code>format*</code> de <code>templates.ts</code>, que es el patrón positivo a replicar.</p>
 <h3>Deuda técnica en tests</h3>
-<p>La más cara y mejor aislada vive en los tests: el bootstrap esbuild se reimplementa ~24 veces (~1000–1400 LOC) con flags y stubs divergentes, lo que también infla las suites grandes (&gt;500 LOC).</p>
+<p>La más cara y mejor aislada vive en los tests: el bootstrap esbuild se reimplementa ~24 veces (~1000–1400 LOC) con flags
+y stubs divergentes, lo que también infla las suites grandes (&gt;500 LOC).</p>
 <h3>Estrategia recomendada</h3>
 <p>Mejor ratio valor/riesgo:</p>
 <ol>
 <li>Empezar por guardianes de prompts (Fase 1, Low, cero cambio de wording)</li>
 <li>Extracciones puras compartidas (<code>formatEta</code>, <code>projectHash</code>)</li>
 <li>Validar el patrón de descomposición en extensiones pequeñas antes de tocar los monolitos</li>
-<li>Dejar <code>runtime.ts</code>/<code>worker-source</code> de <code>pandi-dynamic-workflows</code> y el <code>state.ts</code> compartido de <code>pandi-loop</code> para el final, tras tests de caracterización</li>
+<li>Dejar <code>runtime.ts</code>/<code>worker-source</code> de <code>pandi-dynamic-workflows</code> y el <code>state.ts</code> compartido de <code>pandi-loop</code> para el
+final, tras tests de caracterización</li>
 </ol>
 <h3>Riesgo dominante</h3>
 <p>No es la mecánica de mover archivos sino el <strong>estado mutable compartido:</strong></p>
@@ -369,7 +379,10 @@ ejecutado como dynamic workflow read-only.</p>
 <td>~0</td>
 </tr>
 </tbody></table></div>
-<p>Notas duras del transversal de packaging: <code>extensions/shared/*.ts</code> SÍ casa con el glob <code>files: extensions/*/*.ts</code> y se empaqueta; NodeNext exige specifiers <code>.js</code> (p.ej. <code>../shared/notify.js</code>). <strong>Antes de fusionar cualquier par, diff a nivel de cuerpo</strong>: el analizador de packaging advierte explícitamente que los nombres iguales (notify×7, walk×3, etc.) pueden tener cuerpos divergentes; toda consolidación es condicional a que un diff pruebe equivalencia.</p>
+<p>Notas duras del transversal de packaging: <code>extensions/shared/*.ts</code> SÍ casa con el glob <code>files: extensions/*/*.ts</code> y se
+empaqueta; NodeNext exige specifiers <code>.js</code> (p.ej. <code>../shared/notify.js</code>). <strong>Antes de fusionar cualquier par, diff a
+nivel de cuerpo</strong>: el analizador de packaging advierte explícitamente que los nombres iguales (notify×7, walk×3, etc.)
+pueden tener cuerpos divergentes; toda consolidación es condicional a que un diff pruebe equivalencia.</p>
 <hr>
 <h2 id="3-límites-de-módulos-por-extensión">3. Límites de módulos por extensión</h2>
 <h3>pi-dynamic-workflows (7143 LOC) — monolito, descomponer último y con tests</h3>
@@ -449,7 +462,12 @@ ejecutado como dynamic workflow read-only.</p>
 <td>700</td>
 </tr>
 </tbody></table></div>
-<p>Queda en <code>index.ts</code>: registro del tool <code>dynamic_workflow</code>, comandos <code>/workflow</code>,<code>/workflows</code>,<code>/ultracode</code>,<code>/deep-research</code>,<code>/ultracode-contract</code>,<code>/ultracode-mode</code>, atajo <code>ctrl-alt-w</code>, hooks <code>input/before_agent_start/session_start/session_shutdown</code>, evento <code>ULTRACODE_MODE_EVENT</code>, y claves de status/widget (<code>index.ts:6971-7143</code>). <strong>Más riesgosos (al final, con caracterización):</strong> <code>runtime.ts</code> (singletons <code>activeRuns</code>/<code>appendFileMutexes</code> y la invariante de occurrence-cache) y <code>worker-source.ts</code> (debe quedar byte-compatible).</p>
+<p>Queda en <code>index.ts</code>: registro del tool <code>dynamic_workflow</code>, comandos
+<code>/workflow</code>,<code>/workflows</code>,<code>/ultracode</code>,<code>/deep-research</code>,<code>/ultracode-contract</code>,<code>/ultracode-mode</code>, atajo <code>ctrl-alt-w</code>,
+hooks <code>input/before_agent_start/session_start/session_shutdown</code>, evento <code>ULTRACODE_MODE_EVENT</code>, y claves de
+status/widget (<code>index.ts:6971-7143</code>). <strong>Más riesgosos (al final, con caracterización):</strong> <code>runtime.ts</code> (singletons
+<code>activeRuns</code>/<code>appendFileMutexes</code> y la invariante de occurrence-cache) y <code>worker-source.ts</code> (debe quedar
+byte-compatible).</p>
 <h3>pi-loop (1599 LOC) — monolito, descomponer tras pi-plan/pi-bg</h3>
 <div class="table-scroll"><table>
 <thead>
@@ -521,7 +539,9 @@ ejecutado como dynamic workflow read-only.</p>
 <td>190</td>
 </tr>
 </tbody></table></div>
-<p>Queda en <code>index.ts</code> (~210): tools <code>loop_schedule</code>/<code>loop_stop</code> + promptGuidelines, comando <code>/loop</code> + completions, handlers <code>tool_call/session_start/session_shutdown/agent_end</code>. <strong>Invariante crítica:</strong> todos importan <strong>un solo</strong> <code>state.ts</code>; <code>autopilotTurnInFlight</code> debe ser una celda compartida (no copiada) o se rompen serialización/seguridad.</p>
+<p>Queda en <code>index.ts</code> (~210): tools <code>loop_schedule</code>/<code>loop_stop</code> + promptGuidelines, comando <code>/loop</code> + completions,
+handlers <code>tool_call/session_start/session_shutdown/agent_end</code>. <strong>Invariante crítica:</strong> todos importan <strong>un solo</strong>
+<code>state.ts</code>; <code>autopilotTurnInFlight</code> debe ser una celda compartida (no copiada) o se rompen serialización/seguridad.</p>
 <h3>pi-plan (656 LOC) — descomposición opcional, value-driven</h3>
 <div class="table-scroll"><table>
 <thead>
@@ -557,7 +577,9 @@ ejecutado como dynamic workflow read-only.</p>
 <td>60</td>
 </tr>
 </tbody></table></div>
-<p>Queda en <code>index.ts</code>: única <code>piExtension</code>, comando <code>/plan</code>, tool <code>submit_plan</code>, eventos, y <strong>re-export</strong> de <code>isPlanModeActive</code>/<code>PLAN_MODE_GUARD</code>/<code>PLAN_MODE_GUARD_SYMBOL</code> (<code>index.ts:88-122</code>) que otras extensiones consumen vía <code>globalThis</code>. Mejor ganancia: <code>gate.ts</code> + <code>prompts.ts</code>.</p>
+<p>Queda en <code>index.ts</code>: única <code>piExtension</code>, comando <code>/plan</code>, tool <code>submit_plan</code>, eventos, y <strong>re-export</strong> de
+<code>isPlanModeActive</code>/<code>PLAN_MODE_GUARD</code>/<code>PLAN_MODE_GUARD_SYMBOL</code> (<code>index.ts:88-122</code>) que otras extensiones consumen vía
+<code>globalThis</code>. Mejor ganancia: <code>gate.ts</code> + <code>prompts.ts</code>.</p>
 <h3>pi-bg (637 LOC) — cohesiva; preferir solo <code>storage.ts</code> primero</h3>
 <div class="table-scroll"><table>
 <thead>
@@ -593,7 +615,9 @@ ejecutado como dynamic workflow read-only.</p>
 <td>230</td>
 </tr>
 </tbody></table></div>
-<p>Queda en <code>index.ts</code>: comando <code>/bg</code>, completions, wiring; <strong>re-exportar</strong> helpers que los tests importan (<code>atomicWriteJson</code>,<code>guardStreamErrors</code>,<code>isJobFinished</code>,<code>pipeWithBackpressure</code>,<code>finalizeJob</code>,<code>safeFinalize</code>). Riesgo: <code>Symbol.for</code> plan-mode guard y <code>activeJobs</code>.</p>
+<p>Queda en <code>index.ts</code>: comando <code>/bg</code>, completions, wiring; <strong>re-exportar</strong> helpers que los tests importan
+(<code>atomicWriteJson</code>,<code>guardStreamErrors</code>,<code>isJobFinished</code>,<code>pipeWithBackpressure</code>,<code>finalizeJob</code>,<code>safeFinalize</code>). Riesgo:
+<code>Symbol.for</code> plan-mode guard y <code>activeJobs</code>.</p>
 <h3>Extensiones &quot;verificar, no forzar&quot;</h3>
 <h4>pi-effort (247 LOC)</h4>
 <ul>
@@ -609,7 +633,8 @@ ejecutado como dynamic workflow read-only.</p>
 </ul>
 <h4>pi-mdview (181 LOC)</h4>
 <ul>
-<li>Módulos opcionales: <code>path-resolve.ts</code> (<code>index.ts:23-40</code>, ~20 LOC) y <code>viewer-component.ts</code> (<code>index.ts:42-148</code>, ~110 LOC)</li>
+<li>Módulos opcionales: <code>path-resolve.ts</code> (<code>index.ts:23-40</code>, ~20 LOC) y <code>viewer-component.ts</code> (<code>index.ts:42-148</code>, ~110
+LOC)</li>
 <li>Value-neutral en runtime; solo si se añaden tests de caracterización primero</li>
 </ul>
 <h4>pi-local-memory (31 LOC)</h4>
@@ -660,17 +685,21 @@ ejecutado como dynamic workflow read-only.</p>
 <td><strong>No DRY cruzado</strong>: packaging (profundidad uno, sin carpeta común en <code>files</code> para README) lo desaconseja</td>
 </tr>
 </tbody></table></div>
-<p>Regla general: el único trabajo de prompts en Fase 1 es <strong>añadir guardianes</strong> (no reescribir wording). Solo si más adelante se quiere reducir LOC, generar las secciones markdown desde <code>formatWorkflowPatternCatalog()</code> en un paso de build, dejando los <code>.md</code> como artifacts derivados.</p>
+<p>Regla general: el único trabajo de prompts en Fase 1 es <strong>añadir guardianes</strong> (no reescribir wording). Solo si más
+adelante se quiere reducir LOC, generar las secciones markdown desde <code>formatWorkflowPatternCatalog()</code> en un paso de
+build, dejando los <code>.md</code> como artifacts derivados.</p>
 <hr>
 <h2 id="5-plan-de-modularización-de-tests">5. Plan de modularización de tests</h2>
-<p><strong>Estado verificado:</strong> <strong>no existe</strong> harness compartido; cada una de las 24 suites reimplementa el bootstrap esbuild→tempdir→<code>pathToFileURL</code> con variantes incompatibles:</p>
+<p><strong>Estado verificado:</strong> <strong>no existe</strong> harness compartido; cada una de las 24 suites reimplementa el bootstrap
+esbuild→tempdir→<code>pathToFileURL</code> con variantes incompatibles:</p>
 <ul>
 <li><code>npx --no-install esbuild</code>: auto-compact.test.mjs:39, local-memory.test.mjs:39</li>
 <li><code>npx esbuild</code> plano: effort, mdview, bg, plan</li>
 <li><code>npx --yes esbuild</code> con 2 alias: goal-verifier.test.mjs:94-100</li>
 <li><code>npx --yes esbuild</code> con 5 alias: composition-rank.test.mjs:79-87</li>
 </ul>
-<p><strong>Harness/fixtures compartidos</strong> (todos en <code>.mjs</code> bajo <code>scripts/test/harness/</code>, <strong>fuera</strong> de <code>extensions/</code> y de <code>suiteDirs</code>):</p>
+<p><strong>Harness/fixtures compartidos</strong> (todos en <code>.mjs</code> bajo <code>scripts/test/harness/</code>, <strong>fuera</strong> de <code>extensions/</code> y de
+<code>suiteDirs</code>):</p>
 <p><strong><code>build-extension.mjs</code></strong> → <code>buildExtension(packageDir,{stubs})</code></p>
 <ul>
 <li>Parametrizado por set de alias y por flag <code>--yes</code>/<code>--no-install</code> (no fusionar comportamientos)</li>
@@ -679,12 +708,14 @@ ejecutado como dynamic workflow read-only.</p>
 <p><strong><code>stubs.mjs</code></strong> → factorías nombradas</p>
 <ul>
 <li><code>typeboxStub</code>/<code>typeboxValueStub</code>/<code>sdkStub</code>/<code>aiStub</code>/<code>tuiStub</code></li>
-<li>Conservar variante typebox <strong>con/sin <code>Integer</code></strong> (goal omite en <code>goal-verifier.test.mjs:78</code>, dynamic-workflows lo incluye en <code>composition-rank.test.mjs:54</code>)</li>
+<li>Conservar variante typebox <strong>con/sin <code>Integer</code></strong> (goal omite en <code>goal-verifier.test.mjs:78</code>, dynamic-workflows lo
+incluye en <code>composition-rank.test.mjs:54</code>)</li>
 </ul>
 <p><strong><code>fake-pi.mjs</code></strong> → <code>makePi()</code> base + <code>makeCtx(overrides)</code></p>
 <ul>
 <li>Las suites mantienen sus diferencias como overrides</li>
-<li>Ejemplos: <code>confirmResult</code> plan-gate:123, <code>trusted</code> bg-jobs:89, <code>isIdle/usage</code> loop-caps-resume:175, <code>rows/width</code> mdview:92</li>
+<li>Ejemplos: <code>confirmResult</code> plan-gate:123, <code>trusted</code> bg-jobs:89, <code>isIdle/usage</code> loop-caps-resume:175, <code>rows/width</code>
+mdview:92</li>
 </ul>
 <p><strong>División de suites grandes (&gt;500 LOC)</strong> — <strong>solo después</strong> de extraer el harness (dividir antes multiplicaría copias):</p>
 <ul>
@@ -697,10 +728,12 @@ ejecutado como dynamic workflow read-only.</p>
 <li>dashboard-usability-fixes.test.mjs: 536 LOC</li>
 <li>loop-behavior.test.mjs: 535 LOC</li>
 </ul>
-<p>Partir por concern observable (p.ej. goal-verifier → veredicto / caps / persistencia), <strong>moviendo escenarios completos sin reescribir aserciones</strong>.</p>
+<p>Partir por concern observable (p.ej. goal-verifier → veredicto / caps / persistencia), <strong>moviendo escenarios completos
+sin reescribir aserciones</strong>.</p>
 <p><strong>Sincronización con <code>scripts/test/run-all.mjs</code>:</strong></p>
 <ul>
-<li>Mantener el guard existente (<code>run-all.mjs:96-101</code> aborta con exit 1 si una <code>*.test.mjs</code> en <code>suiteDirs</code> no está en <code>suites</code> ni en <code>ignoredDraftSuites</code>).</li>
+<li>Mantener el guard existente (<code>run-all.mjs:96-101</code> aborta con exit 1 si una <code>*.test.mjs</code> en <code>suiteDirs</code> no está en
+<code>suites</code> ni en <code>ignoredDraftSuites</code>).</li>
 <li>El harness debe vivir fuera de <code>suiteDirs</code> para que <code>readdirSync(...).endsWith(&#39;.test.mjs&#39;)</code> no lo confunda con suite.</li>
 <li>Al partir: añadir cada archivo nuevo a <code>suites</code> (<code>run-all.mjs:36-59</code>) <strong>en el mismo commit</strong>.</li>
 <li>Usar <code>ignoredDraftSuites</code> (<code>:65-69</code>) solo para drafts con razón.</li>
@@ -709,23 +742,32 @@ ejecutado como dynamic workflow read-only.</p>
 <h2 id="6-restricciones-de-packaging--typecheck">6. Restricciones de packaging / typecheck</h2>
 <h3>DO</h3>
 <ul>
-<li>Colocar todo módulo nuevo a <strong>profundidad uno:</strong> <code>extensions/&lt;dir&gt;/&lt;name&gt;.ts</code> o <code>extensions/shared/&lt;name&gt;.ts</code> (ambos casan con <code>files: extensions/*/*.ts</code>, <code>package.json:14-15</code>).</li>
-<li>Importar con specifier <code>.js</code> explícito bajo NodeNext (<code>./mod.js</code>, <code>../shared/mod.js</code>), como <code>index.ts:45</code> → <code>./templates.js</code>. Exports nombrados + <code>export type</code> (patrón de <code>templates.ts</code>, isolatedModules-safe).</li>
-<li>Garantizar que cada sibling sea alcanzado por al menos un <code>index.ts</code> listado (typecheck root = <code>extensions/*/index.ts</code>, <code>package.json:21</code>), o nombrarlo <code>extensions/shared/index.ts</code> para ser root directo.</li>
+<li>Colocar todo módulo nuevo a <strong>profundidad uno:</strong> <code>extensions/&lt;dir&gt;/&lt;name&gt;.ts</code> o <code>extensions/shared/&lt;name&gt;.ts</code> (ambos
+casan con <code>files: extensions/*/*.ts</code>, <code>package.json:14-15</code>).</li>
+<li>Importar con specifier <code>.js</code> explícito bajo NodeNext (<code>./mod.js</code>, <code>../shared/mod.js</code>), como <code>index.ts:45</code> →
+<code>./templates.js</code>. Exports nombrados + <code>export type</code> (patrón de <code>templates.ts</code>, isolatedModules-safe).</li>
+<li>Garantizar que cada sibling sea alcanzado por al menos un <code>index.ts</code> listado (typecheck root =
+<code>extensions/*/index.ts</code>, <code>package.json:21</code>), o nombrarlo <code>extensions/shared/index.ts</code> para ser root directo.</li>
 <li>Re-exportar desde <code>index.ts</code> todo símbolo que tests/otras extensiones ya importan (evita cambio de superficie).</li>
-<li>Verificar con <code>npm pack --dry-run</code> cualquier layout cross-dir (<code>../shared/*.js</code> no está probado hoy en el repo; solo existe <code>./templates.js</code> intra-dir).</li>
+<li>Verificar con <code>npm pack --dry-run</code> cualquier layout cross-dir (<code>../shared/*.js</code> no está probado hoy en el repo; solo
+existe <code>./templates.js</code> intra-dir).</li>
 </ul>
 <h3>DON&#39;T</h3>
 <ul>
-<li>Crear <code>extensions/&lt;dir&gt;/&lt;subdir&gt;/&lt;name&gt;.ts</code> (profundidad dos) — <strong>typechea y pasa tests locales pero se cae del tarball</strong> → module-not-found tras publish (<strong>Riesgo más alto de packaging</strong>).</li>
-<li>Dejar un <code>.ts</code> que no sea <code>index.ts</code> y que nadie importe — <strong>se empaqueta pero NO se typechea</strong> (módulo huérfano; errores de tipo invisibles hasta la próxima edición) (Riesgo Medium).</li>
+<li>Crear <code>extensions/&lt;dir&gt;/&lt;subdir&gt;/&lt;name&gt;.ts</code> (profundidad dos) — <strong>typechea y pasa tests locales pero se cae del
+tarball</strong> → module-not-found tras publish (<strong>Riesgo más alto de packaging</strong>).</li>
+<li>Dejar un <code>.ts</code> que no sea <code>index.ts</code> y que nadie importe — <strong>se empaqueta pero NO se typechea</strong> (módulo huérfano;
+errores de tipo invisibles hasta la próxima edición) (Riesgo Medium).</li>
 <li>Añadir <code>extensions/shared/index.ts</code> a <code>pi.extensions</code> (<code>package.json:29-37</code>): es librería, no extensión.</li>
-<li>Renombrar/relocalizar contratos cross-extension: <code>ULTRACODE_MODE_EVENT</code>, tool <code>dynamic_workflow</code>, <code>PLAN_MODE_GUARD_SYMBOL</code>.</li>
+<li>Renombrar/relocalizar contratos cross-extension: <code>ULTRACODE_MODE_EVENT</code>, tool <code>dynamic_workflow</code>,
+<code>PLAN_MODE_GUARD_SYMBOL</code>.</li>
 </ul>
-<p><strong>Prueba positiva en repo:</strong> <code>templates.ts</code> (1325 LOC) es la evidencia empírica de sibling depth-one empaquetado + typecheck transitivo + import <code>.js</code> (<code>index.ts:33-45</code>). Es el molde de referencia.</p>
+<p><strong>Prueba positiva en repo:</strong> <code>templates.ts</code> (1325 LOC) es la evidencia empírica de sibling depth-one empaquetado +
+typecheck transitivo + import <code>.js</code> (<code>index.ts:33-45</code>). Es el molde de referencia.</p>
 <hr>
 <h2 id="7-roadmap-incremental-priorizado">7. Roadmap incremental priorizado</h2>
-<p>Cada ronda = 1 Conventional Commit atómico, todo estructural (tidy-first), <code>npm test</code> verde antes/después. Empezar Low/alto-payoff.</p>
+<p>Cada ronda = 1 Conventional Commit atómico, todo estructural (tidy-first), <code>npm test</code> verde antes/después. Empezar
+Low/alto-payoff.</p>
 <h3>Fase 1 — Guardianes de prompts (Low, cero cambio de wording)</h3>
 <div class="table-scroll"><table>
 <thead>
@@ -809,7 +851,9 @@ ejecutado como dynamic workflow read-only.</p>
 </tr>
 </tbody></table></div>
 <blockquote>
-<p>Excluido deliberadamente de Fase 2: plegar <code>bg.appendEvent</code> al <code>appendJsonLine</code> con mutex (cambia concurrencia/error-handling — <code>bg-jobs.test.mjs</code>), folding de effort/mdview en <code>notify</code> (tipo de ctx distinto), cuerpos de C4 y esquemas C5.</p>
+<p>Excluido deliberadamente de Fase 2: plegar <code>bg.appendEvent</code> al <code>appendJsonLine</code> con mutex (cambia
+concurrencia/error-handling — <code>bg-jobs.test.mjs</code>), folding de effort/mdview en <code>notify</code> (tipo de ctx distinto),
+cuerpos de C4 y esquemas C5.</p>
 </blockquote>
 <h3>Fase 3 — Descomposición de monolitos (validar patrón en pequeñas → grandes)</h3>
 <div class="table-scroll"><table>
@@ -953,35 +997,32 @@ ejecutado como dynamic workflow read-only.</p>
 </tr>
 </tbody></table></div>
 <blockquote>
-<p>La síntesis se truncó tras la ronda 3.16 (la 3.17 <code>runtime.ts</code> quedó cortada). El roadmap completo está en <code>roadmap.json</code> del run; la Fase 4 (tests) se describe en §5.</p>
+<p>La síntesis se truncó tras la ronda 3.16 (la 3.17 <code>runtime.ts</code> quedó cortada). El roadmap completo está en
+<code>roadmap.json</code> del run; la Fase 4 (tests) se describe en §5.</p>
 </blockquote>
 <hr>
 <h2 id="8-plan-de-verificación-y-métricas">8. Plan de verificación y métricas</h2>
 <ul>
-<li><strong>Baseline:</strong> <code>npm test</code> verde antes de tocar nada (typecheck + 23 suites de integración,
-~20s); registrar LOC por archivo, #copias de funciones (<code>notify</code>×7, <code>formatEta</code>×2, etc.) y
-#copias de prompts (ver <code>scout-evidence.md</code>).</li>
-<li><strong>Por ronda:</strong> re-correr la suite afectada y luego <code>npm test</code> completo; exigir verde antes
-de commitear. Si una ronda no se mantiene verde con un paso pequeño, revertir/bisectar y
-re-slice.</li>
-<li><strong>Move-only / byte-identical:</strong> para extracciones puras, confirmar con <code>diff</code> que el código
-movido es idéntico (sólo <code>export</code>/import añadidos), como se hizo en 3.5.</li>
-<li><strong>Typecheck real de módulos nuevos:</strong> confirmar que cada sibling es alcanzado por un
-<code>index.ts</code> (tsc sólo globa <code>extensions/*/index.ts</code>); marcar módulos huérfanos.</li>
-<li><strong>Packaging:</strong> <code>npm pack --dry-run</code> para confirmar que cada módulo nuevo casa con
-<code>extensions/*/*.ts</code> y nada escapa a profundidad uno; <code>pi.extensions</code> sin cambios.</li>
-<li><strong>Métricas de mejora:</strong> LOC por archivo y #clusters de código/prompt eliminados
-(grep/jscpd) antes/después.</li>
+<li><strong>Baseline:</strong> <code>npm test</code> verde antes de tocar nada (typecheck + 23 suites de integración, ~20s); registrar LOC por
+archivo, #copias de funciones (<code>notify</code>×7, <code>formatEta</code>×2, etc.) y #copias de prompts (ver <code>scout-evidence.md</code>).</li>
+<li><strong>Por ronda:</strong> re-correr la suite afectada y luego <code>npm test</code> completo; exigir verde antes de commitear. Si una ronda
+no se mantiene verde con un paso pequeño, revertir/bisectar y re-slice.</li>
+<li><strong>Move-only / byte-identical:</strong> para extracciones puras, confirmar con <code>diff</code> que el código movido es idéntico (sólo
+<code>export</code>/import añadidos), como se hizo en 3.5.</li>
+<li><strong>Typecheck real de módulos nuevos:</strong> confirmar que cada sibling es alcanzado por un <code>index.ts</code> (tsc sólo globa
+<code>extensions/*/index.ts</code>); marcar módulos huérfanos.</li>
+<li><strong>Packaging:</strong> <code>npm pack --dry-run</code> para confirmar que cada módulo nuevo casa con <code>extensions/*/*.ts</code> y nada escapa a
+profundidad uno; <code>pi.extensions</code> sin cambios.</li>
+<li><strong>Métricas de mejora:</strong> LOC por archivo y #clusters de código/prompt eliminados (grep/jscpd) antes/después.</li>
 </ul>
 <h2 id="9-notas-y-limitaciones">9. Notas y limitaciones</h2>
 <ul>
 <li>Analizadores: 8/9 por extensión válidos (<code>pandi-goal</code> falló schema) + 4/4 transversales.</li>
 <li>La síntesis se truncó al final de §7; <code>roadmap.json</code> tiene el roadmap completo (fases 1-3).</li>
-<li>Fase 4 (modularización de tests: harness/fixtures esbuild compartidos, ~1000-1400 LOC dup)
-está descrita en §5 pero aún NO ejecutada — es el mayor payoff pendiente y debe ir DESPUÉS
-del harness compartido para no multiplicar copias.</li>
-<li>Fase 1 (guardianes de prompts: el único duplicado byte-a-byte real es el bloque
-&quot;Research-backed templates&quot; en templates.ts + 3 docs) aún NO ejecutada.</li>
+<li>Fase 4 (modularización de tests: harness/fixtures esbuild compartidos, ~1000-1400 LOC dup) está descrita en §5 pero
+aún NO ejecutada — es el mayor payoff pendiente y debe ir DESPUÉS del harness compartido para no multiplicar copias.</li>
+<li>Fase 1 (guardianes de prompts: el único duplicado byte-a-byte real es el bloque &quot;Research-backed templates&quot; en
+templates.ts + 3 docs) aún NO ejecutada.</li>
 </ul>
 	</main>
 	<footer>Generado con el skill pandi-artifact-style · paleta: panda-syntax dark/light</footer>

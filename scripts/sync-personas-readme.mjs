@@ -16,6 +16,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { format, resolveConfig } from "prettier";
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CONVERTER = path.join(REPO, "extensions", "pandi-docs", "scripts", "markdown-to-html.mjs");
@@ -46,6 +47,23 @@ function splitSentences(text) {
 // "Fear check — name it." -> "**Fear check** — name it." (solo presentación).
 const boldLead = (item) => item.replace(/^(.{2,80}?) — /, "**$1** — ");
 
+function wrapMarkdownLine(text, continuationPrefix = "", maximum = 120) {
+	const words = text.trim().split(/\s+/);
+	const lines = [];
+	let current = "";
+	for (const word of words) {
+		const candidate = current ? `${current} ${word}` : word;
+		if (!current || candidate.length <= maximum) {
+			current = candidate;
+		} else {
+			lines.push(current);
+			current = `${continuationPrefix}${word}`;
+		}
+	}
+	if (current) lines.push(current);
+	return lines.join("\n");
+}
+
 // Renderiza un string de prompt como Markdown legible-pero-verbatim: las checklists "(1) … (2) …"
 // se vuelven listas ordenadas (la prosa sobrante después de un item vuelve a párrafos); todo lo
 // demás se vuelve párrafos por oración. Los markers deben ascender desde 1 para contar como checklist,
@@ -74,7 +92,10 @@ export function renderPromptMarkdown(text) {
 	let md = "";
 	for (let i = 0; i < blocks.length; i++) {
 		const b = blocks[i];
-		const rendered = b.type === "li" ? `${b.n}. ${boldLead(b.text)}` : b.text;
+		const rendered = wrapMarkdownLine(
+			b.type === "li" ? `${b.n}. ${boldLead(b.text)}` : b.text,
+			b.type === "li" ? "   " : "",
+		);
 		if (i === 0) md = rendered;
 		else md += (blocks[i - 1].type === "li" && b.type === "li" ? "\n" : "\n\n") + rendered;
 	}
@@ -111,7 +132,9 @@ export function renderPersonasReadme(personas) {
 		lines.push(`## ${name}`, "");
 		for (const [key, value] of Object.entries(data)) {
 			if (PROMPT_KEYS.includes(key)) continue;
-			lines.push(`- **${key}**: \`${JSON.stringify(value)}\``);
+			const inline = `- **${key}**: \`${JSON.stringify(value)}\``;
+			if (inline.length <= 120) lines.push(inline);
+			else lines.push(`- **${key}**:`, "", "  ```json", `  ${JSON.stringify(value)}`, "  ```");
 		}
 		for (const key of PROMPT_KEYS) {
 			if (typeof data[key] !== "string") continue;
@@ -120,6 +143,11 @@ export function renderPersonasReadme(personas) {
 		lines.push("");
 	}
 	return lines.join("\n");
+}
+
+export async function formatPersonasReadme(personas) {
+	const config = await resolveConfig(path.join(REPO, "README.md"));
+	return format(renderPersonasReadme(personas), { ...config, parser: "markdown" });
 }
 
 // Carga .pi/personas/*.json como [{ name, data }], ordenado por nombre de archivo para mantener determinismo.
@@ -136,9 +164,9 @@ export function loadPersonas(dir) {
 }
 
 // Sincroniza README.md + README.html bajo <root>/.pi/personas/. check:true nunca escribe.
-export function syncPersonasReadme(root, { check = false } = {}) {
+export async function syncPersonasReadme(root, { check = false } = {}) {
 	const dir = path.join(root, ".pi", "personas");
-	const md = renderPersonasReadme(loadPersonas(dir));
+	const md = await formatPersonasReadme(loadPersonas(dir));
 	// El header de pandi quiere el H1 como primera línea no vacía; los comentarios GENERATED
 	// solo importan en la fuente Markdown, así que se eliminan antes de convertir.
 	const html = renderMarkdownToHtml(md.replace(/^(?:<!--[^\n]*-->\n)+/, ""), { kicker: ".pi/personas" });
@@ -161,7 +189,7 @@ export function syncPersonasReadme(root, { check = false } = {}) {
 const isMain = process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url;
 if (isMain) {
 	const check = process.argv.includes("--check");
-	const { changed } = syncPersonasReadme(REPO, { check });
+	const { changed } = await syncPersonasReadme(REPO, { check });
 	if (check) {
 		if (changed) {
 			console.error("[sync-personas-readme] ✗ .pi/personas/README.md drifted from the JSON sources");

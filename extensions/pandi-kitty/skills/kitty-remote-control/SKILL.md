@@ -1,31 +1,25 @@
 ---
 name: kitty-remote-control
-description: >-
-  Controla la terminal kitty desde el shell mediante su protocolo de
-  remote-control (`kitty @ ...`): abre tabs, ventanas y splits nuevos, y
-  consulta/administra la instancia de kitty en ejecución. Activar cuando la
-  persona usuaria pida abrir una tab o ventana nueva de kitty, dividir paneles
-  (vertical/horizontal), o scriptear kitty desde una sesión en curso. Si la
-  extensión pandi-kitty está instalada, preferí su comando `/kitty` o la tool
-  `kitty_remote` antes que shell ad hoc.
+description:
+  Controlá kitty desde el shell con remote control (`kitty @`) para abrir tabs, ventanas o splits, y consultar o
+  administrar la instancia activa. Usá cuando pidan operar o automatizar kitty desde una sesión en curso. Si
+  `pandi-kitty` está instalada, preferí `/kitty` o `kitty_remote`.
 ---
 
 # Control remoto de kitty
 
 ## En 30 segundos
 
-`kitty @` controla la instancia kitty en ejecución (tabs, ventanas, splits).
-Requiere `allow_remote_control yes` en `kitty.conf`. Si `pandi-kitty` está
-instalada, preferí `/kitty` o `kitty_remote`.
+`kitty @` controla la instancia kitty en ejecución (tabs, ventanas, splits). Requiere `allow_remote_control yes` en
+`kitty.conf`. Si `pandi-kitty` está instalada, preferí `/kitty` o `kitty_remote`.
 
 ```bash
 kitty @ launch --type=tab
 ```
 
-kitty trae un protocolo de remote-control manejado por el subcomando
-`kitty @`. Habla con la instancia de kitty *actualmente en ejecución* a
-través de un socket de control, así que solo funciona desde dentro de una
-sesión kitty que tenga el remote control habilitado. 🐼
+kitty trae un protocolo de remote-control manejado por el subcomando `kitty @`. Habla con la instancia de kitty
+_actualmente en ejecución_ a través de un socket de control, así que solo funciona desde dentro de una sesión kitty que
+tenga el remote control habilitado. 🐼
 
 ## Prerequisito
 
@@ -35,8 +29,8 @@ El remote control tiene que estar permitido. Revisá/habilitalo en `kitty.conf`:
 allow_remote_control yes
 ```
 
-O iniciá kitty con `-o allow_remote_control=yes`. Sin esto, todo comando
-`kitty @ ...` falla con un error de socket/permisos.
+O iniciá kitty con `-o allow_remote_control=yes`. Sin esto, todo comando `kitty @ ...` falla con un error de
+socket/permisos.
 
 ## Comandos principales
 
@@ -60,32 +54,26 @@ kitty @ launch --type=window --location=hsplit
 kitty @ goto-layout splits
 ```
 
-Cada llamada a `launch` imprime el id de la tab/ventana nueva si tiene éxito
-(p. ej. `2`), que se puede usar con otros subcomandos de `kitty @`
-(`focus-window`, `close-window`, `send-text`, etc.) para apuntarle con
-precisión.
+Cada llamada a `launch` imprime el id de la tab/ventana nueva si tiene éxito (p. ej. `2`), que se puede usar con otros
+subcomandos de `kitty @` (`focus-window`, `close-window`, `send-text`, etc.) para apuntarle con precisión.
 
 ## Trampas
 
-- `--location=vsplit`/`hsplit` solo tiene efecto visible bajo el layout
-  `splits`. Bajo `tall`, `fat`, `grid`, etc. la ventana nueva igual se abre,
-  pero la dirección del split la decide ese layout en su lugar.
-- Todos los comandos `kitty @` son no-ops desde fuera de kitty (por ejemplo,
-  desde un script desacoplado o una terminal distinta) — necesitan que el
-  socket de un proceso kitty vivo sea alcanzable, lo cual normalmente
-  significa correr desde un shell dentro de esa instancia kitty.
-- `--type=window` sin `--location` simplemente usa lo que el layout actual
-  haga con una ventana nueva (puede no verse como un "split" en absoluto).
+- `--location=vsplit`/`hsplit` solo tiene efecto visible bajo el layout `splits`. Bajo `tall`, `fat`, `grid`, etc. la
+  ventana nueva igual se abre, pero la dirección del split la decide ese layout en su lugar.
+- Fuera de una instancia kitty alcanzable (por ejemplo, desde un script desacoplado o una terminal distinta), los
+  comandos `kitty @` fallan porque no encuentran el socket de control. Corrélos desde un shell dentro de la instancia o
+  configurá explícitamente un socket remoto alcanzable.
+- `--type=window` sin `--location` simplemente usa lo que el layout actual haga con una ventana nueva (puede no verse
+  como un "split" en absoluto).
 
 ## Integración en Pi
 
-En este repo, `extensions/pandi-kitty/` envuelve estos comandos como paquete
-standalone:
+En este repo, `extensions/pandi-kitty/` envuelve estos comandos como paquete standalone:
 
-- comando `/kitty` para la persona usuaria (`tab`, `window`, `vsplit`, `hsplit`,
-  `os-window`, `layout`, `close`, `focus`)
-- tool `kitty_remote` para el modelo, con acciones `launch`, `goto-layout`,
-  `close-window` y `focus-window`
+- comando `/kitty` para la persona usuaria (`tab`, `window`, `vsplit`, `hsplit`, `os-window`, `layout`, `close`,
+  `focus`)
+- tool `kitty_remote` para el modelo, con acciones `launch`, `goto-layout`, `close-window` y `focus-window`
 
-Usá la extensión cuando esté disponible; reservá `kitty @ ...` directo para
-casos de diagnóstico o cuando la extensión no esté instalada.
+Usá la extensión cuando esté disponible; reservá `kitty @ ...` directo para casos de diagnóstico o cuando la extensión
+no esté instalada.

@@ -153,7 +153,11 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	<header>
 		<div class="kicker">pandi-extensions</div>
 		<h1>pandi-extensions</h1>
-		<p class="lede"><strong>Un libro de patrones agénticos que se ejecuta.</strong> Este repo destila los patrones multi-agente de la literatura (Tree of Thoughts, Reflexion, orchestrator-workers…) en <strong>25 scaffolds corribles de JavaScript</strong>. <strong>Una suite de 28 extensiones más un tema para <a href="https://www.npmjs.com/package/@earendil-works/pi-coding-agent">Pi</a></strong> — el CLI de coding agent <code>@earendil-works/pi-coding-agent</code> — convierte a Pi en el laboratorio donde correrlos: graficarlos antes, inspeccionar journal y artifacts después, y verificar con evidencia en vez de fe.</p>
+		<p class="lede"><strong>Un libro de patrones agénticos que se ejecuta.</strong> Este repo destila los patrones multi-agente de la literatura (Tree of
+Thoughts, Reflexion, orchestrator-workers…) en <strong>25 scaffolds corribles de JavaScript</strong>. <strong>Una suite de 28 extensiones
+más un tema para <a href="https://www.npmjs.com/package/@earendil-works/pi-coding-agent">Pi</a></strong> — el CLI de coding agent
+<code>@earendil-works/pi-coding-agent</code> — convierte a Pi en el laboratorio donde correrlos: graficarlos antes, inspeccionar
+journal y artifacts después, y verificar con evidencia en vez de fe.</p>
 	</header>
 	<main>
 <nav class="toc">
@@ -171,13 +175,23 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<li><a href="#licencia">Licencia</a></li>
 	</ol>
 </nav>
-<p>El corazón es <strong>Dynamic Workflows / Ultracode</strong>: scripts de JavaScript confiables que Pi ejecuta para orquestar subagentes en paralelo, persistir artifacts fuera del contexto del chat y devolver una síntesis coordinada. Alrededor, cada extensión operacionaliza una disciplina de ingeniería — <code>/plan</code> ≈ pensar antes de codear, <code>/goal</code> ≈ ejecución con criterios verificables, <code>/loop</code> ≈ cambios quirúrgicos con safeguards — además de memoria local, auto-compactación de contexto, diagnósticos de TypeScript, git worktrees, sandboxes Linux y varios aliases/shortcuts de UX. Son piezas independientes: podés instalarlas una por una o todas juntas, según lo que necesite tu proyecto. 🐼</p>
+<p>El corazón es <strong>Dynamic Workflows / Ultracode</strong>: scripts de JavaScript confiables que Pi ejecuta para orquestar
+subagentes en paralelo, persistir artifacts fuera del contexto del chat y devolver una síntesis coordinada. Alrededor,
+cada extensión operacionaliza una disciplina de ingeniería — <code>/plan</code> ≈ pensar antes de codear, <code>/goal</code> ≈ ejecución con
+criterios verificables, <code>/loop</code> ≈ cambios quirúrgicos con safeguards — además de memoria local, auto-compactación de
+contexto, diagnósticos de TypeScript, git worktrees, sandboxes Linux y varios aliases/shortcuts de UX. Son piezas
+independientes: podés instalarlas una por una o todas juntas, según lo que necesite tu proyecto. 🐼</p>
 <div align="center">
   <img src="../assets/pandi-avatar-pixel.png" alt="Avatar pixel-art de Pandi con brillo magenta y bambú" width="220">
-  <img src="../assets/pandi-avatar-pixel-meditating.png" alt="Avatar pixel-art de Pandi meditando con brote de bambú" width="220">
+  <img
+    src="../assets/pandi-avatar-pixel-meditating.png"
+    alt="Avatar pixel-art de Pandi meditando con brote de bambú"
+    width="220"
+  >
 </div><ul>
 <li><strong>Licencia:</strong> MIT · <strong>Repo:</strong> <a href="https://github.com/andrestobelem/pandi-extensions">https://github.com/andrestobelem/pandi-extensions</a></li>
-<li><strong>Requisitos mínimos:</strong> Node.js ≥ 22.19.0 + el CLI de Pi + git. Requisitos completos y capacidades opcionales: <a href="setup.html"><code>docs/setup.md</code></a>.</li>
+<li><strong>Requisitos mínimos:</strong> Node.js ≥ 22.19.0 + el CLI de Pi + git. Requisitos completos y capacidades opcionales:
+<a href="setup.html"><code>docs/setup.md</code></a>.</li>
 </ul>
 <h2 id="inicio-rápido">Inicio rápido</h2>
 <pre><code class="hljs language-bash"><span class="hljs-comment"># 0. Node &gt;= 22.19.0 (se recomienda nvm; el repo trae .nvmrc)</span>
@@ -204,9 +218,11 @@ pi install ./                       <span class="hljs-comment"># local al proyec
 <span class="hljs-comment">#   dentro de Pi:  /trust  y luego  /reload</span>
 <span class="hljs-comment">#   /effort status      (router de ultracode)</span>
 <span class="hljs-comment">#   /workflows          (dashboard TUI)  o  /workflow patterns</span></code></pre>
-<p>Los extras opcionales (web search para subagentes, docs de Context7, gráficos PNG, sandboxes Apple <code>container</code> y Podman, micro-VMs de Gondolin) y la skill externa <code>karpathy-guidelines</code> están cubiertos en <a href="setup.html"><code>docs/setup.md</code></a>.</p>
+<p>Los extras opcionales (web search para subagentes, docs de Context7, gráficos PNG, sandboxes Apple <code>container</code> y Podman,
+micro-VMs de Gondolin) y la skill externa <code>karpathy-guidelines</code> están cubiertos en <a href="setup.html"><code>docs/setup.md</code></a>.</p>
 <h2 id="cómo-leer-este-repo">Cómo leer este repo</h2>
-<p>Este repo funciona como <strong>paquete instalable</strong> y como <strong>libro práctico</strong>. Elegí la ruta más chica que te lleve al próximo experimento verificable:</p>
+<p>Este repo funciona como <strong>paquete instalable</strong> y como <strong>libro práctico</strong>. Elegí la ruta más chica que te lleve al
+próximo experimento verificable:</p>
 <div class="table-scroll"><table>
 <thead>
 <tr>
@@ -261,9 +277,12 @@ pi install ./                       <span class="hljs-comment"># local al proyec
 <td>mirror generado de este README + <code>docs/**/*.md</code></td>
 </tr>
 </tbody></table></div>
-<p>Regla simple: <strong>Markdown es la fuente; HTML es el artifact generado</strong>. Editá <code>README.md</code> o <code>docs/**/*.md</code>, corré <code>npm run sync:docs:html</code>, y commiteá ambos si el mirror cambió.</p>
+<p>Regla simple: <strong>Markdown es la fuente; HTML es el artifact generado</strong>. Editá <code>README.md</code> o <code>docs/**/*.md</code>, corré
+<code>npm run sync:docs:html</code>, y commiteá ambos si el mirror cambió.</p>
 <h2 id="el-concepto-patrones-que-se-corren-no-que-se-leen">El concepto: patrones que se corren, no que se leen</h2>
-<p>Los patrones de diseño agénticos suelen vivir en papers y posts. Acá cada uno tiene una <strong>implementación de referencia corta y legible</strong> que podés leer, correr y auditar (<code>/workflow patterns</code> muestra el catálogo; <a href="scaffolds/index.html"><code>docs/scaffolds/</code></a> son las páginas del libro):</p>
+<p>Los patrones de diseño agénticos suelen vivir en papers y posts. Acá cada uno tiene una <strong>implementación de referencia
+corta y legible</strong> que podés leer, correr y auditar (<code>/workflow patterns</code> muestra el catálogo;
+<a href="scaffolds/index.html"><code>docs/scaffolds/</code></a> son las páginas del libro):</p>
 <div class="table-scroll"><table>
 <thead>
 <tr>
@@ -291,7 +310,8 @@ pi install ./                       <span class="hljs-comment"># local al proyec
 <li><strong>artifacts</strong> persistidos en <code>.pi/workflows/runs/&lt;run-id&gt;/</code>,</li>
 <li>un <strong>reporte HTML</strong> autocontenido por corrida (<code>dynamic_workflow action=report</code>).</li>
 </ul>
-<p>Y la progresión es deliberada — nadie empieza orquestando 16 agentes; el router de Ultracode elige el camino más liviano que pueda verificar la respuesta:</p>
+<p>Y la progresión es deliberada — nadie empieza orquestando 16 agentes; el router de Ultracode elige el camino más liviano
+que pueda verificar la respuesta:</p>
 <pre class="mermaid">flowchart LR
     A[prompt simple] --&gt; B[scout inline]
     B --&gt; C{¿encaja un scaffold?}
@@ -299,7 +319,10 @@ pi install ./                       <span class="hljs-comment"># local al proyec
     C -- no --&gt; E[workflow-factory]
     E --&gt; F[draft propio en drafts/]</pre>
 <h2 id="dynamic-workflows-en-60-segundos">Dynamic Workflows en 60 segundos</h2>
-<p>Un Dynamic Workflow — el runtime del libro — es un <strong>script de JavaScript trusted</strong> que Pi ejecuta para orquestar trabajo grande con subagentes. El modelo mental es <strong>MapReduce con agentes</strong>: scoutear barato la lista real de trabajo, abrir ramas independientes con contratos de evidencia, persistir artifacts fuera del chat y dejar que una síntesis final haga deduplicación y priorización.</p>
+<p>Un Dynamic Workflow — el runtime del libro — es un <strong>script de JavaScript trusted</strong> que Pi ejecuta para orquestar
+trabajo grande con subagentes. El modelo mental es <strong>MapReduce con agentes</strong>: scoutear barato la lista real de trabajo,
+abrir ramas independientes con contratos de evidencia, persistir artifacts fuera del chat y dejar que una síntesis final
+haga deduplicación y priorización.</p>
 <pre><code class="hljs language-js"><span class="hljs-keyword">export</span> <span class="hljs-keyword">default</span> <span class="hljs-keyword">async</span> <span class="hljs-keyword">function</span> <span class="hljs-title function_">main</span>(<span class="hljs-params"></span>) {
   <span class="hljs-keyword">const</span> items = [
     { <span class="hljs-attr">label</span>: <span class="hljs-string">&quot;a&quot;</span>, <span class="hljs-attr">prompt</span>: <span class="hljs-string">&quot;Review src/a.ts&quot;</span>, <span class="hljs-attr">tools</span>: [<span class="hljs-string">&quot;read&quot;</span>, <span class="hljs-string">&quot;grep&quot;</span>, <span class="hljs-string">&quot;find&quot;</span>, <span class="hljs-string">&quot;ls&quot;</span>], <span class="hljs-attr">agentType</span>: <span class="hljs-string">&quot;reviewer&quot;</span> },
@@ -311,27 +334,39 @@ pi install ./                       <span class="hljs-comment"># local al proyec
 }</code></pre>
 <p>Puntos clave:</p>
 <ul>
-<li><strong>Globals inyectados, sin imports</strong>: <code>agent</code>/<code>agents</code>, <code>pipeline</code>, <code>parallel</code>, <code>race</code>, <code>ask</code>, <code>workflow</code>, <code>bash</code>, <code>readFile</code>/<code>writeArtifact</code>, <code>log</code>, <code>compact</code>, más <code>args</code> y <code>limits</code> en modo read-only.</li>
-<li><strong>Personas</strong>: <code>agentType: &quot;explore&quot; | &quot;reviewer&quot; | &quot;planner&quot; | &quot;architect&quot; | &quot;implementer&quot; | &quot;researcher&quot;</code> aplica defaults por rol (todos read-only por defecto); las opciones explícitas ganan.</li>
-<li><strong>Background por defecto</strong> en sesiones TUI/RPC, con dashboard en vivo (<code>/workflows</code>) y artifacts por corrida en <code>.pi/workflows/runs/&lt;run-id&gt;/</code>.</li>
-<li><strong>Resume idempotente</strong>: las llamadas <code>agent()</code> completadas quedan journaled y no se reejecutan; <code>/workflow resume &lt;runId&gt;</code> continúa una corrida interrumpida en el mismo lugar.</li>
-<li><strong>Ultracode always-on</strong>: un router estilo Claude Code que decide, para cada tarea sustantiva, si conviene responder inline u orquestar un workflow (<code>/effort ultracode</code>, <code>/ultracode-mode</code>).</li>
+<li><strong>Globals inyectados, sin imports</strong>: <code>agent</code>/<code>agents</code>, <code>pipeline</code>, <code>parallel</code>, <code>race</code>, <code>ask</code>, <code>workflow</code>, <code>bash</code>,
+<code>readFile</code>/<code>writeArtifact</code>, <code>log</code>, <code>compact</code>, más <code>args</code> y <code>limits</code> en modo read-only.</li>
+<li><strong>Personas</strong>: <code>agentType: &quot;explore&quot; | &quot;reviewer&quot; | &quot;planner&quot; | &quot;architect&quot; | &quot;implementer&quot; | &quot;researcher&quot;</code> aplica
+defaults por rol (todos read-only por defecto); las opciones explícitas ganan.</li>
+<li><strong>Background por defecto</strong> en sesiones TUI/RPC, con dashboard en vivo (<code>/workflows</code>) y artifacts por corrida en
+<code>.pi/workflows/runs/&lt;run-id&gt;/</code>.</li>
+<li><strong>Resume idempotente</strong>: las llamadas <code>agent()</code> completadas quedan journaled y no se reejecutan;
+<code>/workflow resume &lt;runId&gt;</code> continúa una corrida interrumpida en el mismo lugar.</li>
+<li><strong>Ultracode always-on</strong>: un router estilo Claude Code que decide, para cada tarea sustantiva, si conviene responder
+inline u orquestar un workflow (<code>/effort ultracode</code>, <code>/ultracode-mode</code>).</li>
 </ul>
-<p>Guía completa — ciclo de ejecución, API completa, concurrencia, journal de resume, catálogo de patterns, seguridad: <a href="dynamic-workflows.html"><code>docs/dynamic-workflows.md</code></a>.</p>
+<p>Guía completa — ciclo de ejecución, API completa, concurrencia, journal de resume, catálogo de patterns, seguridad:
+<a href="dynamic-workflows.html"><code>docs/dynamic-workflows.md</code></a>.</p>
 <h3>Plantillas apoyadas en research</h3>
 <p>Mapeo de papers/frameworks comunes de agentes al diseño de workflows en Pi:</p>
 <ul>
 <li><strong>ReAct</strong> -&gt; scoutear/observar con tools antes del fan-out; mantener el razonamiento atado a la evidencia.</li>
-<li><strong>Self-consistency</strong> -&gt; muestrear ramas independientes y luego elegir por consistencia/evidencia, en vez de confiar en un solo camino.</li>
-<li><strong>Reflexion / Self-Refine</strong> -&gt; loops de generate -&gt; critique -&gt; refine, siempre acotados por rondas, quiet stops, <code>maxAgents</code> y timeout.</li>
+<li><strong>Self-consistency</strong> -&gt; muestrear ramas independientes y luego elegir por consistencia/evidencia, en vez de confiar en
+un solo camino.</li>
+<li><strong>Reflexion / Self-Refine</strong> -&gt; loops de generate -&gt; critique -&gt; refine, siempre acotados por rondas, quiet stops,
+<code>maxAgents</code> y timeout.</li>
 <li><strong>Tree of Thoughts</strong> -&gt; ramificar alternativas, evaluar/podar con un juez y luego comprometerse con un camino.</li>
 <li><strong>Multiagent debate</strong> -&gt; reviewers adversariales más síntesis-como-juez; los claims sin soporte se descartan.</li>
 <li><strong>AutoGen / CAMEL / MetaGPT</strong> -&gt; roles explícitos, artifacts estables y contratos de handoff claros.</li>
-<li><strong>SWE-agent / DSPy</strong> -&gt; importan la interfaz y los contratos: tools estrechos, schemas/formatos fijos y chequeos reproducibles.</li>
+<li><strong>SWE-agent / DSPy</strong> -&gt; importan la interfaz y los contratos: tools estrechos, schemas/formatos fijos y chequeos
+reproducibles.</li>
 </ul>
 <p>Usalos como patterns, no como ceremonia: cada rama necesita una razón, un contrato y una condición de parada.</p>
 <h2 id="catálogo-de-extensiones">Catálogo de extensiones</h2>
-<p>Las 28 extensiones del repo se listan abajo: 25 se cargan por defecto desde el campo <code>pi.extensions</code> de <code>package.json</code> cuando corrés <code>pi install ./</code>, y las 3 <code>pandi-ultracode-*</code> son hosts portables de Ultracode (CLI y plugin del host, sin Pi); <code>pandi-theme</code> se registra a través de <code>pi.themes</code>. Cada extensión también se puede instalar por separado con <code>pi install ./extensions/&lt;name&gt;</code>.</p>
+<p>Las 28 extensiones del repo se listan abajo: 25 se cargan por defecto desde el campo <code>pi.extensions</code> de <code>package.json</code>
+cuando corrés <code>pi install ./</code>, y las 3 <code>pandi-ultracode-*</code> son hosts portables de Ultracode (CLI y plugin del host, sin
+Pi); <code>pandi-theme</code> se registra a través de <code>pi.themes</code>. Cada extensión también se puede instalar por separado con
+<code>pi install ./extensions/&lt;name&gt;</code>.</p>
 <div class="table-scroll"><table>
 <thead>
 <tr>
@@ -511,7 +546,10 @@ pi install ./                       <span class="hljs-comment"># local al proyec
 </tr>
 </tbody></table></div>
 <blockquote>
-<p><code>extensions/shared/</code> no es una extensión: es código de test harness; nunca se publica ni se carga. <code>extensions/pandi-theme/</code> tampoco envía código: es un package solo de temas (<code>pi.themes</code>) con las variantes <code>panda-syntax-dark</code>/<code>panda-syntax-light</code>, el compañero visual de <strong>pandi</strong>; se carga con <code>pi install ./</code> y se habilita vía <code>/settings</code> o <code>&quot;theme&quot;</code>.</p>
+<p><code>extensions/shared/</code> no es una extensión: es código de test harness; nunca se publica ni se carga.
+<code>extensions/pandi-theme/</code> tampoco envía código: es un package solo de temas (<code>pi.themes</code>) con las variantes
+<code>panda-syntax-dark</code>/<code>panda-syntax-light</code>, el compañero visual de <strong>pandi</strong>; se carga con <code>pi install ./</code> y se habilita
+vía <code>/settings</code> o <code>&quot;theme&quot;</code>.</p>
 </blockquote>
 <h2 id="comandos-de-todos-los-días">Comandos de todos los días</h2>
 <pre><code class="hljs language-text">/workflows                              # dashboard TUI (Monitor/Agents/Sessions/Runs/Workflows/Patterns/Activity)
@@ -525,28 +563,44 @@ pi install ./                       <span class="hljs-comment"># local al proyec
 /loop fix the failing tests             # loop iterativo con cadencia dinámica
 /goal make npm test pass                # goal loop con verificación independiente
 /bg start npm test                      # background job humano de una sola vez (ver extensions/pandi-bg/README.md)</code></pre>
-<p>Algunas extensiones también exponen tools que <strong>Pi decide usar por su cuenta</strong> (no como slash commands humanos): <code>enter_plan_mode</code>/<code>submit_plan</code> (planificar antes de cambios riesgosos; solo vos aprobás), <code>remember</code> (persistir notas durables en <code>.pi/memory/</code>), <code>git_worktree</code>, <code>container_sandbox</code>, <code>podman_sandbox</code>, <code>typescript_diagnostics</code>, <code>ask_choice</code>/<code>ask_confirm</code>, <code>loop_schedule</code>/<code>loop_stop</code> y <code>goal_progress</code>. El README de cada extensión documenta su surface.</p>
+<p>Algunas extensiones también exponen tools que <strong>Pi decide usar por su cuenta</strong> (no como slash commands humanos):
+<code>enter_plan_mode</code>/<code>submit_plan</code> (planificar antes de cambios riesgosos; solo vos aprobás), <code>remember</code> (persistir notas
+durables en <code>.pi/memory/</code>), <code>git_worktree</code>, <code>container_sandbox</code>, <code>podman_sandbox</code>, <code>typescript_diagnostics</code>,
+<code>ask_choice</code>/<code>ask_confirm</code>, <code>loop_schedule</code>/<code>loop_stop</code> y <code>goal_progress</code>. El README de cada extensión documenta su
+surface.</p>
 <h2 id="documentación">Documentación</h2>
-<p>El README raíz es la puerta de entrada; <code>docs/</code> es el libro completo; <code>docs/html/</code> es el espejo HTML navegable y generado por <code>npm run sync:docs:html</code>.</p>
+<p>El README raíz es la puerta de entrada; <code>docs/</code> es el libro completo; <code>docs/html/</code> es el espejo HTML navegable y
+generado por <code>npm run sync:docs:html</code>.</p>
 <ul>
-<li><a href="setup.html"><code>docs/setup.md</code></a> — requisitos completos, capacidades opcionales, configuración por env vars, canales de distribución y layout del repo.</li>
-<li><a href="dynamic-workflows.html"><code>docs/dynamic-workflows.md</code></a> — guía profunda de Dynamic Workflows: ciclo de ejecución, API de globals, background y resume, concurrencia, catálogo de patterns, prompts y seguridad.</li>
-<li><a href="scaffolds/index.html"><code>docs/scaffolds/</code></a> — las páginas del libro: una guía didáctica por scaffold, con diagrama, cuándo usarlo y cómo lanzarlo.</li>
-<li><a href="handbooks/README.html"><code>docs/handbooks/</code></a> — referencia duradera del proyecto: convenciones, onboarding y playbooks.</li>
-<li><a href="developing-extensions.html"><code>docs/developing-extensions.md</code></a> — cómo desarrollar extensiones en este repo self-hosted sin romper tu sesión.</li>
+<li><a href="setup.html"><code>docs/setup.md</code></a> — requisitos completos, capacidades opcionales, configuración por env vars, canales
+de distribución y layout del repo.</li>
+<li><a href="dynamic-workflows.html"><code>docs/dynamic-workflows.md</code></a> — guía profunda de Dynamic Workflows: ciclo de ejecución, API
+de globals, background y resume, concurrencia, catálogo de patterns, prompts y seguridad.</li>
+<li><a href="scaffolds/index.html"><code>docs/scaffolds/</code></a> — las páginas del libro: una guía didáctica por scaffold, con diagrama,
+cuándo usarlo y cómo lanzarlo.</li>
+<li><a href="handbooks/README.html"><code>docs/handbooks/</code></a> — referencia duradera del proyecto: convenciones, onboarding y
+playbooks.</li>
+<li><a href="developing-extensions.html"><code>docs/developing-extensions.md</code></a> — cómo desarrollar extensiones en este repo
+self-hosted sin romper tu sesión.</li>
 <li><a href="RELEASING.md"><code>RELEASING.md</code></a> — política de versiones, tag de suite y publish npm de <code>@pandi-coding-agent/*</code>.</li>
-<li><a href="extensions"><code>extensions/&lt;name&gt;/README.md</code></a> — documentación por extensión (por ejemplo <a href="extensions/pandi-dynamic-workflows/README.md"><code>pandi-dynamic-workflows</code></a>, <a href="extensions/pandi-bg/README.md"><code>pandi-bg</code></a>).</li>
+<li><a href="extensions"><code>extensions/&lt;name&gt;/README.md</code></a> — documentación por extensión (por ejemplo
+<a href="extensions/pandi-dynamic-workflows/README.md"><code>pandi-dynamic-workflows</code></a>,
+<a href="extensions/pandi-bg/README.md"><code>pandi-bg</code></a>).</li>
 </ul>
 <h2 id="verificación">Verificación</h2>
 <pre><code class="hljs language-bash">npm <span class="hljs-built_in">test</span></code></pre>
-<p>El gate corre, en este orden: <code>tsc</code> (typecheck de todas las extensiones), <code>biome check .</code> (lint + format de JS/TS/JSON), <code>markdownlint-cli2</code> (Markdown), checks de mirrors HTML y personas, tests unitarios y las suites de integración colocalizadas vía <code>scripts/test/run-all.mjs</code>. Verificá primero tu entorno con <code>npm run doctor</code>.</p>
+<p>El gate corre, en este orden: <code>tsc</code> (typecheck de todas las extensiones), <code>biome check .</code> (lint + format de JS/TS/JSON),
+<code>markdownlint-cli2</code> (Markdown), checks de mirrors HTML y personas, tests unitarios y las suites de integración
+colocalizadas vía <code>scripts/test/run-all.mjs</code>. Verificá primero tu entorno con <code>npm run doctor</code>.</p>
 <h2 id="seguimiento-de-issues">Seguimiento de issues</h2>
 <p>El trabajo se sigue en el GitHub Project <strong><a href="https://github.com/users/andrestobelem/projects/4">pandi</a></strong> (board v2).</p>
 <ul>
-<li>Las stories, tasks y bugs son <a href="https://github.com/andrestobelem/pandi-extensions/issues">Issues</a> del repo, con labels <code>story</code> / <code>task</code> / <code>bug</code> / <code>tests</code> / <code>tech-debt</code>.</li>
+<li>Las stories, tasks y bugs son <a href="https://github.com/andrestobelem/pandi-extensions/issues">Issues</a> del repo, con labels
+<code>story</code> / <code>task</code> / <code>bug</code> / <code>tests</code> / <code>tech-debt</code>.</li>
 <li>El board los agrupa por <strong>Status</strong> (Todo / In Progress / Done); una story padre enlaza sus sub-tareas en el body.</li>
 <li>¿Terminaste trabajo? Poné <code>Closes #N</code> en el commit para que el issue y su card del board se cierren automáticamente.</li>
-<li>Se gestiona desde terminal con el CLI <a href="https://cli.github.com/"><code>gh</code></a> (por ejemplo <code>gh issue create</code>, <code>gh project item-add 4 --owner andrestobelem</code>).</li>
+<li>Se gestiona desde terminal con el CLI <a href="https://cli.github.com/"><code>gh</code></a> (por ejemplo <code>gh issue create</code>,
+<code>gh project item-add 4 --owner andrestobelem</code>).</li>
 </ul>
 <h2 id="licencia">Licencia</h2>
 <p>MIT — ver <a href="./LICENSE"><code>LICENSE</code></a>.</p>

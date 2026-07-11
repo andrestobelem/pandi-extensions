@@ -167,18 +167,29 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<li><a href="#verificación">Verificación</a></li>
 	</ol>
 </nav>
-<p><a href="https://github.com/earendil-works/gondolin">Gondolin</a> es la micro-VM Linux local de pi. El paquete <code>pi-coding-agent</code> la incluye como <strong>extensión de ejemplo</strong> en <code>&lt;pi&gt;/examples/extensions/gondolin/</code>, y esa extensión redirige las herramientas internas de pi y los comandos <code>!</code> hacia la VM.</p>
-<p>Sirve cuando querés aislar <strong>dónde se ejecutan las herramientas</strong>, no el ciclo de desarrollo/reload. Es el eje de <strong>aislamiento de ejecución</strong> de <a href="developing-extensions.html"><code>developing-extensions.md</code></a> (eje 3).</p>
-<p>No forma parte del paquete publicado de este repo. Se mantiene opt-in porque depende de <code>@earendil-works/gondolin</code>, una dependencia nativa pesada y específica de plataforma que ensancharía el lockfile y solo funciona en unas pocas plataformas.</p>
+<p><a href="https://github.com/earendil-works/gondolin">Gondolin</a> es la micro-VM Linux local de pi. El paquete <code>pi-coding-agent</code> la
+incluye como <strong>extensión de ejemplo</strong> en <code>&lt;pi&gt;/examples/extensions/gondolin/</code>, y esa extensión redirige las herramientas
+internas de pi y los comandos <code>!</code> hacia la VM.</p>
+<p>Sirve cuando querés aislar <strong>dónde se ejecutan las herramientas</strong>, no el ciclo de desarrollo/reload. Es el eje de
+<strong>aislamiento de ejecución</strong> de <a href="developing-extensions.html"><code>developing-extensions.md</code></a> (eje 3).</p>
+<p>No forma parte del paquete publicado de este repo. Se mantiene opt-in porque depende de <code>@earendil-works/gondolin</code>, una
+dependencia nativa pesada y específica de plataforma que ensancharía el lockfile y solo funciona en unas pocas
+plataformas.</p>
 <h2 id="en-30-segundos">En 30 segundos</h2>
-<p>Usá Gondolin si querés que <code>read</code>, <code>write</code>, <code>edit</code>, <code>bash</code>, <code>grep</code>, <code>find</code>, <code>ls</code> y los comandos <code>!</code> corran dentro de una VM, pero sin cambiar cómo desarrollás o recargás extensiones.</p>
+<p>Usá Gondolin si querés que <code>read</code>, <code>write</code>, <code>edit</code>, <code>bash</code>, <code>grep</code>, <code>find</code>, <code>ls</code> y los comandos <code>!</code> corran dentro de una
+VM, pero sin cambiar cómo desarrollás o recargás extensiones.</p>
 <pre><code class="hljs language-bash">npm run setup:gondolin
 pi -e .pi/tools/gondolin</code></pre>
 <p>Después, dentro de la sesión de pi, <code>!uname -a</code> debe devolver <strong>Linux</strong>.</p>
 <h2 id="qué-aísla-y-qué-no">Qué aísla y qué no</h2>
 <ul>
-<li><strong>Aísla:</strong> las herramientas internas <code>read</code>, <code>write</code>, <code>edit</code>, <code>bash</code>, <code>grep</code>, <code>find</code>, <code>ls</code> y los comandos <code>!</code> del usuario se ejecutan dentro de la VM. El cwd del host se monta en <code>/workspace</code>; todo lo que escribas debajo de <code>/workspace</code> vuelve al host.</li>
-<li><strong>No aísla:</strong> los dynamic-workflow <strong>subagents</strong> lanzan procesos hijo <code>pi</code>/<code>codex</code> en el <strong>host</strong> (las extensiones corren donde corre <code>pi</code>). Por eso Gondolin no oculta la cadena de procesos <code>node → pi/codex → /bin/bash</code>. Para aislar todo el orquestador, ejecutá <code>pi</code> completo dentro de Docker; para comandos puntuales en una micro-VM de Apple, ver <a href="../extensions/pandi-container/README.md"><code>pandi-container</code></a>.</li>
+<li><strong>Aísla:</strong> las herramientas internas <code>read</code>, <code>write</code>, <code>edit</code>, <code>bash</code>, <code>grep</code>, <code>find</code>, <code>ls</code> y los comandos <code>!</code> del
+usuario se ejecutan dentro de la VM. El cwd del host se monta en <code>/workspace</code>; todo lo que escribas debajo de
+<code>/workspace</code> vuelve al host.</li>
+<li><strong>No aísla:</strong> los dynamic-workflow <strong>subagents</strong> lanzan procesos hijo <code>pi</code>/<code>codex</code> en el <strong>host</strong> (las extensiones
+corren donde corre <code>pi</code>). Por eso Gondolin no oculta la cadena de procesos <code>node → pi/codex → /bin/bash</code>. Para aislar
+todo el orquestador, ejecutá <code>pi</code> completo dentro de Docker; para comandos puntuales en una micro-VM de Apple, ver
+<a href="../extensions/pandi-container/README.md"><code>pandi-container</code></a>.</li>
 </ul>
 <h2 id="requisitos">Requisitos</h2>
 <ul>
@@ -188,8 +199,12 @@ pi -e .pi/tools/gondolin</code></pre>
 </ul>
 <h2 id="instalación">Instalación</h2>
 <pre><code class="hljs language-bash">npm run setup:gondolin</code></pre>
-<p>Ese comando copia la extensión de ejemplo incluida en pi a <code>.pi/tools/gondolin</code> dentro de este repo y luego ejecuta <code>npm install --ignore-scripts</code> allí. La instalación va deliberadamente a <code>.pi/tools/</code> y no a <code>.pi/extensions/</code>, porque esta última ruta se autodetecta y levantaría una micro-VM en <strong>cada</strong> sesión de pi en este repo. <code>.pi/tools/</code> está ignorado por git, así que las dependencias nativas pesadas quedan fuera del control de versiones.</p>
-<p>La instalación con <code>--ignore-scripts</code> es la ruta recomendada upstream y sin scripts: el runner <code>krun</code> ya viene como binario precompilado y <code>ssh2</code> cae a JavaScript puro sin compilar <code>cpu-features</code> de forma opcional.</p>
+<p>Ese comando copia la extensión de ejemplo incluida en pi a <code>.pi/tools/gondolin</code> dentro de este repo y luego ejecuta
+<code>npm install --ignore-scripts</code> allí. La instalación va deliberadamente a <code>.pi/tools/</code> y no a <code>.pi/extensions/</code>, porque
+esta última ruta se autodetecta y levantaría una micro-VM en <strong>cada</strong> sesión de pi en este repo. <code>.pi/tools/</code> está
+ignorado por git, así que las dependencias nativas pesadas quedan fuera del control de versiones.</p>
+<p>La instalación con <code>--ignore-scripts</code> es la ruta recomendada upstream y sin scripts: el runner <code>krun</code> ya viene como
+binario precompilado y <code>ssh2</code> cae a JavaScript puro sin compilar <code>cpu-features</code> de forma opcional.</p>
 <h2 id="uso">Uso</h2>
 <p>Desde la raíz de este repo:</p>
 <pre><code class="hljs language-bash">pi -e .pi/tools/gondolin</code></pre>

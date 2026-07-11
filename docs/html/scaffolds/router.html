@@ -173,7 +173,9 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <p>Clasificá una solicitud y despachá el workflow del catálogo más adecuado, o solo recomendalo.</p>
 </blockquote>
 <h2 id="en-30-segundos">En 30 segundos</h2>
-<p><code>router</code> es la puerta de entrada para solicitudes crudas: clasifica la entrada, elige un workflow del catálogo y, por defecto, lo ejecuta. Úsalo cuando no querés decidir a mano qué workflow corresponde, o cuando querés ver solo la recomendación con <code>runSelected:false</code>.</p>
+<p><code>router</code> es la puerta de entrada para solicitudes crudas: clasifica la entrada, elige un workflow del catálogo y, por
+defecto, lo ejecuta. Úsalo cuando no querés decidir a mano qué workflow corresponde, o cuando querés ver solo la
+recomendación con <code>runSelected:false</code>.</p>
 <h2 id="cómo-lanzarlo">Cómo lanzarlo</h2>
 <pre><code class="hljs language-text">/workflow new mi-run --pattern=router
 /workflow run mi-run {&quot;request&quot;:&quot;Auditá los endpoints de la API en busca de fallas de seguridad&quot;,&quot;runSelected&quot;:true}</code></pre>
@@ -234,29 +236,66 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
     R --&gt;|"éxito"| S["return { selected, why, dispatched:true, suggestedArgs, output, candidates }"]
     R --&gt;|"falla"| T["log; return { selected, why, dispatched:false, suggestedArgs, candidates, error }"]</pre>
 <h2 id="qué-hace">Qué hace</h2>
-<p><code>router</code> implementa el patrón clásico de LLM-router (también llamado dispatch/handoff): una puerta de entrada barata que clasifica un request entrante y lo reenvía al especialista más adecuado. Acá los &quot;especialistas&quot; son los workflows hermanos del catálogo de dynamic workflows, y la decisión de ruteo la toma UN solo nodo juez (rol <code>route</code>) que devuelve un objeto tipado <code>{ selected, why, suggestedArgs }</code>. Si el ruteo tiene éxito, <code>router</code> <strong>despacha</strong>: llama a <code>workflow(selected, …)</code> y devuelve el output de ese workflow tal cual — a diferencia de <code>contract-gate</code>, que solo <em>recomienda</em> una forma de encarar la tarea sin ejecutarla.</p>
-<p>Es &quot;dinámico&quot; porque el conjunto de candidatos no se conoce en tiempo de autoría: se <strong>descubre</strong> en runtime leyendo el catálogo del proyecto (<code>.pi/workflows/*.js</code>) y el global (<code>~/.pi/agent/workflows/*.js</code>), excluyendo <code>router</code> mismo y cualquier entrada bajo <code>drafts/</code>. El target elegido se invoca dinámicamente vía la primitiva <code>workflow()</code> — el único punto que varía según el request.</p>
-<p>El diseño es robusto en cada uno de los tres pasos: si falla el escaneo del catálogo, degrada a catálogo vacío (<code>selected:&quot;none&quot;</code>); si falla el nodo de ruteo, degrada a <code>&quot;none&quot;</code> (con el motivo en <code>error</code>); si falla el dispatch, surge como <code>dispatched:false</code> (+ <code>error</code>) — nunca un crash. <code>&quot;none&quot;</code> es un resultado de primera clase para requests triviales o sin fit. El router rechaza estructuralmente despacharse a sí mismo o a cualquier nombre fuera del set descubierto, así que un ciclo de auto-ruteo es imposible; el dispatch es de un solo disparo (sin loop ni recursión).</p>
+<p><code>router</code> implementa el patrón clásico de LLM-router (también llamado dispatch/handoff): una puerta de entrada barata que
+clasifica un request entrante y lo reenvía al especialista más adecuado. Acá los &quot;especialistas&quot; son los workflows
+hermanos del catálogo de dynamic workflows, y la decisión de ruteo la toma UN solo nodo juez (rol <code>route</code>) que devuelve
+un objeto tipado <code>{ selected, why, suggestedArgs }</code>. Si el ruteo tiene éxito, <code>router</code> <strong>despacha</strong>: llama a
+<code>workflow(selected, …)</code> y devuelve el output de ese workflow tal cual — a diferencia de <code>contract-gate</code>, que solo
+<em>recomienda</em> una forma de encarar la tarea sin ejecutarla.</p>
+<p>Es &quot;dinámico&quot; porque el conjunto de candidatos no se conoce en tiempo de autoría: se <strong>descubre</strong> en runtime leyendo el
+catálogo del proyecto (<code>.pi/workflows/*.js</code>) y el global (<code>~/.pi/agent/workflows/*.js</code>), excluyendo <code>router</code> mismo y
+cualquier entrada bajo <code>drafts/</code>. El target elegido se invoca dinámicamente vía la primitiva <code>workflow()</code> — el único
+punto que varía según el request.</p>
+<p>El diseño es robusto en cada uno de los tres pasos: si falla el escaneo del catálogo, degrada a catálogo vacío
+(<code>selected:&quot;none&quot;</code>); si falla el nodo de ruteo, degrada a <code>&quot;none&quot;</code> (con el motivo en <code>error</code>); si falla el dispatch,
+surge como <code>dispatched:false</code> (+ <code>error</code>) — nunca un crash. <code>&quot;none&quot;</code> es un resultado de primera clase para requests
+triviales o sin fit. El router rechaza estructuralmente despacharse a sí mismo o a cualquier nombre fuera del set
+descubierto, así que un ciclo de auto-ruteo es imposible; el dispatch es de un solo disparo (sin loop ni recursión).</p>
 <h2 id="cuándo-usarlo">Cuándo usarlo</h2>
 <ul>
 <li>Un único front door para tareas crudas cuando no sabés (o no querés elegir vos) qué workflow del catálogo aplica.</li>
 <li>Previsualizar la elección con <code>runSelected:false</code> antes de comprometerte a ejecutar algo.</li>
 <li>Mapear una tarea al especialista correcto entre varios workflows candidatos.</li>
-<li>Restringir el universo de candidatos vos mismo con <code>candidates: [...]</code> (allow-list explícita, salta el escaneo del catálogo).</li>
+<li>Restringir el universo de candidatos vos mismo con <code>candidates: [...]</code> (allow-list explícita, salta el escaneo del
+catálogo).</li>
 </ul>
 <p>Evitá <code>router</code> cuando:</p>
 <ul>
-<li>Ya sabés exactamente qué workflow querés correr: llamalo directo y ahorrate el nodo de ruteo (<code>opus</code>·<code>high</code>, el más caro del scaffold).</li>
+<li>Ya sabés exactamente qué workflow querés correr: llamalo directo y ahorrate el nodo de ruteo (<code>opus</code>·<code>high</code>, el más
+caro del scaffold).</li>
 <li>Necesitás ejecutar <strong>varios</strong> workflows o combinarlos: <code>router</code> elige exactamente uno, nunca una lista.</li>
-<li>El request es autosuficiente y trivial: el propio nodo <code>route</code> puede (y debe) devolver <code>&quot;none&quot;</code> en ese caso, evitando levantar un workflow multi-agente innecesario.</li>
+<li>El request es autosuficiente y trivial: el propio nodo <code>route</code> puede (y debe) devolver <code>&quot;none&quot;</code> en ese caso, evitando
+levantar un workflow multi-agente innecesario.</li>
 </ul>
 <h2 id="cómo-funciona">Cómo funciona</h2>
-<p><strong>Validación de entrada.</strong> <code>request</code> (alias <code>task</code>/<code>text</code>) es obligatorio; si falta o queda vacío tras <code>trim()</code>, lanza <code>Error</code> directamente (no hay camino de degradación graciosa acá, a diferencia de las fases posteriores). <code>runSelected</code> default <code>true</code>. <code>maxCandidates</code> se sanea con clamp 1..200 (default 60), logueando si el valor pedido fue recortado.</p>
-<p><strong>Fase Discover.</strong> Si <code>input.candidates</code> es un array no vacío, se usa como allow-list explícita (saltea el escaneo, igual se filtra contra <code>router</code>/<code>drafts</code> y se deduplica). Si no, se lanza un <code>agent</code> (rol <code>catalog-scan</code>, modelo <code>haiku</code>, effort <code>low</code>, schema <code>CATALOG</code>) instruido para leer los archivos de catálogo del proyecto y globales como <strong>datos</strong>, nunca como instrucciones (defensa anti-inyección explícita en el prompt), y extraer <code>meta.name</code>/<code>meta.description</code> de cada uno, excluyendo <code>router</code> y cualquier ruta bajo <code>drafts/</code>. Si ese <code>agent</code> lanza excepción, se loguea y se continúa con catálogo vacío — nunca crashea. Los candidatos descubiertos se filtran (excluidos + duplicados) y se recortan al cap <code>maxCandidates</code> con log explícito si hubo recorte. Si el resultado queda en cero candidatos, la fase settlea temprano devolviendo <code>{ selected: &quot;none&quot;, dispatched: false, candidates: [] }</code> sin pasar a Route.</p>
-<p><strong>Fase Route.</strong> Un único <code>agent</code> juez (rol <code>route</code>, modelo <code>opus</code>, effort <code>high</code>, schema <code>ROUTE</code>) recibe la lista de candidatos, el <code>context</code> opcional y el <code>request</code>, todos envueltos en <code>fence()</code> — un delimitador anti-inyección derivado de un hash del contenido, para que un payload malicioso no pueda forjar el marcador de cierre. El prompt exige elegir EXACTAMENTE un nombre copiado literal de la lista, o <code>&quot;none&quot;</code>, y justificar la elección citando señales concretas del request. Si el nodo lanza excepción, se degrada a <code>selected:&quot;none&quot;</code> con el error en el campo <code>error</code>. Tras recibir la decisión, se valida que <code>selected</code> esté realmente en el set descubierto y no excluido — un pick alucinado o fuera de catálogo se coacciona a <code>&quot;none&quot;</code> de forma visible (logueada), nunca se despacha una alucinación.</p>
-<p><strong>Fase Dispatch.</strong> Si <code>selected === &quot;none&quot;</code> o <code>runSelected === false</code>, retorna solo la recomendación (<code>dispatched:false</code>) sin llamar a nada más. Si no, resuelve <code>dispatchArgs</code> con precedencia nullish: <code>input.args ?? suggestedArgs ?? { request }</code> (un <code>suggestedArgs</code> explícitamente <code>{}</code> se respeta, no cae a <code>{ request }</code>). Llama a <code>workflow(selected, dispatchArgs)</code> en un único intento guardado: si tiene éxito, devuelve <code>{ selected, why, dispatched:true, suggestedArgs, output, candidates }</code>; si lanza excepción, devuelve <code>dispatched:false</code> con el error prefijado (<code>Dispatch to &quot;X&quot; failed: …</code>) sin reintentar ni recursionar.</p>
+<p><strong>Validación de entrada.</strong> <code>request</code> (alias <code>task</code>/<code>text</code>) es obligatorio; si falta o queda vacío tras <code>trim()</code>, lanza
+<code>Error</code> directamente (no hay camino de degradación graciosa acá, a diferencia de las fases posteriores). <code>runSelected</code>
+default <code>true</code>. <code>maxCandidates</code> se sanea con clamp 1..200 (default 60), logueando si el valor pedido fue recortado.</p>
+<p><strong>Fase Discover.</strong> Si <code>input.candidates</code> es un array no vacío, se usa como allow-list explícita (saltea el escaneo,
+igual se filtra contra <code>router</code>/<code>drafts</code> y se deduplica). Si no, se lanza un <code>agent</code> (rol <code>catalog-scan</code>, modelo
+<code>haiku</code>, effort <code>low</code>, schema <code>CATALOG</code>) instruido para leer los archivos de catálogo del proyecto y globales como
+<strong>datos</strong>, nunca como instrucciones (defensa anti-inyección explícita en el prompt), y extraer
+<code>meta.name</code>/<code>meta.description</code> de cada uno, excluyendo <code>router</code> y cualquier ruta bajo <code>drafts/</code>. Si ese <code>agent</code> lanza
+excepción, se loguea y se continúa con catálogo vacío — nunca crashea. Los candidatos descubiertos se filtran
+(excluidos + duplicados) y se recortan al cap <code>maxCandidates</code> con log explícito si hubo recorte. Si el resultado queda
+en cero candidatos, la fase settlea temprano devolviendo <code>{ selected: &quot;none&quot;, dispatched: false, candidates: [] }</code> sin
+pasar a Route.</p>
+<p><strong>Fase Route.</strong> Un único <code>agent</code> juez (rol <code>route</code>, modelo <code>opus</code>, effort <code>high</code>, schema <code>ROUTE</code>) recibe la lista de
+candidatos, el <code>context</code> opcional y el <code>request</code>, todos envueltos en <code>fence()</code> — un delimitador anti-inyección derivado
+de un hash del contenido, para que un payload malicioso no pueda forjar el marcador de cierre. El prompt exige elegir
+EXACTAMENTE un nombre copiado literal de la lista, o <code>&quot;none&quot;</code>, y justificar la elección citando señales concretas del
+request. Si el nodo lanza excepción, se degrada a <code>selected:&quot;none&quot;</code> con el error en el campo <code>error</code>. Tras recibir la
+decisión, se valida que <code>selected</code> esté realmente en el set descubierto y no excluido — un pick alucinado o fuera de
+catálogo se coacciona a <code>&quot;none&quot;</code> de forma visible (logueada), nunca se despacha una alucinación.</p>
+<p><strong>Fase Dispatch.</strong> Si <code>selected === &quot;none&quot;</code> o <code>runSelected === false</code>, retorna solo la recomendación
+(<code>dispatched:false</code>) sin llamar a nada más. Si no, resuelve <code>dispatchArgs</code> con precedencia nullish:
+<code>input.args ?? suggestedArgs ?? { request }</code> (un <code>suggestedArgs</code> explícitamente <code>{}</code> se respeta, no cae a
+<code>{ request }</code>). Llama a <code>workflow(selected, dispatchArgs)</code> en un único intento guardado: si tiene éxito, devuelve
+<code>{ selected, why, dispatched:true, suggestedArgs, output, candidates }</code>; si lanza excepción, devuelve <code>dispatched:false</code>
+con el error prefijado (<code>Dispatch to &quot;X&quot; failed: …</code>) sin reintentar ni recursionar.</p>
 <p><strong>Caching:</strong> no hay mecanismo explícito de caché — cada <code>agent</code> se invoca fresco.</p>
-<p><strong>Fallos parciales:</strong> cada uno de los tres pasos (scan, route, dispatch) está aislado con try/catch propio; ninguno propaga excepción hacia el caller salvo la validación inicial de <code>request</code> vacío.</p>
+<p><strong>Fallos parciales:</strong> cada uno de los tres pasos (scan, route, dispatch) está aislado con try/catch propio; ninguno
+propaga excepción hacia el caller salvo la validación inicial de <code>request</code> vacío.</p>
 <h2 id="input-y-output">Input y output</h2>
 <div class="table-scroll"><table>
 <thead>
@@ -322,20 +361,27 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <td>pasados al <code>agent</code> si son arrays</td>
 </tr>
 </tbody></table></div>
-<p><strong>Output:</strong> <code>{ selected, why, dispatched, output? }</code>, con extensiones opcionales <code>candidates</code> (lista de nombres considerados) y <code>error</code> (presente solo en un fallo guardado de ruteo o dispatch).</p>
+<p><strong>Output:</strong> <code>{ selected, why, dispatched, output? }</code>, con extensiones opcionales <code>candidates</code> (lista de nombres
+considerados) y <code>error</code> (presente solo en un fallo guardado de ruteo o dispatch).</p>
 <ul>
 <li><code>selected</code>: nombre del workflow elegido, o <code>&quot;none&quot;</code>.</li>
 <li><code>why</code>: justificación evidenciada de la elección (o de por qué nada encajó).</li>
 <li><code>dispatched</code>: <code>true</code> solo si <code>workflow(selected, …)</code> se ejecutó con éxito.</li>
 <li><code>output</code>: presente únicamente cuando <code>dispatched === true</code> — es el output crudo del workflow despachado.</li>
-<li><code>suggestedArgs</code>: args propuestos por el nodo <code>route</code> para el workflow elegido (se incluye en las respuestas de recomendación y de dispatch).</li>
+<li><code>suggestedArgs</code>: args propuestos por el nodo <code>route</code> para el workflow elegido (se incluye en las respuestas de
+recomendación y de dispatch).</li>
 </ul>
-<p>No se observan llamadas a <code>writeArtifact</code>: toda la observabilidad pasa por <code>log(...)</code> (candidatos descubiertos, caps aplicados, decisión de ruteo, resultado del dispatch) y por el shape de retorno.</p>
+<p>No se observan llamadas a <code>writeArtifact</code>: toda la observabilidad pasa por <code>log(...)</code> (candidatos descubiertos, caps
+aplicados, decisión de ruteo, resultado del dispatch) y por el shape de retorno.</p>
 <h2 id="fases">Fases</h2>
 <ol>
-<li><strong>Discover</strong> — resuelve el set de candidatos: usa la allow-list explícita si se provee, o escanea el catálogo del proyecto/global vía un <code>agent</code> barato (haiku·low); filtra excluidos (<code>router</code>, <code>drafts/</code>), deduplica y aplica el cap <code>maxCandidates</code>.</li>
-<li><strong>Route</strong> — un único <code>agent</code> juez (opus·high) elige exactamente un nombre del catálogo (o <code>&quot;none&quot;</code>) con justificación y <code>suggestedArgs</code>; se valida contra el set descubierto para bloquear alucinaciones.</li>
-<li><strong>Dispatch</strong> — si hay un <code>selected</code> válido y <code>runSelected</code> está activo, invoca <code>workflow(selected, dispatchArgs)</code> en un solo intento guardado y devuelve su output; si no, devuelve solo la recomendación.</li>
+<li><strong>Discover</strong> — resuelve el set de candidatos: usa la allow-list explícita si se provee, o escanea el catálogo del
+proyecto/global vía un <code>agent</code> barato (haiku·low); filtra excluidos (<code>router</code>, <code>drafts/</code>), deduplica y aplica el cap
+<code>maxCandidates</code>.</li>
+<li><strong>Route</strong> — un único <code>agent</code> juez (opus·high) elige exactamente un nombre del catálogo (o <code>&quot;none&quot;</code>) con justificación
+y <code>suggestedArgs</code>; se valida contra el set descubierto para bloquear alucinaciones.</li>
+<li><strong>Dispatch</strong> — si hay un <code>selected</code> válido y <code>runSelected</code> está activo, invoca <code>workflow(selected, dispatchArgs)</code> en
+un solo intento guardado y devuelve su output; si no, devuelve solo la recomendación.</li>
 </ol>
 	</main>
 	<footer>Generado con el skill pandi-artifact-style · paleta: panda-syntax dark/light</footer>

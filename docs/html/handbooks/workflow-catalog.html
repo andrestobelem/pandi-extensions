@@ -153,7 +153,8 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	<header>
 		<div class="kicker">docs/handbooks</div>
 		<h1>Catálogo de workflows (referencia rápida)</h1>
-		<p class="lede"><strong>Fecha:</strong> 2026-07-01 | <strong>Estado:</strong> referencia durable | <strong>Alcance:</strong> 25 scaffolds de dynamic workflows en <code>pandi-dynamic-workflows</code></p>
+		<p class="lede"><strong>Fecha:</strong> 2026-07-01 | <strong>Estado:</strong> referencia durable | <strong>Alcance:</strong> 25 scaffolds de dynamic workflows en
+<code>pandi-dynamic-workflows</code></p>
 	</header>
 	<main>
 <nav class="toc">
@@ -171,17 +172,25 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<li><a href="#próximos-pasos">Próximos pasos</a></li>
 	</ol>
 </nav>
-<p>Antes de escribir un workflow desde cero, mirá acá: este índice reúne todos los scaffolds integrados, agrupados por familia, para que elijas un patrón en vez de reinventarlo. La mayoría de las tareas no necesita nada de esto: una sola llamada a un agente gana en casi todo; usá un scaffold solo cuando necesites escala, exhaustividad o verificación independiente.</p>
+<p>Antes de escribir un workflow desde cero, mirá acá: este índice reúne todos los scaffolds integrados, agrupados por
+familia, para que elijas un patrón en vez de reinventarlo. La mayoría de las tareas no necesita nada de esto: una sola
+llamada a un agente gana en casi todo; usá un scaffold solo cuando necesites escala, exhaustividad o verificación
+independiente.</p>
 <pre><code class="hljs language-text">dynamic_workflow action=scaffold name=fan-out-and-synthesize</code></pre>
-<p>Este comando ejecuta el scaffold base o por defecto (ver su fila más abajo) — es lo que muestra <code>dynamic_workflow action=scaffold</code> y la pestaña <strong>Patterns</strong> cuando no elegís un patrón —, así podés ver la forma de una salida antes de subir a un patrón más grande.</p>
+<p>Este comando ejecuta el scaffold base o por defecto (ver su fila más abajo) — es lo que muestra
+<code>dynamic_workflow action=scaffold</code> y la pestaña <strong>Patterns</strong> cuando no elegís un patrón —, así podés ver la forma de una
+salida antes de subir a un patrón más grande.</p>
 <p><strong>Fuente de verdad (no mantengas esta lista a mano):</strong></p>
 <ul>
-<li>Catálogo vivo: <code>dynamic_workflow action=scaffold</code> (o <code>/workflow patterns</code>); para uno puntual, <code>action=scaffold name=&lt;key&gt;</code>.</li>
-<li>Código de scaffolds: <code>extensions/pandi-dynamic-workflows/scaffolds/*.js</code> (pi) y <code>.claude/workflows/*.js</code> (Claude Code) — 25 en cada caso.</li>
+<li>Catálogo vivo: <code>dynamic_workflow action=scaffold</code> (o <code>/workflow patterns</code>); para uno puntual,
+<code>action=scaffold name=&lt;key&gt;</code>.</li>
+<li>Código de scaffolds: <code>extensions/pandi-dynamic-workflows/scaffolds/*.js</code> (pi) y <code>.claude/workflows/*.js</code> (Claude Code)
+— 25 en cada caso.</li>
 <li>Páginas HTML completas por scaffold: <code>docs/html/scaffolds/&lt;key&gt;.html</code>.</li>
 <li>El skill <code>ultracode</code> (<code>.pi/skills/ultracode/SKILL.md</code>) expone el mismo catálogo por familia.</li>
 </ul>
-<p><strong>Chequeo de completitud (2026-07-01):</strong> 25 scaffolds de pi, 25 workflows de Claude y 25 en la referencia empaquetada del skill. La sección &quot;pattern catalog&quot; del skill nombra los 25 sin extras.</p>
+<p><strong>Chequeo de completitud (2026-07-01):</strong> 25 scaffolds de pi, 25 workflows de Claude y 25 en la referencia empaquetada
+del skill. La sección &quot;pattern catalog&quot; del skill nombra los 25 sin extras.</p>
 <h2 id="qué-familia-necesito">¿Qué familia necesito?</h2>
 <p>Recorré primero las compuertas: la mayoría de las tareas se resuelve antes de llegar al fondo.</p>
 <pre class="mermaid">flowchart TD
@@ -498,8 +507,10 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 <hr>
 <h2 id="próximos-pasos">Próximos pasos</h2>
 <ul>
-<li>Mantené esto en sync cuando se agreguen o eliminen scaffolds: reejecutá <code>dynamic_workflow action=scaffold</code> y compará los nombres contra <code>extensions/pandi-dynamic-workflows/scaffolds/*.js</code>.</li>
-<li>Para las formas de input y las primitives de cada workflow, mirá la salida del catálogo vivo (cada entrada lista un <code>Input</code> y <code>Primitives</code> de ejemplo) o la página HTML enlazada de cada scaffold.</li>
+<li>Mantené esto en sync cuando se agreguen o eliminen scaffolds: reejecutá <code>dynamic_workflow action=scaffold</code> y compará
+los nombres contra <code>extensions/pandi-dynamic-workflows/scaffolds/*.js</code>.</li>
+<li>Para las formas de input y las primitives de cada workflow, mirá la salida del catálogo vivo (cada entrada lista un
+<code>Input</code> y <code>Primitives</code> de ejemplo) o la página HTML enlazada de cada scaffold.</li>
 </ul>
 	</main>
 	<footer>Generado con el skill pandi-artifact-style · paleta: panda-syntax dark/light</footer>

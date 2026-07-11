@@ -169,14 +169,20 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	</ol>
 </nav>
 <blockquote>
-<p>Loop acotado de generar → criticar → refinar en el mismo artifact, con memoria verbal; quiet-stop cuando el crítico queda conforme (arXiv:2303.17651).</p>
+<p>Loop acotado de generar → criticar → refinar en el mismo artifact, con memoria verbal; quiet-stop cuando el crítico
+queda conforme (arXiv:2303.17651).</p>
 </blockquote>
 <h2 id="en-30-segundos">En 30 segundos</h2>
-<p>Es un patrón para pulir un solo artifact (un texto, un doc o una sección de spec) por rondas: un agente genera un borrador, otro lo critica de forma adversarial y localizada, y un tercer paso incorpora esa crítica. El loop se corta por <code>satisfied</code>, cuando ya no queda nada accionable; por <code>maxRounds</code>, cuando se llega al tope; por <code>draft</code> inicial <code>null</code>; por <code>critique</code> <code>null</code>; o por una excepción. Usalo cuando la señal de mejora puede salir de otro LLM leyendo el mismo texto; si necesitás un oráculo externo y reintentos desde cero, elegí <code>reflexion</code>.</p>
+<p>Es un patrón para pulir un solo artifact (un texto, un doc o una sección de spec) por rondas: un agente genera un
+borrador, otro lo critica de forma adversarial y localizada, y un tercer paso incorpora esa crítica. El loop se corta
+por <code>satisfied</code>, cuando ya no queda nada accionable; por <code>maxRounds</code>, cuando se llega al tope; por <code>draft</code> inicial
+<code>null</code>; por <code>critique</code> <code>null</code>; o por una excepción. Usalo cuando la señal de mejora puede salir de otro LLM leyendo el
+mismo texto; si necesitás un oráculo externo y reintentos desde cero, elegí <code>reflexion</code>.</p>
 <h2 id="cómo-lanzarlo">Cómo lanzarlo</h2>
 <pre><code class="hljs language-text">/workflow new mi-run --pattern=self-refine
 /workflow run mi-run {&quot;task&quot;:&quot;Escribí la sección de migración del changelog v2.&quot;, &quot;maxRounds&quot;:4, &quot;useJury&quot;:true}</code></pre>
-<p><code>task</code> es el único campo obligatorio (si falta, la función tira <code>Error</code>). Ver la tabla en <a href="#input-y-output">Input y output</a> para el resto de los campos y sus defaults.</p>
+<p><code>task</code> es el único campo obligatorio (si falta, la función tira <code>Error</code>). Ver la tabla en
+<a href="#input-y-output">Input y output</a> para el resto de los campos y sus defaults.</p>
 <h2 id="diagrama">Diagrama</h2>
 <pre class="mermaid">flowchart TD
     A["Input: task (req), maxRounds=4 (clamp 1..8), useJury=false"] --&gt; B{"task presente?"}
@@ -219,9 +225,21 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
         CX --&gt; CY["failureNote = round N failed: msg\nbreak: return último draft bueno"]
     end</pre>
 <h2 id="qué-hace">Qué hace</h2>
-<p><code>self-refine</code> implementa el patrón Self-Refine (Madaan et al., arXiv:2303.17651): un mismo artifact se produce, se critica y se revisa en un ciclo, en vez de generarse una sola vez. La crítica se acumula como &quot;memoria verbal&quot; — cada ronda ve TODAS las críticas anteriores, no solo la última — así el refine no repite errores ya señalados ni pierde contexto de por qué se cambió algo.</p>
-<p>El loop está acotado en ambos extremos, que es la parte que las implementaciones ingenuas de &quot;seguir mejorando&quot; suelen fallar: un tope duro <code>maxRounds</code> (el paper reporta retornos decrecientes después de ~4 rondas) y un &quot;quiet stop&quot; cuando el crítico declara <code>satisfied</code> (sin issues accionables). Para que el quiet-stop sea confiable, al crítico se le exige ser específico y localizado (apuntar a spans concretos con un fix concreto), y se le pide una postura adversarial — nunca acordar mansamente con el propio draft.</p>
-<p>La corrección puramente intrínseca (el crítico es, en esencia, el mismo generador acordando consigo mismo) puede degradar el output en vez de mejorarlo (Huang et al., arXiv:2310.01798). El scaffold mitiga esto de dos formas: (1) el crítico es una instancia de agente separada con un brief explícitamente adversarial, y (2) opcionalmente (<code>useJury: true</code>) reemplaza al crítico único por una COMPOSICIÓN con el workflow <code>adversarial-verify</code> — un jurado de escépticos que refuta por mayoría las afirmaciones del draft, un oráculo más fuerte e independiente que evalúa antes de confiar en un &quot;satisfied&quot;.</p>
+<p><code>self-refine</code> implementa el patrón Self-Refine (Madaan et al., arXiv:2303.17651): un mismo artifact se produce, se
+critica y se revisa en un ciclo, en vez de generarse una sola vez. La crítica se acumula como &quot;memoria verbal&quot; — cada
+ronda ve TODAS las críticas anteriores, no solo la última — así el refine no repite errores ya señalados ni pierde
+contexto de por qué se cambió algo.</p>
+<p>El loop está acotado en ambos extremos, que es la parte que las implementaciones ingenuas de &quot;seguir mejorando&quot; suelen
+fallar: un tope duro <code>maxRounds</code> (el paper reporta retornos decrecientes después de ~4 rondas) y un &quot;quiet stop&quot; cuando
+el crítico declara <code>satisfied</code> (sin issues accionables). Para que el quiet-stop sea confiable, al crítico se le exige
+ser específico y localizado (apuntar a spans concretos con un fix concreto), y se le pide una postura adversarial —
+nunca acordar mansamente con el propio draft.</p>
+<p>La corrección puramente intrínseca (el crítico es, en esencia, el mismo generador acordando consigo mismo) puede
+degradar el output en vez de mejorarlo (Huang et al., arXiv:2310.01798). El scaffold mitiga esto de dos formas: (1) el
+crítico es una instancia de agente separada con un brief explícitamente adversarial, y (2) opcionalmente
+(<code>useJury: true</code>) reemplaza al crítico único por una COMPOSICIÓN con el workflow <code>adversarial-verify</code> — un jurado de
+escépticos que refuta por mayoría las afirmaciones del draft, un oráculo más fuerte e independiente que evalúa antes de
+confiar en un &quot;satisfied&quot;.</p>
 <h2 id="cuándo-usarlo">Cuándo usarlo</h2>
 <div class="table-scroll"><table>
 <thead>
@@ -240,22 +258,38 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </tr>
 </tbody></table></div>
 <ul>
-<li>Activá <code>useJury: true</code> cuando quieras que la crítica venga de <code>adversarial-verify</code>, un jurado más duro que un solo crítico.</li>
+<li>Activá <code>useJury: true</code> cuando quieras que la crítica venga de <code>adversarial-verify</code>, un jurado más duro que un solo
+crítico.</li>
 <li>No lo uses cuando ya tenés tests o un comando de verificación que te diga objetivamente si pasaste o no.</li>
 </ul>
 <h2 id="cómo-funciona">Cómo funciona</h2>
 <ul>
-<li><p><strong>Validación y setup.</strong> <code>task</code> (o sus alias <code>question</code>/<code>text</code>) es obligatorio; si falta, lanza <code>Error</code>. <code>maxRounds</code> se sanea con <code>clamp(1, 8)</code> sobre el valor pedido (default 4); si se recorta, se registra en <code>log(...)</code>. <code>useJury</code> activa la composición con <code>adversarial-verify</code>. También hay overrides por nodo: <code>input.model</code>/<code>input.effort</code> globales, <code>input.models[role]</code>/<code>input.efforts[role]</code> por rol, y lo mismo para <code>tools</code>/<code>skills</code>/<code>excludeTools</code>; la precedencia es por-rol &gt; global &gt; default del call-site.</p>
+<li><p><strong>Validación y setup.</strong> <code>task</code> (o sus alias <code>question</code>/<code>text</code>) es obligatorio; si falta, lanza <code>Error</code>. <code>maxRounds</code> se
+sanea con <code>clamp(1, 8)</code> sobre el valor pedido (default 4); si se recorta, se registra en <code>log(...)</code>. <code>useJury</code> activa
+la composición con <code>adversarial-verify</code>. También hay overrides por nodo: <code>input.model</code>/<code>input.effort</code> globales,
+<code>input.models[role]</code>/<code>input.efforts[role]</code> por rol, y lo mismo para <code>tools</code>/<code>skills</code>/<code>excludeTools</code>; la precedencia es
+por-rol &gt; global &gt; default del call-site.</p>
 </li>
-<li><p><strong>Generate.</strong> Un único <code>agent</code> (rol <code>draft</code>, modelo <code>sonnet</code>, effort <code>medium</code>) produce el primer intento completo. Si devuelve <code>null</code>, el scaffold aborta con <code>{ result: null, rounds: 0, satisfied: false, failure: &quot;initial draft null&quot; }</code> y no intenta criticar un draft inexistente.</p>
+<li><p><strong>Generate.</strong> Un único <code>agent</code> (rol <code>draft</code>, modelo <code>sonnet</code>, effort <code>medium</code>) produce el primer intento completo. Si
+devuelve <code>null</code>, el scaffold aborta con <code>{ result: null, rounds: 0, satisfied: false, failure: &quot;initial draft null&quot; }</code>
+y no intenta criticar un draft inexistente.</p>
 </li>
-<li><p><strong>Critique.</strong> Hay dos caminos. Con crítico único, un <code>agent</code> (rol <code>critique</code>, modelo <code>opus</code>, effort <code>high</code>) recibe el draft dentro de un fence anti-inyección derivado de un hash y devuelve <code>schema: CRITIQUE</code> con <code>satisfied</code> + <code>issues[]</code> localizadas y accionables; si ese <code>agent</code> devuelve <code>null</code>, el loop rompe y conserva el último draft bueno. Con <code>useJury: true</code>, <code>workflow(&quot;adversarial-verify&quot;, { topic, skeptics })</code> asume la crítica: si el jurado no puede verificar claims, se trata como “no satisfecho”; si sí puede, <code>satisfied = (killed === 0)</code> y las claims refutadas se condensan en un issue.</p>
+<li><p><strong>Critique.</strong> Hay dos caminos. Con crítico único, un <code>agent</code> (rol <code>critique</code>, modelo <code>opus</code>, effort <code>high</code>) recibe el
+draft dentro de un fence anti-inyección derivado de un hash y devuelve <code>schema: CRITIQUE</code> con <code>satisfied</code> + <code>issues[]</code>
+localizadas y accionables; si ese <code>agent</code> devuelve <code>null</code>, el loop rompe y conserva el último draft bueno. Con
+<code>useJury: true</code>, <code>workflow(&quot;adversarial-verify&quot;, { topic, skeptics })</code> asume la crítica: si el jurado no puede
+verificar claims, se trata como “no satisfecho”; si sí puede, <code>satisfied = (killed === 0)</code> y las claims refutadas se
+condensan en un issue.</p>
 </li>
-<li><p><strong>Quiet stop y memoria.</strong> Si la crítica viene satisfecha o sin issues, el loop marca <code>satisfied = true</code> y corta. Si trae issues, se guardan en <code>memory</code> como <code>{ round, issues }</code>; esa memoria completa se pasa al refine.</p>
+<li><p><strong>Quiet stop y memoria.</strong> Si la crítica viene satisfecha o sin issues, el loop marca <code>satisfied = true</code> y corta. Si
+trae issues, se guardan en <code>memory</code> como <code>{ round, issues }</code>; esa memoria completa se pasa al refine.</p>
 </li>
-<li><p><strong>Refine.</strong> Un <code>agent</code> (rol <code>refine</code>, modelo <code>sonnet</code>, effort <code>medium</code>) recibe la tarea, la memoria completa truncada a ~16000 chars con <code>compact</code>, y el draft actual. Su trabajo es resolver todas las issues sin romper lo que ya funciona; su salida reemplaza <code>draft</code> y el loop vuelve a Critique.</p>
+<li><p><strong>Refine.</strong> Un <code>agent</code> (rol <code>refine</code>, modelo <code>sonnet</code>, effort <code>medium</code>) recibe la tarea, la memoria completa truncada
+a ~16000 chars con <code>compact</code>, y el draft actual. Su trabajo es resolver todas las issues sin romper lo que ya
+funciona; su salida reemplaza <code>draft</code> y el loop vuelve a Critique.</p>
 </li>
-<li><p><strong>Fallos parciales y caché.</strong> Si critique o refine tiran una excepción, se registra <code>failureNote</code>, se loguea, y se retorna el último draft bueno. No se observa caché explícita: cada llamada a <code>agent</code>/<code>workflow</code> es fresca.</p>
+<li><p><strong>Fallos parciales y caché.</strong> Si critique o refine tiran una excepción, se registra <code>failureNote</code>, se loguea, y se
+retorna el último draft bueno. No se observa caché explícita: cada llamada a <code>agent</code>/<code>workflow</code> es fresca.</p>
 </li>
 </ul>
 <h2 id="input-y-output">Input y output</h2>
@@ -314,18 +348,24 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 </tbody></table></div>
 <p><strong>Output:</strong> <code>{ result, rounds, satisfied, critiques, failure? }</code></p>
 <ul>
-<li><code>result</code>: string del draft final (el último bueno, sea que se haya llegado a <code>satisfied</code> o se haya frenado por cap/fallo).</li>
+<li><code>result</code>: string del draft final (el último bueno, sea que se haya llegado a <code>satisfied</code> o se haya frenado por
+cap/fallo).</li>
 <li><code>rounds</code>: número de rondas de critique/refine efectivamente ejecutadas (no cuenta la generación inicial).</li>
-<li><code>satisfied</code>: <code>true</code> solo si el loop terminó porque el crítico/jury declaró conformidad; <code>false</code> si terminó por <code>maxRounds</code>, por un crítico <code>null</code>, o por una excepción.</li>
+<li><code>satisfied</code>: <code>true</code> solo si el loop terminó porque el crítico/jury declaró conformidad; <code>false</code> si terminó por
+<code>maxRounds</code>, por un crítico <code>null</code>, o por una excepción.</li>
 <li><code>critiques</code>: la <code>memory</code> acumulada — array de <code>{ round, issues }</code> por cada ronda que produjo issues.</li>
-<li><code>failure</code> (opcional): string con la causa cuando el loop terminó de forma anómala (<code>initial draft null</code>, crítico <code>null</code> o excepción en una ronda); ausente en el camino feliz.</li>
+<li><code>failure</code> (opcional): string con la causa cuando el loop terminó de forma anómala (<code>initial draft null</code>, crítico
+<code>null</code> o excepción en una ronda); ausente en el camino feliz.</li>
 </ul>
-<p>No se observan llamadas a <code>writeArtifact</code>: toda la observabilidad pasa por <code>log(...)</code> (progreso por ronda, satisfacción o cantidad de issues, clamps aplicados, fallos) y por el shape de retorno.</p>
+<p>No se observan llamadas a <code>writeArtifact</code>: toda la observabilidad pasa por <code>log(...)</code> (progreso por ronda, satisfacción
+o cantidad de issues, clamps aplicados, fallos) y por el shape de retorno.</p>
 <h2 id="fases">Fases</h2>
 <ol>
 <li><strong>Generate</strong> — un <code>agent</code> produce el primer borrador completo de la tarea.</li>
-<li><strong>Critique</strong> — un <code>agent</code> adversarial (o, con <code>useJury:true</code>, el workflow <code>adversarial-verify</code> como jurado escéptico) evalúa el draft y devuelve <code>satisfied</code> + <code>issues</code> localizadas y accionables.</li>
-<li><strong>Refine</strong> — un <code>agent</code> revisa el draft resolviendo todas las issues señaladas, usando la memoria verbal acumulada de rondas previas; el ciclo vuelve a Critique hasta <code>satisfied</code> o <code>maxRounds</code>.</li>
+<li><strong>Critique</strong> — un <code>agent</code> adversarial (o, con <code>useJury:true</code>, el workflow <code>adversarial-verify</code> como jurado escéptico)
+evalúa el draft y devuelve <code>satisfied</code> + <code>issues</code> localizadas y accionables.</li>
+<li><strong>Refine</strong> — un <code>agent</code> revisa el draft resolviendo todas las issues señaladas, usando la memoria verbal acumulada de
+rondas previas; el ciclo vuelve a Critique hasta <code>satisfied</code> o <code>maxRounds</code>.</li>
 </ol>
 	</main>
 	<footer>Generado con el skill pandi-artifact-style · paleta: panda-syntax dark/light</footer>

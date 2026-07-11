@@ -1,12 +1,12 @@
 # pandi-kitty
 
-Extensión de Pi para controlar el terminal [kitty](https://sw.kovidgoyal.net/kitty/)
-en ejecución vía su protocolo de control remoto (`kitty @ ...`).
+Extensión de Pi para controlar el terminal [kitty](https://sw.kovidgoyal.net/kitty/) en ejecución vía su protocolo de
+control remoto (`kitty @ ...`).
 
 ## Requisitos
 
-`allow_remote_control yes` en `kitty.conf` (o `kitty -o allow_remote_control=yes`), y
-correr Pi desde una sesión de kitty en ejecución.
+`allow_remote_control yes` en `kitty.conf` (o `kitty -o allow_remote_control=yes`), y correr Pi desde una sesión de
+kitty en ejecución.
 
 ## Comando
 
@@ -23,11 +23,10 @@ correr Pi desde una sesión de kitty en ejecución.
 
 ## Tool
 
-`kitty_remote` — acciones `launch`, `goto-layout`, `close-window`, `focus-window`.
-Ver `index.ts` para el esquema de parámetros completo.
+`kitty_remote` — acciones `launch`, `goto-layout`, `close-window`, `focus-window`. Ver `index.ts` para el esquema de
+parámetros completo.
 
 ## Nota
 
-`--location vsplit/hsplit` solo tiene efecto visible bajo el layout `splits`. Bajo
-otros layouts (`tall`, `fat`, `grid`, ...) la ventana se abre igual, pero la
-dirección del split la decide ese layout.
+`--location vsplit/hsplit` solo tiene efecto visible bajo el layout `splits`. Bajo otros layouts (`tall`, `fat`, `grid`,
+...) la ventana se abre igual, pero la dirección del split la decide ese layout.
