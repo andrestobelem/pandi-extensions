@@ -104,15 +104,16 @@ Los skills **no se editan en los destinos generados**. La fuente canónica es si
 | --- | --- | --- |
 | Primitivas (`agent`, `pipeline`, …) | `extensions/pandi-dynamic-workflows/primitives/*.md` | Mirror 1:1 a `reference/primitives/` (test `primitives-parity`) |
 | Scaffolds Claude (`.js`) | `extensions/pandi-dynamic-workflows/scaffolds/*.js` | `node .claude/scripts/generate-claude-workflows.mjs` → `.claude/workflows/` + `reference/claude-workflows/`; luego `sync:claude:ultracode` + `sync:skills:vendor` propagan |
-| Catálogo Claude (prosa) | `.claude/workflows/README.md` (inglés) | Snapshot manual en español: `reference/scaffold-catalog.md` y `reference/claude-workflows/README.md` — mantenerlos alineados en el mismo commit |
+| Catálogo Claude (prosa) | `.pi/skills/ultracode/reference/catalog-prose.es.md` (ES, estilo pandi) | `npm run sync:scaffold-catalog` → `.claude/workflows/README.md`, `reference/scaffold-catalog.md`, `reference/claude-workflows/README.md` (encabezados variantes; test `sync-scaffold-catalog`) |
 | Model tiers / alias mapping | `extensions/pandi-dynamic-workflows/runtime/tier-models.ts` | Documentado en `reference/operational-notes.md` y chuleta de `SKILL.md`; aliases `haiku`/`sonnet`/`opus`/`fable`; pi acepta ids `anthropic/…` o `openai-codex/gpt-5.x` |
 
 ### Orden seguro tras editar skills
 
 1. Editá **solo** bajo `.pi/skills/` (y fuentes de extensión si aplica: scaffolds, primitives).
 2. Si tocaste scaffolds: `node .claude/scripts/generate-claude-workflows.mjs`.
-3. `npm run sync:claude:ultracode` → `npm run sync:skills:vendor` → `npm run sync:skills` (si el skill es mirrored).
-4. `npm run doctor` o los tests de parity de `pandi-dynamic-workflows`.
+3. Si tocaste prosa del catálogo: `npm run sync:scaffold-catalog`.
+4. `npm run sync:claude:ultracode` → `npm run sync:skills:vendor` → `npm run sync:skills` (si el skill es mirrored).
+5. `npm run doctor` o los tests de parity de `pandi-dynamic-workflows`.
 
 Skills **project-local** (no mirrored ni vendored): `didactic-docs-style`, `pandi-prose-style`,
 `pandi-artifact-style`, `markdownlint-cli2`, `md-to-html`, `sync-doc-mirrors` — viven solo en `.pi/skills/`.

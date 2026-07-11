@@ -33,8 +33,9 @@ Glosario de nombres (producto vs skill vs tool): [`docs/handbooks/glosario-skill
 Para criterio de delegación (inline vs orquestar), deferí a `ai-assisted-engineering`; este skill gobierna el cómo una vez decidido orquestar.
 Detalle operativo (fan-out, model tiers, catálogo completo): [`reference/operational-notes.md`](reference/operational-notes.md).
 
-El catálogo del lado de Claude viene incluido en `reference/scaffold-catalog.md` (snapshot del
-`~/.claude/workflows/README.md` vivo) para el detalle completo por workflow.
+El catálogo del lado de Claude vive en `reference/catalog-prose.es.md` (fuente canónica en español);
+`npm run sync:scaffold-catalog` propaga snapshots a `reference/scaffold-catalog.md` y
+`.claude/workflows/README.md` para el detalle completo por workflow.
 
 ## Cuándo orquestar (gates, en orden)
 

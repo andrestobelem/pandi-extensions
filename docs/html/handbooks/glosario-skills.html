@@ -475,8 +475,8 @@ en prosa, docs y skills del repo. Para tokens congelados dentro de prompts (tool
 </tr>
 <tr>
 <td>Catálogo Claude (prosa)</td>
-<td><code>.claude/workflows/README.md</code> (inglés)</td>
-<td>Snapshot manual en español: <code>reference/scaffold-catalog.md</code> y <code>reference/claude-workflows/README.md</code> — mantenerlos alineados en el mismo commit</td>
+<td><code>.pi/skills/ultracode/reference/catalog-prose.es.md</code> (ES, estilo pandi)</td>
+<td><code>npm run sync:scaffold-catalog</code> → <code>.claude/workflows/README.md</code>, <code>reference/scaffold-catalog.md</code>, <code>reference/claude-workflows/README.md</code> (encabezados variantes; test <code>sync-scaffold-catalog</code>)</td>
 </tr>
 <tr>
 <td>Model tiers / alias mapping</td>
@@ -488,6 +488,7 @@ en prosa, docs y skills del repo. Para tokens congelados dentro de prompts (tool
 <ol>
 <li>Editá <strong>solo</strong> bajo <code>.pi/skills/</code> (y fuentes de extensión si aplica: scaffolds, primitives).</li>
 <li>Si tocaste scaffolds: <code>node .claude/scripts/generate-claude-workflows.mjs</code>.</li>
+<li>Si tocaste prosa del catálogo: <code>npm run sync:scaffold-catalog</code>.</li>
 <li><code>npm run sync:claude:ultracode</code> → <code>npm run sync:skills:vendor</code> → <code>npm run sync:skills</code> (si el skill es mirrored).</li>
 <li><code>npm run doctor</code> o los tests de parity de <code>pandi-dynamic-workflows</code>.</li>
 </ol>

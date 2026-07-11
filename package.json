@@ -57,6 +57,8 @@
 		"sync:skills:vendor:check": "node scripts/vendor-extension-skills.mjs --check",
 		"sync:agents": "node scripts/sync-agent-guides.mjs",
 		"sync:agents:check": "node scripts/sync-agent-guides.mjs --check",
+		"sync:scaffold-catalog": "node scripts/sync-scaffold-catalog.mjs",
+		"sync:scaffold-catalog:check": "node scripts/sync-scaffold-catalog.mjs --check",
 		"sync:claude:global": "node scripts/sync-claude-global.mjs",
 		"sync:claude:global:check": "node scripts/sync-claude-global.mjs --check",
 		"sync:claude:ultracode": "node scripts/generate-claude-ultracode-skills.mjs",

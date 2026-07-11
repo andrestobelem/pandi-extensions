@@ -15,6 +15,7 @@ export const REPO_LOCAL_SYNC_STEPS = [
 	{ write: "sync:skills", check: "sync:skills:check" },
 	{ write: "sync:skills:vendor", check: "sync:skills:vendor:check" },
 	{ write: "sync:agents", check: "sync:agents:check" },
+	{ write: "sync:scaffold-catalog", check: "sync:scaffold-catalog:check" },
 	{ write: "sync:claude:ultracode", check: "sync:claude:ultracode:check" },
 	{ write: "docs:links:check", check: "docs:links:check" },
 	{ write: "sync:docs:html", check: "sync:docs:html:check" },
