@@ -14,8 +14,8 @@ Publicá forks `pi-cante` / `pandi` desde el clon local del fork (`pi-cante`). T
 receta operativa canónica está en `RELEASING.md` del fork.
 
 ```bash
-node scripts/release-distros.mjs          # dry-run
-node scripts/release-distros.mjs --publish
+node scripts/release-distros-flow.mjs
+node scripts/release-distros-flow.mjs --prepare --commit --publish --push
 ```
 
 ## Preparación: modelo mental primero
@@ -29,7 +29,7 @@ node scripts/release-distros.mjs --publish
 
   | key                             | npm                                                                                                    | bin        | configDir   |
   | ------------------------------- | ------------------------------------------------------------------------------------------------------ | ---------- | ----------- |
-  | `pi-cante` (default commiteado) | `@pandi-coding-agent/pi-cante`                                                                         | `pi-cante` | `.pi-cante` |
+  | `pi-cante` (default commiteado) | `@pandi-coding-agent/pi-cante`                                                                         | `picante`  | `.pi-cante` |
   | `pandi`                         | `pandi-coding-agent` (sin scope — `@pandi-coding-agent/pandi` ya está tomado por la extensión _pandi_) | `pandi`    | `.pandi`    |
 
 - **Versiones**: `<upstream base>-<distro>.<n>` (por ejemplo `0.80.3-cante.1`). Los prereleases de npm DEBEN publicarse
@@ -48,39 +48,43 @@ y ese documento es la receta operativa canónica, incluida la variante orquestad
 
 ### 1. Publicar las distros
 
-1. Corré la simulación para las distros objetivo:
+1. Corré el preflight orquestado:
 
    ```bash
-   node scripts/release-distros.mjs
-   node scripts/release-distros.mjs --only pandi
+   node scripts/release-distros-flow.mjs
+   node scripts/release-distros-flow.mjs --only pandi
    ```
 
-   **Cierre:** la simulación termina con exit 0, informa las versiones objetivo y `packages/coding-agent` está limpio.
+   **Cierre:** la simulación termina con exit 0, informa las versiones objetivo y el árbol tracked está limpio.
 
-2. Publicá solo tras completar el preflight:
+2. Prepará, commiteá y publicá con el orquestador:
 
    Antes de usar `--publish`, mostrale a la persona usuaria las distros y versiones objetivo de la simulación y pedí
    confirmación explícita. Un dry run exitoso demuestra preparación; no autoriza por sí mismo la publicación.
 
    ```bash
-   node scripts/release-distros.mjs --publish
-   node scripts/release-distros.mjs --only pandi --publish
+   node scripts/release-distros-flow.mjs --prepare --commit
+   node scripts/release-distros-flow.mjs --print-confirmation
+   node scripts/release-distros-flow.mjs --publish --push --confirm '<token>'
+   ```
+
+   Equivalente en un solo paso cuando el árbol ya está listo:
+
+   ```bash
+   node scripts/release-distros-flow.mjs --prepare --commit --publish --push
    ```
 
    Por distro: `set-distro` → build → subset de tests de branding → publish. Saltea versiones ya publicadas en npm y
    restaura el valor por defecto commiteado.
 
-   **Cierre:** el publish termina con exit 0 y el árbol queda restaurado y limpio.
+   **Cierre:** el publish termina con exit 0, npm muestra `latest` en la versión objetivo y el smoke post-publicación pasa.
 
-3. Probá el paquete publicado antes de anunciarlo o hacer push:
+3. El smoke ya corre dentro de `--publish`; solo re-ejecutalo manualmente si estás depurando:
 
    ```bash
    node scripts/smoke-distros.mjs
    node scripts/smoke-distros.mjs --only pandi
    ```
-
-   El flujo canónico `release-distros-flow --publish` ejecuta este smoke de instalación temporal automáticamente;
-   confirmá su resultado en el log en lugar de correrlo por segunda vez.
 
    **Cierre:** el smoke instala cada distro objetivo y sus comandos `--version` y `--help` terminan con exit 0.
 
@@ -139,7 +143,7 @@ Después de publicar nuevas versiones `@pandi-coding-agent/*` desde pandi-extens
 
 ```text
 pandi-extensions: publish-npm.mjs --publish
-→ fork: bump-extensions --write → commit → release-distros --publish → push
+→ fork: release-distros-flow --prepare --commit --publish --push
 ```
 
 ## Agregar una distribución nueva

@@ -114,10 +114,12 @@ Si querés que las extensiones publicadas lleguen al bundle `pi-cante` / `pandi`
 el repo `/Users/andrestobelem/ws/at/pi-cante`:
 
 ```bash
-node scripts/bump-extensions.mjs
-node scripts/bump-extensions.mjs --write
-node scripts/release-distros.mjs --publish
+node scripts/release-distros-flow.mjs
+node scripts/release-distros-flow.mjs --prepare --commit --publish --push
 ```
+
+En CI, usá el workflow **Release Distros** con `prepare`, `commit`, `publish`, `push` y el token de
+`--print-confirmation`.
 
 Ese paso es deliberadamente posterior: primero se publican los paquetes `@pandi-coding-agent/*`; después el distro
 bump-ea sus pins y se publica con shrinkwrap propio.
