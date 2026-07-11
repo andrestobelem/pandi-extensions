@@ -1,6 +1,6 @@
 import type { RunReportAgent, RunReportModel } from "./html.js";
 import { agentAccessMeta, agentFailed, link, type ProgressSummary, pillClass, plural } from "./html-agents.js";
-import { prettyJsonOutput, textBlock } from "./html-text.js";
+import { textBlock } from "./html-builders.js";
 import { escapeHtml } from "./safe-html.js";
 
 export function openingText(model: RunReportModel, summary: ProgressSummary): string {
@@ -23,26 +23,6 @@ export function openingText(model: RunReportModel, summary: ProgressSummary): st
 		return `${totalAgents} ${agentLabel} completaron el run sin fallas registradas. Empezá por el output final si existe; los detalles crudos quedan debajo para depurar.`;
 	}
 	return `Estado del run: ${model.state}. Hay ${totalAgents} ${agentLabel} registrados; revisá primero los callouts y después las tarjetas de agentes.`;
-}
-
-export function renderTimelineDetails(details: string | undefined): string {
-	if (!details) return "";
-	const pretty = prettyJsonOutput(details);
-	const body = pretty
-		? `<pre class="json-output">${escapeHtml(pretty)}</pre>`
-		: `<div class="kv muted">${escapeHtml(details)}</div>`;
-	return `<div class="timeline-details">${body}</div>`;
-}
-
-export function renderTimeline(logs: RunReportModel["logs"]): string {
-	const items = logs
-		.map(
-			(log) =>
-				`<li class="timeline-item"><span class="timeline-time">${escapeHtml(log.time)}</span>` +
-				`<div class="timeline-message">${escapeHtml(log.message)}</div>${renderTimelineDetails(log.details)}</li>`,
-		)
-		.join("");
-	return `<ol class="timeline-list">${items}</ol>`;
 }
 
 export function renderAgent(agent: RunReportAgent): string {
