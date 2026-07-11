@@ -17,9 +17,7 @@
 		"diagnostics"
 	],
 	"files": [
-		"index.ts",
-		"doctor.ts",
-		"notify.ts",
+		"*.ts",
 		"scripts",
 		"README.md"
 	],

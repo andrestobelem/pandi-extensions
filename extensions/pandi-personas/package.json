@@ -18,7 +18,7 @@
 		"pandi"
 	],
 	"files": [
-		"index.ts",
+		"*.ts",
 		"personas/*.json",
 		"README.md"
 	],

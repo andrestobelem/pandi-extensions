@@ -18,10 +18,7 @@
 		"remote-control"
 	],
 	"files": [
-		"index.ts",
-		"command.ts",
-		"kitty.ts",
-		"notify.ts",
+		"*.ts",
 		"skills",
 		"README.md"
 	],

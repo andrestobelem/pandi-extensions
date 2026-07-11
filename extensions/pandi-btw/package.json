@@ -17,9 +17,7 @@
 		"side-question"
 	],
 	"files": [
-		"index.ts",
-		"build-btw-context.ts",
-		"answer-overlay.ts",
+		"*.ts",
 		"README.md"
 	],
 	"pi": {

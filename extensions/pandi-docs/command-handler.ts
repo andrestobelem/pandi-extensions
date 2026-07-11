@@ -1,4 +1,4 @@
-import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { DOCS_USAGE, tokenizeArgs } from "./args.js";
 import { convertMarkdownFile } from "./convert.js";
 import { notify } from "./notify.js";
@@ -49,4 +49,11 @@ export async function handleDocsCommand(args: string, ctx: ExtensionContext): Pr
 		}
 	}
 	notify(ctx, `Se escribió ${written.join(", ")}`, "info");
+}
+
+export function registerDocsCommand(pi: ExtensionAPI): void {
+	pi.registerCommand("docs", {
+		description: "Convertí un archivo Markdown a HTML autocontenido con estilo pandi",
+		handler: async (args, ctx) => await handleDocsCommand(args, ctx),
+	});
 }

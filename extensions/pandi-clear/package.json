@@ -17,7 +17,7 @@
 		"new"
 	],
 	"files": [
-		"index.ts",
+		"*.ts",
 		"README.md"
 	],
 	"pi": {

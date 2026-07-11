@@ -4,49 +4,12 @@
  * Claude Code usa `/exit` (y `/quit`) para salir de la sesión. Pi ya trae un `/quit`
  * nativo que cierra de forma limpia, pero no `/exit`. Esta extensión agrega `/exit` como
  * alias liviano para que la memoria muscular de Claude funcione en Pi (convive con `/quit`,
- * nunca lo reemplaza):
- *
- *   /exit   -> ctx.shutdown()   (mismo cierre limpio que /quit)
- *
- * Los argumentos se ignoran: salir no recibe parámetros. `ctx.shutdown()` difiere el cierre
- * real hasta que el agente queda inactivo, pero delega en un `shutdownHandler` provisto por
- * el modo que puede lanzar de forma síncrona; por eso se protege igual que `pandi-clear`
- * protege `ctx.newSession()`, informando la falla en vez de filtrar un error genérico de la
- * extensión.
+ * nunca lo reemplaza).
  */
 
-import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
-
-/** Notifica al usuario y degrada con gracia fuera de la TUI (como las extensiones hermanas). */
-function notify(ctx: ExtensionCommandContext, message: string, type: "info" | "warning" | "error" = "info"): void {
-	if (ctx.mode === "print") {
-		(type === "info" ? console.log : console.error)(message);
-		return;
-	}
-	if (ctx.hasUI) {
-		ctx.ui.notify(message, type);
-		return;
-	}
-	if (type !== "info") console.error(message);
-}
-
-function errorMessage(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
-}
-
-function formatExitFailure(error: unknown): string {
-	return `no se pudo salir: ${errorMessage(error)} — probá /quit en su lugar`;
-}
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { registerExitCommand } from "./command-handler.js";
 
 export default function exitExtension(pi: ExtensionAPI): void {
-	pi.registerCommand("exit", {
-		description: "Sale de Pi de forma limpia (alias al estilo Claude de /quit).",
-		handler: async (_args, ctx) => {
-			try {
-				ctx.shutdown();
-			} catch (error) {
-				notify(ctx, formatExitFailure(error), "error");
-			}
-		},
-	});
+	registerExitCommand(pi);
 }

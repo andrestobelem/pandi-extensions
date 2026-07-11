@@ -2,6 +2,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { parseLoopCommandIntent } from "./command-intent.js";
 import { pauseLoop, resumeLoop, startAutonomousLoop, startLoop, stopLoop } from "./lifecycle.js";
 import { resolveLoop } from "./loop-resolve.js";
+import { type LoopArgumentCompletion, STATIC_LOOP_ARGUMENT_COMPLETIONS } from "./loop-tools.js";
 import { notify } from "./notify.js";
 import type { ActiveLoop } from "./state.js";
 import { formatStatus } from "./status.js";
@@ -91,4 +92,23 @@ export async function handleLoopCommand(
 
 	// Si no: args entero es la tarea (posiblemente con un token interval al final).
 	startLoop(pi, ctx, intent.rest);
+}
+
+export function registerLoopCommand(pi: ExtensionAPI, activeLoops: Map<string, ActiveLoop>): void {
+	pi.registerCommand("loop", {
+		description:
+			"Corré una tarea de forma iterativa: /loop [--ultracode] <task> [interval] | /loop auto [--ultracode] <objective> [interval] | /loop stop [id] | /loop pause [id] | /loop resume [id] | /loop status [id]. El interval (p. ej. 5m, 30s, 2h) corre en una cadencia fija; omitilo para que lo module el modelo. 'auto' inicia un loop autónomo (requiere un proyecto de confianza + confirmación). --ultracode conduce las iteraciones vía dynamic workflows.",
+		getArgumentCompletions: (argumentPrefix: string) => {
+			const items: LoopArgumentCompletion[] = [...STATIC_LOOP_ARGUMENT_COMPLETIONS];
+			for (const loop of activeLoops.values()) {
+				if (loop.status === "running" || loop.status === "paused") {
+					items.push({ value: loop.loopId, label: loop.loopId, description: loop.task });
+				}
+			}
+			const prefix = argumentPrefix.trim().toLowerCase();
+			if (!prefix) return items;
+			return items.filter((i) => i.value.toLowerCase().startsWith(prefix));
+		},
+		handler: async (args, ctx) => await handleLoopCommand(pi, args, ctx, activeLoops),
+	});
 }

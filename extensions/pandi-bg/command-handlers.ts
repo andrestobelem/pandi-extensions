@@ -2,7 +2,7 @@
  * Router del slash command `/bg` — delega a handlers por grupo de subcomando.
  */
 
-import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { handleDelete, handlePrune } from "./command-cleanup.js";
 import { handleCancel, handlePreview, handleStart } from "./command-lifecycle.js";
 import { handleEvents, handleList, handleLogs, handleStatus } from "./command-query.js";
@@ -53,4 +53,17 @@ export async function handleBgCommand(args: string, ctx: ExtensionContext): Prom
 	} catch (err) {
 		return response(`/bg falló: ${(err as Error).message}`, { error: (err as Error).message }, "error");
 	}
+}
+
+export function registerBgCommand(pi: ExtensionAPI): void {
+	pi.registerCommand("bg", {
+		description:
+			"Jobs en segundo plano: /bg preview <command> | /bg start <command> | /bg cancel <jobId> | /bg list | /bg status <jobId> | /bg logs <jobId> | /bg events <jobId> | /bg delete <jobId> | /bg prune [--yes]",
+		getArgumentCompletions: (argumentPrefix: string) => {
+			const prefix = argumentPrefix.trim().toLowerCase();
+			if (!prefix) return BG_ARGUMENT_COMPLETIONS;
+			return BG_ARGUMENT_COMPLETIONS.filter((item) => item.value.startsWith(prefix));
+		},
+		handler: async (args, ctx) => notifyBg(ctx, await handleBgCommand(args, ctx)),
+	});
 }

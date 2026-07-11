@@ -5,6 +5,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { capExceeded } from "./caps.js";
 import { SAFETY_NET_DELAY_SECONDS } from "./constants.js";
+import { handleToolCall } from "./loop-tools.js";
 import { persist } from "./persistence.js";
 import {
 	clearAutopilotInFlight,
@@ -72,4 +73,11 @@ export function handleAgentEnd(pi: ExtensionAPI, ctx: ExtensionContext, activeLo
 	clearAutopilotInFlight();
 	drainWakeQueue(pi, ctx);
 	watchdogSweep(pi, ctx);
+}
+
+export function registerLoopHooks(pi: ExtensionAPI, activeLoops: Map<string, ActiveLoop>): void {
+	pi.on("tool_call", async (event, ctx) => await handleToolCall(ctx, event));
+	pi.on("session_start", async (event, ctx) => handleSessionStart(pi, event, ctx, activeLoops));
+	pi.on("session_shutdown", async (_event, ctx) => handleSessionShutdown(pi, ctx, activeLoops));
+	pi.on("agent_end", async (_event, ctx) => handleAgentEnd(pi, ctx, activeLoops));
 }

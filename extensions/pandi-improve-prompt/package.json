@@ -17,9 +17,7 @@
 		"prompt-engineering"
 	],
 	"files": [
-		"index.ts",
-		"build-improve-context.ts",
-		"answer-overlay.ts",
+		"*.ts",
 		"README.md"
 	],
 	"pi": {

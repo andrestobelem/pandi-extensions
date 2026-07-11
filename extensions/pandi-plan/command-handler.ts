@@ -17,6 +17,7 @@ import { markPlanExited } from "./lifecycle.js";
 import { notify } from "./notify.js";
 import { PLAN_STATE_TYPE, persist } from "./persistence.js";
 import { currentPlan, planModeActive } from "./plan-guard.js";
+import { PLAN_ARGUMENT_COMPLETIONS } from "./plan-tools.js";
 import type { PlanFlags } from "./posture.js";
 import { makePlanningPrompt } from "./prompts.js";
 import { findLastPlan, overlayRuntimePlans } from "./registry.js";
@@ -166,4 +167,17 @@ export async function handlePlanCommand(pi: ExtensionAPI, args: string, ctx: Ext
 /** Limpia defaults de flags de sesión al inicio de una nueva sesión. */
 export function resetPlanSessionDefaults(): void {
 	resetSessionFlagDefaults();
+}
+
+export function registerPlanCommand(pi: ExtensionAPI): void {
+	pi.registerCommand("plan", {
+		description:
+			"Entrá en modo plan de solo lectura: /plan [--ultracode] [--ultracode-steps] [--auto-submit] <task> — investigá en solo lectura, escribí un plan, envialo para aprobación, y después implementá. /plan status | /plan dashboard | /plan exit | /plan cancel.",
+		getArgumentCompletions: (argumentPrefix: string) => {
+			const prefix = argumentPrefix.trim().toLowerCase();
+			if (!prefix) return PLAN_ARGUMENT_COMPLETIONS;
+			return PLAN_ARGUMENT_COMPLETIONS.filter((i) => i.value.toLowerCase().startsWith(prefix));
+		},
+		handler: async (args, ctx) => await handlePlanCommand(pi, args, ctx),
+	});
 }
