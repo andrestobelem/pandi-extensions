@@ -34,8 +34,8 @@ qué forma tiene tu problema, andá directo a la categoría; si no, empezá por 
   escépticos; devuelve `verified`/`dropped`/`votes`/`coverage`.
 - [`workflow-factory`](./workflow-factory.md): Meta-workflow: catálogo → plan → generación → revisión → refinamiento, y
   luego escribe `.pi/workflows/drafts/<slug>.js`.
-- [`recursive-compose`](./recursive-compose.md): Referencia (`pi`, profundidad ≤ 3): un nodo re-aplica `contract-gate` a
-  una subtarea y luego despacha vía `router` — recursión acotada.
+- [`recursive-compose`](./recursive-compose.md): Referencia de frontera depth-1: re-aplica `contract-gate`, consulta
+  `router` sin dispatch y devuelve la próxima corrida top-level recomendada.
 
 ## Descubrimiento y fan-out
 

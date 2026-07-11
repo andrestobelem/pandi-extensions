@@ -1,8 +1,8 @@
 # race
 
-`race()` abre varias ramas a la vez, se queda con la primera que sea "lo bastante buena" y cancela el resto. Usalo
-cuando tenés intentos redundantes para el mismo objetivo — varios endpoints o varios retries — y te importa la respuesta
-aceptable más rápida, no la mejor.
+`race()` abre varias ramas, se queda con el primer valor aceptado y señala las demás para cancelarlas. Usalo cuando
+tenés intentos redundantes para el mismo objetivo y te importa la respuesta aceptable más rápida, no la mejor. La
+cancelación es cooperativa: cada rama debe reenviar su `signal` a una primitiva que la soporte.
 
 ```js
 const { winner, index, status } = await race(
@@ -21,8 +21,8 @@ if (status === "won") log(`endpoint ${index} answered first`);
 - `accept`: decide qué cuenta como victoria. El valor por defecto es `(value) => value != null`, así que un `null`
   resuelto cuenta como declinación, no como victoria.
 
-Pasá ese `signal` a `agent()`/`ask()` para que las ramas perdedoras se aborten de verdad: cuando una rama gana, el
-runtime envía un SIGTERM real a las demás.
+Pasá ese `signal` a `agent()`/`agents()`/`ask()`/`bash()`/`sleep()`. La señal solicita terminar subagentes y comandos,
+descartar diálogos y rechazar esperas; `race()` no espera a observar que cada limpieza haya terminado.
 
 ## Devuelve
 
@@ -44,8 +44,10 @@ runtime envía un SIGTERM real a las demás.
 
 - `thunks` DEBE ser un arreglo no vacío de funciones que reciban `signal`: `race([])` o entradas que no sean funciones
   hacen throw sincrónico.
-- Propagá `signal` a `agent()`/`ask()`/`bash()`; si no, las ramas perdedoras siguen corriendo después de que la carrera
-  ya se decidió.
+- Propagá `signal` a cada operación cancelable. Una promesa arbitraria que lo ignore sigue corriendo después de que la
+  carrera se decidió.
+- `workflow()` y los helpers de filesystem/artifacts no aceptan cancelación de rama: diferí sus efectos hasta después
+  de elegir al ganador.
 - `errors` es aditivo: aunque haya rechazos, `winner`/`index`/`status` conservan su significado normal. Para saber si
   hubo ganador, mirá `status`, no `errors`.
 

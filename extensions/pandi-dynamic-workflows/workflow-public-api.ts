@@ -54,6 +54,7 @@ export {
 export { countRunArtifacts, liveAgentHeaderStatus } from "./tui/index.js";
 export type {
 	ActiveWorkflowRun,
+	AgentCallOptions,
 	AgentMonitorModel,
 	AgentMonitorState,
 	AgentOptions,

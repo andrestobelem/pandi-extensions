@@ -32,26 +32,26 @@ export default async function main() {
 | Subagents y composición      | [`agents`](agents.md)                 | `map` paralelo acotado, un paso por ítem (`{ concurrency, settle }`).                    |
 | Subagents y composición      | [`parallel`](parallel.md)             | Barrera: corre ramas y espera TODOS los resultados juntos.                               |
 | Subagents y composición      | [`pipeline`](pipeline.md)             | Etapas dependientes por ítem, sin merge entre ítems; ítems fallidos → `null`.            |
-| Subagents y composición      | [`race`](race.md)                     | Gana el primer valor aceptado; cancela los perdedores en curso.                          |
+| Subagents y composición      | [`race`](race.md)                     | Gana el primer valor aceptado y señala perdedores mediante `signal`.                     |
 | Subagents y composición      | [`workflow`](workflow.md)             | Compone un sub-workflow reutilizable inline (con profundidad acotada).                   |
 | Humano y observabilidad      | [`ask`](ask.md)                       | Pregunta con human-in-the-loop (`input`/`confirm`/`select`); seguro para reanudar.       |
 | Humano y observabilidad      | [`phase`](phase.md)                   | Marca la fase actual para el dashboard/log.                                              |
-| Humano y observabilidad      | [`log`](log.md)                       | Agrega una línea al run log.                                                             |
-| Filesystem y shell           | [`bash`](bash.md)                     | Ejecuta un comando de shell; el caché es opt-in (`{ cache: true }`).                     |
+| Humano y observabilidad      | [`log`](log.md)                       | Agrega una línea al log de corrida.                                                      |
+| Filesystem y shell           | [`bash`](bash.md)                     | Ejecuta shell; caché opt-in y cancelación de rama con `{ signal }`.                      |
 | Filesystem y shell           | [`readFile`](readFile.md)             | Lee un archivo relativo al `cwd`.                                                        |
 | Filesystem y shell           | [`writeFile`](writeFile.md)           | Escribe un archivo (crea parent dirs).                                                   |
 | Filesystem y shell           | [`appendFile`](appendFile.md)         | Agrega contenido a un archivo (crea parent dirs).                                        |
 | Filesystem y shell           | [`listFiles`](listFiles.md)           | Lista archivos recursivamente (omite `node_modules`/`.git`).                             |
-| Artifacts                    | [`writeArtifact`](writeArtifact.md)   | Escribe un artifact de run con nombre.                                                   |
+| Artifacts                    | [`writeArtifact`](writeArtifact.md)   | Escribe un artifact de corrida con nombre.                                               |
 | Artifacts                    | [`appendArtifact`](appendArtifact.md) | Agrega contenido a un artifact con nombre (seguro con concurrencia).                     |
-| Utilidades                   | [`sleep`](sleep.md)                   | Demora abortable.                                                                        |
+| Utilidades                   | [`sleep`](sleep.md)                   | Demora cancelable por corrida o por rama con `{ signal }`.                               |
 | Utilidades                   | [`json`](json.md)                     | `stringify` seguro y acotado.                                                            |
 | Utilidades                   | [`compact`](compact.md)               | `stringify` acotado para prompts.                                                        |
 | Utilidades                   | [`args`](args.md)                     | El input del workflow.                                                                   |
-| Contexto de run solo lectura | [`limits`](limits.md)                 | Límites `{ concurrency, maxAgents, … }`.                                                 |
-| Contexto de run solo lectura | [`runId`](runId.md)                   | El id de este run.                                                                       |
-| Contexto de run solo lectura | [`runDir`](runDir.md)                 | El directorio de este run (acá viven los artifacts).                                     |
-| Contexto de run solo lectura | [`cwd`](cwd.md)                       | El working directory del workflow.                                                       |
+| Contexto de corrida          | [`limits`](limits.md)                 | Límites `{ concurrency, maxAgents, … }` de solo lectura.                                 |
+| Contexto de corrida          | [`runId`](runId.md)                   | El id de esta corrida.                                                                   |
+| Contexto de corrida          | [`runDir`](runDir.md)                 | El directorio de esta corrida (acá viven los artifacts).                                 |
+| Contexto de corrida          | [`cwd`](cwd.md)                       | El working directory del workflow, de solo lectura.                                     |
 
 ## Cómo funciona
 
@@ -65,8 +65,8 @@ por primitiva de `scaffolds/` para patrones.
 - **Entre runtimes:** solo el núcleo (`agent`, `agents`, `parallel`, `pipeline`, `workflow`, `phase`, `log`, `args`,
   `compact`) se comparte con la herramienta Claude Code Workflow; no asumas que el resto existe ahí.
 - Las primitivas de **filesystem/shell** (`bash`, `readFile`, `writeFile`, `appendFile`, `listFiles`) quedan confinadas
-  al `cwd` del run.
-- Los **artifacts** se persisten bajo `runDir` y siguen siendo inspeccionables cuando el run termina.
+  al `cwd` de la corrida.
+- Los **artifacts** se persisten bajo `runDir` y siguen siendo inspeccionables cuando la corrida termina.
 - **Forma de falla:** `agent`/`agents` devuelven `null` por cada ítem fallido en vez de hacer throw; filtrá siempre
   antes de usar resultados (ver la línea `compact(findings.filter(Boolean))` de arriba).
 

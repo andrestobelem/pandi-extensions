@@ -85,11 +85,11 @@ Elegí por dependencia de datos, no por estética. Resumen:
 | Stages dependientes por ítem, sin merge global | `pipeline(items, ...stages)` — **default**    |
 | Un paso necesita TODOS los resultados a la vez | `parallel([...])` — solo para barreras reales |
 | Sub-workflow reutilizable                      | `workflow(name, args)`                        |
-| Primera respuesta buena; cancelar el resto     | `race(thunks, { accept? })` — **solo pi**     |
+| Primera respuesta buena; señalar perdedores    | `race(thunks, { accept? })` — **solo pi**     |
 | Decisión humana a mitad de corrida             | `ask(question, opts?)` — **solo pi**          |
 
 **Runtime note:** `race`/`ask` viven en el runtime pi de `dynamic_workflow`; no asumas que existen en `Workflow` de
-Claude Code.
+Claude Code. La cancelación de `race` es cooperativa: reenviá `signal` a `agent`/`agents`/`ask`/`bash`/`sleep`.
 
 **Settle semantics:** ramas fallidas → `null`; filtrá nulls y `log()` cuántas fallaron.
 
@@ -159,7 +159,8 @@ Obligatorio en Claude: render HTML pre-launch + `open`, lanzar sin aprobación, 
 Detalle: [notas operativas · plataforma](reference/operational-notes.md#referencia-de-plataforma-detalle).
 
 **pi:** tool `dynamic_workflow`; mismos globals de composición más `race`, `ask`, bash, filesystem y artifacts; budget
-por llamada + personas `agentType`; depth 2 (→3); resume journaled. Invoke mínimo:
+por llamada + personas `agentType`; composición depth 1; guard de nested runs default 2 configurable; resume journaled.
+Invoke mínimo:
 
 ```js
 dynamic_workflow({ action: 'start', name: 'task-slug', input: {…}, concurrency: 8, maxAgents: 40 })
@@ -179,7 +180,7 @@ Monitor sin polling (completion notice del harness); reporte final con `/workflo
 | Models            | `haiku`/`sonnet`/`opus`/`fable`                                                        | ids de Anthropic O `openai-codex/gpt-5.x`                                               |
 | Per-role          | helper `node(role)` / inline / `models`+`efforts`                                      | por llamada + personas `agentType`                                                      |
 | Catalog           | `~/.claude/workflows/` + README (desde `catalog-prose.es.md`)                          | `dynamic_workflow action=scaffold`                                                      |
-| Depth             | 1                                                                                      | 2 (→3)                                                                                  |
+| Depth             | composición 1                                                                           | composición 1; nested-run guard 2 configurable                                          |
 | Preview / results | HTML pre-launch + `open`, luego re-render con `--run` al terminar (ambos obligatorios) | `/workflow graph`, dashboard `/workflows`, HTML final `--run latest`                    |
 
 ## Crear un workflow nuevo

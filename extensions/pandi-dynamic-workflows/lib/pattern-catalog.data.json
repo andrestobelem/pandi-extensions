@@ -106,17 +106,17 @@
 	},
 	{
 		"key": "recursive-compose",
-		"title": "Recursive compose (reference)",
+		"title": "Recursive compose (boundary reference)",
 		"category": "compose",
-		"blurb": "Referencia (pi, depth ≤ 3): un nodo vuelve a gatear una subtarea vía contract-gate y luego despacha vía router — recursión acotada.",
-		"useWhen": "Querés el patrón trabajado de Phase-0-from-inside más dispatch recursivo.",
+		"blurb": "Referencia de frontera depth-1: vuelve a gatear vía contract-gate, consulta router sin dispatch y devuelve la próxima corrida top-level recomendada.",
+		"useWhen": "Querés inspeccionar por qué gate→router→selected no cabe en una sola composición y cómo continuar.",
 		"inputHint": "{ \"task\": \"audit + fix the SSE decoder\" }",
 		"primitives": ["workflow", "contract-gate", "router"],
 		"defaultName": "recursive-compose",
 		"useCases": [
-			"Pipelines gate→compose auto-similares",
-			"Llevar el budget resourcePlan del gate a una corrida más profunda",
-			"Dispatch recursivo acotado"
+			"Probar la frontera de composición depth-1",
+			"Aplanar composiciones antes de generar un workflow",
+			"Preparar una continuación como corrida top-level separada"
 		]
 	},
 	{

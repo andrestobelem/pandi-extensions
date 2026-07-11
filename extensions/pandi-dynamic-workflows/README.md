@@ -33,8 +33,9 @@ Ese es el loop completo: escribí un archivo `.js`, validalo opcionalmente con `
 - Un runtime de workflows JavaScript con globals inyectados: `agent`, `agents`, `pipeline`, `parallel`, `race`, `ask`,
   `workflow`, `phase`, `log`, `args`, más `limits`/`runId`/`runDir`/`cwd` de solo lectura.
 - La tool de modelo `dynamic_workflow` para listar, scaffoldear, leer, validar, escribir, correr, reanudar, cancelar,
-  borrar, graficar, listar runs y ver workflows (entre otras cosas).
-- Un journal reanudable y artifacts por run, para que una corrida caída o cancelada continúe en vez de reiniciarse.
+  borrar, graficar, listar corridas y ver workflows (entre otras cosas).
+- Un journal reanudable y artifacts por corrida, para que una ejecución caída o cancelada continúe en vez de
+  reiniciarse.
 - Un dashboard TUI en vivo (`/workflows` o `Ctrl+Alt+W`) con tabs Monitor, Agents, Sessions, Runs, Workflows, Patterns y
   Activity.
 - Comandos de routing Ultracode y un Contract Gate que revisa el contrato de la tarea antes de orquestar en grande.
@@ -82,7 +83,7 @@ Por ejemplo, `contract-gate` es el scaffold que el router usa como compuerta de 
 | El mismo paso, sobre muchos ítems independientes                                      | `agents(items, options?)`    |
 | 2+ etapas dependientes por ítem, sin merge entre ítems                                | `pipeline(items, ...stages)` |
 | Un paso posterior necesita TODOS los resultados juntos (barrera: dedupe, rank, merge) | `parallel(thunks)`           |
-| Gana la primera respuesta aceptada; se cancela el resto                               | `race(thunks, { accept? })`  |
+| Gana la primera respuesta aceptada; señala operaciones cooperativas para cancelación  | `race(thunks, { accept? })`  |
 | El workflow no puede decidir solo de forma segura y necesita una persona              | `ask(question, options?)`    |
 
 `race` y `ask` son exclusivos de pi (no existen en la Claude Code Workflow tool). Mirá `primitives/*.md` para firmas
@@ -98,7 +99,7 @@ completas y gotchas.
 | `/deep-research`                         | Intent legacy; enruta al pattern `complex-research`.                                                                                                              |
 | `/ultracode-mode`                        | Activa o desactiva el routing Ultracode always-on para la sesión.                                                                                                 |
 | `/ultracode-contract`                    | Activa o desactiva el Contract Gate; `/ultracode-contract off` lo apaga para la sesión.                                                                           |
-| `dynamic_workflow`                       | Tool de modelo: lista, scaffoldea, lee, valida, escribe, corre, inicia, reanuda, cancela, borra, grafica, lista runs, ve y reporta workflows (entre otras cosas). |
+| `dynamic_workflow`                       | Tool de modelo: lista, scaffoldea, lee, valida, escribe, corre, inicia, reanuda, cancela, borra, grafica, lista corridas, ve y reporta workflows.                |
 
 `/workflow cleanup` está pensado para dry-run y pertenece a esta extensión: `sessions` poda heartbeats viejos, `runs`
 elimina directorios terminales manteniendo historial reciente, `drafts` borra drafts viejos sin uso y `tmp` limpia
@@ -106,7 +107,7 @@ entradas antiguas de `.pi/tmp`. Usá `--dry-run` para ver cada decisión `delete
 destructiva requiere confirmación en UI o `--yes` en modo headless. `both` conserva el default legacy (`sessions+runs`)
 y `all` suma `drafts` y `tmp`.
 
-`/workflow check <name> [json-input]` valida la fuente del workflow y su input sin crear un run. `/workflow run <name>`
+`/workflow check <name> [json-input]` valida la fuente y el input sin crear una corrida. `/workflow run <name>`
 corre en foreground e imprime el resultado, salvo dentro de una sesión persistente (TUI), donde pasa automáticamente a
 background para que el dashboard siga siendo el plano de control. `/workflow start <name>` lanza en background cuando la
 sesión es TUI o RPC, así podés seguir chateando mientras corre; en modo print/json no existe una sesión persistente que
@@ -119,16 +120,18 @@ igual que con `/workflow resume`.
 
 ## Cómo funciona
 
-Los workflows estables viven en `.pi/workflows/`; los drafts y artifacts de runs viven en `.pi/workflows/drafts/` y
+Los workflows estables viven en `.pi/workflows/`; los drafts y artifacts de corridas viven en `.pi/workflows/drafts/` y
 `.pi/workflows/runs/` dentro de proyectos confiables. Un workflow puede declarar opcionalmente
 `export const meta = { name, description, phases }` para etiquetas del dashboard. Algunos primitives clave, además de la
 tabla de arriba:
 
 - `ask(question, opts?)` — pausa una rama para preguntarle a una persona vía la UI de Pi (`input`/`confirm`/`select`).
   Es seguro al reanudar (la respuesta queda journaled y se reproduce, nunca se vuelve a preguntar), honesto en modo
-  headless (`opts.default` o error claro, nunca cuelga) y cancelable dentro de `race()`.
-- `race(thunks, { accept? })` — gana la primera rama aceptada; los perdedores en vuelo se cancelan con un SIGTERM real
-  vía el `AbortSignal` de cada thunk. Devuelve `{ winner, index, status }`.
+  headless (`opts.default` o error claro, nunca cuelga); su diálogo es descartable dentro de `race()`.
+- `race(thunks, { accept? })` — gana la primera rama aceptada y señala las demás. Cada thunk debe reenviar su
+  `AbortSignal` a `agent`/`agents`/`ask`/`bash`/`sleep`: se solicita terminar subagentes y comandos, descartar diálogos
+  y rechazar esperas. Las promesas que ignoran la señal continúan. Devuelve `{ winner, index, status }`.
+  `workflow` y los helpers de filesystem/artifacts no cancelan efectos por rama: mutá estado después de elegir ganador.
 - **Modelo y razonamiento por llamada:** cada subagente puede fijar su propio `model`, `provider` y `effort`
   (`low|medium|high|xhigh|max`). Si los omitís, heredan el modelo del orquestador y el reasoning level de la sesión.
   Forman parte de la cache key, así que cambiarlos reejecuta esa llamada al reanudar.
@@ -172,7 +175,7 @@ para el routing y `cg:on`/`cg:off` para el Contract Gate.
 
 El runtime limita la ejecución en varias capas para que un workflow no crezca sin control:
 
-- **`maxAgents`** — tope de subagentes por run (en todas las fases, no solo el pico de paralelismo); se clampa a
+- **`maxAgents`** — tope de subagentes por corrida (en todas las fases, no solo el pico de paralelismo); se clampa a
   `limits.maxAgents`.
 - **`concurrency`** — subagentes simultáneos; se clampa a `limits.concurrency`.
 - **Composición depth-1** — `workflow(name, args)` invoca sub-workflows reutilizables con un solo nivel de profundidad;
@@ -180,8 +183,8 @@ El runtime limita la ejecución en varias capas para que un workflow no crezca s
 - **Guard de recursión cross-process** — cada subagente se lanza un nivel más profundo (`PI_DYNAMIC_WORKFLOWS_DEPTH` =
   depth + 1). Si un subagente con `includeExtensions: true` tiene la tool `dynamic_workflow`, sus acciones
   `start`/`run`/`resume` se **rechazan** cuando la profundidad llega al límite. Así se cierra el vector en el que un
-  subagente dispararía runs top-level anidados que no cuentan contra el presupuesto del padre.
-- Los runs todavía pueden ejecutarse en proyectos no confiables, pero sus artifacts se redirigen a una raíz global
+  subagente dispararía corridas top-level anidadas que no cuentan contra el presupuesto del padre.
+- Las corridas todavía pueden ejecutarse en proyectos no confiables, pero sus artifacts se redirigen a una raíz global
   hasheada por proyecto en vez de `.pi/workflows/runs/`. Solo escribir drafts/workflows con `scope=project` requiere un
   **trusted project** (usá `scope=global` para escribir sin trust).
 
@@ -191,8 +194,8 @@ El runtime limita la ejecución en varias capas para que un workflow no crezca s
 
 | Variable                         | Significado                                                                                                                                                                                                                                    |
 | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `PI_DYNAMIC_WORKFLOWS_DEPTH`     | Profundidad de anidamiento de la sesión actual (`0` en el Pi top-level). La setea el runtime al lanzar cada subagente; nunca la definís a mano.                                                                                                |
-| `PI_DYNAMIC_WORKFLOWS_MAX_DEPTH` | Límite a partir del cual `start`/`run`/`resume` se rechaza (default **`2`**, permite hasta dos niveles de anidamiento). Subilo para permitir más nesting; **`0` deshabilita todos los runs** (incluidos los top-level), útil como kill-switch. |
+| `PI_DYNAMIC_WORKFLOWS_DEPTH`     | Nested-run depth de la sesión actual (`0` en el Pi top-level). La setea el runtime al lanzar cada subagente; nunca la definís a mano.                                                                                                               |
+| `PI_DYNAMIC_WORKFLOWS_MAX_DEPTH` | Límite de corridas top-level anidadas iniciadas desde subagentes para `start`/`run`/`resume` (default **`2`**). No amplía la composición `workflow()`; **`0` deshabilita todas las corridas**, incluidas las top-level.                |
 
 ### Monitor y dashboard
 
@@ -206,16 +209,17 @@ Resumen de teclado (`?` abre la ayuda completa):
   `s` Sessions · `w` Workflows · `p` Patterns · `R` Runs.
 - **Listas:** `↑`/`↓` o `k`/`j`; `PgUp`/`PgDn` página; `Home`/`End` o `G` primero/último.
 - **Acciones:** `Enter`/`o` detalle de agente — una pantalla con sub-tabs (**Card · Prompt · Graph · Output · Definition
-  · Run**; cambiá con `←`/`→`, `Tab` o `1`–`6`, y el scroll se recuerda por tab) · `v` ver run · `g` graph · `c`/`x`
-  cancelar run activo · `r` rerun · `d`/`Del` borrar run (con confirmación). En **Agents**, `f` salta al próximo agente
+  · Run**; cambiá con `←`/`→`, `Tab` o `1`–`6`, y el scroll se recuerda por tab) · `v` ver corrida · `g` graph · `c`/`x`
+  cancelar corrida activa · `r` rerun · `d`/`Del` borrar corrida (con confirmación). En **Agents**, `f` salta al
+  próximo agente
   `failed`.
-- **Monitor:** con varios runs activos, `[` y `]` cambian el run enfocado (`Active runs (N)` arriba y un título
+- **Monitor:** con varias corridas activas, `[` y `]` cambian la corrida enfocada (`Active runs (N)` arriba y un título
   `run k/N`). El encabezado muestra `actualizado hace Ns` en cada refresh, o `⚠ falló el refresh: …` si falla.
 - **Live agent viewer:** `↑↓`/`PgUp`/`PgDn`/`Home`/`End` para scroll; el encabezado muestra `refresh 1s` mientras corre
   y `final (<state>)` al terminar (ahí se detiene el polling). `q`/`Esc` cierra.
 
-La ayuda superior solo anuncia acciones válidas para el run seleccionado (por ejemplo, no muestra `cancel` cuando el run
-no está activo). Las acciones destructivas (cancelar, borrar, rerun, cambiar de sesión) piden confirmación.
+La ayuda superior solo anuncia acciones válidas para la corrida seleccionada (por ejemplo, no muestra `cancel` cuando
+la corrida no está activa). Las acciones destructivas (cancelar, borrar, rerun, cambiar de sesión) piden confirmación.
 
 ### Catálogo de scaffolds
 

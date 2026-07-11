@@ -22,7 +22,7 @@ const review = await agent(`Revisá buscando bugs.\n<untrusted kind="src">${src}
 
 ## Ojo
 
-- Las rutas relativas se resuelven contra el `cwd` del run. Las rutas absolutas se usan tal cual, pero igual deben
+- Las rutas relativas se resuelven contra el `cwd` de la corrida. Las rutas absolutas se usan tal cual, pero igual deben
   resolver dentro de `cwd`. En ambos casos, un intento de escape (por ejemplo `../../etc/passwd`) hace `throw` en vez de
   leer fuera del sandbox.
 - El contenido del archivo es **untrusted**: cercalo con fencing, como en el ejemplo anterior, antes de ponerlo en un

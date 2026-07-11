@@ -59,13 +59,11 @@ Gate determinista en cada corrida: `tsc --noEmit` limpio, `biome check` limpio (
    `pnpm remove`, `yarn upgrade`). Nota: `git worktree add` **sí** queda atrapado por la palabra `add` (el subagente se
    equivocó al listarlo). Fix: default-deny de subcomandos git/PM salvo allowlist read-only.
 
-6. **`agents()` no puentea `signal`** — `worker-source.ts:237`. `race()` promete cancelar a todos los perdedores, pero
-   solo `agent()`/`ask()` bridgean abort-call; además `agents(items, { signal })` reenvía el `AbortSignal` verbatim →
-   `DataCloneError` al serializar en `postMessage`. Fix: wrapper de `agents` que borre `signal` y postee abort-call.
+6. **[Resuelto; verificado 2026-07-11] `agents()` no puenteaba `signal`.** El wrapper ahora quita la señal antes de
+   `postMessage`, envía `abort-call` y señala el fan-out completo de la rama perdedora para cancelación.
 
-7. **Teardown de cancelación en el core** — `index.ts:~533-551`. **[plausible]** `cleanup()` dispone los
-   `callControllers` (y sus combined-signals) durante el mismo dispatch de `abort`; los listeners aún no invocados se
-   remueven antes de dispararse, así que los hijos de subagente no se matan al cancelar y el teardown bloquea hasta
+7. **[Resuelto; verificado 2026-07-11] Teardown de cancelación en el core.** `cleanup()` ahora aborta cada señal
+   combinada antes de disponerla, por lo que las operaciones host en vuelo reciben cancelación sin esperar
    `agentTimeoutMs`.
 
 8. **Gate de plan-mode process-global** — `pi-plan/index.ts`. El estado del gate no está scopeado por sesión
@@ -85,9 +83,8 @@ Gate determinista en cada corrida: `tsc --noEmit` limpio, `biome check` limpio (
 - **Agujero de journal se re-ejecuta en silencio** — `journal.ts:99-108`. Una línea no-final malformada se saltea con
   solo un `console.warn`; ese slot `(key,occ)` queda hueco y en resume la llamada cacheada RE-CORRE (re-gasta tokens /
   repite side effects) sin aparecer en el status. **[low]**
-- **`bash()` en rama perdedora de `race()` no se cancela** — `index.ts:593,1279`. El dispatcher instala `callSignal`
-  solo para `agent`/`ask`; `bash` cae al else y usa `runSignal.signal`, así que un `bash()` de un perdedor corre hasta
-  el final y journaliza — inconsistente con `agent`/`ask`. **[low]** (mismo patrón que el HIGH 6 de `agents()`).
+- **[Resuelto 2026-07-11] `bash()` en rama perdedora de `race()` no se cancelaba.** El worker ahora quita y puentea
+  `signal`, y el host ejecuta `bash()` con la señal por llamada; `sleep(ms, { signal })` comparte el mismo contrato.
 - **Error de live-write descartado en path de throw** — `index.ts:1032-1037`. `liveWriteError` solo se reporta al llegar
   a `await liveWriteTail`; si `runStreamingAgentProcess` lanza antes (timeout/abort), el error de escritura del log en
   vivo se pierde. **[low]**

@@ -37,11 +37,9 @@ export interface WorkflowWorkerHostApi {
 	sleep(...args: unknown[]): Promise<unknown>;
 }
 
-// Canaliza un AbortSignal por-llamada del despachador del worker hacia el cierre del agente sin
-// tocar WorkflowRuntimeApi. runSubagent lo captura de forma síncrona en la entrada para que sobreviva al
-// occAssignMutex/semaphore awaits; el contexto ALS es por cadena async, así que las llamadas agent() concurrentes
-// nunca se cross-talk. Se establece solo para llamadas method==="agent"; todo lo demás ve undefined y vuelve
-// a la señal de ejecución.
+// Canaliza un AbortSignal por-llamada del worker hacia operaciones host cancelables sin serializar
+// la señal. El contexto ALS es por cadena async, así que llamadas concurrentes no se cruzan; cada
+// implementación captura esta señal o vuelve a la señal de ejecución del run.
 export const callSignal = new AsyncLocalStorage<AbortSignal>();
 
 export async function executeWorkflowCode(
@@ -85,7 +83,7 @@ export async function executeWorkflowCode(
 
 	return await new Promise<unknown>((resolve, reject) => {
 		let settled = false;
-		// Manijos de aborción por-llamada para llamadas agent() en vuelo, codificadas por id de mensaje del worker. Un
+		// Manijos de aborción por-llamada para operaciones cancelables en vuelo, codificadas por id del worker. Un
 		// mensaje abort-call (un perdedor de race()) aborta exactamente uno; cleanup desecha el resto.
 		const callControllers = new Map<number, CombinedSignal>();
 
@@ -95,9 +93,8 @@ export async function executeWorkflowCode(
 			void worker.terminate();
 			// Aborta cada señal combinada de llamada en vuelo ANTES de desecharla. onAbort (en la
 			// señal de ejecución) se dispara antes de los listeners abortFromParent por-llamada registrados después en la
-			// misma señal, así que desechar aquí (que elimina esos listeners) los varaía y
-			// dejaría hijos subagente ejecutándose hasta agentTimeoutMs. Abortar primero dispara cada
-			// SIGTERM del hijo de forma síncrona; combineSignal.abort es idempotente.
+			// misma señal. Desechar aquí primero dejaría operaciones host activas; abortar antes termina
+			// procesos o rechaza esperas de forma síncrona. combineSignal.abort es idempotente.
 			for (const c of callControllers.values()) {
 				c.abort(new Error(abortReasonMessage(signal)));
 				c.dispose();
@@ -161,12 +158,18 @@ export async function executeWorkflowCode(
 					return;
 				}
 				try {
-					if (method === "agent" || method === "ask" || method === "agents") {
+					if (
+						method === "agent" ||
+						method === "ask" ||
+						method === "agents" ||
+						method === "bash" ||
+						method === "sleep"
+					) {
 						// Per-call signal: aborts on run abort OR an abort-call (race loser). timeoutMs 0
 						// => parent-only. Registered synchronously before any await, so an abort-call
 						// can never arrive before its controller exists. The store is read by
-						// runSubagent/runAsk and by runAgents' fan-out (so an agents() race loser is
-						// cancelled at race-loss, not only at run end).
+						// runSubagent/runAsk/runBash/sleep and by runAgents' fan-out, so a race loser is
+						// cancelled at race-loss, not only at run end.
 						const combined = combineSignal(signal, 0);
 						callControllers.set(message.id, combined);
 						try {

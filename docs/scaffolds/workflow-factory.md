@@ -84,11 +84,10 @@ de Plan, Generate y Review para que el planificador PREFIERA reusar/especializar
 sub-pasos reusables vía `workflow(name, args)` en vez de reinventar — el plan debe justificar explícitamente construir
 desde cero si nada encaja.
 
-El diseño soporta composición recursiva acotada por profundidad: un workflow generado puede componer otros scaffolds con
-`workflow(name, args)`, incluyendo llamar a `workflow("contract-gate", …)` desde dentro de un nodo para re-acotar una
-subtarea antes de profundizar. Esa recursión está limitada por el runtime (Claude Code Workflow tool: profundidad 1,
-solo el nivel superior puede componer; pi: profundidad 2 por defecto, configurable con
-`PI_DYNAMIC_WORKFLOWS_MAX_DEPTH`).
+El diseño soporta composición depth 1: el workflow top-level generado puede componer otros scaffolds con
+`workflow(name, args)`, pero un hijo compuesto no puede volver a llamar `workflow()`. Para una dependencia más profunda,
+la factory debe aplanar los hijos como hermanos del top-level o devolver una recomendación para que el orquestador abra
+otra corrida. `PI_DYNAMIC_WORKFLOWS_MAX_DEPTH` limita nested top-level runs en pi; no amplía esta composición.
 
 Todo el input/contexto no confiable (el `task` del usuario, el catálogo, el código generado, los hallazgos de revisión)
 se envuelve con `fence()`, un delimitador derivado del hash del propio contenido: un payload malicioso no puede forjar

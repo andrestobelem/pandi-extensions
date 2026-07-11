@@ -221,8 +221,8 @@ los conceptos, la referencia de primitivas y los detalles operativos.</p>
 <li><strong>Fan-out controlado</strong>: distribuí archivos, temas, hipótesis o perspectivas entre subagentes en paralelo.</li>
 <li><strong>Evidencia obligatoria</strong>: cada rama debe devolver datos verificables — archivo/línea, URL, comando observado o
 <code>NO_FINDINGS</code> / <code>INSUFFICIENT_EVIDENCE</code>.</li>
-<li><strong>Artifacts fuera del chat</strong>: persistí los resultados intermedios en el directorio del run en lugar de depender del
-contexto conversacional.</li>
+<li><strong>Artifacts fuera del chat</strong>: persistí los resultados intermedios en el directorio de la corrida en lugar de depender
+del contexto conversacional.</li>
 <li><strong>Síntesis como juez</strong>: un agente final deduplica, descarta afirmaciones sin respaldo, preserva la incertidumbre y
 devuelve una conclusión priorizada.</li>
 </ul>
@@ -265,7 +265,7 @@ trabajo:</p>
   barrier -- "sí (dedup / merge / rank)" --&gt; parallel["parallel()&lt;br/&gt;barrera"]
   barrier -- no --&gt; agents["agents()&lt;br/&gt;map paralelo acotado"]
   start --&gt; hedge{¿Gana la primera&lt;br/&gt;respuesta buena / latencia?}
-  hedge -- yes --&gt; race["race()&lt;br/&gt;cancela los perdedores"]
+  hedge -- yes --&gt; race["race()&lt;br/&gt;señala los perdedores"]
   start --&gt; compose{¿Subworkflow reutilizable,&lt;br/&gt;sin decisión humana entre medio?}
   compose -- yes --&gt; workflow["workflow()&lt;br/&gt;composición inline"]</pre>
 <ul>
@@ -283,7 +283,7 @@ separadas (<code>action=start/run</code> + <code>action=view</code>).</li>
 ciclo:</p>
 <pre class="mermaid">flowchart TD
   launch([run / start]) --&gt; resolve[1. Resolver workflow&lt;br/&gt;por nombre: project + global]
-  resolve --&gt; create[2. Crear run: runId +&lt;br/&gt;.pi/workflows/runs/&amp;lt;run-id&amp;gt;/]
+  resolve --&gt; create[2. Crear corrida: runId +&lt;br/&gt;.pi/workflows/runs/&amp;lt;run-id&amp;gt;/]
   create --&gt; persist[3. Persistir estado inicial&lt;br/&gt;input/status/events/codeHash/agents]
   persist --&gt; worker[4. Ejecutar JS en un Worker&lt;br/&gt;globals inyectadas, sin import/ctx]
   worker --&gt; spawn[5. Crear subagentes&lt;br/&gt;pi -p --no-session --mode json]
@@ -302,7 +302,7 @@ importa Pi: llama helpers como <code>agent</code>, <code>agents</code>, <code>ba
 <li><strong>Crea subagentes</strong>: cada <code>agent()</code> ejecuta un proceso <code>pi -p --no-session --mode json</code> con prompt, tools, skills,
 extensions, keys/env, model, effort y timeouts configurables.</li>
 <li><strong>Aplica límites</strong>: <code>concurrency</code> limita cuántos subagentes corren a la vez; <code>maxAgents</code> limita el total de
-subagentes que un run puede gastar; los timeouts matan agentes o workflows colgados.</li>
+subagentes que una corrida puede gastar; los timeouts matan agentes o workflows colgados.</li>
 <li><strong>Guarda progreso y artifacts</strong>: logs en <code>events.jsonl</code>, estado en <code>status.json</code>, salidas de subagentes en
 <code>agents/*.md</code>, más los artifacts definidos por el workflow.</li>
 <li><strong>Devuelve el resultado final</strong>: el valor de retorno del workflow se guarda en <code>result.json</code> y se muestra como
@@ -340,7 +340,7 @@ resumen.</li>
 </tr>
 <tr>
 <td><code>race(thunks, { accept? })</code></td>
-<td>gana el primer valor aceptado; envía SIGTERM a los perdedores</td>
+<td>gana el primer valor aceptado; señala las ramas perdedoras</td>
 <td><code>{ winner, index, status }</code> (<code>&quot;won&quot;</code>/<code>&quot;empty&quot;</code>)</td>
 </tr>
 <tr>
@@ -365,40 +365,44 @@ resumen.</li>
 <li><code>agent(prompt, { agentType: &quot;reviewer&quot; })</code> — aplica defaults de persona (<code>explore</code>, <code>reviewer</code>, <code>planner</code>,
 <code>architect</code>, <code>implementer</code>, <code>researcher</code>); las opciones explícitas ganan.</li>
 <li><code>agents(items, { concurrency, settle: true })</code> — una rama fallida no hunde el batch; devuelve
-<code>Array&lt;SubagentResult | null&gt;</code> con <code>null</code> para las ramas fallidas.</li>
+<code>Array&lt;SubagentResult | null&gt;</code> con <code>null</code> para las ramas fallidas. Dentro de <code>race()</code>, pasá <code>{ signal }</code> para señalar
+el fan-out completo si esta llamada pierde.</li>
 <li><code>pipeline(items, ...stages)</code> — flujo multi-etapa por ítem sin barrera global; cada etapa recibe <code>(prev, item, index)</code>
 y los ítems fallidos devuelven <code>null</code>.</li>
 <li><code>parallel([async () =&gt; ...])</code> — barrera explícita con concurrencia local acotada; cada thunk fallido devuelve <code>null</code>.
 Usalo solo cuando una etapa posterior necesite todos los resultados juntos.</li>
-<li><code>race(thunks, { accept? })</code> — abre N ramas y, en cuanto una produce un valor aceptado (por defecto <code>!= null</code>),
-<strong>cancela los perdedores en vuelo</strong> (SIGTERM real al subproceso, vía el <code>AbortSignal</code> que recibe cada thunk); devuelve
-<code>{ winner, index, status }</code> (<code>status: &quot;won&quot; | &quot;empty&quot;</code>). Forma típica:
-<code>race(items.map((s) =&gt; (signal) =&gt; agent(prompt, { signal })))</code>.</li>
+<li><code>race(thunks, { accept? })</code> — abre N ramas y, en cuanto una produce un valor aceptado (por defecto <code>!= null</code>), señala
+las demás mediante el <code>AbortSignal</code> de cada thunk. Para detener trabajo en curso, reenviá esa señal a
+<code>agent</code>/<code>agents</code>/<code>ask</code>/<code>bash</code>/<code>sleep</code>: se solicita terminar subagentes y comandos, descartar diálogos y rechazar
+esperas. Una promesa que ignore la señal continúa. Forma típica:
+<code>race(items.map((item) =&gt; (signal) =&gt; agent(promptFor(item), { signal })))</code>.
+<code>workflow()</code> y los helpers de filesystem/artifacts no cancelan efectos por rama: diferí mutaciones hasta después de
+elegir al ganador.</li>
 <li><code>ask(question, opts?)</code> — pausa una rama para preguntarle a una persona (<code>kind: &quot;input&quot; | &quot;confirm&quot; | &quot;select&quot;</code>,
 inferido desde <code>choices</code>/<code>default</code>). <strong>Seguro para resume</strong>: la respuesta queda journaled y se reutiliza al reanudar
 sin volver a preguntar. En modo headless (<code>hasUI=false</code>) devuelve <code>opts.default</code> o lanza un error claro; nunca queda
-colgado. Se puede cancelar dentro de <code>race()</code> con <code>{ signal }</code>.</li>
-<li><code>workflow(name, args)</code> — compone un sub-workflow reutilizable inline (profundidad 1), compartiendo el mismo run,
-límites, abort y cache/journal; emite eventos <code>workflow</code> para auditabilidad. Usalo para bibliotecas como
-<code>lib/verify-claims</code>, no para fases que necesitan una decisión humana en el medio.</li>
+colgado. El diálogo se puede descartar dentro de <code>race()</code> con <code>{ signal }</code>.</li>
+<li><code>workflow(name, args)</code> — compone un sub-workflow reutilizable inline (profundidad 1), compartiendo la misma corrida,
+límites, cancelación de la corrida y cache/journal; emite eventos <code>workflow</code> para auditabilidad. Usalo para
+bibliotecas como <code>lib/verify-claims</code>, no para fases que necesitan una decisión humana en el medio.</li>
 </ul>
 <p>Helpers de apoyo:</p>
 <ul>
-<li><code>bash(command, opts)</code> — ejecuta shell desde el cwd del workflow; solo cacheable con <code>{ cache: true }</code> (comandos
-determinísticos only).</li>
+<li><code>bash(command, opts)</code> — ejecuta shell desde el cwd del workflow; solo cacheable con <code>{ cache: true }</code>. Dentro de
+<code>race()</code>, pasá <code>{ signal }</code> para solicitar la cancelación del comando si la rama pierde.</li>
 <li><code>readFile/writeFile/appendFile/listFiles</code> — helpers de archivos confinados al cwd del workflow.</li>
-<li><code>writeArtifact/appendArtifact</code> — persiste datos del run fuera del chat (idempotente; no cacheado, reescrito al
+<li><code>writeArtifact/appendArtifact</code> — persiste datos de la corrida fuera del chat (idempotente; no cacheado, reescrito al
 resume).</li>
 <li><code>log(message, details)</code> — registra progreso visible en el dashboard, la status line y <code>events.jsonl</code>.</li>
-<li><code>sleep(ms)</code> — pausa la rama actual durante <code>ms</code> milisegundos, por ejemplo para backoff entre probes de polling;
-abortable (resuelve antes/rechaza si el run/rama se aborta) y nunca cacheado, así que siempre se re-ejecuta al resume.</li>
+<li><code>sleep(ms, opts?)</code> — pausa durante <code>ms</code> milisegundos; siempre rechaza si se cancela la corrida y, con <code>{ signal }</code>,
+también si pierde su rama de <code>race()</code>. Nunca se cachea, así que se reejecuta al resume.</li>
 <li><code>phase(label)</code> — define una etiqueta liviana para las llamadas que siguen, visible en el dashboard como
 <code>P&lt;phase&gt; 1/n</code>, <code>P&lt;phase&gt; 2/n</code>, etc. en los agentes lanzados por la misma llamada a <code>agents(...)</code>; llamá <code>phase(null)</code>
 para limpiarla.</li>
 <li><code>compact(value, maxChars)</code> — serializa y trunca resultados grandes para pasárselos a una síntesis.
 <code>json(value, maxChars)</code> es un alias (misma serialización/truncado).</li>
-<li><code>args</code> — la entrada del workflow; <code>limits</code> — límites efectivos de solo lectura del run (<code>concurrency</code>, <code>maxAgents</code>,
-timeouts).</li>
+<li><code>args</code> — la entrada del workflow; <code>limits</code> — límites efectivos de solo lectura de la corrida (<code>concurrency</code>,
+<code>maxAgents</code>, timeouts).</li>
 </ul>
 <h3>Opciones comunes de subagentes</h3>
 <pre><code class="hljs language-js">{
@@ -429,7 +433,7 @@ archivos con <code>concurrency: 4</code> corre en olas de hasta 4 agentes simult
 <p>Límites relacionados:</p>
 <ul>
 <li><code>concurrency</code> = máximo de subagentes simultáneos (normalizado entre <code>1</code> y <code>16</code>; si no se setea, default <code>4</code>).</li>
-<li><code>maxAgents</code> = máximo total de subagentes para el run.</li>
+<li><code>maxAgents</code> = máximo total de subagentes para la corrida.</li>
 <li><code>maxFiles</code>, <code>angles</code>, <code>rounds</code>, etc. = límites específicos del workflow sobre la lista de trabajo.</li>
 </ul>
 <h3>Por qué el default es 4</h3>
@@ -491,9 +495,9 @@ superar nunca <code>limits.concurrency</code>.</li>
 <pre><code class="hljs language-js"><span class="hljs-keyword">const</span> concurrency = <span class="hljs-title class_">Math</span>.<span class="hljs-title function_">min</span>(args?.<span class="hljs-property">concurrency</span> ?? limits.<span class="hljs-property">concurrency</span>, limits.<span class="hljs-property">concurrency</span>);
 <span class="hljs-keyword">const</span> reviews = <span class="hljs-keyword">await</span> <span class="hljs-title function_">agents</span>(items, { concurrency, <span class="hljs-attr">settle</span>: <span class="hljs-literal">true</span> });</code></pre>
 <ul>
-<li><code>limits.concurrency</code> es el límite efectivo del run y es de solo lectura.</li>
-<li><code>agents(..., { concurrency })</code> vuelve a clamplear, así nunca supera el límite del run; <code>pipeline()</code> y <code>parallel()</code>
-también usan <code>limits.concurrency</code> como su límite local.</li>
+<li><code>limits.concurrency</code> es el límite efectivo de la corrida y es de solo lectura.</li>
+<li><code>agents(..., { concurrency })</code> vuelve a clamplear, así nunca supera el límite de la corrida; <code>pipeline()</code> y
+<code>parallel()</code> también usan <code>limits.concurrency</code> como su límite local.</li>
 <li>Las llamadas cacheadas al reanudar (<code>journal.jsonl</code> HIT) no ejecutan <code>pi -p</code>, así que no consumen slots de
 concurrencia ni cuentan contra <code>maxAgents</code>.</li>
 </ul>
@@ -528,7 +532,7 @@ así que <code>run</code> bloquea hasta completar.</li>
 reanudarla sin volver a ejecutar los subagentes que ya terminaron (cada subagente es un <code>pi -p</code> caro):</p>
 <pre><code class="hljs language-text">/workflow resume latest              # background por defecto en TUI/RPC
 /workflow resume &lt;runId&gt;              # background por defecto en TUI/RPC
-/workflow resume &lt;runId&gt; --force       # incluso si el run ya está completed</code></pre>
+/workflow resume &lt;runId&gt; --force       # incluso si la corrida ya está completed</code></pre>
 <p>Desde la herramienta del modelo:</p>
 <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span> <span class="hljs-attr">&quot;action&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;resume&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;&lt;runId&gt;&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;force&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span> <span class="hljs-punctuation">}</span></code></pre>
 <p>Cómo funciona:</p>

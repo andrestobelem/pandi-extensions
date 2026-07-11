@@ -13,9 +13,10 @@ for (let i = 0; i < maxTries; i++) {
 
 **Runtime:** pi runtime
 
-**Firma:** `sleep(ms) → Promise<void>`
+**Firma:** `sleep(ms, options?) → Promise<void>` con `options.signal?`.
 
-**Devuelve:** nada. La promesa resuelve después de la espera, o rechaza si la run/branch se aborta mientras espera.
+**Devuelve:** nada. La promesa resuelve después de la espera, o rechaza si la corrida se cancela o si el `signal`
+explícito se aborta.
 
 ## Cuándo usarlo y cuándo no
 
@@ -28,8 +29,8 @@ for (let i = 0; i < maxTries; i++) {
 
 ## Ojo
 
-- **Cancelable.** La espera queda ligada a la abort signal de la run, así que se detiene enseguida si la run/branch se
-  aborta (por ejemplo, si pierde en `race()`). No bloquea la limpieza.
+- **Cancelable.** La espera siempre queda ligada a la señal de la corrida. Dentro de `race()`, usá
+  `sleep(ms, { signal })` para que también se detenga cuando la rama pierde.
 - **No determinismo.** Una duración derivada de `Date.now()` es no determinista. Evitá usar esos valores en prompts o
   cache keys.
 

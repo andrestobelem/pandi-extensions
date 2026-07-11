@@ -10,6 +10,7 @@ import { makeRunAgents } from "./agents.js";
 import type { WorkflowRuntimeApi } from "./api.js";
 import { type BashAskContext, runAsk, runBash } from "./bash-ask.js";
 import type { InternalAgentOptions } from "./subagent.js";
+import { callSignal } from "./worker-bridge.js";
 
 export type MakeApiDeps = {
 	ctx: ExtensionContext;
@@ -122,7 +123,7 @@ export function makeApi(
 		},
 		writeArtifact,
 		appendArtifact,
-		sleep: async (ms) => await sleep(ms, runSignal.signal),
+		sleep: async (ms) => await sleep(ms, callSignal.getStore() ?? runSignal.signal),
 		json: (value, maxChars = MAX_TOOL_TEXT) => stringify(value, maxChars),
 		compact: (value, maxChars = MAX_TOOL_TEXT) => stringify(value, maxChars),
 	};

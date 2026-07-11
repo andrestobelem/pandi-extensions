@@ -239,11 +239,10 @@ reusable, p. ej. terminado en <code>-lib</code>), <code>composed</code> (usa <co
 de Plan, Generate y Review para que el planificador PREFIERA reusar/especializar el scaffold más cercano y COMPONER
 sub-pasos reusables vía <code>workflow(name, args)</code> en vez de reinventar — el plan debe justificar explícitamente construir
 desde cero si nada encaja.</p>
-<p>El diseño soporta composición recursiva acotada por profundidad: un workflow generado puede componer otros scaffolds con
-<code>workflow(name, args)</code>, incluyendo llamar a <code>workflow(&quot;contract-gate&quot;, …)</code> desde dentro de un nodo para re-acotar una
-subtarea antes de profundizar. Esa recursión está limitada por el runtime (Claude Code Workflow tool: profundidad 1,
-solo el nivel superior puede componer; pi: profundidad 2 por defecto, configurable con
-<code>PI_DYNAMIC_WORKFLOWS_MAX_DEPTH</code>).</p>
+<p>El diseño soporta composición depth 1: el workflow top-level generado puede componer otros scaffolds con
+<code>workflow(name, args)</code>, pero un hijo compuesto no puede volver a llamar <code>workflow()</code>. Para una dependencia más profunda,
+la factory debe aplanar los hijos como hermanos del top-level o devolver una recomendación para que el orquestador abra
+otra corrida. <code>PI_DYNAMIC_WORKFLOWS_MAX_DEPTH</code> limita nested top-level runs en pi; no amplía esta composición.</p>
 <p>Todo el input/contexto no confiable (el <code>task</code> del usuario, el catálogo, el código generado, los hallazgos de revisión)
 se envuelve con <code>fence()</code>, un delimitador derivado del hash del propio contenido: un payload malicioso no puede forjar
 el marcador de cierre porque cambiar el contenido cambia el hash. Los prompts de Generate/Refine/Review instruyen

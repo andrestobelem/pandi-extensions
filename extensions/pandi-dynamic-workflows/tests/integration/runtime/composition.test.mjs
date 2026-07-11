@@ -1008,6 +1008,66 @@ async function runScaffold(code, globals = {}) {
 	return await m.exports();
 }
 
+async function scenarioRecursiveComposeStopsAtDepthBoundary(mod) {
+	const code = await findScaffold(mod, (source) => /name:\s*"recursive-compose"/.test(source));
+	check("recursive-compose boundary: scaffold found", typeof code === "string");
+	if (!code) return;
+
+	const workflowCalls = [];
+	const result = await runScaffold(code, {
+		args: { task: "Audit the parser", args: { maxFiles: 12 } },
+		workflow: async (name, input) => {
+			workflowCalls.push({ name, input });
+			if (name === "contract-gate") {
+				return {
+					status: "PROCEED",
+					rewrittenPrompt: "Audit the parser with evidence",
+					routing: { shape: "dynamic-workflow", pattern: "map-reduce" },
+					contract: { improvedTask: "Audit the parser with evidence" },
+					resourcePlan: {
+						models: { mapper: "haiku" },
+						efforts: { mapper: "low" },
+					},
+				};
+			}
+			if (name === "router") {
+				return {
+					selected: "map-reduce",
+					why: "independent files",
+					dispatched: false,
+					suggestedArgs: { task: "Audit the parser with evidence", maxFiles: 99 },
+				};
+			}
+			throw new Error(`unexpected workflow call: ${name}`);
+		},
+	});
+
+	const routerCall = workflowCalls.find((call) => call.name === "router");
+	check(
+		"recursive-compose boundary: router is recommendation-only",
+		routerCall?.input?.runSelected === false,
+		JSON.stringify(routerCall),
+	);
+	check(
+		"recursive-compose boundary: unsupported nested dispatch is explicit",
+		result?.status === "DEPTH_BLOCKED" && result?.stage === "dispatch",
+		JSON.stringify(result),
+	);
+	check(
+		"recursive-compose boundary: preserves the selected top-level recommendation",
+		result?.recommendation?.selected === "map-reduce" && result?.recommendation?.dispatched === false,
+		JSON.stringify(result),
+	);
+	check(
+		"recursive-compose boundary: continuation merges suggested input, explicit overrides, and gate budget",
+		result?.dispatchArgs?.task === "Audit the parser with evidence" &&
+			result?.dispatchArgs?.maxFiles === 12 &&
+			result?.dispatchArgs?.models?.mapper === "haiku" &&
+			result?.dispatchArgs?.efforts?.mapper === "low",
+		JSON.stringify(result?.dispatchArgs),
+	);
+}
+
 // El scaffold scout-fanout nunca debe dejar que input.pattern llegue a un shell. Bajo el contrato
 // single-interface, FENCEA el pattern dentro del prompt de discovery de un agente (un delimitador content-hash) y
 // corre la work-list por pipeline(...): no hay interpolación shell en absoluto. Asertá eso
@@ -1268,6 +1328,7 @@ async function main() {
 		// Compilá scaffolds con el transform runtime REAL (levanta `export const meta`, reescribe
 		// el export); vive en el bundle index.ts, no en pattern-scaffolds.ts.
 		__transform = (await import(`${url}?i=${instance++}`)).transformWorkflowCode;
+		await scenarioRecursiveComposeStopsAtDepthBoundary(scaffoldsMod);
 		await scenarioScoutScaffoldInjectionSafe(scaffoldsMod);
 		await scenarioAdversarialInputCoercion(scaffoldsMod);
 		await scenarioJudgeEscalateBounded(scaffoldsMod);

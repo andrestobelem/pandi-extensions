@@ -56,21 +56,21 @@ son globals del runtime de pi.
 |                                    | `agents`                                | bounded parallel map, un paso por ítem (`concurrency`, `settle`)                                                           | compartido |
 |                                    | `parallel`                              | barrera: correr ramas, usar TODOS los resultados a la vez                                                                  | compartido |
 |                                    | `pipeline`                              | stages dependientes por ítem; ítems fallidos → `null`                                                                      | compartido |
-|                                    | `race`                                  | gana el primer valor aceptado, cancela perdedores en vuelo                                                                 | pi         |
+|                                    | `race`                                  | gana el primer valor aceptado; señala perdedores y las llamadas cooperativas reciben `signal`                             | pi         |
 |                                    | `workflow`                              | compone un sub-workflow reutilizable inline (depth-bounded)                                                                | compartido |
 | Humano y observabilidad            | `ask`                                   | human-in-the-loop (input/confirm/select); resume-safe                                                                      | pi         |
 |                                    | `phase`                                 | marca la fase actual para dashboard/log                                                                                    | compartido |
-|                                    | `log`                                   | agrega una línea al run log (logueá todo cap/clamp/skip)                                                                   | compartido |
+|                                    | `log`                                   | agrega una línea al log de corrida (logueá todo cap/clamp/skip)                                                            | compartido |
 | Filesystem y shell (en `cwd`)      | `bash`                                  | corre un shell command; caching opt-in (`{cache:true}`)                                                                    | pi         |
 |                                    | `readFile` / `writeFile` / `appendFile` | leer / escribir / appendear un archivo bajo `cwd`                                                                          | pi         |
 |                                    | `listFiles`                             | listado recursivo (omite `node_modules`/`.git`, `maxFiles`)                                                                | pi         |
-| Artifacts (bajo `runDir`)          | `writeArtifact` / `appendArtifact`      | escribir / appendear un artifact inspeccionable scoped al run (`append` es concurrency-safe)                               | pi         |
-| Utilidades                         | `sleep`                                 | delay abortable                                                                                                            | pi         |
+| Artifacts (bajo `runDir`)          | `writeArtifact` / `appendArtifact`      | escribir / appendear un artifact inspeccionable de la corrida (`append` es concurrency-safe)                              | pi         |
+| Utilidades                         | `sleep`                                 | delay cancelable por corrida o por rama con `{signal}`                                                                     | pi         |
 |                                    | `json`                                  | JSON stringify acotado y seguro                                                                                            | pi         |
 |                                    | `compact`                               | stringify acotado y seguro (usarlo en prompts); los scaffolds de Claude Code traen una copia local, no un global inyectado | compartido |
 |                                    | `args`                                  | el input del workflow (parsealo de forma defensiva; JSON-stringified en Claude)                                            | compartido |
 | Contexto de corrida (solo lectura) | `limits`                                | caps `{ concurrency, maxAgents, … }` (clamp + `log()`)                                                                     | pi         |
-|                                    | `runId` / `runDir` / `cwd`              | run id / run dir (artifacts) / working dir                                                                                 | pi         |
+|                                    | `runId` / `runDir` / `cwd`              | id / directorio de corrida (artifacts) / working dir                                                                       | pi         |
 
 ## Model y effort por llamada (detalle)
 
@@ -278,7 +278,7 @@ nombre usa exactamente esa fuente, sin copiarla al agent-dir. Para modificarla, 
 |                     | `orchestrator-workers`    | open goal → grafo de subtareas → integrar                                                                   |
 |                     | `map-reduce`              | más grande que una ventana                                                                                  |
 |                     | `workflow-factory`        | escribe un workflow nuevo                                                                                   |
-|                     | `recursive-compose`       | REFERENCE, pi depth ≤3: vuelve a gatear vía contract-gate y luego reroutea vía router (Phase-0-from-inside) |
+|                     | `recursive-compose`       | BOUNDARY REFERENCE: re-gatea, pide recomendación al router y explicita el corte depth-1 |
 | Discover & fan-out  | `fan-out-and-synthesize`  | finders independientes → síntesis                                                                           |
 |                     | `scout-fanout`            | profundidad adaptativa                                                                                      |
 |                     | `repo-bug-hunt`           | sweep repo-wide de bugs                                                                                     |
@@ -346,11 +346,12 @@ Pasá el mismo `argsJson` que usará la corrida; usá la ruta absoluta (`cwd` se
   estructura planeada, Plan es estático, Results está vacío y las salidas de los agentes están stubbed porque todavía no
   existen datos de corrida. Cuando la corrida termina (o si querés seguirla en vivo), reconstruí el MISMO HTML con la
   corrida real superpuesta (`status.json`
-  - `events.jsonl` + `result.json` + artifacts del run-root) y volvé a abrirlo. Nunca presentes el HTML pre-launch como
+  - `events.jsonl` + `result.json` + artifacts de la raíz de corrida) y volvé a abrirlo. Nunca presentes el HTML
+  pre-launch como
     resultado de la corrida:
 
 ```sh
-# render final, una vez terminada la corrida — Results tab poblada desde el run dir:
+# render final, una vez terminada la corrida — Results tab poblada desde su directorio:
 node ~/.claude/scripts/build-workflow-artifact.mjs <script.js> <out.html> '<argsJson>' --run <runDir>
 open <out.html>
 # o seguí la corrida en vivo: re-renderiza ante cambios en status.json, reabre en el estado terminal:
@@ -387,7 +388,8 @@ dynamic_workflow({ action: 'view', name: 'latest' })        // or resume: { acti
   `<runDir>/report.html`. `--watch` para refresh en vivo hasta estado terminal.
 - **Commands:** `/dynamic-workflow <task>` (alias `/ultracode`), `/deep-research`, `/ultracode-mode`,
   `/ultracode-contract`, `/workflow view|runs|resume`, `/workflows`, `/workflow patterns|graph`.
-- **Depth:** 2 default (→3 con `PI_DYNAMIC_WORKFLOWS_MAX_DEPTH`). **Resume** journaled; `agent()` cache por default.
+- **Depth:** composición `workflow()` depth 1; nested-run guard default 2, configurable con
+  `PI_DYNAMIC_WORKFLOWS_MAX_DEPTH`. **Resume** journaled; `agent()` cache por default.
 - **Structured output:** `agent(prompt, { schema })`; plurales devuelven `SubagentResult` con `null` por rama fallida
   bajo `settle`. `schemaRetries` (default 2), `schemaOnInvalid: "throw" | "null"`.
 - **Access defaults:** auditorías read-only `tools: ["read","grep","find","ls"]`; `web_search` y `context7-cli` auto si

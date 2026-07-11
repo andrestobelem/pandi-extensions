@@ -62,8 +62,8 @@ los conceptos, la referencia de primitivas y los detalles operativos.
 - **Fan-out controlado**: distribuí archivos, temas, hipótesis o perspectivas entre subagentes en paralelo.
 - **Evidencia obligatoria**: cada rama debe devolver datos verificables — archivo/línea, URL, comando observado o
   `NO_FINDINGS` / `INSUFFICIENT_EVIDENCE`.
-- **Artifacts fuera del chat**: persistí los resultados intermedios en el directorio del run en lugar de depender del
-  contexto conversacional.
+- **Artifacts fuera del chat**: persistí los resultados intermedios en el directorio de la corrida en lugar de depender
+  del contexto conversacional.
 - **Síntesis como juez**: un agente final deduplica, descarta afirmaciones sin respaldo, preserva la incertidumbre y
   devuelve una conclusión priorizada.
 
@@ -94,7 +94,7 @@ flowchart TD
   barrier -- "sí (dedup / merge / rank)" --> parallel["parallel()<br/>barrera"]
   barrier -- no --> agents["agents()<br/>map paralelo acotado"]
   start --> hedge{¿Gana la primera<br/>respuesta buena / latencia?}
-  hedge -- yes --> race["race()<br/>cancela los perdedores"]
+  hedge -- yes --> race["race()<br/>señala los perdedores"]
   start --> compose{¿Subworkflow reutilizable,<br/>sin decisión humana entre medio?}
   compose -- yes --> workflow["workflow()<br/>composición inline"]
 ```
@@ -116,7 +116,7 @@ ciclo:
 ```mermaid
 flowchart TD
   launch([run / start]) --> resolve[1. Resolver workflow<br/>por nombre: project + global]
-  resolve --> create[2. Crear run: runId +<br/>.pi/workflows/runs/&lt;run-id&gt;/]
+  resolve --> create[2. Crear corrida: runId +<br/>.pi/workflows/runs/&lt;run-id&gt;/]
   create --> persist[3. Persistir estado inicial<br/>input/status/events/codeHash/agents]
   persist --> worker[4. Ejecutar JS en un Worker<br/>globals inyectadas, sin import/ctx]
   worker --> spawn[5. Crear subagentes<br/>pi -p --no-session --mode json]
@@ -137,7 +137,7 @@ Detalles de cada paso:
 5. **Crea subagentes**: cada `agent()` ejecuta un proceso `pi -p --no-session --mode json` con prompt, tools, skills,
    extensions, keys/env, model, effort y timeouts configurables.
 6. **Aplica límites**: `concurrency` limita cuántos subagentes corren a la vez; `maxAgents` limita el total de
-   subagentes que un run puede gastar; los timeouts matan agentes o workflows colgados.
+   subagentes que una corrida puede gastar; los timeouts matan agentes o workflows colgados.
 7. **Guarda progreso y artifacts**: logs en `events.jsonl`, estado en `status.json`, salidas de subagentes en
    `agents/*.md`, más los artifacts definidos por el workflow.
 8. **Devuelve el resultado final**: el valor de retorno del workflow se guarda en `result.json` y se muestra como
@@ -153,7 +153,7 @@ Estas globals son toda la interfaz de autoría. Las más importantes:
 | `agents(items, opts)`        | fan-out paralelo acotado (map)                                            | `SubagentResult[]` (`.output`/`.data`/`.ok`); `null` por rama con `settle` |
 | `pipeline(items, ...stages)` | etapas dependientes por ítem, sin barrera                                 | array alineado con los ítems; `null` para un ítem fallido                  |
 | `parallel([thunks])`         | barrera explícita con concurrencia local acotada                          | array alineado con los thunks; `null` por thunk fallido                    |
-| `race(thunks, { accept? })`  | gana el primer valor aceptado; envía SIGTERM a los perdedores             | `{ winner, index, status }` (`"won"`/`"empty"`)                            |
+| `race(thunks, { accept? })`  | gana el primer valor aceptado; señala las ramas perdedoras                 | `{ winner, index, status }` (`"won"`/`"empty"`)                            |
 | `workflow(name, args)`       | sub-workflow reutilizable inline (profundidad 1)                          | el valor de retorno del sub-workflow                                       |
 | `ask(question, opts?)`       | pausa una rama para preguntarle a una persona vía la UI de Pi             | la respuesta (`string`/`boolean`)                                          |
 
@@ -168,40 +168,44 @@ Más sobre las claves:
 - `agent(prompt, { agentType: "reviewer" })` — aplica defaults de persona (`explore`, `reviewer`, `planner`,
   `architect`, `implementer`, `researcher`); las opciones explícitas ganan.
 - `agents(items, { concurrency, settle: true })` — una rama fallida no hunde el batch; devuelve
-  `Array<SubagentResult | null>` con `null` para las ramas fallidas.
+  `Array<SubagentResult | null>` con `null` para las ramas fallidas. Dentro de `race()`, pasá `{ signal }` para señalar
+  el fan-out completo si esta llamada pierde.
 - `pipeline(items, ...stages)` — flujo multi-etapa por ítem sin barrera global; cada etapa recibe `(prev, item, index)`
   y los ítems fallidos devuelven `null`.
 - `parallel([async () => ...])` — barrera explícita con concurrencia local acotada; cada thunk fallido devuelve `null`.
   Usalo solo cuando una etapa posterior necesite todos los resultados juntos.
-- `race(thunks, { accept? })` — abre N ramas y, en cuanto una produce un valor aceptado (por defecto `!= null`),
-  **cancela los perdedores en vuelo** (SIGTERM real al subproceso, vía el `AbortSignal` que recibe cada thunk); devuelve
-  `{ winner, index, status }` (`status: "won" | "empty"`). Forma típica:
-  `race(items.map((s) => (signal) => agent(prompt, { signal })))`.
+- `race(thunks, { accept? })` — abre N ramas y, en cuanto una produce un valor aceptado (por defecto `!= null`), señala
+  las demás mediante el `AbortSignal` de cada thunk. Para detener trabajo en curso, reenviá esa señal a
+  `agent`/`agents`/`ask`/`bash`/`sleep`: se solicita terminar subagentes y comandos, descartar diálogos y rechazar
+  esperas. Una promesa que ignore la señal continúa. Forma típica:
+  `race(items.map((item) => (signal) => agent(promptFor(item), { signal })))`.
+  `workflow()` y los helpers de filesystem/artifacts no cancelan efectos por rama: diferí mutaciones hasta después de
+  elegir al ganador.
 - `ask(question, opts?)` — pausa una rama para preguntarle a una persona (`kind: "input" | "confirm" | "select"`,
   inferido desde `choices`/`default`). **Seguro para resume**: la respuesta queda journaled y se reutiliza al reanudar
   sin volver a preguntar. En modo headless (`hasUI=false`) devuelve `opts.default` o lanza un error claro; nunca queda
-  colgado. Se puede cancelar dentro de `race()` con `{ signal }`.
-- `workflow(name, args)` — compone un sub-workflow reutilizable inline (profundidad 1), compartiendo el mismo run,
-  límites, abort y cache/journal; emite eventos `workflow` para auditabilidad. Usalo para bibliotecas como
-  `lib/verify-claims`, no para fases que necesitan una decisión humana en el medio.
+  colgado. El diálogo se puede descartar dentro de `race()` con `{ signal }`.
+- `workflow(name, args)` — compone un sub-workflow reutilizable inline (profundidad 1), compartiendo la misma corrida,
+  límites, cancelación de la corrida y cache/journal; emite eventos `workflow` para auditabilidad. Usalo para
+  bibliotecas como `lib/verify-claims`, no para fases que necesitan una decisión humana en el medio.
 
 Helpers de apoyo:
 
-- `bash(command, opts)` — ejecuta shell desde el cwd del workflow; solo cacheable con `{ cache: true }` (comandos
-  determinísticos only).
+- `bash(command, opts)` — ejecuta shell desde el cwd del workflow; solo cacheable con `{ cache: true }`. Dentro de
+  `race()`, pasá `{ signal }` para solicitar la cancelación del comando si la rama pierde.
 - `readFile/writeFile/appendFile/listFiles` — helpers de archivos confinados al cwd del workflow.
-- `writeArtifact/appendArtifact` — persiste datos del run fuera del chat (idempotente; no cacheado, reescrito al
+- `writeArtifact/appendArtifact` — persiste datos de la corrida fuera del chat (idempotente; no cacheado, reescrito al
   resume).
 - `log(message, details)` — registra progreso visible en el dashboard, la status line y `events.jsonl`.
-- `sleep(ms)` — pausa la rama actual durante `ms` milisegundos, por ejemplo para backoff entre probes de polling;
-  abortable (resuelve antes/rechaza si el run/rama se aborta) y nunca cacheado, así que siempre se re-ejecuta al resume.
+- `sleep(ms, opts?)` — pausa durante `ms` milisegundos; siempre rechaza si se cancela la corrida y, con `{ signal }`,
+  también si pierde su rama de `race()`. Nunca se cachea, así que se reejecuta al resume.
 - `phase(label)` — define una etiqueta liviana para las llamadas que siguen, visible en el dashboard como
   `P<phase> 1/n`, `P<phase> 2/n`, etc. en los agentes lanzados por la misma llamada a `agents(...)`; llamá `phase(null)`
   para limpiarla.
 - `compact(value, maxChars)` — serializa y trunca resultados grandes para pasárselos a una síntesis.
   `json(value, maxChars)` es un alias (misma serialización/truncado).
-- `args` — la entrada del workflow; `limits` — límites efectivos de solo lectura del run (`concurrency`, `maxAgents`,
-  timeouts).
+- `args` — la entrada del workflow; `limits` — límites efectivos de solo lectura de la corrida (`concurrency`,
+  `maxAgents`, timeouts).
 
 ### Opciones comunes de subagentes
 
@@ -240,7 +244,7 @@ archivos con `concurrency: 4` corre en olas de hasta 4 agentes simultáneos hast
 Límites relacionados:
 
 - `concurrency` = máximo de subagentes simultáneos (normalizado entre `1` y `16`; si no se setea, default `4`).
-- `maxAgents` = máximo total de subagentes para el run.
+- `maxAgents` = máximo total de subagentes para la corrida.
 - `maxFiles`, `angles`, `rounds`, etc. = límites específicos del workflow sobre la lista de trabajo.
 
 ### Por qué el default es 4
@@ -291,9 +295,9 @@ const concurrency = Math.min(args?.concurrency ?? limits.concurrency, limits.con
 const reviews = await agents(items, { concurrency, settle: true });
 ```
 
-- `limits.concurrency` es el límite efectivo del run y es de solo lectura.
-- `agents(..., { concurrency })` vuelve a clamplear, así nunca supera el límite del run; `pipeline()` y `parallel()`
-  también usan `limits.concurrency` como su límite local.
+- `limits.concurrency` es el límite efectivo de la corrida y es de solo lectura.
+- `agents(..., { concurrency })` vuelve a clamplear, así nunca supera el límite de la corrida; `pipeline()` y
+  `parallel()` también usan `limits.concurrency` como su límite local.
 - Las llamadas cacheadas al reanudar (`journal.jsonl` HIT) no ejecutan `pi -p`, así que no consumen slots de
   concurrencia ni cuentan contra `maxAgents`.
 
@@ -340,7 +344,7 @@ reanudarla sin volver a ejecutar los subagentes que ya terminaron (cada subagent
 ```text
 /workflow resume latest              # background por defecto en TUI/RPC
 /workflow resume <runId>              # background por defecto en TUI/RPC
-/workflow resume <runId> --force       # incluso si el run ya está completed
+/workflow resume <runId> --force       # incluso si la corrida ya está completed
 ```
 
 Desde la herramienta del modelo:

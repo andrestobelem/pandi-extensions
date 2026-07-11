@@ -217,13 +217,11 @@ garantía read-only; <code>git pull</code> muta el working tree). Igual patrón 
 <code>pnpm remove</code>, <code>yarn upgrade</code>). Nota: <code>git worktree add</code> <strong>sí</strong> queda atrapado por la palabra <code>add</code> (el subagente se
 equivocó al listarlo). Fix: default-deny de subcomandos git/PM salvo allowlist read-only.</p>
 </li>
-<li><p><strong><code>agents()</code> no puentea <code>signal</code></strong> — <code>worker-source.ts:237</code>. <code>race()</code> promete cancelar a todos los perdedores, pero
-solo <code>agent()</code>/<code>ask()</code> bridgean abort-call; además <code>agents(items, { signal })</code> reenvía el <code>AbortSignal</code> verbatim →
-<code>DataCloneError</code> al serializar en <code>postMessage</code>. Fix: wrapper de <code>agents</code> que borre <code>signal</code> y postee abort-call.</p>
+<li><p><strong>[Resuelto; verificado 2026-07-11] <code>agents()</code> no puenteaba <code>signal</code>.</strong> El wrapper ahora quita la señal antes de
+<code>postMessage</code>, envía <code>abort-call</code> y señala el fan-out completo de la rama perdedora para cancelación.</p>
 </li>
-<li><p><strong>Teardown de cancelación en el core</strong> — <code>index.ts:~533-551</code>. <strong>[plausible]</strong> <code>cleanup()</code> dispone los
-<code>callControllers</code> (y sus combined-signals) durante el mismo dispatch de <code>abort</code>; los listeners aún no invocados se
-remueven antes de dispararse, así que los hijos de subagente no se matan al cancelar y el teardown bloquea hasta
+<li><p><strong>[Resuelto; verificado 2026-07-11] Teardown de cancelación en el core.</strong> <code>cleanup()</code> ahora aborta cada señal
+combinada antes de disponerla, por lo que las operaciones host en vuelo reciben cancelación sin esperar
 <code>agentTimeoutMs</code>.</p>
 </li>
 <li><p><strong>Gate de plan-mode process-global</strong> — <code>pi-plan/index.ts</code>. El estado del gate no está scopeado por sesión
@@ -244,9 +242,8 @@ key.</li>
 <li><strong>Agujero de journal se re-ejecuta en silencio</strong> — <code>journal.ts:99-108</code>. Una línea no-final malformada se saltea con
 solo un <code>console.warn</code>; ese slot <code>(key,occ)</code> queda hueco y en resume la llamada cacheada RE-CORRE (re-gasta tokens /
 repite side effects) sin aparecer en el status. <strong>[low]</strong></li>
-<li><strong><code>bash()</code> en rama perdedora de <code>race()</code> no se cancela</strong> — <code>index.ts:593,1279</code>. El dispatcher instala <code>callSignal</code>
-solo para <code>agent</code>/<code>ask</code>; <code>bash</code> cae al else y usa <code>runSignal.signal</code>, así que un <code>bash()</code> de un perdedor corre hasta
-el final y journaliza — inconsistente con <code>agent</code>/<code>ask</code>. <strong>[low]</strong> (mismo patrón que el HIGH 6 de <code>agents()</code>).</li>
+<li><strong>[Resuelto 2026-07-11] <code>bash()</code> en rama perdedora de <code>race()</code> no se cancelaba.</strong> El worker ahora quita y puentea
+<code>signal</code>, y el host ejecuta <code>bash()</code> con la señal por llamada; <code>sleep(ms, { signal })</code> comparte el mismo contrato.</li>
 <li><strong>Error de live-write descartado en path de throw</strong> — <code>index.ts:1032-1037</code>. <code>liveWriteError</code> solo se reporta al llegar
 a <code>await liveWriteTail</code>; si <code>runStreamingAgentProcess</code> lanza antes (timeout/abort), el error de escritura del log en
 vivo se pierde. <strong>[low]</strong></li>

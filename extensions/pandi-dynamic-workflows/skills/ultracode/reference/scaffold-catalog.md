@@ -283,25 +283,24 @@ Workflow({
 });
 ```
 
-### Recursión y profundidad (el anidamiento es acotado)
+### Composición y nested runs (dos límites distintos)
 
-La composición puede **recursar**: un workflow compuesto puede a su vez componer otro, e incluso un nodo puede llamar a
-la **Fase 0** (`workflow('contract-gate', …)`) para volver a acotar una subtarea antes de profundizar. Pero el runtime
-**limita la profundidad**:
+La composición con `workflow()` tiene **depth 1** tanto en pi como en la Workflow tool de Claude Code: solo el workflow
+top-level puede componer hijos. Un hijo compuesto no puede volver a llamar `workflow()`.
 
-| Runtime                       | Profundidad máxima                      | Notas                                                                                                                                                       |
-| ----------------------------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Claude Code Workflow tool** | **depth-1**                             | el `workflow()` de un hijo lanza error: solo el **nivel superior** compone. Llamar a Phase-0 desde dentro de un nodo sería depth-2 → acá no está permitido. |
-| **pi**                        | **depth 2 (por defecto), configurable** | podés subirlo con `PI_DYNAMIC_WORKFLOWS_MAX_DEPTH` (por ejemplo `3`) → más libertad; Phase-0-from-inside funciona.                                          |
+| Mecanismo                   | Límite                                                       | Cómo continuar                                                            |
+| --------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| Composición `workflow()`    | depth 1 en pi y Claude Code                                  | Aplaná los hijos como hermanos del top-level o devolvé una recomendación. |
+| Nested top-level runs de pi | default 2, configurable con `PI_DYNAMIC_WORKFLOWS_MAX_DEPTH` | El orquestador abre otra corrida después de recibir la recomendación.     |
 
-Más allá del límite, el runtime rechaza la ejecución con un **recursion guard**. Diseñá dentro de ese presupuesto de
-profundidad; para ir más hondo, dejá que el orquestador ejecute los sub-workflows.
+`PI_DYNAMIC_WORKFLOWS_MAX_DEPTH` protege nuevas corridas top-level iniciadas desde sesiones de subagentes; no amplía la
+composición dentro de una corrida.
 
-> **Referencia trabajada — `recursive-compose.js`.** Encadena exactamente esto: `contract-gate` (re-acotar, depth 1) →
-> dispatch de `router` (depth 2) → la sub-llamada propia del scaffold elegido (depth 3). Es **solo para pi** y queda
-> topeado en depth 3, así que `PI_DYNAMIC_WORKFLOWS_MAX_DEPTH>=3` lo cubre; en el runtime depth-1 de Claude Code
-> devuelve `DEPTH_BLOCKED` en vez de romper. También propaga el `resourcePlan` del gate (model/effort por nodo) hacia la
-> corrida despachada.
+> **Referencia trabajada — `recursive-compose.js`.** Llama a `contract-gate` y `router` como dos hijos hermanos de
+> depth 1. Router corre con `runSelected:false`; si elige un scaffold, la referencia devuelve `DEPTH_BLOCKED`, la
+> recomendación y `dispatchArgs`. El orquestador puede usar esos datos para abrir otra corrida top-level. El
+> `dispatchArgs` combina las tres fuentes con precedencia `resourcePlan` > overrides de entrada >
+> `recommendation.suggestedArgs`.
 
 ---
 
@@ -582,15 +581,16 @@ arrastra un buffer acotado de self-reflections; el evaluator puede estar **ancla
 - _Casos de uso:_ bootstrap de un patrón nuevo; especializar el scaffold existente más cercano. **La salida es un draft:
   inspeccionala antes de confiarle trabajo costoso o mutante.**
 
-**`recursive-compose`** — REFERENCIA (pi, depth≤3): un nodo re-acota una subtarea vía la Fase 0 `contract-gate` y luego
-despacha el scaffold recomendado vía `router`: composición recursiva acotada.
+**`recursive-compose`** — BOUNDARY REFERENCE: re-acota una tarea vía `contract-gate`, consulta `router` sin dispatch y
+explicita el límite de composición depth 1.
 
-- _Usar cuando:_ querés el patrón trabajado de **Phase-0-from-inside** + dispatch recursivo.
-- _Parámetros:_ `task` (req; aliases `request`/`text`) · `context?` · `args?` (se reenvían al workflow elegido).
-- _Ejemplo:_ `Workflow({ name:'recursive-compose', args:{ task:'audit + fix the SSE decoder' } });` _(pi; en el runtime
-  depth-1 de Claude Code el dispatch anidado devuelve `DEPTH_BLOCKED`)_
-- _Casos de uso:_ pipelines auto-semejantes de gate→compose; llevar el presupuesto `resourcePlan` del gate a una corrida
-  más profunda.
+- _Usar cuando:_ querés inspeccionar la frontera gate→router→selected o diseñar una continuación top-level segura.
+- _Parámetros:_ `task` (req; aliases `request`/`text`) · `context?` · `args?` (se devuelven como base de
+  `dispatchArgs`).
+- _Ejemplo:_ `Workflow({ name:'recursive-compose', args:{ task:'audit + fix the SSE decoder' } });` _(devuelve la
+  recomendación; no ejecuta el workflow elegido)_
+- _Casos de uso:_ probar la frontera depth-1; aplanar composiciones; preparar una corrida top-level separada con el
+  `resourcePlan` del gate.
 
 ---
 
@@ -664,7 +664,7 @@ const node = (role, extra = {}) => {
 | `map-reduce`              | `mapper` (haiku·low), `reducer` (sonnet·medium)                                                                                                                                             |
 | `orchestrator-workers`    | `planner` (opus·high), `worker` (sonnet·medium), `integrator` (opus·high)                                                                                                                   |
 | `react-scout`             | `reason` (sonnet·medium), `observe` (haiku·low), `answer` (opus·high)                                                                                                                       |
-| `recursive-compose`       | _(sin claves de rol propias: composición recursiva acotada; delega a `contract-gate`/`router`, cuyas filas aplican)_                                                                        |
+| `recursive-compose`       | _(sin claves de rol propias: referencia de frontera; delega a `contract-gate`/`router`, cuyas filas aplican)_                                                                               |
 | `reflexion`               | `actor` (sonnet·medium), `evaluator` (opus·high), `reflection` (opus·high) — además `actorModel`/`evaluatorModel`                                                                           |
 | `repo-bug-hunt`           | `scout` (haiku·low), `bug-hunt` (sonnet·medium), `synthesis` (opus·high)                                                                                                                    |
 | `router`                  | `catalog-scan` (haiku·low), `route` (opus·high)                                                                                                                                             |

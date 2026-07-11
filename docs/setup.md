@@ -133,7 +133,7 @@ comportamiento, exportá variables de entorno. Una referencia versionada con los
 
 | Variable                          | Extensión      | Default                                            | Propósito                                                                                    |
 | --------------------------------- | -------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `PI_DYNAMIC_WORKFLOWS_MAX_DEPTH`  | core           | `2`                                                | Profundidad máxima de anidamiento de workflows; `0` = kill-switch total.                     |
+| `PI_DYNAMIC_WORKFLOWS_MAX_DEPTH`  | core           | `2`                                                | Máximo de nested top-level runs iniciados desde subagentes; `0` = kill-switch. No amplía la composición `workflow()`. |
 | `PI_DYNAMIC_WORKFLOWS_PI_COMMAND` | core, goal     | binario de la distribución host (`pi` normalmente) | Binario de Pi usado para spawnear subagentes; la variable permite sobrescribirlo.            |
 | `PI_AUTO_COMPACT_PERCENT`         | auto-compact   | `35` (`50` en Codex)                               | Porcentaje de contexto que dispara la compactación.                                          |
 | `PI_AUTO_COMPACT_FAST_SUMMARY`    | auto-compact   | `on`                                               | Usa un resumen rápido/acotado en `session_before_compact`; cae al compactor nativo si falla. |

@@ -48,7 +48,7 @@ function hostCall(method, args) {
 
 // Enlazar un AbortSignal por-llamada al host: postear abort-call permite al host abortar
 // exactamente el CombinedSignal de esta llamada (usado por losers de race()). Compartido por
-// agent() y ask() (mismo archivo, intencional).
+// los wrappers de llamadas host cancelables de este worker.
 function bridgeAbortToHost(sig, id) {
   if (!sig) return;
   if (sig.aborted) {
@@ -134,7 +134,7 @@ async function pipeline(items, concurrency, ...stagesAndOptions) {
 // race(thunks, { accept? }) -> { winner, index, status }. Abre en abanico N ramas y, en el
 // momento en que una produce un valor ACEPTADO (default: != null), aborta los losers en vuelo
 // mediante el AbortSignal que cada thunk recibe. Puro en-worker: cancelación viaja por el id
-// hostCall por-llamada (agentGlobal postea abort-call cuando su signal dispara). Cada rama
+// hostCall por-llamada (los wrappers cancelables postean abort-call cuando su signal dispara). Cada rama
 // tiene un rejection handler así un loser cancelado nunca emerge como unhandled rejection.
 async function race(thunks, options) {
   if (!Array.isArray(thunks) || thunks.length === 0)
@@ -233,8 +233,8 @@ async function race(thunks, options) {
     crypto: globalThis.crypto,
   };
 
-  // Interfaz única de autoría: workflows llamam GLOBALS inyectados (no ctx.*). El global agent()
-  // es un thin wrapper sobre el host bridge que (1) mapea effort->thinking y label->name, (2)
+  // Interfaz recomendada de autoría: globals inyectadas. La forma ctx.* legacy se conserva y
+  // comparte el bridge de cancelación de abajo. El global agent() (1) mapea effort->thinking y label->name, (2)
   // devuelve el objeto parseado para schema calls / el text output en otro caso, y (3) cede null
   // en un subagent fallido (ok:false) así settle semantics de parallel()/pipeline() y contabilidad
   // de partial-failure permanecen honest. phase(label) es un marcador de observabilidad lightweight.
@@ -257,6 +257,16 @@ async function race(thunks, options) {
     if (res == null || res.ok === false) return null;
     return opts.schema !== undefined ? (res.data != null ? res.data : null) : res.output;
   };
+  // ctx.agent() conserva el envelope SubagentResult legacy, pero comparte el bridge de señal
+  // de la superficie global. Solo cambia la adaptación del valor de retorno.
+  const agentContext = async (prompt, options) => {
+    const opts = Object.assign({}, options || {});
+    const sig = opts.signal;
+    delete opts.signal;
+    const { id, promise } = hostCallTracked("agent", [prompt, opts]);
+    bridgeAbortToHost(sig, id);
+    return await promise;
+  };
   // ask(question, options?) -> la respuesta del humano (string para input/select, boolean para
   // confirm). Espeja el per-call signal bridge de agentGlobal así un ask dialog de race() loser se
   // despide: la signal se quita antes de postear (nunca serialices un AbortSignal) y un abort
@@ -268,6 +278,24 @@ async function race(thunks, options) {
     const sig = opts.signal;
     delete opts.signal;
     const { id, promise } = hostCallTracked("ask", [question, opts]);
+    bridgeAbortToHost(sig, id);
+    return await promise;
+  };
+  // bash(command, options?) usa el mismo bridge por llamada. La AbortSignal queda dentro del
+  // worker; el host recibe opciones planas y abort-call cuando esta rama de race pierde.
+  const bashGlobal = async (command, options) => {
+    const opts = Object.assign({}, options || {});
+    const sig = opts.signal;
+    delete opts.signal;
+    const { id, promise } = hostCallTracked("bash", [command, opts]);
+    bridgeAbortToHost(sig, id);
+    return await promise;
+  };
+  // sleep(ms, { signal? }) has no host options beyond the duration; only bridge cancellation.
+  const sleepGlobal = async (ms, options) => {
+    const opts = Object.assign({}, options || {});
+    const sig = opts.signal;
+    const { id, promise } = hostCallTracked("sleep", [ms]);
     bridgeAbortToHost(sig, id);
     return await promise;
   };
@@ -286,6 +314,14 @@ async function race(thunks, options) {
     bridgeAbortToHost(sig, id);
     return promise;
   };
+  // La forma ctx.* sigue soportada por compatibilidad. Reutiliza los mismos wrappers para que
+  // signal nunca cruce postMessage y la cancelación de rama tenga la misma semántica en ambas
+  // superficies de autoría; ctx.agent() mantiene su envelope histórico mediante agentContext.
+  ctx.agent = agentContext;
+  ctx.agents = agentsGlobal;
+  ctx.ask = askGlobal;
+  ctx.bash = bashGlobal;
+  ctx.sleep = sleepGlobal;
   let currentPhaseLabel = null;
   const phase = (label) => {
     currentPhaseLabel = label == null ? null : String(label);
@@ -302,14 +338,14 @@ async function race(thunks, options) {
     sandbox.workflow = ctx.workflow;
     sandbox.log = ctx.log;
     sandbox.phase = phase;
-    sandbox.bash = ctx.bash;
+    sandbox.bash = bashGlobal;
     sandbox.readFile = ctx.readFile;
     sandbox.writeFile = ctx.writeFile;
     sandbox.appendFile = ctx.appendFile;
     sandbox.listFiles = ctx.listFiles;
     sandbox.writeArtifact = ctx.writeArtifact;
     sandbox.appendArtifact = ctx.appendArtifact;
-    sandbox.sleep = ctx.sleep;
+    sandbox.sleep = sleepGlobal;
     sandbox.json = ctx.json;
     sandbox.compact = ctx.compact;
     sandbox.args = workerData.input;

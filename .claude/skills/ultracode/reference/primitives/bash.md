@@ -1,6 +1,6 @@
 # bash
 
-`bash()` ejecuta un comando de shell en el `cwd` del run y devuelve su salida capturada. Usalo cuando un paso del
+`bash()` ejecuta un comando de shell en el `cwd` de la corrida y devuelve su salida capturada. Usalo cuando un paso del
 workflow necesite una sonda o comando barato y determinista — listar archivos, correr un build/test, invocar `git` — y
 no una llamada a un LLM (para eso está `agent()`).
 
@@ -16,9 +16,9 @@ log(`work-list: ${files.length} files`);
 
 ## Referencia rápida
 
-**Opciones:** `{ cwd?, timeoutMs?, throwOnError?, cache? }` — todas opcionales. `cwd` por defecto es el `cwd` del run,
-`timeoutMs` por defecto usa el timeout del agent del run, y `throwOnError` hace throw en vez de devolver un resultado
-fallido.
+**Opciones:** `{ cwd?, timeoutMs?, throwOnError?, cache?, signal? }` — todas opcionales. `cwd` por defecto es el `cwd`
+de la corrida, `timeoutMs` usa el timeout del subagente y `throwOnError` hace throw en vez de devolver un resultado
+fallido. Dentro de `race()`, reenviá el `signal` del thunk para solicitar la cancelación si esa rama pierde.
 
 **Devuelve:** un `BashResult`:
 
@@ -41,6 +41,8 @@ fallido.
   volverá a ejecutar en cada resume incluso con `cache: true`.
 - Corre un shell real (`bash -lc command`); tratá su stdout/stderr como datos **untrusted** antes de reutilizarlos en
   prompts o decisiones.
+- **Cancelación cooperativa:** `bash(command, { signal })` solicita cancelar el proceso si pierde una `race()`; sin ese
+  `signal`, solo responde a la cancelación o timeout de la corrida.
 - `throwOnError: true` lanza `Error("Command failed (<code>): <command>")` con stderr/stdout anexados. Usalo cuando un
   fallo deba abortar el paso en vez de manejarse inline.
 

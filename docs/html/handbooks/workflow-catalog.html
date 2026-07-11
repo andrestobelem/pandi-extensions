@@ -325,9 +325,9 @@ del skill. La sección &quot;pattern catalog&quot; del skill nombra los 25 sin e
 </tr>
 <tr>
 <td><a href="../scaffolds/recursive-compose.html"><code>recursive-compose</code></a></td>
-<td>Referencia (pi, profundidad ≤ 3): un nodo vuelve a poner una compuerta sobre una sub-tarea vía <code>contract-gate</code> y luego deriva con <code>router</code> — recursión acotada.</td>
-<td>Pipelines autosemejantes de gate→compose; llevar el plan de recursos de la compuerta a una ejecución más profunda.</td>
-<td>Necesitás que el patrón gate→dispatch recurra sobre subtareas, no solo correr una vez.</td>
+<td>Referencia de frontera depth-1: re-gatea con <code>contract-gate</code>, consulta <code>router</code> sin dispatch y devuelve la próxima corrida top-level recomendada.</td>
+<td>Probar la frontera de composición; aplanar hijos; preparar una continuación con el plan de recursos del gate.</td>
+<td>Necesitás explicar o diseñar el corte gate→router→selected sin prometer recursión dentro de una corrida.</td>
 </tr>
 </tbody></table></div>
 <h2 id="discover--fan-out">🔍 Discover &amp; fan-out</h2>

@@ -1,40 +1,35 @@
 /**
- * recursive-compose — ejemplo de referencia: re-gateo Phase-0 + composición recursiva acotada.
+ * recursive-compose — referencia de frontera para el límite de composición depth-1.
  *
- * Runtime: anida llamadas a workflow(), así que necesita profundidad >= 2.
- *   • pi: funciona con PI_DYNAMIC_WORKFLOWS_MAX_DEPTH >= 2. Esta cadena llega a profundidad 3,
- *     así que 3 alcanza y es el cap esperado.
- *   • Claude Code Workflow: solo depth-1. El salto router → chosen-workflow cae en depth 2;
- *     este archivo captura ese guard y devuelve "DEPTH_BLOCKED" con guía, en vez de romper.
+ * Tanto pi como la Workflow tool de Claude permiten que el workflow top-level componga hijos,
+ * pero un hijo no puede volver a llamar workflow(). PI_DYNAMIC_WORKFLOWS_MAX_DEPTH protege runs
+ * top-level iniciados por subagentes y NO amplía este límite de composición.
  *
- * Patrón: un nodo vuelve a gatear una subtarea con contract-gate y luego despacha el scaffold
- * recomendado vía router. También propaga el budget sugerido por el gate (resourcePlan).
+ * Esta referencia vuelve a acotar la tarea con contract-gate y consulta router como dos hijos
+ * hermanos de depth 1. Router corre con runSelected:false: devuelve una recomendación, pero no
+ * intenta el salto router → workflow elegido que requeriría depth 2. El resultado DEPTH_BLOCKED
+ * indica que el orquestador debe lanzar esa recomendación como una corrida top-level separada.
+ * dispatchArgs combina suggestedArgs de router con overrides explícitos y el resourcePlan del gate.
  *
- * Depth ledger (cap = 3):
+ * Depth ledger:
  *   depth 0: recursive-compose (este archivo)
- *     → workflow('contract-gate', { generate:false })      depth 1   (re-scope Phase-0)
- *     → workflow('router', { runSelected:true })            depth 1
- *          → router ejecuta el scaffold elegido            depth 2
- *               → si ese scaffold también compone          depth 3   (el cap)
+ *     → workflow('contract-gate', { generate:false })      depth 1
+ *     → workflow('router', { runSelected:false })           depth 1
+ *     ✕ router → workflow elegido                           depth 2 (no permitido)
  *
- * Es composición pura: no define nodos agent() propios. Los knobs de model/effort/tools fluyen a
- * los workflows compuestos, y resourcePlan.models/efforts se reenvía en args.
- *
- * A diferencia de `router` (despacha uno) y `contract-gate` (solo acota), este archivo encadena
- * gate → dispatch para que la decisión de Phase-0 dispare la ejecución.
- *
- * Input:  { task (required; aliases request/text), context?, args? (forwarded to the chosen workflow) }
- * Output: { status, gate?, dispatched? } — DONE | NEEDS_CLARIFICATION | NO_COMPOSE | DEPTH_BLOCKED
+ * Input:  { task (required; aliases request/text), context?, args? }
+ * Output: { status, gate?, recommendation?, dispatchArgs? }
+ *         NEEDS_CLARIFICATION | NO_COMPOSE | DEPTH_BLOCKED
  */
 export const meta = {
 	name: "recursive-compose",
 	basedOn: [
 		{ name: "contract-gate", role: "composed-via (re-gate)" },
-		{ name: "router", role: "composed-via (dispatch)" },
+		{ name: "router", role: "composed-via (recommendation-only)" },
 	],
 	description:
-		"REFERENCE (pi, depth<=3): un nodo vuelve a gatear una tarea vía Phase-0 contract-gate y luego despacha el scaffold recomendado vía router — composición recursiva acotada (recursive-compose)",
-	phases: [{ title: "Gate" }, { title: "Dispatch" }],
+		"BOUNDARY REFERENCE (depth-1): vuelve a gatear una tarea, obtiene una recomendación de router sin despacharla y muestra cuándo continuar con otra corrida top-level",
+	phases: [{ title: "Gate" }, { title: "Route" }],
 };
 
 const input = (() => {
@@ -54,8 +49,7 @@ const task = input?.task ?? input?.request ?? input?.text;
 if (!task) throw new Error('Pass { task: "..." } (aliases: request, text).');
 const passArgs = input?.args && typeof input.args === "object" ? input.args : {};
 
-// depth 1 — re-scope con Phase-0. generate:false evita un nivel extra y reserva budget para
-// el dispatch de abajo.
+// depth 1 — re-scope con Phase-0. generate:false impide que contract-gate intente otro salto.
 phase("Gate");
 let gate;
 try {
@@ -65,7 +59,7 @@ try {
 		status: "DEPTH_BLOCKED",
 		stage: "gate",
 		error: String(err?.message ?? err),
-		note: "The Phase-0 nested call was refused by the runtime recursion guard. Run at the top level, or on pi with PI_DYNAMIC_WORKFLOWS_MAX_DEPTH>=2.",
+		note: "El runtime rechazó la composición: ejecutá recursive-compose como workflow top-level.",
 	};
 }
 if (gate?.status !== "PROCEED") {
@@ -87,34 +81,53 @@ if (routing?.shape !== "dynamic-workflow") {
 	};
 }
 
-// depth 1 → 2 (→ 3) — despacha el scaffold recomendado vía router. Si el elegido también
-// compone, su sub-llamada cae en depth 3. Reenvía el budget sugerido por el gate en args.
-phase("Dispatch");
-const dispatchArgs = {
+// Router es otro hijo depth-1. Recommendation-only evita que intente un workflow() depth-2.
+phase("Route");
+const dispatchOverrides = {
 	...passArgs,
 	...(gate?.resourcePlan?.models ? { models: gate.resourcePlan.models } : {}),
 	...(gate?.resourcePlan?.efforts ? { efforts: gate.resourcePlan.efforts } : {}),
 };
-let dispatched;
+let recommendation;
 try {
-	dispatched = await workflow("router", {
+	recommendation = await workflow("router", {
 		request: compact(gate.rewrittenPrompt),
-		runSelected: true,
-		args: dispatchArgs,
+		runSelected: false,
+		args: dispatchOverrides,
 	});
 } catch (err) {
 	return {
-		status: "DEPTH_BLOCKED",
+		status: "NO_COMPOSE",
 		stage: "dispatch",
 		error: String(err?.message ?? err),
-		note: "router → chosen workflow exceeded the runtime nesting depth. Claude Code is depth-1; run on pi with PI_DYNAMIC_WORKFLOWS_MAX_DEPTH>=2 (<=3 covers this chain).",
+		note: "Router no pudo producir una recomendación. No se intentó ningún dispatch anidado.",
 		gate: { improvedTask: gate?.contract?.improvedTask, routing },
 	};
 }
-log(`dispatched ${JSON.stringify({ selected: dispatched?.selected, dispatched: dispatched?.dispatched })}`);
+log(`recommendation ${JSON.stringify({ selected: recommendation?.selected, dispatched: false })}`);
+if (!recommendation || recommendation.selected === "none") {
+	return {
+		status: "NO_COMPOSE",
+		reason: "router did not find a workflow to run",
+		gate: { improvedTask: gate?.contract?.improvedTask, routing, resourcePlan: gate?.resourcePlan ?? null },
+		recommendation: recommendation ?? null,
+	};
+}
+const suggestedArgs =
+	recommendation.suggestedArgs &&
+	typeof recommendation.suggestedArgs === "object" &&
+	!Array.isArray(recommendation.suggestedArgs)
+		? recommendation.suggestedArgs
+		: {};
+// La recomendación aporta el input primario; args explícitos ganan, y el resourcePlan del gate
+// ya quedó aplicado al final de dispatchOverrides.
+const dispatchArgs = { ...suggestedArgs, ...dispatchOverrides };
 
 return {
-	status: "DONE",
+	status: "DEPTH_BLOCKED",
+	stage: "dispatch",
+	note: "La composición workflow() tiene depth 1. Ejecutá el workflow elegido como otra corrida top-level; PI_DYNAMIC_WORKFLOWS_MAX_DEPTH no cambia este límite.",
 	gate: { improvedTask: gate?.contract?.improvedTask, routing, resourcePlan: gate?.resourcePlan ?? null },
-	dispatched,
+	recommendation,
+	dispatchArgs,
 };

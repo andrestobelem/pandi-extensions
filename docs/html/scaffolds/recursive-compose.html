@@ -169,15 +169,15 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	</ol>
 </nav>
 <blockquote>
-<p>Referencia (pi, profundidad ≤ 3): un nodo vuelve a gatear una sub-tarea con <code>contract-gate</code> y luego despacha vía
-<code>router</code>.</p>
+<p>Referencia de frontera depth-1: re-gatea una tarea, consulta <code>router</code> sin dispatch y devuelve la próxima corrida
+top-level recomendada.</p>
 </blockquote>
 <h2 id="en-30-segundos">En 30 segundos</h2>
-<p><code>recursive-compose</code> no hace trabajo de dominio: encadena workflows existentes. Primero vuelve a pasar la tarea por el
-gate de Fase-0 (<code>contract-gate</code>) para re-scopearla; si el gate concluye que hace falta un dynamic workflow, despacha el
-scaffold recomendado con <code>router</code>.</p>
-<p>Elegilo cuando quieras ver o reutilizar el patrón “gate → compone recursivamente”. Es útil como referencia de
-profundidad acotada y de cómo propagar el <code>resourcePlan</code> del gate hacia una ejecución más profunda.</p>
+<p><code>recursive-compose</code> hace visible una restricción del runtime: tanto pi como la Workflow tool de Claude Code permiten
+que el workflow top-level componga hijos, pero esos hijos no pueden volver a llamar <code>workflow()</code>.</p>
+<p>El scaffold usa sus dos lugares válidos como hermanos: llama a <code>contract-gate</code> para re-acotar la tarea y a <code>router</code> con
+<code>runSelected:false</code> para obtener una recomendación. Si hay una selección, devuelve <code>DEPTH_BLOCKED</code>, la recomendación y
+los argumentos preparados. El orquestador puede abrir el workflow elegido como otra corrida top-level.</p>
 <h2 id="cómo-lanzarlo">Cómo lanzarlo</h2>
 <pre><code class="hljs language-text">/workflow new mi-run --pattern=recursive-compose</code></pre>
 <p>Input típico:</p>
@@ -186,58 +186,52 @@ profundidad acotada y de cómo propagar el <code>resourcePlan</code> del gate ha
   <span class="hljs-attr">&quot;context&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;opcional, texto libre&quot;</span><span class="hljs-punctuation">,</span>
   <span class="hljs-attr">&quot;args&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span> <span class="hljs-attr">&quot;limit&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">20</span> <span class="hljs-punctuation">}</span>
 <span class="hljs-punctuation">}</span></code></pre>
-<p><code>task</code> es obligatorio (alias: <code>request</code>, <code>text</code>). <code>args</code> se reenvía al workflow que termine despachado.</p>
-<p><strong>Runtime:</strong> este scaffold anida <code>workflow(...)</code>, así que necesita un runtime que permita profundidad ≥ 3 si se cuenta
-el nodo raíz como profundidad 1. En pi funciona con <code>PI_DYNAMIC_WORKFLOWS_MAX_DEPTH &gt;= 3</code>; la cadena llega a
-profundidad 3. En la Workflow tool de Claude Code (profundidad 1), el segundo salto (<code>router</code> → scaffold elegido)
-dispara el guard de recursión; el código lo captura y devuelve <code>status: &quot;DEPTH_BLOCKED&quot;</code>.</p>
+<p><code>task</code> es obligatorio (alias: <code>request</code>, <code>text</code>). <code>args</code> agrega overrides sobre los <code>suggestedArgs</code> de router; el
+scaffold no ejecuta el workflow elegido.</p>
+<p><strong>Runtime:</strong> la composition depth de <code>workflow()</code> es 1 en pi y Claude Code. <code>PI_DYNAMIC_WORKFLOWS_MAX_DEPTH</code> limita
+nuevas corridas top-level iniciadas desde subagentes; no amplía la composición dentro de una corrida.</p>
 <h2 id="diagrama">Diagrama</h2>
 <pre class="mermaid">flowchart TD
-    Start(["Input: task, context, args"]) --&gt; Gate["Fase Gate&lt;br/&gt;workflow('contract-gate', generate:false)"]
-    Gate --&gt;|"error de profundidad"| DepthGate["DEPTH_BLOCKED (stage: gate)"]
-    Gate --&gt;|"status != PROCEED"| Needs["NEEDS_CLARIFICATION&lt;br/&gt;+ gate.questions"]
+    Start(["Input: task, context, args"]) --&gt; Gate["Gate&lt;br/&gt;workflow('contract-gate', generate:false)"]
+    Gate --&gt;|"composición rechazada"| DepthGate["DEPTH_BLOCKED&lt;br/&gt;stage: gate"]
+    Gate --&gt;|"status != PROCEED"| Needs["NEEDS_CLARIFICATION&lt;br/&gt;+ questions"]
     Gate --&gt;|"status == PROCEED"| Shape{"routing.shape"}
-    Shape --&gt;|"no es 'dynamic-workflow'"| NoCompose["NO_COMPOSE&lt;br/&gt;+ rewrittenPrompt"]
-    Shape --&gt;|"'dynamic-workflow'"| Dispatch["Fase Dispatch&lt;br/&gt;workflow('router', runSelected:true)"]
-    Dispatch --&gt; Router["router elige y ejecuta el scaffold recomendado"]
-    Router --&gt;|"scaffold elegido es a su vez un composer"| Deeper["sub-workflow interno (profundidad 3)"]
-    Dispatch --&gt;|"error de profundidad"| DepthDispatch["DEPTH_BLOCKED (stage: dispatch)"]
-    Router --&gt; Done["DONE&lt;br/&gt;+ gate + dispatched"]</pre>
+    Shape --&gt;|"no es dynamic-workflow"| NoCompose["NO_COMPOSE&lt;br/&gt;+ rewrittenPrompt"]
+    Shape --&gt;|"dynamic-workflow"| Route["Route&lt;br/&gt;workflow('router', runSelected:false)"]
+    Route --&gt;|"sin selección o error"| NoRoute["NO_COMPOSE"]
+    Route --&gt;|"selección"| Boundary["DEPTH_BLOCKED&lt;br/&gt;+ recommendation + dispatchArgs"]
+    Boundary -. "acción externa" .-&gt; Next["Orquestador abre otra corrida top-level"]</pre>
+<p>La flecha punteada no forma parte de esta corrida: representa la continuación que debe coordinar el orquestador.</p>
 <h2 id="qué-hace">Qué hace</h2>
-<p><code>recursive-compose</code> es composición pura: no define ningún <code>agent()</code> propio y solo orquesta dos workflows ya existentes
-del catálogo. Primero llama a <code>contract-gate</code> con <code>generate:false</code> para que el gate re-scopee la tarea sin volver a
-anidar y reserve profundidad para el siguiente paso. Si el gate no responde <code>PROCEED</code>, el scaffold se corta ahí y
-devuelve sus preguntas de clarificación.</p>
-<p>Si el gate responde <code>PROCEED</code> y <code>routing.shape === &quot;dynamic-workflow&quot;</code>, el scaffold pasa <code>gate.rewrittenPrompt</code> a
-<code>router</code> con <code>runSelected:true</code>, para que <code>router</code> elija el scaffold adecuado y lo ejecute. El presupuesto sugerido por
-el gate (<code>resourcePlan.models</code> / <code>resourcePlan.efforts</code>) se reenvía dentro de <code>args</code> al workflow despachado.</p>
-<p>Cada llamada anidada está protegida con <code>try/catch</code>: si el runtime rechaza la profundidad, el error se traduce a
-<code>status: &quot;DEPTH_BLOCKED&quot;</code> con una nota de acción. No usa <code>agent</code>, <code>agents</code>, <code>parallel</code> ni <code>pipeline</code> directamente;
-tampoco tiene caché propio ni maneja fallos parciales más allá de esas capturas.</p>
+<p>El scaffold no define <code>agent()</code> propios. Compone <code>contract-gate</code> y <code>router</code> como dos hijos depth-1 del workflow
+top-level. <code>contract-gate</code> corre con <code>generate:false</code> para no intentar otra composición. Si pide aclaraciones o decide
+que no hace falta un dynamic workflow, la ejecución termina ahí.</p>
+<p>Cuando el gate recomienda un dynamic workflow, <code>router</code> corre con <code>runSelected:false</code>. Por eso puede seleccionar un
+scaffold sin intentar el salto inválido <code>router → selected</code>. Después construye <code>dispatchArgs</code>: empieza por
+<code>recommendation.suggestedArgs</code>, aplica encima los <code>args</code> explícitos y, por último, el <code>resourcePlan</code> del gate. Así la
+continuación conserva tanto el input obligatorio sugerido por router como los overrides del caller.</p>
 <h2 id="cuándo-usarlo">Cuándo usarlo</h2>
 <ul>
-<li>Querés un ejemplo de “gate → compose → gate → compose...” con profundidad acotada.</li>
-<li>Querés llevar el <code>resourcePlan</code> sugerido por el gate hasta una corrida más profunda, sin recalcularlo.</li>
-<li>Buscás ver cómo <code>contract-gate</code> y <code>router</code> se encadenan en un nodo recursivo.</li>
+<li>Querés probar o explicar la frontera de composición depth-1.</li>
+<li>Estás diseñando un workflow y necesitás decidir entre aplanar hijos o separar corridas.</li>
+<li>Querés re-acotar y rutear una tarea antes de que un orquestador abra la corrida recomendada.</li>
 </ul>
 <p><strong>No lo uses si:</strong></p>
 <ul>
-<li>Ya sabés qué scaffold necesitás: llamalo directo.</li>
-<li>Necesitás que el dispatch se ejecute completo bajo la Workflow tool de Claude Code; ahí el segundo salto topa el guard
-de profundidad y devuelve <code>DEPTH_BLOCKED</code>.</li>
+<li>Ya sabés qué scaffold necesitás: ejecutalo directamente como top-level.</li>
+<li>Esperás que el scaffold elegido se ejecute dentro de esta misma corrida.</li>
+<li>Solo necesitás secuenciar pasos locales: mantenelos en un único workflow sin composición recursiva.</li>
 </ul>
 <h2 id="cómo-funciona">Cómo funciona</h2>
-<p><strong>Fase Gate</strong> — llama a <code>workflow(&quot;contract-gate&quot;, { request: task, context, generate: false })</code>. <code>generate:false</code> evita
-que <code>contract-gate</code> anide otro nivel. Si la llamada lanza una excepción por profundidad, retorna
-<code>{ status: &quot;DEPTH_BLOCKED&quot;, stage: &quot;gate&quot;, error, note }</code>. Si el gate responde pero <code>status !== &quot;PROCEED&quot;</code>, retorna
-<code>{ status: &quot;NEEDS_CLARIFICATION&quot;, questions, gate }</code>. Si <code>routing.shape !== &quot;dynamic-workflow&quot;</code>, retorna
-<code>{ status: &quot;NO_COMPOSE&quot;, reason, rewrittenPrompt, gate }</code>.</p>
-<p><strong>Fase Dispatch</strong> — solo ocurre cuando el gate dio <code>PROCEED</code> y <code>routing.shape === &quot;dynamic-workflow&quot;</code>. Construye
-<code>dispatchArgs</code> uniendo <code>args</code> de entrada con <code>resourcePlan.models</code> y <code>resourcePlan.efforts</code> si existen, y llama a
-<code>workflow(&quot;router&quot;, { request: compact(gate.rewrittenPrompt), runSelected: true, args: dispatchArgs })</code>. <code>compact()</code>
-recorta el prompt a 60000 caracteres. Si esta llamada falla por profundidad, retorna
-<code>{ status: &quot;DEPTH_BLOCKED&quot;, stage: &quot;dispatch&quot;, error, note, gate }</code>. Si sale bien, retorna
-<code>{ status: &quot;DONE&quot;, gate, dispatched }</code>.</p>
+<p><strong>Fase Gate</strong> — llama a <code>workflow(&quot;contract-gate&quot;, { request, context, generate: false })</code>. Si el propio
+<code>recursive-compose</code> fue invocado como hijo, esa llamada supera depth 1 y retorna
+<code>{ status: &quot;DEPTH_BLOCKED&quot;, stage: &quot;gate&quot;, error, note }</code>. Un gate sin <code>PROCEED</code> retorna preguntas; una ruta que no es
+<code>dynamic-workflow</code> retorna <code>NO_COMPOSE</code> y el prompt reescrito.</p>
+<p><strong>Fase Route</strong> — llama a
+<code>workflow(&quot;router&quot;, { request: compact(gate.rewrittenPrompt), runSelected: false, args: dispatchOverrides })</code>. Una
+selección válida combina <code>recommendation.suggestedArgs</code> con esos overrides y retorna <code>DEPTH_BLOCKED</code> con
+<code>recommendation</code> y <code>dispatchArgs</code>: el status marca la frontera previa al dispatch, no un dispatch fallido. Si router
+falla o no encuentra selección, retorna <code>NO_COMPOSE</code>.</p>
 <h2 id="input-y-output">Input y output</h2>
 <p><strong>Input:</strong></p>
 <div class="table-scroll"><table>
@@ -251,7 +245,7 @@ recorta el prompt a 60000 caracteres. Si esta llamada falla por profundidad, ret
 <tbody><tr>
 <td><code>task</code> (alias <code>request</code>, <code>text</code>)</td>
 <td>sí</td>
-<td>Tarea a re-gatear y, si corresponde, despachar.</td>
+<td>Tarea que <code>contract-gate</code> vuelve a acotar.</td>
 </tr>
 <tr>
 <td><code>context</code></td>
@@ -261,7 +255,7 @@ recorta el prompt a 60000 caracteres. Si esta llamada falla por profundidad, ret
 <tr>
 <td><code>args</code></td>
 <td>no (default <code>{}</code>)</td>
-<td>Objeto reenviado al workflow finalmente despachado; se le suman <code>models</code>/<code>efforts</code> de <code>resourcePlan</code> si existen.</td>
+<td>Overrides sobre <code>suggestedArgs</code>; el <code>resourcePlan</code> del gate aporta <code>models</code> y <code>efforts</code> finales.</td>
 </tr>
 </tbody></table></div>
 <p><strong>Output</strong> (uno de estos <code>status</code>):</p>
@@ -270,35 +264,30 @@ recorta el prompt a 60000 caracteres. Si esta llamada falla por profundidad, ret
 <tr>
 <th>status</th>
 <th>Cuándo</th>
-<th>Payload</th>
+<th>Payload principal</th>
 </tr>
 </thead>
 <tbody><tr>
-<td><code>DONE</code></td>
-<td><code>router</code> despachó con éxito</td>
-<td><code>{ gate: { improvedTask, routing, resourcePlan }, dispatched }</code></td>
-</tr>
-<tr>
 <td><code>NEEDS_CLARIFICATION</code></td>
 <td><code>contract-gate</code> no dio <code>PROCEED</code></td>
 <td><code>{ questions, gate }</code></td>
 </tr>
 <tr>
 <td><code>NO_COMPOSE</code></td>
-<td>no hacía falta un dynamic workflow</td>
-<td><code>{ reason, rewrittenPrompt, gate }</code></td>
+<td>no hace falta otro workflow o router no puede recomendar</td>
+<td><code>{ reason?, error?, recommendation?, gate }</code></td>
 </tr>
 <tr>
 <td><code>DEPTH_BLOCKED</code></td>
-<td>el runtime rechazó una llamada anidada</td>
-<td><code>{ stage: &quot;gate&quot;|&quot;dispatch&quot;, error, note, gate? }</code></td>
+<td>se alcanzó la frontera antes de Gate o del dispatch</td>
+<td><code>{ stage, note, recommendation?, dispatchArgs?, gate? }</code></td>
 </tr>
 </tbody></table></div>
-<p>No escribe artifacts propios (<code>writeArtifact</code>); cualquier artifact lo genera el workflow despachado.</p>
+<p>No existe un status <code>DONE</code>: esta referencia nunca ejecuta el workflow recomendado. Tampoco escribe artifacts propios.</p>
 <h2 id="fases">Fases</h2>
 <ol>
-<li><strong>Gate</strong> — re-scope de Fase-0 vía <code>workflow(&#39;contract-gate&#39;, { generate: false })</code>.</li>
-<li><strong>Dispatch</strong> — despacho del scaffold recomendado vía <code>workflow(&#39;router&#39;, { runSelected: true })</code>.</li>
+<li><strong>Gate</strong> — re-scope de Fase 0 vía <code>workflow(&#39;contract-gate&#39;, { generate: false })</code>.</li>
+<li><strong>Route</strong> — recomendación vía <code>workflow(&#39;router&#39;, { runSelected: false })</code>.</li>
 </ol>
 	</main>
 	<footer>Generado con el skill pandi-artifact-style · paleta: panda-syntax dark/light</footer>

@@ -115,6 +115,12 @@ export interface AgentOptions {
 	schemaOnInvalid?: "throw" | "null";
 }
 
+/** Opciones compartidas de una llamada worker a agent()/agents(); signal no pertenece a AgentSpec. */
+export interface AgentCallOptions extends AgentOptions {
+	/** El bridge del worker la consume para cancelar la llamada cuando su rama de race() pierde. */
+	signal?: AbortSignal;
+}
+
 export interface AgentExecutionMetadata {
 	id: number;
 	name: string;

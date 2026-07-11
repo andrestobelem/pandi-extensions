@@ -1,5 +1,5 @@
 import { mapLimit } from "../lib/concurrency.js";
-import type { AgentOptions, AgentPhaseInfo, SubagentResult } from "../types.js";
+import type { AgentCallOptions, AgentOptions, AgentPhaseInfo, SubagentResult } from "../types.js";
 import { callSignal } from "./worker-bridge.js";
 
 /** Opciones mínimas que agents() pasa a cada invocación del runner. */
@@ -17,11 +17,11 @@ export type AgentSpec = AgentRunnerOptions & {
 export type RunAgentsFn = {
 	(
 		items: (string | AgentSpec)[],
-		options?: AgentOptions & { concurrency?: number; settle?: false },
+		options?: AgentCallOptions & { concurrency?: number; settle?: false },
 	): Promise<SubagentResult[]>;
 	(
 		items: (string | AgentSpec)[],
-		options: AgentOptions & { concurrency?: number; settle: true },
+		options: AgentCallOptions & { concurrency?: number; settle: true },
 	): Promise<(SubagentResult | null)[]>;
 };
 
@@ -37,11 +37,13 @@ export function makeRunAgents(
 ): RunAgentsFn {
 	async function runAgents(
 		items: (string | AgentSpec)[],
-		options: AgentOptions & { concurrency?: number; settle?: boolean } = {},
+		options: AgentCallOptions & { concurrency?: number; settle?: boolean } = {},
 	): Promise<(SubagentResult | null)[]> {
 		const concurrencyCap = deps.getConcurrencyCap();
 		const concurrency = Math.min(Math.max(Math.floor(options.concurrency ?? concurrencyCap), 1), concurrencyCap);
-		const { concurrency: _concurrency, settle = false, ...sharedOptions } = options;
+		// signal pertenece a la llamada completa y el worker la transporta por callSignal;
+		// nunca la propagues como una opción de cada AgentSpec.
+		const { concurrency: _concurrency, settle = false, signal: _signal, ...sharedOptions } = options;
 		const phaseId = items.length > 0 ? deps.nextPhaseId() : 0;
 		const phaseLabel =
 			typeof sharedOptions.name === "string" && sharedOptions.name.trim()

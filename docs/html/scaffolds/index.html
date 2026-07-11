@@ -231,8 +231,8 @@ subtareas (<code>dependsOn</code>); los workers ejecutan nivel por nivel; un int
 escépticos; devuelve <code>verified</code>/<code>dropped</code>/<code>votes</code>/<code>coverage</code>.</li>
 <li><a href="workflow-factory.html"><code>workflow-factory</code></a>: Meta-workflow: catálogo → plan → generación → revisión → refinamiento, y
 luego escribe <code>.pi/workflows/drafts/&lt;slug&gt;.js</code>.</li>
-<li><a href="recursive-compose.html"><code>recursive-compose</code></a>: Referencia (<code>pi</code>, profundidad ≤ 3): un nodo re-aplica <code>contract-gate</code> a
-una subtarea y luego despacha vía <code>router</code> — recursión acotada.</li>
+<li><a href="recursive-compose.html"><code>recursive-compose</code></a>: Referencia de frontera depth-1: re-aplica <code>contract-gate</code>, consulta
+<code>router</code> sin dispatch y devuelve la próxima corrida top-level recomendada.</li>
 </ul>
 <h2 id="descubrimiento-y-fan-out">Descubrimiento y fan-out</h2>
 <ul>

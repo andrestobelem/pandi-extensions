@@ -20,7 +20,8 @@ log(`wrote ${path}`);
 
 - **Usalo** para emitir el producto del workflow dentro del repo/workspace (por ejemplo, un reporte o un archivo
   generado) cuando pertenece a `cwd`.
-- **No lo uses** para salidas intermedias inspeccionables y acotadas a la run: usá [`writeArtifact`](writeArtifact.md),
+- **No lo uses** para salidas intermedias inspeccionables y acotadas a la corrida: usá
+  [`writeArtifact`](writeArtifact.md),
   que vive bajo `runDir` y aparece en el dashboard.
 
 ## Cosas a tener en cuenta

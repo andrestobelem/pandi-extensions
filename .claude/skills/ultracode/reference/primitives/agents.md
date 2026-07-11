@@ -24,6 +24,7 @@ log(`clasificados ${ok.length}/${files.length} (${files.length - ok.length} fall
   campos de un `AgentSpec` individual los pisan.
 - `options.concurrency`: máximo de llamadas en vuelo, limitado a `limits.concurrency`.
 - `options.settle`: con `true`, una rama fallida resuelve a `null` en vez de rechazar el lote completo.
+- `options.signal`: en el runtime pi, señala el fan-out completo para cancelación si esta llamada pierde en `race()`.
 
 **Devuelve:** un array alineado con `items`. Cada entrada es un envoltorio `SubagentResult` (`.output` text, `.data`
 parsed, `.schemaOk`) o `null` para una rama fallida cuando `settle: true`.

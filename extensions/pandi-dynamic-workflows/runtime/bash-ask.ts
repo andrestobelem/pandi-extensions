@@ -16,6 +16,8 @@ export interface BashOptions {
 	timeoutMs?: number;
 	throwOnError?: boolean;
 	cache?: boolean;
+	/** Señal worker-only: el bridge la quita antes de cruzar al host. */
+	signal?: AbortSignal;
 	__workflowNamespace?: string;
 }
 
@@ -26,6 +28,8 @@ export interface AskOptions {
 	default?: string | boolean;
 	timeoutMs?: number;
 	cache?: boolean;
+	/** Señal worker-only: el bridge la quita antes de cruzar al host. */
+	signal?: AbortSignal;
 	/** La respuesta es secreta: nunca la persistas (events/journal) ni la reproduzcas al reanudar. */
 	secret?: boolean;
 	__workflowNamespace?: string;
@@ -51,7 +55,8 @@ export async function runBash(
 	options: BashOptions = {},
 ): Promise<BashResult> {
 	const { pi, ctx, journal, occurrences, runLimits, runSignal, log, appendEvent } = context;
-	throwIfAborted(runSignal.signal);
+	const effectiveSignal = callSignal.getStore() ?? runSignal.signal;
+	throwIfAborted(effectiveSignal);
 	// bash caching is opt-in: bash(cmd, { cache: true }). occ assigned
 	// synchronously before any await for deterministic ordering.
 	const cacheEnabled = options.cache === true;
@@ -85,12 +90,15 @@ export async function runBash(
 		`bash start: ${command.slice(0, 120)}`,
 		options.__workflowNamespace ? { workflowNamespace: options.__workflowNamespace } : undefined,
 	);
+	// El log persiste en disco y cede el event loop: una rama puede perder la carrera durante
+	// ese await. No delegues en pi.exec la interpretación de una señal ya abortada.
+	throwIfAborted(effectiveSignal);
 	const result = await pi.exec("bash", ["-lc", command], {
 		cwd: options.cwd ?? ctx.cwd,
 		timeout: options.timeoutMs ?? runLimits.agentTimeoutMs,
-		signal: runSignal.signal,
+		signal: effectiveSignal,
 	});
-	throwIfAborted(runSignal.signal);
+	throwIfAborted(effectiveSignal);
 	const rawBashResult: BashResult = {
 		ok: result.code === 0 && !result.killed,
 		code: result.code,

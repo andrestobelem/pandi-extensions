@@ -1,4 +1,4 @@
-import type { AgentOptions, BashResult, RunLimits, SubagentResult } from "../types.js";
+import type { AgentCallOptions, BashResult, RunLimits, SubagentResult } from "../types.js";
 import type { AgentSpec } from "./agents.js";
 import type { AskOptions, BashOptions } from "./bash-ask.js";
 
@@ -10,14 +10,14 @@ export interface WorkflowRuntimeApi {
 	limits: Readonly<RunLimits>;
 	log(message: string, details?: unknown): Promise<void>;
 	phase(label: string): Promise<void>;
-	agent(prompt: string, options?: AgentOptions): Promise<SubagentResult>;
+	agent(prompt: string, options?: AgentCallOptions): Promise<SubagentResult>;
 	agents(
 		items: (string | AgentSpec)[],
-		options?: AgentOptions & { concurrency?: number; settle?: false },
+		options?: AgentCallOptions & { concurrency?: number; settle?: false },
 	): Promise<SubagentResult[]>;
 	agents(
 		items: (string | AgentSpec)[],
-		options: AgentOptions & { concurrency?: number; settle: true },
+		options: AgentCallOptions & { concurrency?: number; settle: true },
 	): Promise<(SubagentResult | null)[]>;
 	workflow(name: string, input?: unknown): Promise<unknown>;
 	ask(question: string, options?: AskOptions): Promise<string | boolean>;
@@ -28,7 +28,7 @@ export interface WorkflowRuntimeApi {
 	listFiles(dir?: string, options?: { maxFiles?: number }): Promise<string[]>;
 	writeArtifact(name: string, data: unknown): Promise<{ path: string }>;
 	appendArtifact(name: string, data: string | Uint8Array): Promise<{ path: string }>;
-	sleep(ms: number): Promise<void>;
+	sleep(ms: number, options?: { signal?: AbortSignal }): Promise<void>;
 	json(value: unknown, maxChars?: number): string;
 	compact(value: unknown, maxChars?: number): string;
 }
