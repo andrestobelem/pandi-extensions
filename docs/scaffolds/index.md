@@ -4,6 +4,13 @@ Esta página es el mapa del catálogo de scaffolds de `pandi-extensions`. Un sca
 para instanciar (agentes, paralelismo, loops, votación, etc.) que resuelve una forma recurrente de tarea. Si ya sabés
 qué forma tiene tu problema, andá directo a la categoría; si no, empezá por la tabla.
 
+## Cheat sheet visual
+
+La lámina resume los 25 patrones, cuándo conviene usarlos y qué forma de ejecución tiene cada uno. Usala para elegir
+una familia en segundos; después bajá a la categoría correspondiente para entender sus contratos y límites.
+
+![Cheat sheet de los 25 workflow scaffolds de Pandi](../assets/scaffolds-cheat-sheet.png)
+
 | Si necesitás...                                        | Andá a...                                                             |
 | ------------------------------------------------------ | --------------------------------------------------------------------- |
 | convertir un pedido vago en un contrato inspeccionable | [Gate, ruteo y guardas](#gate-ruteo-y-guardas)                        |
@@ -91,4 +98,5 @@ qué forma tiene tu problema, andá directo a la categoría; si no, empezá por 
 
 ## Más allá del índice
 
-Los detalles de cada scaffold están en su propia página. Este índice solo te ayuda a ubicar rápido el patrón correcto.
+Los detalles de cada scaffold están en su propia página. Este índice y el cheat sheet solo te ayudan a ubicar rápido
+el patrón correcto.

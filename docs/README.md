@@ -14,8 +14,8 @@ buscás contexto histórico o decisiones, entrá en `research/` o `memoria.md`.
 - [Setup](./setup.md) — requisitos, capacidades opcionales, configuración y distribución
 - [Dynamic Workflows — guía completa](./dynamic-workflows.md) — ciclo de ejecución, API de globals, background y resume,
   concurrencia, patrones y seguridad
-- [Scaffolds](./scaffolds/index.md) — páginas didácticas del catálogo: cuándo usar cada patrón, diagrama y comando
-  mínimo
+- [Scaffolds y cheat sheet visual](./scaffolds/index.md) — vista rápida y páginas didácticas del catálogo: cuándo usar
+  cada patrón, diagrama y comando mínimo
 - [Handbooks — referencia duradera del proyecto](./handbooks/README.md) — convenciones, onboarding y playbooks
 - [Onboarding top-down para programadores](./handbooks/top-down-onboarding.md) — ruta de lectura del repo, roles de
   trabajo y criterio para comentarios traducidos
