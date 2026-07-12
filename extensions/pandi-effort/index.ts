@@ -15,7 +15,7 @@ import { handleSessionShutdown, handleSessionStart, handleThinkingLevelSelect } 
 
 export default function effortExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("effort", {
-		description: "Configurar el esfuerzo de pensamiento: off|minimal|low|medium|high|xhigh|ultracode",
+		description: "Configurar el esfuerzo de pensamiento: off|minimal|low|medium|high|xhigh|max|ultracode",
 		getArgumentCompletions: getEffortArgumentCompletions,
 		handler: async (args, ctx) => {
 			const value = await resolveEffortCommandValue(args, ctx);

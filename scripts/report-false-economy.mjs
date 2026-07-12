@@ -75,7 +75,6 @@ function normalizeEffort(raw) {
 	if (!raw) return "unknown";
 	const value = String(raw).trim().toLowerCase();
 	if (value === "minimal") return "low";
-	if (value === "max") return "xhigh";
 	return value;
 }
 

@@ -238,14 +238,13 @@ async function race(thunks, options) {
   // devuelve el objeto parseado para schema calls / el text output en otro caso, y (3) cede null
   // en un subagent fallido (ok:false) así settle semantics de parallel()/pipeline() y contabilidad
   // de partial-failure permanecen honest. phase(label) es un marcador de observabilidad lightweight.
-  const mapEffort = (e) => (e === "max" ? "xhigh" : e);
   const agentGlobal = async (prompt, options) => {
     const opts = Object.assign({}, options || {});
     const sig = opts.signal; // never serialize an AbortSignal -> DataCloneError
     delete opts.signal;
     if (opts.label != null && opts.name == null) opts.name = opts.label;
     delete opts.label;
-    if (opts.effort != null && opts.thinking == null) opts.thinking = mapEffort(opts.effort);
+    if (opts.effort != null && opts.thinking == null) opts.thinking = opts.effort;
     delete opts.effort;
     delete opts.phase;
     const { id, promise } = hostCallTracked("agent", [prompt, opts]);
@@ -276,7 +275,7 @@ async function race(thunks, options) {
   // cancelados EN race-loss (no solo al final del run): quita la signal antes de postear (nunca
   // serialices un AbortSignal) y postea abort-call para este id en abort. Todas las otras opciones
   // (model/effort/schema/label/concurrency/settle) pasan sin tocar: el HOST normaliza el worker
-  // sugar — effort->thinking (max->xhigh) en el prologue runSubagent (por item Y para opciones
+  // sugar — effort->thinking en el prologue runSubagent (por item Y para opciones
   // shared) y label->name por item en runAgents — espejando agentGlobal arriba.
   const agentsGlobal = (items, options) => {
     const opts = Object.assign({}, options || {});

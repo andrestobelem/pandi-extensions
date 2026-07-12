@@ -39,8 +39,9 @@ const THINKING = "high";
 const WORKFLOW = [
 	"export const meta = { name: 'model-effort', description: 'model/effort observability', phases: [{ title: 'P' }] };",
 	"phase('P');",
+	"await agent('say direct effort', { name: 'direct-effort', effort: 'max', cache: false });",
 	`const [r] = await agents([{ prompt: 'say hi', name: 'modeled', model: ${JSON.stringify(MODEL)}, thinking: ${JSON.stringify(THINKING)}, cache: false }], { settle: true });`,
-	// Issue #22: effort por item en la ruta host agents() debe respetarse (max -> xhigh).
+	// Issue #22: effort por item en la ruta host agents() debe respetarse sin degradar max.
 	"const [e] = await agents([{ prompt: 'say effort', name: 'efforted', effort: 'max', cache: false }], { settle: true });",
 	// El effort de opción compartida aplica a cada item.
 	"const [s] = await agents([{ prompt: 'say shared', name: 'shared-effort', cache: false }], { settle: true, effort: 'high' });",
@@ -156,8 +157,8 @@ async function scenarioEngine() {
 		JSON.stringify(out),
 	);
 	check(
-		"engine: per-item effort on agents() maps to thinking (max -> xhigh)",
-		out?.effortThinking === "xhigh",
+		"engine: per-item effort on agents() preserves native max thinking",
+		out?.effortThinking === "max",
 		JSON.stringify(out),
 	);
 	check(
@@ -218,10 +219,16 @@ async function scenarioEngine() {
 		md.includes(`- thinking: ${THINKING}`),
 		md.split("\n").slice(0, 8).join(" | "),
 	);
+	const directStart = agentEvents.find((e) => e.state === "running" && e.name === "direct-effort");
+	check(
+		"engine: direct agent effort preserves native max thinking",
+		directStart?.thinking === "max",
+		JSON.stringify(directStart),
+	);
 	const effortedStart = agentEvents.find((e) => e.state === "running" && e.name === "efforted");
 	check(
-		"engine: efforted agent START event carries the mapped thinking",
-		effortedStart?.thinking === "xhigh",
+		"engine: agents() effort preserves native max thinking",
+		effortedStart?.thinking === "max",
 		JSON.stringify(effortedStart),
 	);
 

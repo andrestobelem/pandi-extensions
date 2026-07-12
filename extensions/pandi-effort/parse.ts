@@ -12,7 +12,7 @@
  * typecheckea de forma transitiva.
  */
 
-export const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh"] as const;
+export const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
 export type ThinkingLevel = (typeof THINKING_LEVELS)[number];
 
 export type EffortTarget =
@@ -45,7 +45,7 @@ const LEVEL_ALIASES: Record<string, ThinkingLevel> = {
 	default: "medium",
 	high: "high",
 	hi: "high",
-	max: "xhigh",
+	max: "max",
 	xhigh: "xhigh",
 	"x-high": "xhigh",
 	extra: "xhigh",

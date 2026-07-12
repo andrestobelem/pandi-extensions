@@ -28,7 +28,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createChecker } from "../../../../shared/test/harness.mjs";
-import { buildDwfExtension } from "../dwf-test-support.mjs";
+import { buildDwfExtension, buildDwfModule } from "../dwf-test-support.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -49,6 +49,14 @@ const WORKFLOW = [
 ].join("\n");
 
 const { check, counts } = createChecker();
+
+async function buildAgentProcessHelpers() {
+	return await buildDwfModule({
+		name: "pi-model-thinking-host-version",
+		relPath: "runtime/agent-process.ts",
+		outName: "agent-process.mjs",
+	});
+}
 
 async function buildExtension() {
 	return await buildDwfExtension({ name: "pi-model-thinking-integration" });
@@ -168,6 +176,19 @@ function hasFlag(args, flag) {
 
 async function main() {
 	try {
+		const helpersBuild = await buildAgentProcessHelpers();
+		const helpers = await import(helpersBuild.url);
+		check("host Pi 0.80.3 falls max back to xhigh", helpers.resolveHostThinkingLevel("max", "0.80.3") === "xhigh");
+		check("host Pi 0.80.6 preserves native max", helpers.resolveHostThinkingLevel("max", "0.80.6") === "max");
+		check(
+			"unknown host versions preserve max for custom distributions",
+			helpers.resolveHostThinkingLevel("max", undefined) === "max",
+		);
+		check(
+			"non-max thinking is unchanged on older hosts",
+			helpers.resolveHostThinkingLevel("high", "0.80.3") === "high",
+		);
+
 		const { outDir, url } = await buildExtension();
 		const recordDir = path.join(outDir, "argv");
 		await fs.mkdir(recordDir, { recursive: true });

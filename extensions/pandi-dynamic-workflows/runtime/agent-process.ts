@@ -25,20 +25,41 @@ export type AgentProcessOptions = AgentOptions & {
  * piConfig.name (las distros pueden renombrar el bin de forma independiente del nombre del producto).
  * Vuelve a "pi" como defecto.
  */
-export function hostBinName(): string {
+type HostPackage = {
+	version?: string;
+	bin?: string | Record<string, string>;
+	piConfig?: { name?: string };
+};
+
+function readHostPackage(): HostPackage | undefined {
 	try {
-		const pkg = JSON.parse(readFileSync(path.join(getPackageDir(), "package.json"), "utf8")) as {
-			bin?: string | Record<string, string>;
-			piConfig?: { name?: string };
-		};
-		if (pkg.bin && typeof pkg.bin === "object") {
-			const first = Object.keys(pkg.bin)[0];
-			if (first) return first;
-		}
-		return pkg.piConfig?.name || "pi";
+		return JSON.parse(readFileSync(path.join(getPackageDir(), "package.json"), "utf8")) as HostPackage;
 	} catch {
-		return "pi";
+		return undefined;
 	}
+}
+
+function hostPackageVersion(): string | undefined {
+	return readHostPackage()?.version;
+}
+
+export function resolveHostThinkingLevel(level: string, version = hostPackageVersion()): string {
+	if (level !== "max" || !version) return level;
+	const match = /^(\d+)\.(\d+)\.(\d+)/.exec(version);
+	if (!match) return level;
+	const [, major, minor, patch] = match.map(Number);
+	const supportsMax = major > 0 || minor > 80 || (minor === 80 && patch >= 6);
+	return supportsMax ? level : "xhigh";
+}
+
+export function hostBinName(): string {
+	const pkg = readHostPackage();
+	if (!pkg) return "pi";
+	if (pkg.bin && typeof pkg.bin === "object") {
+		const first = Object.keys(pkg.bin)[0];
+		if (first) return first;
+	}
+	return pkg.piConfig?.name || "pi";
 }
 
 /**
