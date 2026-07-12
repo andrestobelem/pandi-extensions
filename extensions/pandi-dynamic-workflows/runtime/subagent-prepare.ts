@@ -13,7 +13,7 @@ import {
 	formatAgentAccessMarkdown,
 	normalizeAgentEnvAccess,
 } from "./agent-env-persona.js";
-import { sanitizeAgentOpts } from "./agent-process.js";
+import { resolveHostThinkingLevel, sanitizeAgentOpts } from "./agent-process.js";
 import { computeCallKey, lookupJournalRecord } from "./journal.js";
 import { appendSystemPromptOption, makeStructuredOutputSystemPrompt } from "./structured-output.js";
 import { makeModelArg, TIER_ALIASES, tierModelTable } from "./tier-models.js";
@@ -25,8 +25,8 @@ export interface InternalAgentOptions extends AgentOptions {
 	/**
 	 * Azúcar a nivel de worker. El global agent() del worker mapea effort->thinking y label->name
 	 * antes de publicar, pero las especificaciones per-item de agents(), las opciones compartidas de agents() y las llamadas ctx-style
-	 * llegan al host sin mapear — así que runSubagent normaliza ambas en la entrada (effort -> thinking con
-	 * max -> xhigh, label -> name) y las elimina (issues #22/#23).
+	 * llegan al host sin mapear, así que runSubagent normaliza ambas en la entrada
+	 * (effort -> thinking, label -> name) y las elimina (issues #22/#23).
 	 */
 	effort?: string;
 	label?: string;
@@ -44,10 +44,10 @@ export function normalizeInternalAgentOptions(options: InternalAgentOptions): In
 	// longer match on resume and re-run — accepted, see #22).
 	const normalized: InternalAgentOptions = { ...options };
 	if (normalized.effort != null) {
-		if (normalized.thinking == null)
-			normalized.thinking = normalized.effort === "max" ? "xhigh" : String(normalized.effort);
+		if (normalized.thinking == null) normalized.thinking = String(normalized.effort);
 		delete normalized.effort;
 	}
+	if (normalized.thinking != null) normalized.thinking = resolveHostThinkingLevel(String(normalized.thinking));
 	// Same for label -> name (#23): runAgents prefers item.label when naming a spec item, so
 	// this mapping covers direct/ctx-style calls; the delete keeps label out of the cache key.
 	if (normalized.label != null) {

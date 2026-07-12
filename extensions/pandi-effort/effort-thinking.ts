@@ -18,14 +18,20 @@ export function setThinkingEffort(
 	options: { announce?: boolean } = {},
 ): ThinkingLevel | "unknown" {
 	const before = safeCurrentLevel(pi);
+	let actual: ThinkingLevel | "unknown";
 	try {
-		pi.setThinkingLevel(level);
+		pi.setThinkingLevel(level as Parameters<ExtensionAPI["setThinkingLevel"]>[0]);
+		actual = safeCurrentLevel(pi);
+		if (level === "max" && actual === "off") {
+			// Pi anterior a 0.80.6 trata el nivel desconocido como off. Conservá el fallback histórico.
+			pi.setThinkingLevel("xhigh");
+			actual = safeCurrentLevel(pi);
+		}
 	} catch (error) {
 		notify(ctx, formatSetEffortFailure(level, error), "error");
 		return before;
 	}
 
-	const actual = safeCurrentLevel(pi);
 	updateEffortStatus(pi, ctx, actual);
 	if (options.announce !== false) {
 		if (actual === level) {

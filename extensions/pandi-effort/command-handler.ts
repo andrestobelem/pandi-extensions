@@ -6,7 +6,7 @@ import { notify } from "./notify.js";
 import type { EffortTarget } from "./parse.js";
 
 function usage(current: string): string {
-	return `Esfuerzo actual: ${current}. Uso: /effort <off|minimal|low|medium|high|xhigh|ultracode>`;
+	return `Esfuerzo actual: ${current}. Uso: /effort <off|minimal|low|medium|high|xhigh|max|ultracode>`;
 }
 
 export function handleEffortTarget(pi: ExtensionAPI, ctx: ExtensionContext, target: EffortTarget): void {

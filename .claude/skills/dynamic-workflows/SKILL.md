@@ -176,7 +176,7 @@ Monitor sin polling (completion notice del harness); reporte final con `/workflo
 | ----------------- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
 | Tool              | `Workflow`                                                                             | `dynamic_workflow`                                                                      |
 | Script API        | helper globals (`agent`, `parallel`, …)                                                | los mismos helper globals (`agent`, `parallel`, …)                                      |
-| Budget knobs      | `model` · `effort` (low…max)                                                           | `model`/`provider` · `effort` (`off\|minimal\|low\|medium\|high\|xhigh`; `max`→`xhigh`) |
+| Budget knobs      | `model`, `effort` (low…max)                                                           | `model`/`provider`, `effort` (`off\|minimal\|low\|medium\|high\|xhigh\|max`) |
 | Models            | `haiku`/`sonnet`/`opus`/`fable`                                                        | ids de Anthropic O `openai-codex/gpt-5.x`                                               |
 | Per-role          | helper `node(role)` / inline / `models`+`efforts`                                      | por llamada + personas `agentType`                                                      |
 | Catalog           | `~/.claude/workflows/` + README (desde `catalog-prose.es.md`)                          | `dynamic_workflow action=scaffold`                                                      |

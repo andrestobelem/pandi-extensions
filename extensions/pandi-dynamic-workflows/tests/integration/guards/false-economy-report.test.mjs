@@ -116,6 +116,23 @@ metrics fallback fixture
 clean fixture
 `,
 		);
+		writeAgent(
+			runsRoot,
+			"2026-01-01T00-00-04Z-e",
+			"0005-judge-1.md",
+			`
+# judge-1-final
+
+- ok: true
+- model: opus
+- thinking: max
+- focus: 1 turns, peakInput 10 tok, out 100 tok, tools 0 (0 err), retries 0
+- schemaOk: true
+
+## Prompt
+native max fixture
+`,
+		);
 
 		const res = spawnSync(
 			"node",
@@ -127,7 +144,7 @@ clean fixture
 		check("json report was written", fs.existsSync(outJson));
 		if (fs.existsSync(outJson)) {
 			const report = JSON.parse(fs.readFileSync(outJson, "utf8"));
-			check("report scanned four agents", report.records.length === 4, `records=${report.records.length}`);
+			check("report scanned five agents", report.records.length === 5, `records=${report.records.length}`);
 			const scout = groupBy(report, "scout", "haiku", "low");
 			check("haiku/low scout group exists", Boolean(scout));
 			check(
@@ -144,6 +161,8 @@ clean fixture
 			);
 			const extract = groupBy(report, "extract", "haiku", "low");
 			check("clean haiku/low extract group is OK", extract?.recommendation === "OK", JSON.stringify(extract));
+			const judge = groupBy(report, "judge", "opus", "max");
+			check("native max remains distinct in reports", judge?.recommendation === "OK", JSON.stringify(judge));
 		}
 	} finally {
 		fs.rmSync(tmp, { recursive: true, force: true });

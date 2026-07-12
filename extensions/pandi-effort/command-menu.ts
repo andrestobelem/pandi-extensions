@@ -16,6 +16,7 @@ const CANONICAL_EFFORT_OPTIONS: {
 	{ value: "medium", description: "Esfuerzo medio", selectLabel: "medium — esfuerzo medio" },
 	{ value: "high", description: "Esfuerzo alto", selectLabel: "high — esfuerzo alto" },
 	{ value: "xhigh", description: "Esfuerzo extra alto", selectLabel: "xhigh — esfuerzo extra alto" },
+	{ value: "max", description: "Esfuerzo máximo nativo", selectLabel: "max — esfuerzo máximo nativo" },
 	{
 		value: "ultracode",
 		description: "Esfuerzo extra alto + router de dynamic_workflow",
@@ -26,7 +27,6 @@ const CANONICAL_EFFORT_OPTIONS: {
 
 const ALIAS_COMPLETIONS: { value: string; description: string }[] = [
 	{ value: "none", description: "Alias de off" },
-	{ value: "max", description: "Alias de xhigh" },
 	{ value: "ultra-code", description: "Alias de ultracode" },
 ];
 

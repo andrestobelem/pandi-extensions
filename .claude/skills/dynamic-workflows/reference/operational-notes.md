@@ -168,13 +168,16 @@ Codex usa la misma escala de `thinking` que pi; el nivel fija el budget de think
 | `low`      | light      | ~2k tokens  |
 | `medium`   | moderate   | ~8k tokens  |
 | `high`     | deep       | ~16k tokens |
-| `xhigh`    | maximum    | ~32k tokens |
+| `xhigh`    | extra high | provider-defined |
+| `max`      | native maximum on supported models | provider-defined |
 
-`medium` es el daily driver; `xhigh` es el techo (`max` mapea ahí). Pasá `effort` por llamada, o usá el sufijo
-`:effort`:
+`xhigh` y `max` son niveles distintos desde Pi 0.80.6. El runtime conserva `max` para modelos que lo soportan,
+como GPT-5.6 y los Claude adaptive recientes; en hosts Pi anteriores cae a `xhigh`. `/effort ultracode` mantiene
+`xhigh` a propósito y agrega orquestación, mientras que `max` controla la profundidad de una llamada individual.
+Pasá `effort` por llamada o usá el sufijo `:effort`:
 
 ```js
-await agent(prompt, { model: "openai-codex/gpt-5.6-sol", effort: "xhigh" });
+await agent(prompt, { model: "openai-codex/gpt-5.6-sol", effort: "max" });
 await agent(prompt, { model: "openai-codex/gpt-5.6-sol:high" }); // suffix shorthand
 ```
 

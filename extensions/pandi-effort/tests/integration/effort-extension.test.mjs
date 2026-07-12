@@ -4,9 +4,9 @@
  *
  * Fija el contrato público de /effort:
  * - los niveles nombrados llaman a pi.setThinkingLevel e informan el nivel activo limitado
- * - alias como `none` y `thinking=max` se mapean a niveles de thinking de Pi
+ * - alias como `none` y formas como `thinking=max` se mapean a niveles de thinking de Pi
  * - el uso en TUI sin argumentos abre un selector
- * - `ultracode` configura xhigh, activa dynamic_workflow cuando está presente y emite el
+ * - `max` conserva el nivel nativo de Pi; `ultracode` configura xhigh, activa dynamic_workflow cuando está presente y emite el
  *   evento entre extensiones que consume dynamic-workflows.ts
  * - thinking_level_select mantiene sincronizada la línea de estado
  * - ramas de degradación (issue #2, verificadas por mutación y no vacuas): si setThinkingLevel
@@ -14,7 +14,7 @@
  *   safeCurrentLevel mapea throw/valores fuera del vocabulario a "unknown", un
  *   getActiveTools que lanza degrada ultracode a "router not available", headless sin
  *   argumentos nunca abre el selector (usage en stdout en modo print), un selector
- *   cancelado vuelve a status, los alias sueltos `max` / `ultra-code` resuelven de punta
+ *   cancelado vuelve a status, `max` y el alias `ultra-code` resuelven de punta
  *   a punta, y session_start/shutdown pintan/limpian la línea de estado (nunca sin UI)
  */
 
@@ -123,12 +123,12 @@ async function scenarioLevels(url) {
 	check("/effort has completions", Array.isArray(command.getArgumentCompletions("h")));
 	check(
 		"/effort autocomplete includes canonical levels",
-		["off", "minimal", "low", "medium", "high", "xhigh", "ultracode", "status"].every((value) =>
+		["off", "minimal", "low", "medium", "high", "xhigh", "max", "ultracode", "status"].every((value) =>
 			allCompletions.some((item) => item.value === value),
 		),
 	);
 	check(
-		"/effort autocomplete includes max alias",
+		"/effort autocomplete includes canonical max",
 		command.getArgumentCompletions("ma")?.some((item) => item.value === "max"),
 	);
 	check(
@@ -152,7 +152,26 @@ async function scenarioLevels(url) {
 	check("/effort none aliases off", harness.level === "off", harness.level);
 
 	await command.handler("thinking=max", ctx);
-	check("/effort thinking=max aliases xhigh", harness.level === "xhigh", harness.level);
+	check("/effort thinking=max preserves native max", harness.level === "max", harness.level);
+}
+
+async function scenarioLegacyMaxFallback(url) {
+	const effortExtension = await loadDefault(url);
+	const harness = makePi({
+		initialLevel: "medium",
+		clamp: (next) => (next === "max" ? "off" : next),
+	});
+	effortExtension(harness.pi);
+	const command = harness.commands.get("effort");
+	const ctx = makeCtx();
+
+	await command.handler("max", ctx);
+	check("legacy Pi fallback retries max as xhigh", harness.level === "xhigh", harness.level);
+	check(
+		"legacy Pi fallback reports the resolved xhigh level",
+		ctx._notes.some((n) => n.type === "warning" && /esfuerzo activo es xhigh/i.test(n.msg)),
+		JSON.stringify(ctx._notes),
+	);
 }
 
 async function scenarioClampAndInvalid(url) {
@@ -415,8 +434,8 @@ async function scenarioNoArgsEdges(url) {
 	);
 }
 
-// Manejo de alias de punta a punta (no solo autocomplete): `max` solo -> xhigh, y el
-// alias `ultra-code` -> la ruta completa de ultracode (event + router).
+// Manejo de comandos de punta a punta: `max` conserva el nivel nativo de Pi, y el alias
+// `ultra-code` -> la ruta completa de ultracode (event + router).
 async function scenarioAliasHandling(url) {
 	const effortExtension = await loadDefault(url);
 	const harness = makePi({ allTools: ["dynamic_workflow"], activeTools: [] });
@@ -425,7 +444,7 @@ async function scenarioAliasHandling(url) {
 	const ctx = makeCtx();
 
 	await command.handler("max", ctx);
-	check("/effort max aliases xhigh", harness.level === "xhigh", harness.level);
+	check("/effort max preserves native max", harness.level === "max", harness.level);
 
 	await command.handler("ultra-code", ctx);
 	check(
@@ -473,6 +492,7 @@ async function main() {
 	const { outDir, url } = await buildEffort();
 	try {
 		await scenarioLevels(url);
+		await scenarioLegacyMaxFallback(url);
 		await scenarioClampAndInvalid(url);
 		await scenarioSelectorAndStatusEvent(url);
 		await scenarioUltracode(url);
