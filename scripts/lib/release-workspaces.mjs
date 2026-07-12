@@ -1,5 +1,6 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { readJsonFile } from "./json-io.mjs";
 
 function isPandiWorkspaceDir(name) {
 	return name === "pandi" || name.startsWith("pandi-");
@@ -15,13 +16,9 @@ export function loadPublicWorkspaces(root) {
 			const dir = join(extDir, name);
 			const file = join(dir, "package.json");
 			if (!existsSync(file)) return null;
-			try {
-				const pkg = JSON.parse(readFileSync(file, "utf8"));
-				if (!pkg?.name || pkg.private) return null;
-				return { dir, relDir: join("extensions", name), file, pkg };
-			} catch {
-				return null;
-			}
+			const pkg = readJsonFile(file, { onError: "null" });
+			if (!pkg?.name || pkg.private) return null;
+			return { dir, relDir: join("extensions", name), file, pkg };
 		})
 		.filter((entry) => entry !== null);
 }

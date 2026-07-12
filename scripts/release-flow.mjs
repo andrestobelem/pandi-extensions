@@ -9,10 +9,11 @@
  *   node scripts/release-flow.mjs --commit --tag --push --confirm v0.3.11
  */
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { valueAfter } from "./lib/cli-args.mjs";
+import { readJsonFile } from "./lib/json-io.mjs";
 import { expectedSuiteTag } from "./release-contract.mjs";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
@@ -52,7 +53,7 @@ export function parseReleaseFlowOptions(args) {
 }
 
 export function readRootVersion(root) {
-	return JSON.parse(readFileSync(join(root, "package.json"), "utf8")).version;
+	return readJsonFile(join(root, "package.json")).version;
 }
 
 export function readExpectedTag(root) {

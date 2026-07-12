@@ -10,6 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parsePositiveInt, valueAfter } from "./lib/cli-args.mjs";
+import { readJsonFile, writeJsonFile } from "./lib/json-io.mjs";
 import { loadPublicWorkspaces } from "./lib/release-workspaces.mjs";
 import { parsePublishPlanDocument } from "./publish-npm.mjs";
 
@@ -88,39 +89,31 @@ export function planVersionBumps({ rootPkg, workspaces, packageNames, bumpRoot =
 	};
 }
 
-function readJson(file) {
-	return JSON.parse(readFileSync(file, "utf8"));
-}
-
-function writeJson(file, value) {
-	writeFileSync(file, `${JSON.stringify(value, null, "\t")}\n`);
-}
-
 export function applyVersionBumps(root, plan) {
 	const rootFile = join(root, "package.json");
-	const rootPkg = readJson(rootFile);
+	const rootPkg = readJsonFile(rootFile);
 	rootPkg.version = plan.root.to;
-	writeJson(rootFile, rootPkg);
+	writeJsonFile(rootFile, rootPkg);
 
 	const workspaceVersions = new Map(plan.workspaces.map((bump) => [bump.name, bump.to]));
 	const workspaceDirs = new Set(plan.workspaces.map((bump) => bump.dir));
 	for (const { relDir: dir, file } of loadPublicWorkspaces(root)) {
-		const pkg = readJson(file);
+		const pkg = readJsonFile(file);
 		if (workspaceDirs.has(dir)) pkg.version = workspaceVersions.get(pkg.name);
 		updateInternalWorkspaceRanges(pkg, workspaceVersions);
-		writeJson(file, pkg);
+		writeJsonFile(file, pkg);
 	}
 
 	const lockFile = join(root, "package-lock.json");
 	if (existsSync(lockFile)) {
-		const lock = readJson(lockFile);
+		const lock = readJsonFile(lockFile);
 		lock.version = plan.root.to;
 		if (lock.packages?.[""]) lock.packages[""].version = plan.root.to;
 		for (const [key, pkg] of Object.entries(lock.packages || {})) {
 			if (workspaceDirs.has(key) && workspaceVersions.has(pkg.name)) pkg.version = workspaceVersions.get(pkg.name);
 			updateInternalWorkspaceRanges(pkg, workspaceVersions);
 		}
-		writeJson(lockFile, lock);
+		writeJsonFile(lockFile, lock);
 	}
 
 	if (plan.root.from !== plan.root.to) updateTagReferences(root, `v${plan.root.from}`, `v${plan.root.to}`);
@@ -191,7 +184,7 @@ export function runPrepareRounds(root, options = {}) {
 	const rounds = [];
 	const limit = untilClean ? maxRounds : 1;
 	for (let round = 0; round < limit && publishPlan.bumps.length > 0; round++) {
-		const rootPkg = readJson(join(root, "package.json"));
+		const rootPkg = readJsonFile(join(root, "package.json"));
 		const plan = planVersionBumps({
 			rootPkg,
 			workspaces: loadWorkspacePackages(root),
@@ -257,7 +250,7 @@ function main() {
 		);
 	}
 
-	const finalTag = `v${readJson(join(root, "package.json")).version}`;
+	const finalTag = `v${readJsonFile(join(root, "package.json")).version}`;
 	console.log("\nUpdated release prep files.");
 	console.log(
 		`Next checks:\n  npm run release:go\n  node scripts/release-flow.mjs --print-confirmation\n  node scripts/release-flow.mjs --ship --confirm ${finalTag}`,

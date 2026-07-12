@@ -12,23 +12,14 @@
 //   node scripts/sync-project-settings.mjs           # reescribe `.pi/settings*.json`
 //   node scripts/sync-project-settings.mjs --check   # solo verifica; sale 1 si hay drift
 
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseCheckOnly } from "./lib/cli-args.mjs";
+import { readJsonFile, sameJson, writeJsonFile } from "./lib/json-io.mjs";
 import { orderedExtensionDirs } from "./sync-root-manifest.mjs";
 
 export const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SETTINGS_FILES = [join(".pi", "settings.json"), join(".pi", "settings.json.example")];
-
-function readJson(file, fallback = {}) {
-	if (!existsSync(file)) return fallback;
-	return JSON.parse(readFileSync(file, "utf8"));
-}
-
-function writeJson(file, value) {
-	writeFileSync(file, `${JSON.stringify(value, null, "\t")}\n`);
-}
 
 function hasEntries(value) {
 	return Array.isArray(value) && value.length > 0;
@@ -36,10 +27,6 @@ function hasEntries(value) {
 
 function entrySource(entry) {
 	return typeof entry === "string" ? entry : entry?.source;
-}
-
-function sameJson(a, b) {
-	return JSON.stringify(a) === JSON.stringify(b);
 }
 
 function packageDeclaresPiResources(pkg) {
@@ -55,7 +42,7 @@ export function deriveProjectSettingsPackages(repoRoot = REPO, loadOrder) {
 	const { ordered } = orderedExtensionDirs(repoRoot, loadOrder);
 	const extensionPackages = ordered.map((dir) => ({
 		dir,
-		pkg: readJson(join(repoRoot, "extensions", dir, "package.json")),
+		pkg: readJsonFile(join(repoRoot, "extensions", dir, "package.json")),
 	}));
 	const packagesWithPiResources = extensionPackages.filter(({ pkg }) => packageDeclaresPiResources(pkg));
 	return packagesWithPiResources.map(({ dir, pkg }) => settingsEntryForPackage(dir, pkg));
@@ -98,7 +85,7 @@ export async function syncProjectSettings({
 
 	for (const rel of files) {
 		const file = join(repoRoot, rel);
-		const settings = readJson(file, { packages: [], extensions: [] });
+		const settings = readJsonFile(file, { fallback: { packages: [], extensions: [] } });
 		const current = Array.isArray(settings.packages) ? settings.packages : [];
 		if (sameJson(current, wanted)) continue;
 		drift++;
@@ -108,7 +95,7 @@ export async function syncProjectSettings({
 		}
 		settings.packages = wanted;
 		if (!Array.isArray(settings.extensions)) settings.extensions = [];
-		writeJson(file, settings);
+		writeJsonFile(file, settings);
 		wrote++;
 		log(`[sync-project-settings] wrote ${rel}`);
 	}

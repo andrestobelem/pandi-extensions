@@ -18,6 +18,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseCheckOnly } from "./lib/cli-args.mjs";
+import { readJsonFile } from "./lib/json-io.mjs";
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const ENGINE = path.join(REPO, "extensions", "pandi-docs", "scripts", "sync-doc-mirrors.mjs");
@@ -73,7 +74,7 @@ function discoverSet(root) {
 function kickerFor(rel, root) {
 	if (rel !== "README.md") return path.posix.dirname(rel);
 	const pkgPath = path.join(root, "package.json");
-	const pkgName = fs.existsSync(pkgPath) ? JSON.parse(fs.readFileSync(pkgPath, "utf8")).name : undefined;
+	const pkgName = fs.existsSync(pkgPath) ? readJsonFile(pkgPath).name : undefined;
 	return pkgName ?? path.basename(root);
 }
 

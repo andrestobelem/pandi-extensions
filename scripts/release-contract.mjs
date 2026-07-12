@@ -2,6 +2,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readJsonFile } from "./lib/json-io.mjs";
 import { loadPublicWorkspaces } from "./lib/release-workspaces.mjs";
 
 export const EXPECTED_PEER_RANGES = Object.freeze({
@@ -13,10 +14,6 @@ export const EXPECTED_PEER_RANGES = Object.freeze({
 
 export function expectedSuiteTag(rootPkg) {
 	return `v${rootPkg.version}`;
-}
-
-function readJson(file) {
-	return JSON.parse(readFileSync(file, "utf8"));
 }
 
 export function loadWorkspacePackages(root) {
@@ -51,7 +48,7 @@ export function checkRootReleaseMetadata(rootPkg, setup, options = {}) {
 
 export function checkReleaseContract(root, options = {}) {
 	const issues = [];
-	const rootPkg = readJson(join(root, "package.json"));
+	const rootPkg = readJsonFile(join(root, "package.json"));
 	const setup = readFileSync(join(root, "docs", "setup.md"), "utf8");
 
 	issues.push(...checkRootReleaseMetadata(rootPkg, setup, options));

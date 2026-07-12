@@ -18,10 +18,11 @@
 //   node scripts/sync-root-manifest.mjs           # reescribe el manifiesto pi raíz
 //   node scripts/sync-root-manifest.mjs --check   # solo verifica; sale con 1 si hay drift
 
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseCheckOnly } from "./lib/cli-args.mjs";
+import { readJsonFile, writeJsonFile } from "./lib/json-io.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const ROOT_PKG = join(REPO, "package.json");
@@ -79,7 +80,7 @@ export function deriveRootManifest(repoRoot, loadOrder = LOAD_ORDER) {
 	const { ordered, unknown } = orderedExtensionDirs(repoRoot, loadOrder);
 	const derived = { extensions: [], themes: [] };
 	for (const dir of ordered) {
-		const pkg = JSON.parse(readFileSync(join(repoRoot, "extensions", dir, "package.json"), "utf8"));
+		const pkg = readJsonFile(join(repoRoot, "extensions", dir, "package.json"));
 		for (const entry of pkg.pi?.extensions ?? []) {
 			derived.extensions.push(`./extensions/${dir}/${entry.replace(/^\.\//, "")}`);
 		}
@@ -115,7 +116,7 @@ function main() {
 		);
 	}
 
-	const root = JSON.parse(readFileSync(ROOT_PKG, "utf8"));
+	const root = readJsonFile(ROOT_PKG);
 	const current = { extensions: root.pi?.extensions ?? [], themes: root.pi?.themes ?? [] };
 	const inSync = sameList(current.extensions, derived.extensions) && sameList(current.themes, derived.themes);
 
@@ -134,7 +135,7 @@ function main() {
 	} else {
 		root.pi.extensions = derived.extensions;
 		root.pi.themes = derived.themes;
-		writeFileSync(ROOT_PKG, `${JSON.stringify(root, null, "\t")}\n`);
+		writeJsonFile(ROOT_PKG, root);
 		console.log(
 			`[sync-root-manifest] wrote root pi manifest (${derived.extensions.length} extensions, ${derived.themes.length} theme paths).`,
 		);

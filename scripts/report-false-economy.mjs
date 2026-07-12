@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { readJsonFile } from "./lib/json-io.mjs";
 
 function parseArgs(argv) {
 	const out = { runsRoot: ".pi/workflows/runs", window: 20, out: "", json: "" };
@@ -36,11 +37,7 @@ function listFiles(dir, predicate) {
 }
 
 function readJson(file) {
-	try {
-		return JSON.parse(fs.readFileSync(file, "utf8"));
-	} catch {
-		return null;
-	}
+	return readJsonFile(file, { onError: "null" });
 }
 
 function headerValue(text, key) {
