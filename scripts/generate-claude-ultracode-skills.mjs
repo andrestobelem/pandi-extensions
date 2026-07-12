@@ -22,7 +22,7 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { listFilesRec, readMaybe } from "./lib/sync-file-tree.mjs";
+import { findFileTreeDrift, listFilesRec } from "./lib/sync-file-tree.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SRC = join(REPO, ".pi", "skills", "ultracode");
@@ -86,24 +86,15 @@ export async function expectedFilesFor(targetName, src = SRC) {
 }
 
 async function checkGeneratedTree(expected, outRoot, target, error) {
-	let drift = 0;
-	// ¿Los archivos esperados están presentes y son byte-idénticos?
-	for (const [rel, want] of expected) {
-		const have = await readMaybe(join(outRoot, rel));
-		if (have !== want) {
-			error(`[gen-claude-ultracode] ✗ drift: ${target}/${rel}`);
-			drift++;
+	const drift = await findFileTreeDrift(expected, outRoot);
+	for (const { kind, relativePath } of drift) {
+		if (kind === "mismatch") {
+			error(`[gen-claude-ultracode] ✗ drift: ${target}/${relativePath}`);
+		} else {
+			error(`[gen-claude-ultracode] ✗ stale (not generated): ${target}/${relativePath}`);
 		}
 	}
-	// ¿No hay archivos stale que el generador no emitiría?
-	const actual = await listFilesRec(outRoot);
-	for (const rel of actual) {
-		if (!expected.has(rel)) {
-			error(`[gen-claude-ultracode] ✗ stale (not generated): ${target}/${rel}`);
-			drift++;
-		}
-	}
-	return drift;
+	return drift.length;
 }
 
 async function writeGeneratedTree(expected, outRoot) {

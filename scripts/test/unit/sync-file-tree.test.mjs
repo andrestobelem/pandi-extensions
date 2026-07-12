@@ -3,7 +3,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { test } from "node:test";
-import { listFilesRec, readMaybe } from "../../lib/sync-file-tree.mjs";
+import { findFileTreeDrift, listFilesRec, readMaybe } from "../../lib/sync-file-tree.mjs";
 
 function writeFile(file, content) {
 	fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -30,6 +30,39 @@ test("readMaybe returns utf8 content or null for missing files", async () => {
 		writeFile(file, "hello\n");
 		assert.equal(await readMaybe(file), "hello\n");
 		assert.equal(await readMaybe(path.join(root, "missing.txt")), null);
+	} finally {
+		fs.rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("filesystem helpers rethrow errors other than missing paths", async () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "sync-file-tree-"));
+	try {
+		const file = path.join(root, "file.txt");
+		writeFile(file, "hello\n");
+
+		await assert.rejects(() => listFilesRec(file), { code: "ENOTDIR" });
+		await assert.rejects(() => readMaybe(path.join(file, "child.txt")), { code: "ENOTDIR" });
+	} finally {
+		fs.rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("findFileTreeDrift reports mismatched and stale files in deterministic order", async () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "sync-file-tree-"));
+	try {
+		writeFile(path.join(root, "changed.txt"), "old\n");
+		writeFile(path.join(root, "extra.txt"), "extra\n");
+		const expected = new Map([
+			["changed.txt", "new\n"],
+			["missing.txt", "missing\n"],
+		]);
+
+		assert.deepEqual(await findFileTreeDrift(expected, root), [
+			{ kind: "mismatch", relativePath: "changed.txt" },
+			{ kind: "mismatch", relativePath: "missing.txt" },
+			{ kind: "stale", relativePath: "extra.txt" },
+		]);
 	} finally {
 		fs.rmSync(root, { recursive: true, force: true });
 	}

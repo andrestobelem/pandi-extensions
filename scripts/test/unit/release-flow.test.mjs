@@ -3,12 +3,14 @@ import * as path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import {
+	assertVerifiedPublishPlan,
 	parseReleaseFlowOptions,
 	planReleaseFlow,
 	printConfirmation,
 	readExpectedTag,
 	releaseCommitMessage,
 	requirePushConfirmation,
+	runStep,
 } from "../../release-flow.mjs";
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
@@ -101,4 +103,32 @@ test("release-flow: print-confirmation advertises the ship command", () => {
 	}
 	assert.match(lines.join("\n"), /Release confirmation token: v0\.3\.10/);
 	assert.match(lines.join("\n"), /--ship --confirm v0\.3\.10/);
+});
+
+test("release-flow: publish-plan verification fails closed", () => {
+	assert.throws(
+		() => assertVerifiedPublishPlan({ status: 1, output: "npm ERR network timeout\n" }),
+		/publish classification failed \(exit 1\)/,
+	);
+	assert.throws(
+		() => assertVerifiedPublishPlan({ status: 1, output: "1 need a version bump.\n" }),
+		/publish plan still has packages that need a version bump/,
+	);
+	assert.deepEqual(assertVerifiedPublishPlan({ status: 0, output: "0 need a version bump.\n" }), {
+		status: 0,
+		output: "0 need a version bump.\n",
+	});
+});
+
+test("release-flow: steps fail closed by default", () => {
+	const original = console.log;
+	console.log = () => {};
+	try {
+		assert.throws(
+			() => runStep("publish npm", "npm", ["publish"], { spawn: () => ({ status: 1, stdout: "", stderr: "" }) }),
+			/publish npm failed \(exit 1\)/,
+		);
+	} finally {
+		console.log = original;
+	}
 });

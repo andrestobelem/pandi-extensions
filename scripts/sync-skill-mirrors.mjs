@@ -18,7 +18,7 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { listFilesRec, readMaybe } from "./lib/sync-file-tree.mjs";
+import { findFileTreeDrift, listFilesRec, readMaybe } from "./lib/sync-file-tree.mjs";
 import { discoverSkillClassification, REPO, reportUnclassifiedSkills, SKILLS_ROOT } from "./skill-classification.mjs";
 
 export function parseCheckOnly(args = process.argv.slice(2)) {
@@ -59,25 +59,21 @@ export async function syncSkillMirrors({
 			continue;
 		}
 
-		const actualFiles = await listFilesRec(dst);
-		let treeDrift = actualFiles.some((relativePath) => !expected.has(relativePath));
-		for (const [relativePath, want] of expected) {
-			if ((await readMaybe(join(dst, relativePath))) !== want) treeDrift = true;
-		}
-		if (!treeDrift) continue;
+		const treeDrift = await findFileTreeDrift(expected, dst);
+		if (treeDrift.length === 0) continue;
 
 		if (checkOnly) {
 			error(`[sync-skill-mirrors] ✗ drift: ${name} (.claude tree differs from .pi source)`);
 			drift++;
 		} else {
-			for (const [relativePath, want] of expected) {
+			for (const { kind, relativePath } of treeDrift) {
+				if (kind === "stale") {
+					await rm(join(dst, relativePath), { force: true });
+					continue;
+				}
 				const output = join(dst, relativePath);
-				if ((await readMaybe(output)) === want) continue;
 				await mkdir(dirname(output), { recursive: true });
-				await writeFile(output, want);
-			}
-			for (const relativePath of actualFiles) {
-				if (!expected.has(relativePath)) await rm(join(dst, relativePath), { force: true });
+				await writeFile(output, expected.get(relativePath));
 			}
 			log(`[sync-skill-mirrors] wrote ${name} (${expected.size} files)`);
 			wrote++;

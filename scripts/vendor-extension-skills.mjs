@@ -19,7 +19,7 @@
 import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { listFilesRec, readMaybe } from "./lib/sync-file-tree.mjs";
+import { findFileTreeDrift, listFilesRec } from "./lib/sync-file-tree.mjs";
 import { discoverSkillClassification, REPO, reportUnclassifiedSkills, SKILLS_ROOT } from "./skill-classification.mjs";
 
 export function parseCheckOnly(args = process.argv.slice(2)) {
@@ -47,23 +47,15 @@ export async function expectedFilesFor(skillName, skillsRoot = SKILLS_ROOT) {
 }
 
 async function checkGeneratedTree(expected, outRoot, label, error) {
-	let drift = 0;
-	// ¿Los archivos esperados están presentes y son byte-idénticos?
-	for (const [rel, want] of expected) {
-		const have = await readMaybe(join(outRoot, rel));
-		if (have !== want) {
-			error(`[vendor-extension-skills] ✗ drift: ${label}/${rel}`);
-			drift++;
+	const drift = await findFileTreeDrift(expected, outRoot);
+	for (const { kind, relativePath } of drift) {
+		if (kind === "mismatch") {
+			error(`[vendor-extension-skills] ✗ drift: ${label}/${relativePath}`);
+		} else {
+			error(`[vendor-extension-skills] ✗ stale (not generated): ${label}/${relativePath}`);
 		}
 	}
-	// ¿No hay archivos stale que el generador no emitiría?
-	for (const rel of await listFilesRec(outRoot)) {
-		if (!expected.has(rel)) {
-			error(`[vendor-extension-skills] ✗ stale (not generated): ${label}/${rel}`);
-			drift++;
-		}
-	}
-	return drift;
+	return drift.length;
 }
 
 async function writeGeneratedTree(expected, outRoot) {

@@ -88,9 +88,9 @@ export function printConfirmation(expectedTag) {
 	console.log(`Ship with:\n  node scripts/release-flow.mjs --ship --confirm ${expectedTag}`);
 }
 
-function runStep(label, command, args, { cwd = ROOT, allowFailure = false } = {}) {
+export function runStep(label, command, args, { cwd = ROOT, allowFailure = false, spawn = spawnSync } = {}) {
 	console.log(`\n→ ${label}`);
-	const result = spawnSync(command, args, { cwd, encoding: "utf8", stdio: "pipe" });
+	const result = spawn(command, args, { cwd, encoding: "utf8", stdio: "pipe" });
 	const output = `${result.stdout || ""}${result.stderr || ""}`;
 	if (output.trim()) process.stdout.write(`${output}${output.endsWith("\n") ? "" : "\n"}`);
 	if ((result.status ?? 1) !== 0 && !allowFailure) {
@@ -148,15 +148,19 @@ function classifyPublishPlan(opts) {
 	);
 }
 
-function verifyPublishPlan(opts) {
-	const result = classifyPublishPlan(opts);
+export function assertVerifiedPublishPlan(result) {
 	if (result.output.includes("BUMP?") || result.output.includes("need a version bump.")) {
 		const pending = /(\d+) need a version bump/.exec(result.output);
 		if (pending && Number(pending[1]) > 0) {
 			throw new Error("publish plan still has packages that need a version bump");
 		}
 	}
+	if (result.status !== 0) throw new Error(`publish classification failed (exit ${result.status})`);
 	return result;
+}
+
+function verifyPublishPlan(opts) {
+	return assertVerifiedPublishPlan(classifyPublishPlan(opts));
 }
 
 function stageReleaseFiles() {
@@ -231,7 +235,7 @@ function main() {
 			"--publish",
 		];
 		if (opts.provenance) publishArgs.push("--provenance");
-		runStep("publish npm", process.execPath, publishArgs, { allowFailure: true });
+		runStep("publish npm", process.execPath, publishArgs);
 	}
 
 	if (opts.push) requirePushConfirmation(expectedTag, opts.confirm);
