@@ -35,6 +35,8 @@
 	"scripts": {
 		"prepare": "node scripts/install-git-hooks.mjs",
 		"dev:picante": "node scripts/dev-picante.mjs",
+		"smoke:picante": "node scripts/dev-picante.mjs",
+		"smoke:picante:tui": "node scripts/dev-picante.mjs",
 		"typecheck": "tsc -p tsconfig.json",
 		"check": "biome check .",
 		"check:fix": "biome check --write .",

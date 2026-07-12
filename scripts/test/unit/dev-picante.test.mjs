@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { buildPicanteInvocation, runPicante } from "../../dev-picante.mjs";
+import { buildPicanteInvocation, resolvePicanteScript, runPicante } from "../../dev-picante.mjs";
 
 test("buildPicanteInvocation targets the sibling checkout and forwards args", () => {
 	const invocation = buildPicanteInvocation({
@@ -34,6 +34,19 @@ test("buildPicanteInvocation resolves absolute and relative PI_CANTE_ROOT values
 
 	assert.equal(absoluteInvocation.cwd, "/custom/pi-cante");
 	assert.equal(relativeInvocation.cwd, "/workspace/custom-picante");
+});
+
+test("resolvePicanteScript delegates smoke scripts from their npm lifecycle", () => {
+	for (const picanteScript of ["smoke:picante", "smoke:picante:tui"]) {
+		assert.equal(resolvePicanteScript({ npm_lifecycle_event: picanteScript }), picanteScript);
+		const invocation = buildPicanteInvocation({
+			repoRoot: "/workspace/pandi-extensions",
+			env: { npm_execpath: "/opt/npm-cli.js", npm_lifecycle_event: picanteScript },
+			nodeExecPath: "/usr/bin/node",
+		});
+		assert.deepEqual(invocation.args, ["/opt/npm-cli.js", "run", picanteScript, "--"]);
+	}
+	assert.equal(resolvePicanteScript({ npm_lifecycle_event: "test:unit" }), "dev:picante");
 });
 
 test("buildPicanteInvocation runs npm through Node on Windows", () => {

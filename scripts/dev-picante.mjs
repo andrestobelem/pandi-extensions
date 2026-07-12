@@ -6,6 +6,11 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const PICANTE_SCRIPTS = new Set(["dev:picante", "smoke:picante", "smoke:picante:tui"]);
+
+export function resolvePicanteScript(env = process.env) {
+	return PICANTE_SCRIPTS.has(env.npm_lifecycle_event) ? env.npm_lifecycle_event : "dev:picante";
+}
 
 export function buildPicanteInvocation({
 	repoRoot = REPO_ROOT,
@@ -17,14 +22,16 @@ export function buildPicanteInvocation({
 	const configuredRoot = env.PI_CANTE_ROOT?.trim();
 	const picanteRoot = configuredRoot ? resolve(repoRoot, configuredRoot) : resolve(repoRoot, "..", "pi-cante");
 	const npmExecPath = env.npm_execpath?.trim();
+	const picanteScript = resolvePicanteScript(env);
 	if (!npmExecPath && platform === "win32") {
 		throw new Error("Cannot locate npm on Windows; run this command through npm run dev:picante.");
 	}
 	return {
 		command: npmExecPath ? nodeExecPath : "npm",
-		args: [...(npmExecPath ? [npmExecPath] : []), "run", "dev:picante", "--", ...args],
+		args: [...(npmExecPath ? [npmExecPath] : []), "run", picanteScript, "--", ...args],
 		cwd: picanteRoot,
 		env: { ...env, PANDI_EXTENSIONS_ROOT: repoRoot },
+		picanteScript,
 	};
 }
 
@@ -49,8 +56,8 @@ export function runPicante({
 	} catch (error) {
 		throw new Error(`Cannot read the pi-cante manifest at ${packageJsonPath}.`, { cause: error });
 	}
-	if (typeof manifest.scripts?.["dev:picante"] !== "string") {
-		throw new Error(`The checkout at ${invocation.cwd} does not declare a dev:picante script.`);
+	if (typeof manifest.scripts?.[invocation.picanteScript] !== "string") {
+		throw new Error(`The checkout at ${invocation.cwd} does not declare a ${invocation.picanteScript} script.`);
 	}
 	const result = spawn(invocation.command, invocation.args, {
 		cwd: invocation.cwd,
