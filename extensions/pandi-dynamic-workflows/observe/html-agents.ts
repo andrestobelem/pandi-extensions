@@ -1,3 +1,4 @@
+import { agentRowMetaChipTone, buildAgentRowMetaChips } from "../lib/agent-row-meta.js";
 import { formatElapsedMs } from "../lib/presentation.js";
 import { formatAgentPhase } from "./event-parser.js";
 import type { RunReportAgent, RunReportModel } from "./html.js";
@@ -112,19 +113,6 @@ function agentStateText(agent: RunReportAgent): string {
 	return "? unknown";
 }
 
-function shortModel(model: string): string {
-	return model.split("/").filter(Boolean).pop() ?? model;
-}
-
-function commaListCount(value: string | undefined): number | undefined {
-	if (!value) return undefined;
-	const count = value
-		.split(",")
-		.map((item) => item.trim())
-		.filter(Boolean).length;
-	return count || undefined;
-}
-
 function skillsText(agent: RunReportAgent): string {
 	if (agent.skills) return `${agent.skills}${agent.includeSkills ? " + discovery" : " (explicit only)"}`;
 	return agent.includeSkills === false ? "disabled" : "default discovery";
@@ -161,33 +149,11 @@ export function agentAccessMeta(agent: RunReportAgent): string {
 }
 
 function agentRowMeta(agent: RunReportAgent): string[] {
-	const toolCount = commaListCount(agent.tools);
-	const skillCount = commaListCount(agent.skills);
-	const extensionCount = commaListCount(agent.extensions);
-	const keyCount = commaListCount(agent.keys);
-	const missingCount = commaListCount(agent.missingKeys);
-	const chips = [
-		agent.promptAvailable ? "prompt✓" : "prompt?",
-		agent.schemaOk !== undefined ? `schema:${agent.schemaOk ? "ok" : "bad"}` : "",
-		agent.outputEmpty ? "empty-output" : "",
-		agent.outputTruncated ? "output:truncated" : "",
-		agent.stdoutTruncated ? "stdout:truncated" : "",
-		agent.model ? `model:${shortModel(agent.model)}` : "",
-		agent.thinking ? `effort:${agent.thinking}` : "",
-		`tools:${toolCount ?? "default"}`,
-		`skills:${skillCount ?? (agent.includeSkills === false ? "off" : "default")}`,
-		`ext:${extensionCount ?? (agent.includeExtensions ? "default" : "off")}`,
-		`keys:${keyCount ?? (agent.isolatedEnv ? "none" : "default")}`,
-		missingCount ? `missing:${missingCount}` : "",
-	];
-	return chips.filter(Boolean);
+	return buildAgentRowMetaChips(agent);
 }
 
 function miniChipClass(label: string): string {
-	if (label === "prompt✓" || label === "schema:ok") return "ok";
-	if (label === "prompt?" || label.startsWith("missing:") || label.includes("truncated")) return "warn";
-	if (label === "schema:bad" || label === "empty-output") return "fail";
-	return "";
+	return agentRowMetaChipTone(label);
 }
 
 function renderMiniChips(chips: string[]): string {

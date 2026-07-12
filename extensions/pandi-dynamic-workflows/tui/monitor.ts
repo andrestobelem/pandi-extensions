@@ -4,6 +4,7 @@
  * the dashboard class wires theme formatters and pushes returned lines.
  */
 
+import { agentRowMetaChipTone, buildAgentRowMetaChips } from "../lib/agent-row-meta.js";
 import { compactInline, formatElapsedMs } from "../lib/presentation.js";
 import { formatAgentPhase, getAgentElapsedMs } from "../observe/index.js";
 import {
@@ -152,27 +153,19 @@ export function renderAgentRowMeta(
 	warning: (s: string) => string,
 	dim: (s: string) => string,
 ): string {
-	// Chips unidos por un divisor ` · ` para que la fila respire; las ETIQUETAS de chip usan dim para que
-	// los chips que llevan estado (prompt✓ / schema:bad / missing) sigan siendo los que atraen la vista.
-	const chips: string[] = [agent.promptAvailable ? success("prompt✓") : warning("prompt?")];
-	if (agent.schemaOk !== undefined) chips.push(agent.schemaOk ? muted("schema:ok") : error("schema:bad"));
-	if (agent.outputEmpty) chips.push(error("empty-output"));
-	if (agent.outputTruncated) chips.push(warning("output:truncated"));
-	if (agent.stdoutTruncated) chips.push(warning("stdout:truncated"));
-	// chips de modelo/esfuerzo: id de modelo corto (último segmento de ruta) para mantener la fila compacta;
-	// omitido completamente cuando se desconoce (ejecuciones registradas antes de que existieran estos campos).
-	if (agent.model) chips.push(dim(`model:${renderSafeInline(agent.model.split("/").pop() ?? agent.model)}`));
-	if (agent.thinking) chips.push(dim(`effort:${renderSafeInline(agent.thinking)}`));
-	chips.push(dim(`tools:${agent.tools?.length ? agent.tools.length : "default"}`));
-	chips.push(
-		dim(`skills:${agent.skills?.length ? agent.skills.length : agent.includeSkills === false ? "off" : "default"}`),
-	);
-	chips.push(
-		dim(`ext:${agent.extensions?.length ? agent.extensions.length : agent.includeExtensions ? "default" : "off"}`),
-	);
-	chips.push(dim(`keys:${agent.keys?.length ? agent.keys.length : agent.isolatedEnv ? "none" : "default"}`));
-	if (agent.missingKeys?.length) chips.push(warning(`missing:${agent.missingKeys.length}`));
-	return chips.join(" · ");
+	const styleChip = (label: string): string => {
+		switch (agentRowMetaChipTone(label)) {
+			case "ok":
+				return label === "prompt✓" ? success(label) : muted(label);
+			case "fail":
+				return error(label);
+			case "warn":
+				return warning(label);
+			default:
+				return dim(label);
+		}
+	};
+	return buildAgentRowMetaChips(agent).map(styleChip).join(" · ");
 }
 
 export function renderMonitorAgents(
