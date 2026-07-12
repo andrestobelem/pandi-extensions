@@ -20,17 +20,13 @@ import * as path from "node:path";
 import { PassThrough, Writable } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { buildExtension, createChecker, loadModule, sdkStub } from "../../../shared/test/harness.mjs";
-import { readJson, waitFor } from "./bg-test-support.mjs";
+import { flushStreamTurn, readJson, waitFor } from "./bg-test-support.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 
 const { check, counts } = createChecker();
 const noop = () => {};
-
-async function flushStreamTurn() {
-	await new Promise((resolve) => setImmediate(resolve));
-}
 
 async function buildRuntime() {
 	const { url } = await buildExtension({

@@ -15,7 +15,10 @@ import {
 	writeRunStatus,
 } from "../runtime/index.js";
 import type { ActiveWorkflowRun, WorkflowRunResult, WorkflowRunState } from "../types.js";
+import { settleWithinTimeout } from "./promise-timeout.js";
 import { activeRunIds, clearActiveRuns, getActiveRun, hasActiveRun, listActiveRuns } from "./registry.js";
+
+export { settleWithinTimeout } from "./promise-timeout.js";
 
 function resolveActiveRun(id: string | undefined): ActiveWorkflowRun | undefined {
 	const runs = listActiveRuns().sort((a, b) => b.started - a.started);
@@ -103,21 +106,6 @@ export async function cleanupWorkflowRuns(
 		}
 	}
 	return { removed, kept: runs.length - removed.length };
-}
-
-// Carrera de una promesa contra un tiempo de espera. El temporizador de tiempo de espera siempre se borra después para que
-// una promesa que se resuelve rápido no pueda dejar un temporizador pendiente manteniendo vivo el event loop (p. ej.
-// en el apagado de la sesión).
-export async function settleWithinTimeout<T>(work: Promise<T>, timeoutMs: number): Promise<void> {
-	let timer: ReturnType<typeof setTimeout> | undefined;
-	const guard = new Promise<void>((resolve) => {
-		timer = setTimeout(resolve, timeoutMs);
-	});
-	try {
-		await Promise.race([work.then(() => undefined), guard]);
-	} finally {
-		if (timer) clearTimeout(timer);
-	}
 }
 
 export async function abortActiveWorkflowRuns(reason: string): Promise<void> {

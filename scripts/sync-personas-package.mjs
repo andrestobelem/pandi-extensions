@@ -6,6 +6,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseCheckOnly } from "./lib/cli-args.mjs";
 
 export const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 export const SOURCE_DIR = join(".pi", "personas");
@@ -74,7 +75,7 @@ export function syncPersonasPackage({
 }
 
 function main(args = process.argv.slice(2)) {
-	const result = syncPersonasPackage({ checkOnly: args.includes("--check") });
+	const result = syncPersonasPackage({ checkOnly: parseCheckOnly(args) });
 	if (!result.ok) process.exit(1);
 }
 

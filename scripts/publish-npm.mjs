@@ -22,6 +22,7 @@ import { execFile, execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import { parsePositiveInt, valueAfter } from "./lib/cli-args.mjs";
 import { mapPool } from "./lib/pool.mjs";
 import { loadPublicWorkspaces } from "./lib/release-workspaces.mjs";
 
@@ -43,20 +44,6 @@ export function buildPublishArgs({ otp, provenance = false, tag = "latest" } = {
 	if (provenance) args.push("--provenance");
 	if (otp) args.push(`--otp=${otp}`); // nota: un código TOTP rara vez sobrevive a más de 1 publish
 	return withSafeNpmConfig(args);
-}
-
-function valueAfter(args, flag) {
-	const eq = args.find((arg) => arg.startsWith(`${flag}=`));
-	if (eq) return eq.slice(flag.length + 1);
-	const i = args.indexOf(flag);
-	return i >= 0 ? args[i + 1] : undefined;
-}
-
-function parsePositiveInt(raw, fallback) {
-	if (raw === undefined) return fallback;
-	const value = Number(raw);
-	if (!Number.isInteger(value) || value < 1) throw new Error(`invalid positive integer: ${raw}`);
-	return value;
 }
 
 export function parsePublishOptions(args) {

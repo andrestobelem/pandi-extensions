@@ -1,13 +1,10 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { DOCS_USAGE, tokenizeArgs } from "./args.js";
 import { convertMarkdownFile } from "./convert.js";
+import { errorMessage } from "./errors.js";
 import { notify } from "./notify.js";
 import { relativeTo } from "./paths.js";
 import { parseArgs } from "./scripts/markdown-to-html.mjs";
-
-function errorMessage(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
-}
 
 export async function handleDocsCommand(args: string, ctx: ExtensionContext): Promise<void> {
 	let parsed: {

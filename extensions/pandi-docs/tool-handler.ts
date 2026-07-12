@@ -2,11 +2,8 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { Type } from "typebox";
 import { EMPTY_MARKDOWN_PATH_ERROR } from "./args.js";
 import { convertMarkdownFile } from "./convert.js";
+import { errorMessage } from "./errors.js";
 import { relativeTo } from "./paths.js";
-
-function errorMessage(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
-}
 
 function toolResult(text: string, details: Record<string, unknown>) {
 	return { content: [{ type: "text" as const, text }], details };

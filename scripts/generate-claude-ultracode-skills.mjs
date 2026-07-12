@@ -22,7 +22,10 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseCheckOnly } from "./lib/cli-args.mjs";
 import { findFileTreeDrift, listFilesRec } from "./lib/sync-file-tree.mjs";
+
+export { parseCheckOnly };
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SRC = join(REPO, ".pi", "skills", "ultracode");
@@ -32,10 +35,6 @@ const OUT_DIR = join(REPO, ".claude", "skills");
 export const TARGETS = ["ultracode", "dynamic-workflows"];
 const DYNAMIC_WORKFLOWS_DESCRIPTION =
 	"Orquestá manualmente tareas multiagente con los gates y patrones de Ultracode en Claude Code o Pi.";
-
-export function parseCheckOnly(args = process.argv.slice(2)) {
-	return args.includes("--check");
-}
 
 function makeExplicitOnly(skill) {
 	return skill.replace(/^---\n([\s\S]*?)\n---/u, (_match, rawFrontmatter) => {

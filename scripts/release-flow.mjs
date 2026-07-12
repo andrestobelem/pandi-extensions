@@ -12,6 +12,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { valueAfter } from "./lib/cli-args.mjs";
 import { expectedSuiteTag } from "./release-contract.mjs";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
@@ -48,13 +49,6 @@ export function parseReleaseFlowOptions(args) {
 		planFile: valueAfter(args, "--publish-plan") || valueAfter(args, "--plan-file") || DEFAULT_PLAN_FILE,
 		skipPublishPlan: args.includes("--skip-publish-plan"),
 	};
-}
-
-function valueAfter(args, flag) {
-	const eq = args.find((arg) => arg.startsWith(`${flag}=`));
-	if (eq) return eq.slice(flag.length + 1);
-	const i = args.indexOf(flag);
-	return i >= 0 ? args[i + 1] : undefined;
 }
 
 export function readRootVersion(root) {

@@ -21,6 +21,7 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseCheckOnly } from "./lib/cli-args.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const ROOT_PKG = join(REPO, "package.json");
@@ -106,7 +107,7 @@ function printDrift(current, derived) {
 }
 
 function main() {
-	const checkOnly = process.argv.includes("--check");
+	const checkOnly = parseCheckOnly(process.argv.slice(2));
 	const { derived, unknown } = deriveRootManifest(REPO);
 	if (unknown.length) {
 		console.warn(

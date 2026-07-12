@@ -40,3 +40,13 @@ export function artifactViewerHref(candidate: string | undefined): string | unde
 	const anchor = artifactViewerAnchor(candidate);
 	return anchor ? `artifact-viewer.html#${anchor}` : undefined;
 }
+
+export function compactInlineForHtml(value: string, max = 220): string {
+	const oneLine = value
+		.replace(/\bhttps?:\/\/[^\s<>"]+/gi, "[external-url]")
+		.replace(/\bjavascript:[^\s<>"]+/gi, "[unsafe-url]")
+		.replace(/\s+/g, " ")
+		.trim();
+	if (oneLine.length <= max) return oneLine;
+	return `${oneLine.slice(0, Math.max(0, max - 1))}…`;
+}

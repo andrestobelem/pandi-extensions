@@ -11,7 +11,10 @@ import { writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { format, resolveConfig } from "prettier";
+import { parseCheckOnly } from "./lib/cli-args.mjs";
 import { readMaybe } from "./lib/sync-file-tree.mjs";
+
+export { parseCheckOnly };
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -45,10 +48,6 @@ tool**. Un script es JavaScript plano que llama a unos pocos **helper-globals** 
 tiene **25** workflows.
 
 `;
-
-export function parseCheckOnly(args = process.argv.slice(2)) {
-	return args.includes("--check");
-}
 
 export function catalogPaths(repo = REPO) {
 	const ref = join(repo, ".pi", "skills", "ultracode", "reference");

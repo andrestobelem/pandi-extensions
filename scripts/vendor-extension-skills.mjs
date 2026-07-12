@@ -19,12 +19,11 @@
 import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseCheckOnly } from "./lib/cli-args.mjs";
 import { findFileTreeDrift, listFilesRec } from "./lib/sync-file-tree.mjs";
 import { discoverSkillClassification, REPO, reportUnclassifiedSkills, SKILLS_ROOT } from "./skill-classification.mjs";
 
-export function parseCheckOnly(args = process.argv.slice(2)) {
-	return args.includes("--check");
-}
+export { parseCheckOnly };
 
 export function vendoredSkillTargets(vendoredByExtension, { repo = REPO } = {}) {
 	return Object.entries(vendoredByExtension).flatMap(([ext, skills]) =>

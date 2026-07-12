@@ -10,6 +10,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { notify } from "../lib/notify.js";
 import type { ActiveWorkflowRun, RunLimits, WorkflowRunResult } from "../types.js";
+import { raceWithTimeout } from "./promise-timeout.js";
 import { clearActiveRuns, listActiveRuns } from "./registry.js";
 import { refreshActiveWorkflowStatus } from "./status.js";
 
@@ -63,23 +64,8 @@ function makeReloadHandoffSettledPromise(run: ActiveWorkflowRun): Promise<Workfl
 		});
 }
 
-async function resolveWithinTimeout<T>(
-	work: Promise<T>,
-	timeoutMs: number,
-): Promise<{ timedOut: false; value: T } | { timedOut: true }> {
-	let timer: ReturnType<typeof setTimeout> | undefined;
-	const guard = new Promise<{ timedOut: true }>((resolve) => {
-		timer = setTimeout(() => resolve({ timedOut: true }), timeoutMs);
-	});
-	try {
-		return await Promise.race([work.then((value) => ({ timedOut: false as const, value })), guard]);
-	} finally {
-		if (timer) clearTimeout(timer);
-	}
-}
-
 export async function interruptActiveWorkflowRunsForReload(): Promise<{ interrupted: string[] }> {
-	const { settleWithinTimeout } = await import("./cleanup.js");
+	const { settleWithinTimeout } = await import("./promise-timeout.js");
 	const runs = listActiveRuns();
 	if (runs.length === 0) return { interrupted: [] };
 	const store = reloadHandoffStore();
@@ -115,7 +101,7 @@ export async function resumeReloadInterruptedWorkflowRuns(
 
 	for (const entry of entries) {
 		try {
-			const handoffResult = await resolveWithinTimeout(entry.settled, 5000);
+			const handoffResult = await raceWithTimeout(entry.settled, 5000);
 			const settledResult = (handoffResult.timedOut ? undefined : handoffResult.value) ?? entry.settledResult;
 			if (entry.interruptedByReload) {
 				const record = await resumeWorkflow(pi, ctx, entry.runId, { limits: entry.limits });

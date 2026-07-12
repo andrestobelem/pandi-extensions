@@ -1,6 +1,7 @@
 import { formatElapsedMs } from "../lib/presentation.js";
+import { formatAgentPhase } from "./event-parser.js";
 import type { RunReportAgent, RunReportModel } from "./html.js";
-import { artifactViewerHref, escapeHtml, safeRelativeHref } from "./safe-html.js";
+import { artifactViewerHref, compactInlineForHtml, escapeHtml, safeRelativeHref } from "./safe-html.js";
 
 export function pillClass(state: string, ok?: boolean): string {
 	if (state === "completed" && ok !== false) return "ok";
@@ -97,14 +98,8 @@ function progressValue(summary: ProgressSummary): string {
 	return `${summary.done}/${summary.total}${summary.openEnded ? "+" : ""}`;
 }
 
-function formatReportAgentPhase(agent: RunReportAgent): string | undefined {
-	if (!agent.phaseIndex || !agent.phaseTotal) return undefined;
-	const batch = agent.phaseId ? `P${agent.phaseId} ` : "";
-	return `${batch}${agent.phaseIndex}/${agent.phaseTotal}`;
-}
-
 function reportAgentPhaseDetail(agent: RunReportAgent): string {
-	const phase = formatReportAgentPhase(agent);
+	const phase = formatAgentPhase(agent);
 	if (phase && agent.phaseLabel) return `${phase} • ${agent.phaseLabel}`;
 	return phase ?? agent.phaseLabel ?? "";
 }
@@ -128,16 +123,6 @@ function commaListCount(value: string | undefined): number | undefined {
 		.map((item) => item.trim())
 		.filter(Boolean).length;
 	return count || undefined;
-}
-
-function compactInlineText(value: string, max = 220): string {
-	const oneLine = value
-		.replace(/\bhttps?:\/\/[^\s<>"]+/gi, "[external-url]")
-		.replace(/\bjavascript:[^\s<>"]+/gi, "[unsafe-url]")
-		.replace(/\s+/g, " ")
-		.trim();
-	if (oneLine.length <= max) return oneLine;
-	return `${oneLine.slice(0, Math.max(0, max - 1))}…`;
 }
 
 function skillsText(agent: RunReportAgent): string {
@@ -215,7 +200,7 @@ function renderMiniChips(chips: string[]): string {
 }
 
 function renderMonitorAgentLine(agent: RunReportAgent): string {
-	const phase = formatReportAgentPhase(agent);
+	const phase = formatAgentPhase(agent);
 	const elapsed = agent.elapsedMs === undefined ? "elapsed:…" : `elapsed:${formatElapsedMs(agent.elapsedMs)}`;
 	return (
 		`<div class="monitor-agent-row">` +
@@ -243,7 +228,7 @@ export function link(href: string | undefined, label: string): string {
 function renderMonitorSelectedAgent(agent: RunReportAgent, failed: boolean): string {
 	const artifact = link(agent.artifactHref, "artifact.md");
 	const promptStatus = agent.promptAvailable ? "available" : "not available";
-	const phaseToken = formatReportAgentPhase(agent);
+	const phaseToken = formatAgentPhase(agent);
 	const phaseDetail = reportAgentPhaseDetail(agent);
 	const phase = phaseDetail ? detailLine("phase", escapeHtml(phaseDetail)) : "";
 	const config = [
@@ -273,9 +258,11 @@ function renderMonitorSelectedAgent(agent: RunReportAgent, failed: boolean): str
 		.filter(Boolean)
 		.join(" • ");
 	const io = [
-		agent.promptPreview ? detailLine("prompt preview", escapeHtml(compactInlineText(agent.promptPreview, 220))) : "",
+		agent.promptPreview
+			? detailLine("prompt preview", escapeHtml(compactInlineForHtml(agent.promptPreview, 220)))
+			: "",
 		outputState ? detailLine("output state", escapeHtml(outputState)) : "",
-		agent.output !== undefined ? detailLine("output", escapeHtml(compactInlineText(agent.output.text, 220))) : "",
+		agent.output !== undefined ? detailLine("output", escapeHtml(compactInlineForHtml(agent.output.text, 220))) : "",
 		agent.outputEmpty ? detailLine("integrity", "empty-output") : "",
 		agent.outputTruncated
 			? detailLine(

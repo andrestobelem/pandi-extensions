@@ -27,6 +27,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSy
 import { homedir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseCheckOnly } from "./lib/cli-args.mjs";
 import { discoverSkillClassification, reportUnclassifiedSkills, SKILLS_ROOT } from "./skill-classification.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -41,7 +42,7 @@ const classification = discoverSkillClassification();
 const PROJECT_SKILLS = [...classification.global, ...classification.optionalClaudeGlobalSkills];
 
 export function parseArgs(argv, env = process.env, homeDir = homedir()) {
-	const checkOnly = argv.includes("--check");
+	const checkOnly = parseCheckOnly(argv);
 	const di = argv.indexOf("--dest");
 	const dest = di !== -1 && argv[di + 1] ? argv[di + 1] : env.CLAUDE_GLOBAL_DIR || join(homeDir, ".claude");
 	return { checkOnly, dest: resolve(dest) };

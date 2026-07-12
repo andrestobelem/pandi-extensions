@@ -15,15 +15,14 @@
 import { writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseCheckOnly } from "./lib/cli-args.mjs";
 import { readMaybe } from "./lib/sync-file-tree.mjs";
+
+export { parseCheckOnly };
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SRC = join(REPO, "AGENTS.md");
 const DST = join(REPO, "CLAUDE.md");
-
-export function parseCheckOnly(args = process.argv.slice(2)) {
-	return args.includes("--check");
-}
 
 export function guideMirrorPair(repo = REPO) {
 	return { src: join(repo, "AGENTS.md"), dst: join(repo, "CLAUDE.md") };

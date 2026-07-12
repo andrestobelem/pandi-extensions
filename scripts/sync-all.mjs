@@ -5,6 +5,7 @@
 import { spawnSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseCheckOnly } from "./lib/cli-args.mjs";
 
 export const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -50,7 +51,7 @@ export function runSyncScripts(scripts, { cwd = REPO, spawn = spawnSync } = {}) 
 
 export function parseArgs(args = process.argv.slice(2)) {
 	return {
-		checkOnly: args.includes("--check"),
+		checkOnly: parseCheckOnly(args),
 		includeGlobal: args.includes("--global"),
 	};
 }

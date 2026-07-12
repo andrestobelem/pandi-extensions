@@ -9,6 +9,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "no
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parsePositiveInt, valueAfter } from "./lib/cli-args.mjs";
 import { loadPublicWorkspaces } from "./lib/release-workspaces.mjs";
 import { parsePublishPlanDocument } from "./publish-npm.mjs";
 
@@ -23,20 +24,6 @@ export function parsePrepareOptions(args) {
 		publishOutputFile: valueAfter(args, "--publish-output"),
 		publishPlanFile: valueAfter(args, "--publish-plan"),
 	};
-}
-
-function valueAfter(args, flag) {
-	const eq = args.find((arg) => arg.startsWith(`${flag}=`));
-	if (eq) return eq.slice(flag.length + 1);
-	const i = args.indexOf(flag);
-	return i >= 0 ? args[i + 1] : undefined;
-}
-
-function parsePositiveInt(raw, fallback) {
-	if (raw === undefined) return fallback;
-	const value = Number(raw);
-	if (!Number.isInteger(value) || value < 1) throw new Error(`invalid positive integer: ${raw}`);
-	return value;
 }
 
 export function bumpPatch(version) {

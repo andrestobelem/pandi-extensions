@@ -17,6 +17,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { format, resolveConfig } from "prettier";
+import { parseCheckOnly } from "./lib/cli-args.mjs";
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CONVERTER = path.join(REPO, "extensions", "pandi-docs", "scripts", "markdown-to-html.mjs");
@@ -188,7 +189,7 @@ export async function syncPersonasReadme(root, { check = false } = {}) {
 
 const isMain = process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url;
 if (isMain) {
-	const check = process.argv.includes("--check");
+	const check = parseCheckOnly(process.argv.slice(2));
 	const { changed } = await syncPersonasReadme(REPO, { check });
 	if (check) {
 		if (changed) {

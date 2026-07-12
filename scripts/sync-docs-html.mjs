@@ -17,6 +17,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { parseCheckOnly } from "./lib/cli-args.mjs";
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const ENGINE = path.join(REPO, "extensions", "pandi-docs", "scripts", "sync-doc-mirrors.mjs");
@@ -98,7 +99,7 @@ export function syncDocsHtml(root, opts = {}) {
 
 const isMain = process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url;
 if (isMain) {
-	const check = process.argv.includes("--check");
+	const check = parseCheckOnly(process.argv.slice(2));
 	const { written, deleted, stale, badHrefs } = syncDocsHtml(REPO, { check });
 	if (badHrefs.length) {
 		console.error(`[sync-docs-html] ✗ ${badHrefs.length} .html link(s) in Markdown sources with an in-set .md twin:`);

@@ -15,6 +15,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseCheckOnly } from "./lib/cli-args.mjs";
 import { orderedExtensionDirs } from "./sync-root-manifest.mjs";
 
 export const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -127,7 +128,7 @@ export async function syncProjectSettings({
 }
 
 async function main(args = process.argv.slice(2)) {
-	const result = await syncProjectSettings({ checkOnly: args.includes("--check") });
+	const result = await syncProjectSettings({ checkOnly: parseCheckOnly(args) });
 	if (!result.ok) process.exit(1);
 }
 
