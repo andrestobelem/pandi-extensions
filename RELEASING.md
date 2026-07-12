@@ -14,7 +14,7 @@ cambió.
 npm run release:flow
 npm run release:go
 node scripts/release-flow.mjs --print-confirmation
-node scripts/release-flow.mjs --ship --confirm v0.3.13
+node scripts/release-flow.mjs --ship --confirm v0.3.14
 ```
 
 | Paso | Qué hace |
@@ -48,7 +48,7 @@ Los peers se mantienen pinneados al piso soportado por el repo:
 ```bash
 npm run release:prepare
 npm run release:prepare:write -- --until-clean
-node scripts/release-contract.mjs --expect-tag v0.3.13
+node scripts/release-contract.mjs --expect-tag v0.3.14
 node scripts/publish-npm.mjs --plan-file .release-plan.json
 ```
 
