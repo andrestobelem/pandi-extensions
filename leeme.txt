@@ -1,0 +1,63 @@
+Desarrollar pi-cante con Picante
+
+Desde este repo, no abras `pi` a secas:
+
+  cd /Users/andrestobelem/ws/at/pi-cante
+  npm run dev:picante -- status
+  npm run smoke:picante
+  npm run smoke:picante:tui
+  npm run dev:picante
+
+El wrapper abre Picante desde source sobre este checkout y usa un perfil
+descartable en .pandi-dev. Carga el checkout sibling de pandi-extensions sin
+modificar ~/.pi, ~/.pi-cante ni ~/.pandi.
+
+Después de cambiar código de Picante (CLI, TUI, RPC o scripts), cerrá y volvé a
+ejecutar `npm run dev:picante`. Antes de terminar un cambio de código, corré:
+
+  npm run check
+
+Si pandi-extensions no está como sibling:
+
+  PANDI_EXTENSIONS_ROOT=/ruta/a/pandi-extensions npm run dev:picante
+
+Desarrollar pandi-extensions con Picante
+
+No abras `pi` a secas para el loop normal de desarrollo.
+
+Desde el repo de extensiones:
+
+  cd /Users/andrestobelem/ws/at/pandi-extensions
+  npm run dev:picante -- status
+  npm run smoke:picante
+  npm run smoke:picante:tui
+  npm run dev:picante
+
+El wrapper abre Picante desde este checkout de pi-cante, usa pandi-extensions
+como workspace real y guarda el perfil de desarrollo aislado en .pandi-dev.
+No modifica ~/.pi, ~/.pi-cante ni ~/.pandi.
+
+Después de editar una extensión, usá /reload o cerrá y volvé a ejecutar:
+
+  npm run dev:picante
+
+Para probar compatibilidad con Pi vanilla, usá `pi` a secas solo de forma
+puntual, fuera de este loop.
+
+Workflows globales de Claude
+
+Desde pandi-extensions podés inspeccionar, instalar o quitar el espejo global
+de Claude:
+
+  cd /Users/andrestobelem/ws/at/pandi-extensions
+  npm run sync:claude:global:status
+  npm run sync:claude:global:install
+  npm run sync:claude:global:remove
+
+`status` no escribe. `install` instala o restaura los workflows, scripts y
+skills gestionados en ~/.claude. `remove` quita únicamente archivos que siguen
+idénticos a los que instaló Pandi; conserva archivos ajenos o modificados.
+
+Para probar otro destino sin tocar ~/.claude:
+
+  CLAUDE_GLOBAL_DIR=/ruta/de/prueba npm run sync:claude:global:install

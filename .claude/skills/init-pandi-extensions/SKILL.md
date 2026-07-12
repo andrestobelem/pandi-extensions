@@ -1,19 +1,19 @@
 ---
 name: init-pandi-extensions
 description:
-  Inicializá `pandi-extensions` cuando haya que preparar un clon nuevo para Pi o Claude Code, reparar drift detectado
-  por `doctor` o habilitar integraciones opcionales del entorno.
+  Inicializá `pandi-extensions` cuando haya que preparar un clon nuevo para Pi o Claude Code, desarrollar extensiones
+  con el perfil aislado de Picante, reparar drift detectado por `doctor` o habilitar integraciones opcionales.
 ---
 
 # Inicializar este harness (`pandi-extensions`)
 
 ## En 30 segundos
 
-1. Parate en el **repo root**.
-2. Corré `npm run doctor` para ver qué falta sin tocar nada.
-3. Instalá Node vía `nvm`, la CLI global de Pi y las dependencias del repo.
-4. Verificá con `npm test`.
-5. Instalá el bundle con `pi install ./` y, en el proyecto destino, hacé `/trust` + `/reload`.
+1. Parate en el **repo root**, instalá Node vía `nvm` y elegí un camino.
+2. **Desarrollo con Picante:** cloná `pi-cante` como sibling e instalá las dependencias de ambos repos.
+3. Verificá ese perfil con `npm run dev:picante -- status`, `npm run smoke:picante` y `npm run dev:picante`.
+4. **Consumo con Pi vanilla:** instalá la CLI global de Pi, las dependencias del repo y el bundle con `pi install ./`.
+5. Verificá con `npm test`; en el proyecto destino vanilla, hacé `/trust` + `/reload`.
 
 ## Alcance y fuentes
 
@@ -29,47 +29,76 @@ y `docs/setup.md`.
 ## Precondiciones para chequear primero (solo lectura)
 
 1. ¿Estamos en el **repo root**? (`package.json` debe tener `name: pandi-extensions`.)
-2. ¿Qué tiene ya el entorno? Corré **`npm run doctor`**: es read-only, lista todos los requisitos obligatorios y
-   opcionales, y sale non-zero solo si falta uno MANDATORY. Dejá que su salida guíe qué instalar o sincronizar; no
-   reinstales lo que ya está OK.
+2. Elegí el host antes de instalar nada:
+   - **Desarrollo con Picante:** no hace falta una CLI ni una suite global. Usá el wrapper aislado de este repo.
+   - **Consumo con Pi vanilla:** corré **`npm run doctor`**. Es read-only y lista los requisitos del perfil vanilla.
 3. Anotá la plataforma: los comandos de instalación cambian (`macOS` = `brew`, Linux = package manager de la distro; los
    sandboxes Apple `container` son solo para macOS Apple Silicon).
 
-## Instalación ordenada (idempotente: segura de re-ejecutar)
+## Instalación ordenada (elegí una rama)
 
-Corré todo desde el **repo root**. Cada paso es un no-op si ya está satisfecho.
+### Desarrollo con Picante
+
+Usá esta rama para modificar el checkout. No instala Pi ni extensiones en perfiles reales:
 
 ```bash
 # 0. Node >= 22.19.0 (el repo fija el major en .nvmrc)
-nvm install && nvm use            # o: brew install node / distro node >= 22.19
+nvm install && nvm use
 
-# 1. Runtime global de Pi (lo ÚNICO que se instala globalmente)
+# 1. Dependencias de ambos checkouts sibling
+npm install
+(cd ../pi-cante && npm install --ignore-scripts)
+
+# 2. Perfil descartable + smokes sin modelo
+npm run dev:picante -- status
+npm run smoke:picante
+npm run smoke:picante:tui
+
+# 3. Gate completo y TUI interactiva contra este checkout
+npm test
+npm run dev:picante
+```
+
+Si los repos no son siblings, definí `PI_CANTE_ROOT=/ruta/a/pi-cante`. Picante registra la suite con alcance de usuario
+solo dentro de `pi-cante/.pandi-dev/agent`; el workspace real usa `.pi-cante/` project-local. No ejecutes `pi install
+./` ni instales Pi globalmente para esta rama.
+
+**Cierre Picante:** `status` muestra el agent descartable y una sola fuente local; ambos smokes y `npm test` terminan
+con exit 0; la TUI abre este checkout.
+
+### Consumo con Pi vanilla
+
+Usá esta rama únicamente para dejar la suite disponible en un perfil normal de Pi:
+
+```bash
+# 0. Node y toolchain del checkout
+nvm install && nvm use
+npm install
+
+# 1. Runtime global de Pi
 npm install -g --ignore-scripts @earendil-works/pi-coding-agent
 pi --version
 
-# 2. Toolchain de desarrollo (biome, tsc, esbuild, markdownlint, prettier, ctx7 = devDeps; mmdc = optionalDependency — todo entra con `npm install`, salvo que uses --omit=optional)
-npm install
-
-# 3. Verificar el entorno (capacidades obligatorias + opcionales)
+# 2. Verificación y gate
 npm run doctor
-
-# 4. Gate completo: typecheck + biome + markdownlint + integration tests
 npm test
 
-# 5. Instalar TODAS las extensiones + skills en Pi (global para tu usuario)
-pi install ./                     # alternativa project-local: pi install -l ./
+# 3. Suite para el usuario vanilla (alternativa project-local: pi install -l ./)
+pi install ./
 ```
 
-**Cierre de instalación:** `node --version` satisface `.nvmrc`, `pi --version` responde, `npm run doctor` no reporta
-faltantes MANDATORY, `npm test` termina con exit 0 y `pi install ./` termina con exit 0.
+**Cierre vanilla:** `pi --version` responde, `npm run doctor` no reporta faltantes MANDATORY, `npm test` y `pi install
+./` terminan con exit 0.
 
-Si `doctor` reporta mirror drift entre repo y global, corré exactamente el fix que imprime y después volvé a correr
-`npm run doctor`.
+Si `doctor` reporta drift repo-local, corré el fix que imprime. La sincronización global de Claude es opcional: no la
+instales para resolver un warning salvo que el usuario haya elegido explícitamente ese alcance.
 
 Arreglos de sync comunes:
 
 ```bash
-npm run sync:claude:global        # archivos gestionados en ~/.claude; respeta CLAUDE_GLOBAL_DIR
+npm run sync:claude:global:status # inspección read-only; respeta CLAUDE_GLOBAL_DIR
+npm run sync:claude:global:install # opt-in: instala y registra archivos gestionados en ~/.claude
+npm run sync:claude:global:remove # elimina solo managed sin cambios; conserva ajenos/modificados
 npm run sync:manifest             # package.json#pi desde extension manifests
 npm run sync:settings             # .pi/settings*.json desde extension manifests
 npm run sync:skills               # mirror .pi/skills -> .claude/skills
@@ -85,7 +114,7 @@ Qué skill editar y en qué orden correr los sync:
 [`docs/handbooks/glosario-skills.md`](../../../docs/handbooks/glosario-skills.md) (sección _Capas de generación y
 sync_).
 
-Después, **en el proyecto donde las quieras usar** (no necesariamente este repo):
+Después de la rama **Pi vanilla**, en el proyecto donde las quieras usar:
 
 ```text
 cd /your/project && pi
@@ -106,24 +135,37 @@ Dentro de Pi:
 También son buenas señales: `/doctor` in-session (o `npm run doctor` antes de instalar) en verde para los requisitos
 obligatorios y `npm test` pasando.
 
-**Cierre de smoke:** después de `/trust` + `/reload` en el proyecto destino, `/doctor` no reporta faltantes obligatorios
-y al menos `/effort status` y `/workflows` están disponibles.
+**Cierre de smoke:** con Picante pasan los dos smokes del wrapper. Con Pi vanilla, después de `/trust` + `/reload`,
+`/doctor` no reporta faltantes obligatorios y `/effort status` + `/workflows` están disponibles.
 
 ## Trabajar DENTRO de este repo (sin instalación)
 
-Este checkout ya cablea cada extensión mediante su propio `.pi/settings.json` (`packages: [...]`). Entonces, para
-hackear el repo, alcanza con correr `pi` en el repo root y hacer `/trust`. `pi install ./` solo hace falta para dejar
-las extensiones disponibles en tus OTROS proyectos.
+El loop recomendado usa el checkout sibling de `pi-cante`:
+
+```bash
+npm run dev:picante -- status
+npm run smoke:picante
+npm run smoke:picante:tui
+npm run dev:picante
+```
+
+Picante registra este checkout con alcance de usuario solo dentro de `.pandi-dev/agent`, abre la TUI con este repo como
+cwd real y reserva el proyecto scratch para los smokes. No toca perfiles reales; el estado del workspace vive en
+`.pi-cante/` (gitignored).
+
+Como validación separada y opt-in de compatibilidad, este checkout también cablea cada extensión para Pi vanilla
+mediante `.pi/settings.json` (`packages: [...]`). Solo si elegiste esa rama, corré `pi` en el repo root y hacé `/trust`.
+`pi install ./` deja las extensiones disponibles en otros proyectos del perfil vanilla; no forma parte del loop
+Picante.
 
 Para probar una extensión sin instalarla:
 
 - `pi --no-extensions -e ./extensions/pandi-dynamic-workflows/index.ts`
 - `pi --no-extensions -e .` para el bundle completo
 
-Como este checkout es **self-hosted** (la instalación global puede apuntar de vuelta a este repo y `pi` carga TypeScript
-de extensiones desde disco), un `/reload` aplica tus cambios sin commitear al instante, y una edición rota puede matar
-tu sesión. Para el loop completo de desarrollo y prueba (tests aislados primero, smoke en vivo en otro
-worktree/instancia y cuándo usar sandboxing), ver
+Como este checkout es **self-hosted** (Picante apunta al repo y carga TypeScript desde disco), un `/reload` aplica tus
+cambios sin commitear al instante, y una edición rota puede matar tu sesión. Para el loop completo de desarrollo y
+prueba (tests aislados primero, smoke en vivo en otra instancia y cuándo usar sandboxing), ver
 [`docs/developing-extensions.md`](../../../docs/developing-extensions.md).
 
 ### Pi dentro de un repo worktree
@@ -154,8 +196,9 @@ Abrí tabs/splits de Supacode con ese wrapper en vez de `pi` solo cuando aparezc
 
 `karpathy-guidelines` es una skill EXTERNA, de la comunidad (de
 [multica-ai/andrej-karpathy-skills](https://github.com/multica-ai/andrej-karpathy-skills)). Este repo **no** la
-vendorea, pero `AGENTS.md` espera que esté _instalada_. Si `doctor` avisa que falta, bajala a tus skill dirs globales
-(Pi lee `~/.agents/skills/`; Claude Code lee `~/.claude/skills/`; idempotente, seguro de re-ejecutar):
+vendorea. No hace falta instalarla globalmente para el loop aislado de Picante. Solo si el usuario elige compartirla
+con hosts vanilla, bajala a sus skill dirs globales (Pi lee `~/.agents/skills/`; Claude Code lee
+`~/.claude/skills/`):
 
 ```bash
 for d in ~/.agents/skills ~/.claude/skills; do
@@ -173,8 +216,14 @@ luego `/plugin install andrej-karpathy-skills`. `npm run doctor` reporta si la s
 Mirá `npm run doctor`, verificá qué falta y luego:
 
 ```bash
-# web_search para subagentes
+# web_search project-local para el workspace Picante actual
+npm run dev:picante -- install -l npm:pi-codex-web-search
+# para sacarla: npm run dev:picante -- remove -l npm:pi-codex-web-search
+
+# alternativa user-wide, solo para la rama Pi vanilla
 pi install npm:pi-codex-web-search
+
+# CLI externa requerida por web_search (instalación de sistema opt-in)
 brew install codex               # o: npm install -g @openai/codex
 
 # Docs de Context7 para subagentes (ctx7 CLI acá es una devDependency; global también sirve)
@@ -190,8 +239,8 @@ brew install container && container system kernel set --recommended && container
 npm run setup:gondolin && echo "then run:  pi -e .pi/tools/gondolin"
 ```
 
-Las instalaciones por extensión (en vez del bundle completo) están en la tabla "Paquetes individuales por extensión" del
-README, por ejemplo `pi install ./extensions/pandi-loop`.
+Las instalaciones vanilla por extensión (en vez del bundle completo) están en la tabla "Paquetes individuales por
+extensión" del README, por ejemplo `pi install ./extensions/pandi-loop`.
 
 ## Resolución de problemas
 

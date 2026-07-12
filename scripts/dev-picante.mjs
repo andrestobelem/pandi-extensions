@@ -30,7 +30,7 @@ export function buildPicanteInvocation({
 		command: npmExecPath ? nodeExecPath : "npm",
 		args: [...(npmExecPath ? [npmExecPath] : []), "run", picanteScript, "--", ...args],
 		cwd: picanteRoot,
-		env: { ...env, PANDI_EXTENSIONS_ROOT: repoRoot },
+		env: { ...env, PANDI_EXTENSIONS_ROOT: repoRoot, PI_CANTE_DEV_WORKSPACE: repoRoot },
 		picanteScript,
 	};
 }

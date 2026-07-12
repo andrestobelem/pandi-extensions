@@ -173,15 +173,22 @@ variable, una capacidad opcional o qué canal de distribución conviene.</p>
 	</ol>
 </nav>
 <h2 id="en-30-segundos">En 30 segundos</h2>
-<p>Si querés dejar una máquina lista rápido, estos cuatro comandos cubren el camino feliz:</p>
+<p>Hay dos caminos distintos. Para consumir una release estable con Pi vanilla:</p>
 <pre><code class="hljs language-bash">nvm install &amp;&amp; nvm use                                             <span class="hljs-comment"># Node &gt;= 22.19.0</span>
 npm install -g --ignore-scripts @earendil-works/pi-coding-agent    <span class="hljs-comment"># Pi CLI</span>
-npm install &amp;&amp; npm run doctor                                      <span class="hljs-comment"># toolchain + chequeo de entorno</span>
-pi install ./                                                      <span class="hljs-comment"># todas las extensiones + skills</span></code></pre>
-<p>Usá esta página cuando necesites decidir qué instalar, qué habilita cada dependencia opcional o cómo se distribuye el
-paquete. Para una primera puesta en marcha, el Quickstart suele alcanzar.</p>
+pi install git:github.com/andrestobelem/pandi-extensions@v0.3.13   <span class="hljs-comment"># suite fijada para tu usuario</span></code></pre>
+<p>Para desarrollar las extensiones, usá checkouts siblings y no instales la suite en tu perfil global:</p>
+<pre><code class="hljs language-bash">git <span class="hljs-built_in">clone</span> https://github.com/andrestobelem/pi-cante.git
+git <span class="hljs-built_in">clone</span> https://github.com/andrestobelem/pandi-extensions.git
+(<span class="hljs-built_in">cd</span> pi-cante &amp;&amp; npm install --ignore-scripts)
+(<span class="hljs-built_in">cd</span> pandi-extensions &amp;&amp; npm install)
+<span class="hljs-built_in">cd</span> pandi-extensions
+npm run dev:picante</code></pre>
+<p><code>npm run smoke:picante</code> verifica el inventario runtime local; <code>npm run smoke:picante:tui</code> prueba con tmux el startup,
+<code>/workflows</code> y <code>/doctor</code>. Ninguno llama a un modelo. Usá esta página cuando necesites decidir qué instalar, qué habilita
+cada dependencia opcional o cómo se distribuye el paquete.</p>
 <h2 id="requisitos">Requisitos</h2>
-<h3>Obligatorios</h3>
+<h3>Base</h3>
 <div class="table-scroll"><table>
 <thead>
 <tr>
@@ -194,11 +201,6 @@ paquete. Para una primera puesta en marcha, el Quickstart suele alcanzar.</p>
 <td><strong>Node.js ≥ 22.19.0</strong></td>
 <td>Runtime requerido por <code>@earendil-works/pi-coding-agent</code>; el repo fija <code>22</code> en <code>.nvmrc</code>.</td>
 <td><code>nvm install 22 &amp;&amp; nvm use 22</code> — o <code>brew install node</code></td>
-</tr>
-<tr>
-<td><strong>Pi CLI</strong> (<code>@earendil-works/pi-coding-agent</code>)</td>
-<td>Host que carga extensiones, TUI/RPC, <code>pi install</code> y el spawner de subagentes.</td>
-<td><code>npm install -g --ignore-scripts @earendil-works/pi-coding-agent</code> (verificá con <code>pi --version</code>)</td>
 </tr>
 <tr>
 <td><strong>npm</strong></td>
@@ -214,6 +216,31 @@ paquete. Para una primera puesta en marcha, el Quickstart suele alcanzar.</p>
 <blockquote>
 <p>Node 22 es el piso. La extensión opcional Gondolin necesita Node ≥ 23.6.0.</p>
 </blockquote>
+<h3>Según el camino</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Requisito</th>
+<th>Cuándo hace falta</th>
+<th>Instalación o verificación</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Pi CLI</strong> (<code>@earendil-works/pi-coding-agent</code>)</td>
+<td>Solo para consumir o probar la suite con un perfil vanilla Pi.</td>
+<td><code>npm install -g --ignore-scripts @earendil-works/pi-coding-agent</code>; verificá con <code>pi --version</code></td>
+</tr>
+<tr>
+<td><strong>Checkout sibling de <code>pi-cante</code></strong></td>
+<td>Para ejecutar extensiones en vivo durante el desarrollo.</td>
+<td>Clonalo junto a este repo y corré allí <code>npm install --ignore-scripts</code>.</td>
+</tr>
+<tr>
+<td><strong>tmux</strong></td>
+<td>Solo para <code>npm run smoke:picante:tui</code>.</td>
+<td><code>brew install tmux</code>; verificá con <code>tmux -V</code>.</td>
+</tr>
+</tbody></table></div>
 <h3>Opcionales</h3>
 <p>Cada opción habilita una capacidad; sin ella, esa capacidad simplemente no existe.</p>
 <div class="table-scroll"><table>
@@ -227,7 +254,7 @@ paquete. Para una primera puesta en marcha, el Quickstart suele alcanzar.</p>
 <tbody><tr>
 <td>Búsqueda web para subagentes (<code>web_search</code>)</td>
 <td>Extensión <code>pi-codex-web-search</code> + CLI <code>codex</code></td>
-<td><code>pi install npm:pi-codex-web-search</code> y <code>brew install codex</code> (o <code>npm install -g @openai/codex</code>)</td>
+<td>Vanilla: <code>pi install npm:pi-codex-web-search</code>; Picante: <code>npm run dev:picante -- install -l npm:pi-codex-web-search</code>. Además instalá <code>codex</code>.</td>
 </tr>
 <tr>
 <td>Docs de librerías bajo demanda (Context7)</td>
@@ -274,10 +301,13 @@ paquete. Para una primera puesta en marcha, el Quickstart suele alcanzar.</p>
 <p>Toda la toolchain de desarrollo (<code>biome</code>, <code>tsc</code>, <code>esbuild</code>, <code>markdownlint-cli2</code>, <code>prettier</code>, <code>ctx7</code>) vive como
 <strong>devDependencies</strong>; <code>@mermaid-js/mermaid-cli</code> es un <strong>optionalDependency</strong> (tiene fallback ASCII, así que una
 descarga fallida de Chromium no rompe la instalación). Todo se instala con <code>npm install</code> (los opcionales, salvo
-<code>--omit=optional</code>) y se ejecuta con <code>npm run …</code>/<code>npx</code>, sin instalaciones globales adicionales. La única instalación
-global es la del <strong>Pi CLI</strong>. Verificá el entorno con <code>npm run doctor</code>.</p>
+<code>--omit=optional</code>) y se ejecuta con <code>npm run …</code>/<code>npx</code>, sin instalaciones globales adicionales. El <strong>Pi CLI</strong> global
+corresponde al camino de consumo vanilla; el desarrollo aislado lo ejecuta desde el checkout de <code>pi-cante</code>. Para ese
+flujo, verificá el entorno efectivo con <code>npm run dev:picante -- status</code> y <code>npm run smoke:picante</code>; el doctor directo
+conserva los chequeos del host vanilla.</p>
 </blockquote>
 <h2 id="variantes-de-instalación">Variantes de instalación</h2>
+<h3>Consumo estable con Pi vanilla</h3>
 <div class="table-scroll"><table>
 <thead>
 <tr>
@@ -287,23 +317,56 @@ global es la del <strong>Pi CLI</strong>. Verificá el entorno con <code>npm run
 </tr>
 </thead>
 <tbody><tr>
-<td>Global, para tu usuario</td>
-<td><code>pi install ./</code></td>
-<td>Opción por defecto: usá las extensiones en todos los proyectos</td>
+<td>Suite fijada para tu usuario</td>
+<td><code>pi install git:github.com/andrestobelem/pandi-extensions@v0.3.13</code></td>
+<td>Usá la suite estable completa en todos tus proyectos.</td>
 </tr>
 <tr>
-<td>Local a este proyecto</td>
-<td><code>pi install -l ./</code></td>
-<td>Solo este proyecto necesita esas extensiones</td>
+<td>Suite fijada para un proyecto</td>
+<td><code>pi install -l git:github.com/andrestobelem/pandi-extensions@v0.3.13</code></td>
+<td>Solo ese proyecto debe cargar la suite estable completa.</td>
 </tr>
 <tr>
-<td>Probar sin instalar</td>
-<td><code>pi --no-extensions -e ./extensions/pandi-dynamic-workflows/index.ts</code> (o <code>-e .</code> para todo el bundle)</td>
-<td>Prueba rápida y descartable de una o todas las extensiones</td>
+<td>Extensión npm individual</td>
+<td><code>pi install npm:@pandi-coding-agent/pandi-&lt;ext&gt;</code></td>
+<td>Necesitás una capacidad a la carta en tus proyectos.</td>
+</tr>
+<tr>
+<td>Entry point local, sin instalar</td>
+<td><code>pi --no-extensions -e ./extensions/pandi-dynamic-workflows/index.ts</code></td>
+<td>Smoke puntual de compatibilidad con un Pi vanilla existente.</td>
 </tr>
 </tbody></table></div>
 <p>Para usar los workflows del proyecto en <code>.pi/workflows/</code>, confiá el proyecto con <code>/trust</code> y reiniciá o ejecutá
 <code>/reload</code>.</p>
+<h3>Desarrollo del checkout con Picante</h3>
+<p>Desde <code>pandi-extensions</code>, estos comandos delegan al checkout sibling <code>../pi-cante</code>:</p>
+<pre><code class="hljs language-bash">npm run dev:picante -- status <span class="hljs-comment"># inspecciona perfil, bundle y fuentes sin abrir la TUI</span>
+npm run smoke:picante         <span class="hljs-comment"># inventario runtime exacto del manifiesto; sin modelo</span>
+npm run smoke:picante:tui     <span class="hljs-comment"># startup + /workflows + /doctor mediante tmux; sin modelo</span>
+npm run dev:picante           <span class="hljs-comment"># abre la TUI aislada para el loop interactivo</span></code></pre>
+<p>Si <code>pi-cante</code> vive en otra ruta, usá <code>PI_CANTE_ROOT=/ruta/a/pi-cante</code>. El wrapper le pasa automáticamente la ruta de
+este repo como <code>PANDI_EXTENSIONS_ROOT</code> y <code>PI_CANTE_DEV_WORKSPACE</code>.</p>
+<pre class="mermaid">flowchart LR
+    E["pandi-extensions checkout"] --&gt; W["npm run dev:picante"]
+    W --&gt; C["pi-cante desde source"]
+    C --&gt; D["pi-cante/.pandi-dev"]
+    D --&gt; A["agent + sessions aislados"]
+    A --&gt;|"package user-scope aislado"| E
+    W --&gt;|"TUI: workspace real"| E
+    D --&gt; P["scratch project solo para smokes"]</pre>
+<p>El perfil <code>.pandi-dev/</code> registra este checkout con alcance de usuario <strong>solo dentro de su agent descartable</strong>; no es una
+instalación user-wide real. La TUI usa este repo como cwd y guarda su estado Picante en <code>.pi-cante/</code> (gitignored). Los
+smokes fuerzan el proyecto scratch, el bundle queda deshabilitado y ningún package de <code>~/.pi</code> entra en la sesión.
+<code>/doctor</code> sí puede inspeccionar rutas globales en modo read-only. Es aislamiento de <strong>configuración</strong>, no un sandbox del
+sistema operativo; las extensiones conservan los permisos del proceso que lanzó Picante.</p>
+<h3>Recursos globales opcionales de Claude Code</h3>
+<p>El repo no modifica <code>~/.claude</code> por defecto. La interfaz es explícita y respeta <code>CLAUDE_GLOBAL_DIR</code> (o <code>--dest</code>):</p>
+<pre><code class="hljs language-bash">npm run <span class="hljs-built_in">sync</span>:claude:global:status  <span class="hljs-comment"># read-only; el alias sync:claude:global también solo informa</span>
+npm run <span class="hljs-built_in">sync</span>:claude:global:install <span class="hljs-comment"># instala y registra paths + hashes gestionados</span>
+npm run <span class="hljs-built_in">sync</span>:claude:global:remove  <span class="hljs-comment"># borra solo archivos gestionados que no fueron modificados</span></code></pre>
+<p><code>install</code> aborta antes de escribir si encuentra una colisión ajena o modificada. <code>remove</code> conserva archivos ajenos y
+gestionados modificados, los reporta y devuelve exit distinto de cero; el manifiesto queda para poder reintentarlo.</p>
 <h3>Skill externo: karpathy-guidelines</h3>
 <p>El skill <code>karpathy-guidelines</code> <strong>no</strong> viene vendorizado en el repo; <code>AGENTS.md</code> espera que esté instalado. Traelo desde
 upstream a tus skills globales (Pi lee <code>~/.agents/skills</code>, Claude Code <code>~/.claude/skills</code>):</p>
@@ -328,31 +391,41 @@ directorio de JSONs para que <code>pandi-dynamic-workflows</code> los resuelva c
 <code>.pi/personas/&lt;name&gt;.json</code> del proyecto trusted &gt; persona empaquetada &gt; built-in de <code>pandi-dynamic-workflows</code>.</p>
 <h2 id="capacidades-opcionales-en-detalle">Capacidades opcionales en detalle</h2>
 <ul>
-<li><strong>Búsqueda web (<code>web_search</code>) para subagentes</strong> — instalá <code>pi install npm:pi-codex-web-search</code> (paquete separado, repo
-<code>github.com/ayagmar/pi-codex-web-search</code>) y el CLI <code>codex</code> (<code>brew install codex</code> o <code>npm install -g @openai/codex</code>).
-Cuando el runtime encuentra la extensión (en <code>~/.pi/agent/npm/node_modules/</code> o <code>./node_modules/</code>), agrega <code>web_search</code>
-automáticamente a la lista de herramientas de cada subagente. Si <code>codex</code> no está en el <code>PATH</code>, apuntalo con
-<code>CODEX_PATH</code>. Exclusión por subagente: <code>excludeTools: [&quot;web_search&quot;]</code> o <code>includeExtensions: false</code>.</li>
-<li><strong>Context7 (docs de librerías)</strong> — el skill <code>context7-cli</code> <strong>no</strong> viene vendorizado en el repo. Configuralo con
+<li><p><strong>Búsqueda web (<code>web_search</code>) para subagentes</strong> — el paquete separado es <code>pi-codex-web-search</code> (repo
+<code>github.com/ayagmar/pi-codex-web-search</code>) y además requiere el CLI <code>codex</code> (<code>brew install codex</code> o
+<code>npm install -g @openai/codex</code>). En un perfil vanilla, instalalo con <code>pi install npm:pi-codex-web-search</code>. Para el
+workspace real de desarrollo, registralo project-local mediante el wrapper:</p>
+<pre><code class="hljs language-bash">npm run dev:picante -- install -l npm:pi-codex-web-search
+npm run dev:picante -- remove -l npm:pi-codex-web-search</code></pre>
+<p>Eso escribe solo <code>.pi-cante/</code> (gitignored) en este repo; no contamina el agent descartable ni el scratch de smokes.
+Dynamic Workflows descubre el paquete desde el proyecto trusted. Si <code>codex</code> no está en el <code>PATH</code>, apuntalo con
+<code>CODEX_PATH</code>. Exclusión por subagente: <code>excludeTools: [&quot;web_search&quot;]</code> o <code>includeExtensions: false</code>.</p>
+</li>
+<li><p><strong>Context7 (docs de librerías)</strong> — el skill <code>context7-cli</code> <strong>no</strong> viene vendorizado en el repo. Configuralo con
 <code>npx ctx7 setup --cli</code> (modo &quot;CLI + Skills&quot;; sucesor de <code>ctx7 skills install</code>, que deja de funcionar en la próxima
 major). Pi autodetecta el skill desde el scope global (<code>~/.agents/skills/</code> o <code>~/.pi/agent/skills/</code>) en cualquier
 proyecto y lo agrega a los subagentes. El CLI <code>ctx7</code> se distribuye como <strong>devDependency</strong>: ejecutalo con <code>npx ctx7</code>
-después de <code>npm install</code> (o globalmente con <code>npm i -g ctx7@latest</code>). Exclusión por subagente: <code>includeSkills: false</code>.</li>
-<li><strong>Visuales de <code>/workflow graph</code></strong> — <code>mmdc</code> se instala automáticamente con <code>npm install</code> (<code>@mermaid-js/mermaid-cli</code>
+después de <code>npm install</code> (o globalmente con <code>npm i -g ctx7@latest</code>). Exclusión por subagente: <code>includeSkills: false</code>.</p>
+</li>
+<li><p><strong>Visuales de <code>/workflow graph</code></strong> — <code>mmdc</code> se instala automáticamente con <code>npm install</code> (<code>@mermaid-js/mermaid-cli</code>
 como <code>optionalDependency</code>). El PNG inline necesita una terminal con protocolo de imagen
 (Kitty/Ghostty/WezTerm/Warp/iTerm2; Pi lo desactiva bajo <code>tmux</code>). Si <code>mmdc</code> falla con Chrome/Puppeteer:
-<code>npx puppeteer browsers install chrome-headless-shell</code>. Sin <code>mmdc</code>: fallback de topología ASCII + exportación Mermaid.</li>
-<li><strong>Sandboxes Linux (<code>pandi-container</code>)</strong> — solo macOS Apple Silicon:
+<code>npx puppeteer browsers install chrome-headless-shell</code>. Sin <code>mmdc</code>: fallback de topología ASCII + exportación Mermaid.</p>
+</li>
+<li><p><strong>Sandboxes Linux (<code>pandi-container</code>)</strong> — solo macOS Apple Silicon:
 <code>brew install container &amp;&amp; container system kernel set --recommended &amp;&amp; container system start</code>. En hosts no
-compatibles, la extensión devuelve un mensaje acotado; no crashea.</li>
-<li><strong>Sandboxes de contenedor restringidos (<code>pandi-podman</code>)</strong> — instalá Podman (<code>brew install podman</code> en macOS; gestor de
+compatibles, la extensión devuelve un mensaje acotado; no crashea.</p>
+</li>
+<li><p><strong>Sandboxes de contenedor restringidos (<code>pandi-podman</code>)</strong> — instalá Podman (<code>brew install podman</code> en macOS; gestor de
 paquetes de la distribución en Linux). macOS y Windows requieren una VM de Podman: iniciala una vez con
 <code>podman machine init</code> y arrancala con <code>podman machine start</code> o <code>/podman machine-start</code>. La extensión no expone mounts,
-puertos ni privilegios y no es una frontera infalible contra código hostil, especialmente en Linux.</li>
-<li><strong>Aislamiento Gondolin (micro-VM)</strong> — <code>npm run setup:gondolin</code> copia el ejemplo que trae Pi a <code>.pi/tools/gondolin/</code>
+puertos ni privilegios y no es una frontera infalible contra código hostil, especialmente en Linux.</p>
+</li>
+<li><p><strong>Aislamiento Gondolin (micro-VM)</strong> — <code>npm run setup:gondolin</code> copia el ejemplo que trae Pi a <code>.pi/tools/gondolin/</code>
 (gitignored, no se auto-descubre) e instala sus dependencias con <code>--ignore-scripts</code>; cargalo cuando lo necesites con
 <code>pi -e .pi/tools/gondolin</code>. Requiere darwin-arm64/linux-x64 y Node ≥ 23.6.0. No aísla los spawns de subagentes de
-dynamic-workflows (ver <a href="gondolin-isolation.html"><code>docs/gondolin-isolation.md</code></a>).</li>
+dynamic-workflows (ver <a href="gondolin-isolation.html"><code>docs/gondolin-isolation.md</code></a>).</p>
+</li>
 </ul>
 <h2 id="configuración-variables-de-entorno">Configuración (variables de entorno)</h2>
 <p>Todas las extensiones arrancan con valores razonables; no hace falta configurar nada para empezar. Si querés ajustar el
@@ -425,9 +498,9 @@ comportamiento, exportá variables de entorno. Una referencia versionada con los
 <p><code>.env</code> está gitignored; <code>.env.example</code> está committed. Este repo no carga <code>.env</code> automáticamente: exportá las variables
 en tu shell o usá <code>direnv</code>/<code>dotenvx</code>.</p>
 <h2 id="distribución-canales-y-regla-de-identidad-única">Distribución: canales y regla de identidad única</h2>
-<p>La suite se distribuye por tres canales; <strong>elegí uno por máquina o alcance</strong> — Pi deduplica paquetes por identidad
-(nombre npm / URL git / ruta local resuelta), así que dos canales conviviendo cargan todo dos veces (<code>npm run doctor</code> lo
-detecta y avisa):</p>
+<p>En un perfil vanilla Pi, <strong>elegí un solo canal por máquina o alcance</strong>. Pi deduplica packages por identidad (nombre npm,
+URL git o ruta local resuelta), no por los comandos que registran; dos canales distintos pueden cargar los mismos
+recursos dos veces. <code>npm run doctor</code> lo detecta y avisa.</p>
 <div class="table-scroll"><table>
 <thead>
 <tr>
@@ -439,17 +512,22 @@ detecta y avisa):</p>
 <tbody><tr>
 <td><strong>Bundle git fijado</strong></td>
 <td><code>pi install git:github.com/andrestobelem/pandi-extensions@v0.3.13</code></td>
-<td>Consumo de toda la suite, con versión estable.</td>
+<td>Consumo user-wide de toda la suite, con versión estable.</td>
 </tr>
 <tr>
-<td><strong>Working tree (rutas locales)</strong></td>
-<td>clone + <code>pi install ./</code> (o las rutas por extensión)</td>
-<td>Desarrollo/dogfooding: los cambios se aplican con <code>/reload</code>.</td>
+<td><strong>Working tree con Picante</strong></td>
+<td>clone sibling + <code>npm run dev:picante</code></td>
+<td>Desarrollo normal: perfil descartable, bundle deshabilitado y checkout local como fuente única.</td>
+</tr>
+<tr>
+<td><strong>Working tree con Pi vanilla</strong></td>
+<td>clone + <code>pi install -l ./</code> en un proyecto scratch</td>
+<td>Smoke específico de compatibilidad con instalación local; no es el loop normal de contribución.</td>
 </tr>
 <tr>
 <td><strong>npm con scope <code>@pandi-coding-agent/*</code></strong></td>
 <td><code>pi install npm:@pandi-coding-agent/pandi-&lt;ext&gt;</code></td>
-<td>A la carta por extensión — los paquetes publican bajo la identidad <code>pandi-*</code>. Con <code>min-release-age</code>, las versiones recién publicadas recién se pueden instalar después de esa ventana.</td>
+<td>A la carta y user-wide — los paquetes publican bajo la identidad <code>pandi-*</code>. Con <code>min-release-age</code>, las versiones recién publicadas recién se pueden instalar después de esa ventana.</td>
 </tr>
 <tr>
 <td><strong>Host Cursor local</strong></td>
@@ -467,6 +545,9 @@ detecta y avisa):</p>
 <td>Host de terminal; no instala plugins ni modifica <code>~/.codex</code>.</td>
 </tr>
 </tbody></table></div>
+<p>Picante registra la ruta local como package user-scope dentro de <code>.pandi-dev/agent</code> y fuerza <code>PI_BUNDLED_PACKAGES=0</code>,
+por lo que la suite bundled no compite con el checkout. Ese alcance de usuario termina en el perfil descartable: los
+packages configurados en <code>~/.pi</code> no entran en esa sesión.</p>
 <p>Cada <code>extensions/pandi-&lt;ext&gt;/package.json</code> lleva su identidad pública <code>@pandi-coding-agent/pandi-&lt;ext&gt;</code> (npm workspaces;
 <code>npm pack -w @pandi-coding-agent/pandi-&lt;ext&gt;</code> para probar el tarball). El manifiesto raíz de <code>pi</code> se <strong>genera</strong> desde
 los subpackages (<code>npm run sync:manifest</code>); un test de paridad falla si hay drift. Horizonte: <strong>Pandi</strong> como distro sobre
@@ -548,8 +629,8 @@ read-only y muestra el comando de arreglo cuando detecta drift.</p>
 <td><code>npm run sync:personas:package</code></td>
 </tr>
 </tbody></table></div>
-<p>En los aliases generados, el cuerpo puede ser byte-idéntico y el frontmatter variar por modo de invocación:
-<code>ultracode</code> queda model-invoked y <code>dynamic-workflows</code>, manual. Entre los skills Pi, <code>default</code> también es manual.</p>
+<p>En los aliases generados, el cuerpo puede ser byte-idéntico y el frontmatter variar por modo de invocación: <code>ultracode</code>
+queda model-invoked y <code>dynamic-workflows</code>, manual. Entre los skills Pi, <code>default</code> también es manual.</p>
 <p>Los fixes de la tabla son locales, idempotentes y commiteables. Estado global del usuario (por ejemplo <code>~/.claude</code> o
 instalaciones Pi globales) se reporta como diagnóstico/propose-only: <code>doctor</code> te dice qué correr, pero no lo muta por
 vos.</p>
@@ -568,20 +649,36 @@ extensiones opcionales pueden seguir el mismo patrón y cargarse desde settings.
 con el paquete; el contenido de memoria queda privado y gitignored.</p>
 <h2 id="troubleshooting">Troubleshooting</h2>
 <ul>
-<li><strong>Un comando no aparece después de instalar</strong> — abrí Pi en el proyecto objetivo, ejecutá <code>/trust</code> y después <code>/reload</code>
-(o reiniciá). Los workflows con alcance de proyecto están protegidos por trust.</li>
-<li><strong><code>pi</code> no se encuentra</strong> — la instalación global (ver Requisitos) no terminó, o el binario global de npm no está en
-<code>PATH</code>.</li>
+<li><strong>Un comando no aparece en el perfil Picante</strong> — corré <code>npm run dev:picante -- status</code> y después
+<code>npm run smoke:picante</code>; ambos deben señalar este checkout como fuente única. Los workflows con alcance de proyecto
+están protegidos por trust, pero <code>.pandi-dev/project</code> se aprueba automáticamente para los smokes.</li>
+<li><strong>No se encuentra <code>../pi-cante</code></strong> — clonalo como sibling o ejecutá con
+<code>PI_CANTE_ROOT=/ruta/a/pi-cante npm run dev:picante</code>.</li>
+<li><strong><code>tmux</code> no se encuentra</strong> — solo bloquea <code>npm run smoke:picante:tui</code>; instalalo y verificá <code>tmux -V</code>. El smoke RPC y
+la TUI interactiva no dependen de tmux.</li>
+<li><strong><code>pi</code> no se encuentra en el camino vanilla</strong> — la instalación global (ver Requisitos) no terminó, o el binario global
+de npm no está en <code>PATH</code>. El desarrollo con Picante no usa ese binario.</li>
 <li><strong>Node demasiado viejo</strong> — corré <code>nvm use</code> (necesitás ≥ 22.19.0; Gondolin necesita ≥ 23.6.0). <code>npm run doctor</code> sale
 con código distinto de cero en un Node viejo, pero el repo no declara campo <code>engines</code>, así que un <code>npm install</code> normal
 no te bloquea.</li>
 <li><strong>Parece que el mismo recurso se carga dos veces</strong> — probablemente mezclaste dos canales de distribución (ver
-&quot;Distribución&quot; arriba); <code>npm run doctor</code> lo detecta y avisa. Elegí un canal por máquina o alcance.</li>
-<li><strong>Cualquier otra cosa</strong> — <code>npm run doctor</code> es de solo lectura y lista todos los prerrequisitos obligatorios/opcionales
-con lo que falta; tomalo como autoridad por encima de esta página.</li>
+&quot;Distribución&quot; arriba); <code>npm run doctor</code> lo detecta y avisa en un perfil vanilla. El perfil <code>.pandi-dev</code> deshabilita
+el bundle y excluye packages globales por diseño.</li>
+<li><strong>Cualquier otra cosa</strong> — <code>npm run doctor</code> es de solo lectura y diagnostica el host vanilla. Dentro del flujo Picante,
+usá <code>npm run dev:picante -- status</code>, <code>npm run smoke:picante</code> y <code>/doctor</code>: esos comandos reciben las rutas efectivas
+del perfil aislado.</li>
 </ul>
 	</main>
 	<footer>Generado con el skill pandi-artifact-style · paleta: panda-syntax dark/light</footer>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const pandiMermaidThemes = {"dark":{"background":"#242526","mainBkg":"#292A2B","primaryColor":"#31353A","primaryTextColor":"#E6E6E6","primaryBorderColor":"#676B79","lineColor":"#757575","secondaryColor":"#2E2A33","tertiaryColor":"#31353A","textColor":"#BBBBBB","titleColor":"#FF75B5","nodeTextColor":"#E6E6E6","edgeLabelBackground":"#242526","clusterBkg":"#2E2A33","clusterBorder":"#3E4250","fontFamily":"-apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,sans-serif"},"light":{"background":"#ECECEC","mainBkg":"#F2F1F1","primaryColor":"#E6DBCB","primaryTextColor":"#222223","primaryBorderColor":"#676B79","lineColor":"#8D8D8D","secondaryColor":"#EDE4F8","tertiaryColor":"#E6DBCB","textColor":"#676B79","titleColor":"#FF0077","nodeTextColor":"#222223","edgeLabelBackground":"#ECECEC","clusterBkg":"#EDE4F8","clusterBorder":"#C9C9C9","fontFamily":"-apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,sans-serif"}};
+mermaid.initialize({
+	startOnLoad: true,
+	theme: "base",
+	themeVariables: pandiMermaidThemes[matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"],
+});
+</script>
 </body>
 </html>

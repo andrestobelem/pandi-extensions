@@ -49,9 +49,33 @@ function suiteRootFromScriptLocation() {
 // null ⇒ instalación independiente (p. ej. `npm:@pandi-coding-agent/pandi-doctor`): los
 // chequeos solo-del-repo se degradan a N/A en vez de dar warnings falsos.
 const SUITE_ROOT = findSuiteRoot(process.cwd()) ?? suiteRootFromScriptLocation();
-// Directorio del proyecto para lookups a nivel proyecto (`node_modules`, skills en
-// `.agents`/`.pi`, `.pi/settings.json`): la raíz de la suite dentro del repo, o si no el cwd.
+// Directorio de la suite para lookups de sus dependencias y skills canónicos: la raíz
+// dentro del repo, o si no el cwd en una instalación independiente.
 const PROJECT_DIR = SUITE_ROOT ?? process.cwd();
+const home = os.homedir();
+// `/doctor` corre en un proceso hijo: el handler le pasa el perfil y binario efectivos
+// del host. Los fallbacks de distro cubren también `npm run doctor`; sin overrides se
+// conserva el comportamiento de pi vanilla.
+const agentDir =
+	process.env.PI_DOCTOR_AGENT_DIR ||
+	process.env.PI_CANTE_CODING_AGENT_DIR ||
+	process.env.PANDI_CODING_AGENT_DIR ||
+	process.env.PI_CODING_AGENT_DIR ||
+	path.join(home, ".pi", "agent");
+const projectConfigDir =
+	process.env.PI_DOCTOR_CONFIG_DIR ||
+	(process.env.PI_CANTE_CODING_AGENT_DIR ? ".pi-cante" : process.env.PANDI_CODING_AGENT_DIR ? ".pandi" : ".pi");
+const dynamicPiCommand = process.env.PI_DYNAMIC_WORKFLOWS_PI_COMMAND;
+const piCommand = dynamicPiCommand || process.env.PI_DOCTOR_PI_COMMAND || "pi";
+const piCommandArgs = (() => {
+	if (dynamicPiCommand || !process.env.PI_DOCTOR_PI_COMMAND_ARGS) return [];
+	try {
+		const args = JSON.parse(process.env.PI_DOCTOR_PI_COMMAND_ARGS);
+		return Array.isArray(args) && args.every((arg) => typeof arg === "string") ? args : [];
+	} catch {
+		return [];
+	}
+})();
 const MIN_NODE = "22.19.0"; // engines.node de @earendil-works/pi-coding-agent
 const GONDOLIN_NODE = "23.6.0"; // piso extra para la extensión opcional Gondolin
 
@@ -140,7 +164,7 @@ report(
 	git.found ? git.out.split("\n")[0] : "no encontrado — brew install git / xcode-select --install",
 );
 
-const pi = probe(process.env.PI_DYNAMIC_WORKFLOWS_PI_COMMAND || "pi");
+const pi = probe(piCommand, [...piCommandArgs, "--version"]);
 report(
 	"required",
 	pi.found ? OK : FAIL,
@@ -170,7 +194,9 @@ report(
 
 // pi-codex-web-search: la extensión que expone web_search.
 const webSearchPaths = [
-	path.join(os.homedir(), ".pi", "agent", "npm", "node_modules", "pi-codex-web-search"),
+	path.join(agentDir, "npm", "node_modules", "pi-codex-web-search"),
+	path.join(process.cwd(), projectConfigDir, "npm", "node_modules", "pi-codex-web-search"),
+	path.join(process.cwd(), "node_modules", "pi-codex-web-search"),
 	path.join(PROJECT_DIR, "node_modules", "pi-codex-web-search"),
 ];
 const webSearch = webSearchPaths.some(existsSync);
@@ -191,9 +217,11 @@ report(
 	ctx7.found ? "Context7 docs (npx ctx7)" : "ausente — `npm install` (devDep) o npm i -g ctx7@latest",
 );
 const context7SkillPaths = [
+	path.join(process.cwd(), ".agents", "skills", "context7-cli"),
+	path.join(process.cwd(), projectConfigDir, "skills", "context7-cli"),
 	path.join(PROJECT_DIR, ".agents", "skills", "context7-cli"),
 	path.join(PROJECT_DIR, ".pi", "skills", "context7-cli"),
-	path.join(os.homedir(), ".pi", "agent", "skills", "context7-cli"),
+	path.join(agentDir, "skills", "context7-cli"),
 	path.join(os.homedir(), ".agents", "skills", "context7-cli"),
 ];
 const context7Skill = context7SkillPaths.some(existsSync);
@@ -208,7 +236,7 @@ report(
 // el repo; el onboarding lo instala global para pi (~/.agents/skills) y Claude Code (~/.claude/skills).
 const karpathySkillPaths = [
 	path.join(os.homedir(), ".agents", "skills", "karpathy-guidelines"),
-	path.join(os.homedir(), ".pi", "agent", "skills", "karpathy-guidelines"),
+	path.join(agentDir, "skills", "karpathy-guidelines"),
 	path.join(os.homedir(), ".claude", "skills", "karpathy-guidelines"),
 ];
 const karpathySkill = karpathySkillPaths.some(existsSync);
@@ -251,7 +279,6 @@ report(
 // Delegamos en el propio script (fuente de verdad del "qué es drift") vía --check; hereda
 // CLAUDE_GLOBAL_DIR, así que doctor y sync miran exactamente el mismo destino. Opcional a
 // propósito: en un clon fresco sin sync previo esto avisa, no rompe el doctor.
-const home = os.homedir();
 const globalDir = process.env.CLAUDE_GLOBAL_DIR || path.join(home, ".claude");
 // Sólo colapsá a "~" en el borde de segmento, no por prefijo textual (/Users/foo vs /Users/foobar).
 const shortDir = globalDir === home || globalDir.startsWith(home + path.sep) ? globalDir.replace(home, "~") : globalDir;
@@ -271,9 +298,13 @@ if (!SUITE_ROOT) {
 	} else {
 		// --check imprime "N file(s) out of sync" en stderr; mostrá el conteo para que sea accionable.
 		const m = `${sync.stderr || ""}${sync.stdout || ""}`.match(/(\d+) file\(s\) out of sync/);
-		const n = m ? Number(m[1]) : 0;
-		const count = n > 0 ? ` (${n} archivo${n === 1 ? "" : "s"})` : "";
-		report("optional", WARN, syncLabel, `desincronizado${count} — corré \`npm run sync:claude:global\``);
+		if (m) {
+			const n = Number(m[1]);
+			const count = ` (${n} archivo${n === 1 ? "" : "s"})`;
+			report("optional", WARN, syncLabel, `desincronizado${count} — corré \`npm run sync:claude:global:install\``);
+		} else {
+			report("optional", WARN, syncLabel, "no se pudo verificar — revisá `npm run sync:claude:global:status`");
+		}
 	}
 } else {
 	report(
@@ -403,7 +434,6 @@ if (!SUITE_ROOT) {
 // de proyecto y/o global). Una SEGUNDA copia bajo otra identidad de pi (clon git: o paquete
 // npm:@pandi-coding-agent/…) NO se dedup-lica (la identidad difiere) → cada extensión/comando/
 // tema cargaría dos veces. Avisamos ANTES de que muerda. Seam de test: PI_DOCTOR_AGENT_DIR.
-const agentDir = process.env.PI_DOCTOR_AGENT_DIR || path.join(home, ".pi", "agent");
 const readPackageSources = (file) => {
 	try {
 		const settings = JSON.parse(readFileSync(file, "utf8"));
@@ -416,9 +446,9 @@ const readPackageSources = (file) => {
 };
 const packageEntries = [
 	...readPackageSources(path.join(agentDir, "settings.json")).map((src) => ({ src, base: agentDir })),
-	...readPackageSources(path.join(PROJECT_DIR, ".pi", "settings.json")).map((src) => ({
+	...readPackageSources(path.join(process.cwd(), projectConfigDir, "settings.json")).map((src) => ({
 		src,
-		base: path.join(PROJECT_DIR, ".pi"),
+		base: path.join(process.cwd(), projectConfigDir),
 	})),
 ];
 const isRemote = (src) => /^(git:|npm:|https?:\/\/|ssh:\/\/)/.test(src);

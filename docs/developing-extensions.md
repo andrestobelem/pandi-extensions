@@ -1,6 +1,6 @@
 # Desarrollar y probar extensiones en pi
 
-Fecha: 2026-07-04
+Fecha: 2026-07-12
 
 Una extensión de pi es un módulo TypeScript que agrega comandos, tools o manejadores de eventos al agente. Esta guía
 explica cómo escribir una extensión de este repo y probarla sin romper la sesión activa. Usala cuando quieras crear una
@@ -8,8 +8,29 @@ extensión nueva, modificar una existente o decidir entre un comando, un tool o 
 
 ## En 30 segundos
 
-Una extensión exporta una función default que recibe `pi: ExtensionAPI`. Podés probarla sin instalarla, apuntando
-`pi -e` al archivo:
+El loop recomendado usa un checkout sibling de `pi-cante`. Desde este repo:
+
+```bash
+# feedback primario
+node --test extensions/pandi-<ext>/tests/integration/<algo>.test.mjs
+
+# inspección y smokes aislados, sin instalar la suite globalmente
+npm run dev:picante -- status
+npm run smoke:picante
+npm run smoke:picante:tui
+
+# TUI interactiva contra los edits actuales
+npm run dev:picante
+```
+
+El wrapper registra este checkout como package user-scope dentro del agent descartable `pi-cante/.pandi-dev/` y abre la
+TUI en este repo como workspace real. Los smokes fuerzan un proyecto scratch separado. Deshabilita las copias bundled de
+Pandi, no usa ni modifica perfiles reales y no carga sus packages; `/doctor` sí puede inspeccionarlos en modo read-only.
+Si los repos no son siblings, definí `PI_CANTE_ROOT=/ruta/a/pi-cante`.
+
+## Anatomía mínima de una extensión
+
+Una extensión exporta una función default que recibe `pi: ExtensionAPI`:
 
 ```typescript
 // extensions/pandi-hello/index.ts
@@ -25,10 +46,6 @@ export default function (pi: ExtensionAPI) {
     handler: async (args, ctx) => ctx.ui.notify(`Hola ${args || "mundo"}!`, "info"),
   });
 }
-```
-
-```bash
-pi -e ./extensions/pandi-hello/index.ts
 ```
 
 Cada extensión de este repo vive en su propio `extensions/pandi-<nombre>/index.ts` (o un único `.ts`) y es
@@ -51,15 +68,38 @@ Ver la referencia completa de eventos y `ExtensionAPI` en el
 [`extensions.md`](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/extensions.md) de pi
 upstream (o `docs/extensions.md` de tu instalación local del paquete).
 
-## Probarla sin romper tu sesión
+## Topología aislada de Picante
 
-Una vez que la extensión existe, queda el problema puntual de este repo: es **auto-hospedado**. La suite está instalada
-globalmente apuntando al propio checkout (`packages: ["../../ws/at/pandi-extensions"]` en `~/.pi/agent/settings.json`),
-y **pi carga el TypeScript de las extensiones desde disco** (no bundlea). Entonces un `/reload` en tu sesión de trabajo
-ejecuta tus edits **sin commitear** al instante — y un error de sintaxis o de carga puede tumbar esa sesión.
+Este repo sigue siendo auto-hospedado — Picante ejecuta el TypeScript actual desde disco — pero el proceso de prueba ya
+no comparte perfil con la sesión de autoría:
 
-La clave para no sufrirlo es separar **tres ejes ortogonales** que se confunden entre sí. Cada uno se resuelve con una
-herramienta distinta.
+```mermaid
+flowchart LR
+    E["pandi-extensions checkout"] --> W["wrapper npm"]
+    W --> C["pi-cante desde source"]
+    C --> D[".pandi-dev"]
+    D --> A["agent + sessions"]
+    A -->|"package user-scope aislado"| E
+    W -->|"TUI: workspace real"| E
+    D --> P["scratch project solo para smokes"]
+```
+
+Al ejecutar `npm run dev:picante`, el wrapper:
+
+1. encuentra `../pi-cante` o la ruta indicada por `PI_CANTE_ROOT`;
+2. crea o reutiliza `pi-cante/.pandi-dev/`;
+3. instala este checkout por ruta local con alcance de usuario dentro del agent descartable, nunca en un home real;
+4. abre la TUI interactiva en este repo, donde el estado Picante vive en `.pi-cante/` (gitignored);
+5. reserva el proyecto scratch para los smokes RPC y TUI;
+6. fuerza los directorios de agent y sesiones de todas las distros y deshabilita el bundle duplicado;
+7. hace que Dynamic Workflows, Goal y Rename ejecuten el `pi-test.sh` de ese mismo checkout.
+
+Por eso un edit aparece en el siguiente arranque sin publicar ni hacer `pi install ./` global. También evita que una
+copia instalada en `~/.pi` se mezcle con la local. El aislamiento cubre configuración, estado y selección de packages;
+**no es un sandbox del sistema operativo**: las extensiones conservan acceso al filesystem, procesos, red y credenciales
+del usuario que lanzó Picante.
+
+Para razonar sobre las pruebas conviene separar **tres ejes ortogonales**. Cada uno tiene una herramienta distinta.
 
 ### Eje 1 — Corrección: ¿mi edit funciona?
 
@@ -86,25 +126,35 @@ Este eje debería ser ~90% de tu dev-test. Los ejes 2 y 3 son complementos, no s
 
 ### Eje 2 — Seguridad de sesión: ¿un edit roto me tumba la sesión?
 
-Este es el problema puntual del repo auto-hospedado. El mecanismo in-place es `/reload` (comando) o `ctx.reload()` desde
-un handler; recarga extensiones, skills, prompts y themes leyendo el source **actual de disco**. Ver el ejemplo upstream
-`packages/coding-agent/examples/extensions/reload-runtime.ts` para el patrón de reload seguro (un tool no puede llamar
-`ctx.reload()` directo: encola un follow-up `/reload`).
+Picante convierte la segunda instancia aislada en un comando repetible. Usá cada entrada según el riesgo que querés
+cubrir:
 
-El riesgo no es de sandbox — es de **topología de instalación**: dónde apunta el `packages[]` global y cuándo hacés
-`/reload`. Estrategias, de más a menos segura:
+| Comando                         | Qué comprueba                                                                                         | Modelo                   |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------ |
+| `npm run dev:picante -- status` | Rutas efectivas, perfil aislado, bundle deshabilitado y única fuente local.                           | No                       |
+| `npm run smoke:picante`         | Carga RPC, cero errores de extensión e inventario exacto del manifiesto resuelto en este checkout.    | No                       |
+| `npm run smoke:picante:tui`     | Startup real en tmux, dashboard `/workflows` y reporte `/doctor`; siempre elimina la sesión temporal. | No                       |
+| `npm run dev:picante`           | TUI interactiva para una exploración manual después de los checks.                                    | Solo si enviás un prompt |
 
-| Estrategia                                 | Cómo                                                                                | Aislamiento                                                                          |
-| ------------------------------------------ | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| **A. Worktree + segunda instancia pi**     | `git_worktree open <name>` → nueva sesión pi ahí; `pi install -l ./` en el worktree | Un edit roto solo afecta esa sesión throwaway; tu sesión de trabajo queda intacta    |
-| **B. Install project-local en un scratch** | `pi install -l ./` en un dir de prueba; tu global sigue en la versión estable       | La sesión de autoría no depende de tus edits en vuelo                                |
-| **C. `/reload` in-place**                  | editás + `/reload` en la misma sesión                                               | **Ninguno.** Rápido pero podés cortar tu loop de trabajo. Solo tras `npm test` verde |
-
-**Recomendación:** eje 1 como feedback principal; para smoke en vivo, **estrategia A** — "desarrollar" y "probar" nunca
-comparten proceso.
+El mecanismo in-place sigue siendo `/reload` (comando) o `ctx.reload()` desde un handler: recarga extensions, skills,
+prompts y themes leyendo el source actual. Dentro del perfil `.pandi-dev` es útil; en una sesión estable vuelve a tener
+el riesgo de cargar edits sin commitear. Para el patrón de reload seguro, ver el ejemplo upstream
+`packages/coding-agent/examples/extensions/reload-runtime.ts`.
 
 > Regla relacionada: **no hagas busy-poll de un run en background** — el harness lo trackea y avisa al terminar. (Ver la
 > guía del tool `dynamic_workflow` y el skill `ultracode`.)
+
+### Compatibilidad opcional con Pi vanilla
+
+Solo cuando necesites validar el host vanilla, podés cargar un entry point explícito sin instalarlo:
+
+```bash
+pi --no-extensions -e ./extensions/pandi-<ext>/index.ts
+```
+
+Ese comando requiere el Pi CLI global y queda fuera del loop normal de contribución. Para probar específicamente la
+semántica de instalación, usá `pi install -l ./` dentro de un proyecto scratch; no apuntes el perfil global al checkout
+de trabajo.
 
 ### Eje 3 — Aislamiento de ejecución: ¿el código bajo prueba puede dañar el host?
 
@@ -124,13 +174,15 @@ recargás.
 
 1. Escribí/actualizá el test aislado primero (eje 1, Red).
 2. Implementá hasta verde: `node --test <suite>`; refactor con la red de tests.
-3. `npm test` completo antes de commitear (gate del repo).
-4. Smoke en vivo solo si hace falta, en un worktree aparte (eje 2, estrategia A).
-5. Commit atómico con Conventional Commits + scope (ej. `feat(pandi-goal): …`).
+3. Corré `npm run dev:picante -- status` y `npm run smoke:picante` para validar la topología y el runtime local.
+4. Si tocaste startup o TUI, corré `npm run smoke:picante:tui`.
+5. Corré `npm test` completo antes de commitear (gate del repo).
+6. Hacé un commit atómico con Conventional Commits + scope (ej. `feat(pandi-goal): …`).
 
 ## Ver también
 
-- [`README.md`](../README.md) — instalación / dogfooding (`pi install ./`, `/reload`).
+- [`README.md`](../README.md) — consumo estable y desarrollo aislado con Picante.
+- [`setup.md`](./setup.md) — requisitos y topología de los dos caminos.
 - Skill `init-pandi-extensions` — onboarding desde un clon fresco.
 - [`README.md#verificación`](../README.md#verificación) — cómo correr `npm test` (harness de tests, lint, typecheck).
 - [`gondolin-isolation.md`](./gondolin-isolation.md) — aislamiento por micro-VM (eje 3).

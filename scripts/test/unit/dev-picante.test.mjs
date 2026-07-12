@@ -1,14 +1,17 @@
 import assert from "node:assert/strict";
+import { join, resolve } from "node:path";
 import { test } from "node:test";
 import { buildPicanteInvocation, resolvePicanteScript, runPicante } from "../../dev-picante.mjs";
 
 test("buildPicanteInvocation targets the sibling checkout and forwards args", () => {
+	const repoRoot = resolve("/workspace/pandi-extensions");
 	const invocation = buildPicanteInvocation({
-		repoRoot: "/workspace/pandi-extensions",
+		repoRoot,
 		args: ["-p", "hello"],
 		env: {
 			KEEP_ME: "yes",
 			PANDI_EXTENSIONS_ROOT: "/stale/checkout",
+			PI_CANTE_DEV_WORKSPACE: "/stale/workspace",
 			npm_execpath: "/opt/npm-cli.js",
 		},
 		platform: "darwin",
@@ -17,23 +20,25 @@ test("buildPicanteInvocation targets the sibling checkout and forwards args", ()
 
 	assert.equal(invocation.command, "/usr/bin/node");
 	assert.deepEqual(invocation.args, ["/opt/npm-cli.js", "run", "dev:picante", "--", "-p", "hello"]);
-	assert.equal(invocation.cwd, "/workspace/pi-cante");
+	assert.equal(invocation.cwd, resolve(repoRoot, "..", "pi-cante"));
 	assert.equal(invocation.env.KEEP_ME, "yes");
-	assert.equal(invocation.env.PANDI_EXTENSIONS_ROOT, "/workspace/pandi-extensions");
+	assert.equal(invocation.env.PANDI_EXTENSIONS_ROOT, repoRoot);
+	assert.equal(invocation.env.PI_CANTE_DEV_WORKSPACE, repoRoot);
 });
 
 test("buildPicanteInvocation resolves absolute and relative PI_CANTE_ROOT values", () => {
+	const repoRoot = resolve("/workspace/pandi-extensions");
 	const absoluteInvocation = buildPicanteInvocation({
-		repoRoot: "/workspace/pandi-extensions",
+		repoRoot,
 		env: { PI_CANTE_ROOT: "/custom/pi-cante" },
 	});
 	const relativeInvocation = buildPicanteInvocation({
-		repoRoot: "/workspace/pandi-extensions",
+		repoRoot,
 		env: { PI_CANTE_ROOT: "../custom-picante" },
 	});
 
-	assert.equal(absoluteInvocation.cwd, "/custom/pi-cante");
-	assert.equal(relativeInvocation.cwd, "/workspace/custom-picante");
+	assert.equal(absoluteInvocation.cwd, resolve(repoRoot, "/custom/pi-cante"));
+	assert.equal(relativeInvocation.cwd, resolve(repoRoot, "../custom-picante"));
 });
 
 test("resolvePicanteScript delegates smoke scripts from their npm lifecycle", () => {
@@ -47,6 +52,25 @@ test("resolvePicanteScript delegates smoke scripts from their npm lifecycle", ()
 		assert.deepEqual(invocation.args, ["/opt/npm-cli.js", "run", picanteScript, "--"]);
 	}
 	assert.equal(resolvePicanteScript({ npm_lifecycle_event: "test:unit" }), "dev:picante");
+});
+
+test("buildPicanteInvocation forwards workspace-local package commands in order", () => {
+	const invocation = buildPicanteInvocation({
+		repoRoot: "/workspace/pandi-extensions",
+		args: ["install", "-l", "npm:pi-codex-web-search"],
+		env: { npm_execpath: "/opt/npm-cli.js" },
+		nodeExecPath: "/usr/bin/node",
+	});
+
+	assert.deepEqual(invocation.args, [
+		"/opt/npm-cli.js",
+		"run",
+		"dev:picante",
+		"--",
+		"install",
+		"-l",
+		"npm:pi-codex-web-search",
+	]);
 });
 
 test("buildPicanteInvocation runs npm through Node on Windows", () => {
@@ -76,13 +100,15 @@ test("buildPicanteInvocation rejects direct execution on Windows", () => {
 
 test("runPicante validates the target manifest and returns the child status", () => {
 	const calls = [];
+	const repoRoot = resolve("/workspace/pandi-extensions");
+	const picanteRoot = resolve(repoRoot, "..", "pi-cante");
 	const options = {
-		repoRoot: "/workspace/pandi-extensions",
+		repoRoot,
 		args: ["status"],
 		env: { npm_execpath: "/opt/npm-cli.js" },
 		platform: "darwin",
 		nodeExecPath: "/usr/bin/node",
-		exists: (path) => path === "/workspace/pi-cante/package.json",
+		exists: (path) => path === join(picanteRoot, "package.json"),
 		readFile: () => JSON.stringify({ scripts: { "dev:picante": "node scripts/dev-pandi.mjs" } }),
 		spawn(command, args, spawnOptions) {
 			calls.push({ command, args, spawnOptions });
@@ -95,10 +121,11 @@ test("runPicante validates the target manifest and returns the child status", ()
 		command: "/usr/bin/node",
 		args: ["/opt/npm-cli.js", "run", "dev:picante", "--", "status"],
 		spawnOptions: {
-			cwd: "/workspace/pi-cante",
+			cwd: picanteRoot,
 			env: {
 				npm_execpath: "/opt/npm-cli.js",
-				PANDI_EXTENSIONS_ROOT: "/workspace/pandi-extensions",
+				PANDI_EXTENSIONS_ROOT: repoRoot,
+				PI_CANTE_DEV_WORKSPACE: repoRoot,
 			},
 			stdio: "inherit",
 		},

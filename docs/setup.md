@@ -7,30 +7,48 @@ variable, una capacidad opcional o qué canal de distribución conviene.
 
 ## En 30 segundos
 
-Si querés dejar una máquina lista rápido, estos cuatro comandos cubren el camino feliz:
+Hay dos caminos distintos. Para consumir una release estable con Pi vanilla:
 
 ```bash
 nvm install && nvm use                                             # Node >= 22.19.0
 npm install -g --ignore-scripts @earendil-works/pi-coding-agent    # Pi CLI
-npm install && npm run doctor                                      # toolchain + chequeo de entorno
-pi install ./                                                      # todas las extensiones + skills
+pi install git:github.com/andrestobelem/pandi-extensions@v0.3.13   # suite fijada para tu usuario
 ```
 
-Usá esta página cuando necesites decidir qué instalar, qué habilita cada dependencia opcional o cómo se distribuye el
-paquete. Para una primera puesta en marcha, el Quickstart suele alcanzar.
+Para desarrollar las extensiones, usá checkouts siblings y no instales la suite en tu perfil global:
+
+```bash
+git clone https://github.com/andrestobelem/pi-cante.git
+git clone https://github.com/andrestobelem/pandi-extensions.git
+(cd pi-cante && npm install --ignore-scripts)
+(cd pandi-extensions && npm install)
+cd pandi-extensions
+npm run dev:picante
+```
+
+`npm run smoke:picante` verifica el inventario runtime local; `npm run smoke:picante:tui` prueba con tmux el startup,
+`/workflows` y `/doctor`. Ninguno llama a un modelo. Usá esta página cuando necesites decidir qué instalar, qué habilita
+cada dependencia opcional o cómo se distribuye el paquete.
 
 ## Requisitos
 
-### Obligatorios
+### Base
 
-| Requisito                                      | Para qué sirve                                                                          | Instalación                                                                                     |
-| ---------------------------------------------- | --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| **Node.js ≥ 22.19.0**                          | Runtime requerido por `@earendil-works/pi-coding-agent`; el repo fija `22` en `.nvmrc`. | `nvm install 22 && nvm use 22` — o `brew install node`                                          |
-| **Pi CLI** (`@earendil-works/pi-coding-agent`) | Host que carga extensiones, TUI/RPC, `pi install` y el spawner de subagentes.           | `npm install -g --ignore-scripts @earendil-works/pi-coding-agent` (verificá con `pi --version`) |
-| **npm**                                        | Instala la toolchain de desarrollo y ejecuta `npm test`. Viene con Node.                | (incluido con Node)                                                                             |
-| **git**                                        | Lo usan `pandi-worktree` y los scouts de workflows.                                     | `xcode-select --install` o `brew install git`                                                   |
+| Requisito             | Para qué sirve                                                                          | Instalación                                            |
+| --------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| **Node.js ≥ 22.19.0** | Runtime requerido por `@earendil-works/pi-coding-agent`; el repo fija `22` en `.nvmrc`. | `nvm install 22 && nvm use 22` — o `brew install node` |
+| **npm**               | Instala la toolchain de desarrollo y ejecuta `npm test`. Viene con Node.                | (incluido con Node)                                    |
+| **git**               | Lo usan `pandi-worktree` y los scouts de workflows.                                     | `xcode-select --install` o `brew install git`          |
 
 > Node 22 es el piso. La extensión opcional Gondolin necesita Node ≥ 23.6.0.
+
+### Según el camino
+
+| Requisito                                      | Cuándo hace falta                                              | Instalación o verificación                                                                     |
+| ---------------------------------------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| **Pi CLI** (`@earendil-works/pi-coding-agent`) | Solo para consumir o probar la suite con un perfil vanilla Pi. | `npm install -g --ignore-scripts @earendil-works/pi-coding-agent`; verificá con `pi --version` |
+| **Checkout sibling de `pi-cante`**             | Para ejecutar extensiones en vivo durante el desarrollo.       | Clonalo junto a este repo y corré allí `npm install --ignore-scripts`.                         |
+| **tmux**                                       | Solo para `npm run smoke:picante:tui`.                         | `brew install tmux`; verificá con `tmux -V`.                                                   |
 
 ### Opcionales
 
@@ -38,7 +56,7 @@ Cada opción habilita una capacidad; sin ella, esa capacidad simplemente no exis
 
 | Capacidad                                             | Requisito                                                                          | Instalación                                                                                                                                                                                                                     |
 | ----------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Búsqueda web para subagentes (`web_search`)           | Extensión `pi-codex-web-search` + CLI `codex`                                      | `pi install npm:pi-codex-web-search` y `brew install codex` (o `npm install -g @openai/codex`)                                                                                                                                  |
+| Búsqueda web para subagentes (`web_search`)           | Extensión `pi-codex-web-search` + CLI `codex`                                      | Vanilla: `pi install npm:pi-codex-web-search`; Picante: `npm run dev:picante -- install -l npm:pi-codex-web-search`. Además instalá `codex`.                                                                                    |
 | Docs de librerías bajo demanda (Context7)             | Skill `context7-cli` (opcional) + CLI `ctx7`                                       | Configurá Context7 con `npx ctx7 setup --cli` (modo "CLI + Skills"; sucesor de `ctx7 skills install`). `ctx7` es un devDependency: ejecutalo con `npx ctx7` después de `npm install` (o globalmente con `npm i -g ctx7@latest`) |
 | Gráficos PNG para `/workflow graph`                   | `@mermaid-js/mermaid-cli` (`mmdc`) + Chrome de Puppeteer                           | Se instala automáticamente con `npm install`; si falla el render: `npx puppeteer browsers install chrome-headless-shell`                                                                                                        |
 | Sandboxes Linux (`pandi-container`)                   | Apple `container` (macOS Apple Silicon)                                            | `brew install container && container system kernel set --recommended && container system start`                                                                                                                                 |
@@ -51,19 +69,68 @@ Cada opción habilita una capacidad; sin ella, esa capacidad simplemente no exis
 > Toda la toolchain de desarrollo (`biome`, `tsc`, `esbuild`, `markdownlint-cli2`, `prettier`, `ctx7`) vive como
 > **devDependencies**; `@mermaid-js/mermaid-cli` es un **optionalDependency** (tiene fallback ASCII, así que una
 > descarga fallida de Chromium no rompe la instalación). Todo se instala con `npm install` (los opcionales, salvo
-> `--omit=optional`) y se ejecuta con `npm run …`/`npx`, sin instalaciones globales adicionales. La única instalación
-> global es la del **Pi CLI**. Verificá el entorno con `npm run doctor`.
+> `--omit=optional`) y se ejecuta con `npm run …`/`npx`, sin instalaciones globales adicionales. El **Pi CLI** global
+> corresponde al camino de consumo vanilla; el desarrollo aislado lo ejecuta desde el checkout de `pi-cante`. Para ese
+> flujo, verificá el entorno efectivo con `npm run dev:picante -- status` y `npm run smoke:picante`; el doctor directo
+> conserva los chequeos del host vanilla.
 
 ## Variantes de instalación
 
-| Variante                | Comando                                                                                              | Cuándo                                                         |
-| ----------------------- | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| Global, para tu usuario | `pi install ./`                                                                                      | Opción por defecto: usá las extensiones en todos los proyectos |
-| Local a este proyecto   | `pi install -l ./`                                                                                   | Solo este proyecto necesita esas extensiones                   |
-| Probar sin instalar     | `pi --no-extensions -e ./extensions/pandi-dynamic-workflows/index.ts` (o `-e .` para todo el bundle) | Prueba rápida y descartable de una o todas las extensiones     |
+### Consumo estable con Pi vanilla
+
+| Variante                        | Comando                                                               | Cuándo                                                       |
+| ------------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------ |
+| Suite fijada para tu usuario    | `pi install git:github.com/andrestobelem/pandi-extensions@v0.3.13`    | Usá la suite estable completa en todos tus proyectos.        |
+| Suite fijada para un proyecto   | `pi install -l git:github.com/andrestobelem/pandi-extensions@v0.3.13` | Solo ese proyecto debe cargar la suite estable completa.     |
+| Extensión npm individual        | `pi install npm:@pandi-coding-agent/pandi-<ext>`                      | Necesitás una capacidad a la carta en tus proyectos.         |
+| Entry point local, sin instalar | `pi --no-extensions -e ./extensions/pandi-dynamic-workflows/index.ts` | Smoke puntual de compatibilidad con un Pi vanilla existente. |
 
 Para usar los workflows del proyecto en `.pi/workflows/`, confiá el proyecto con `/trust` y reiniciá o ejecutá
 `/reload`.
+
+### Desarrollo del checkout con Picante
+
+Desde `pandi-extensions`, estos comandos delegan al checkout sibling `../pi-cante`:
+
+```bash
+npm run dev:picante -- status # inspecciona perfil, bundle y fuentes sin abrir la TUI
+npm run smoke:picante         # inventario runtime exacto del manifiesto; sin modelo
+npm run smoke:picante:tui     # startup + /workflows + /doctor mediante tmux; sin modelo
+npm run dev:picante           # abre la TUI aislada para el loop interactivo
+```
+
+Si `pi-cante` vive en otra ruta, usá `PI_CANTE_ROOT=/ruta/a/pi-cante`. El wrapper le pasa automáticamente la ruta de
+este repo como `PANDI_EXTENSIONS_ROOT` y `PI_CANTE_DEV_WORKSPACE`.
+
+```mermaid
+flowchart LR
+    E["pandi-extensions checkout"] --> W["npm run dev:picante"]
+    W --> C["pi-cante desde source"]
+    C --> D["pi-cante/.pandi-dev"]
+    D --> A["agent + sessions aislados"]
+    A -->|"package user-scope aislado"| E
+    W -->|"TUI: workspace real"| E
+    D --> P["scratch project solo para smokes"]
+```
+
+El perfil `.pandi-dev/` registra este checkout con alcance de usuario **solo dentro de su agent descartable**; no es una
+instalación user-wide real. La TUI usa este repo como cwd y guarda su estado Picante en `.pi-cante/` (gitignored). Los
+smokes fuerzan el proyecto scratch, el bundle queda deshabilitado y ningún package de `~/.pi` entra en la sesión.
+`/doctor` sí puede inspeccionar rutas globales en modo read-only. Es aislamiento de **configuración**, no un sandbox del
+sistema operativo; las extensiones conservan los permisos del proceso que lanzó Picante.
+
+### Recursos globales opcionales de Claude Code
+
+El repo no modifica `~/.claude` por defecto. La interfaz es explícita y respeta `CLAUDE_GLOBAL_DIR` (o `--dest`):
+
+```bash
+npm run sync:claude:global:status  # read-only; el alias sync:claude:global también solo informa
+npm run sync:claude:global:install # instala y registra paths + hashes gestionados
+npm run sync:claude:global:remove  # borra solo archivos gestionados que no fueron modificados
+```
+
+`install` aborta antes de escribir si encuentra una colisión ajena o modificada. `remove` conserva archivos ajenos y
+gestionados modificados, los reporta y devuelve exit distinto de cero; el manifiesto queda para poder reintentarlo.
 
 ### Skill externo: karpathy-guidelines
 
@@ -99,11 +166,20 @@ directorio de JSONs para que `pandi-dynamic-workflows` los resuelva con `agentTy
 
 ## Capacidades opcionales en detalle
 
-- **Búsqueda web (`web_search`) para subagentes** — instalá `pi install npm:pi-codex-web-search` (paquete separado, repo
-  `github.com/ayagmar/pi-codex-web-search`) y el CLI `codex` (`brew install codex` o `npm install -g @openai/codex`).
-  Cuando el runtime encuentra la extensión (en `~/.pi/agent/npm/node_modules/` o `./node_modules/`), agrega `web_search`
-  automáticamente a la lista de herramientas de cada subagente. Si `codex` no está en el `PATH`, apuntalo con
+- **Búsqueda web (`web_search`) para subagentes** — el paquete separado es `pi-codex-web-search` (repo
+  `github.com/ayagmar/pi-codex-web-search`) y además requiere el CLI `codex` (`brew install codex` o
+  `npm install -g @openai/codex`). En un perfil vanilla, instalalo con `pi install npm:pi-codex-web-search`. Para el
+  workspace real de desarrollo, registralo project-local mediante el wrapper:
+
+  ```bash
+  npm run dev:picante -- install -l npm:pi-codex-web-search
+  npm run dev:picante -- remove -l npm:pi-codex-web-search
+  ```
+
+  Eso escribe solo `.pi-cante/` (gitignored) en este repo; no contamina el agent descartable ni el scratch de smokes.
+  Dynamic Workflows descubre el paquete desde el proyecto trusted. Si `codex` no está en el `PATH`, apuntalo con
   `CODEX_PATH`. Exclusión por subagente: `excludeTools: ["web_search"]` o `includeExtensions: false`.
+
 - **Context7 (docs de librerías)** — el skill `context7-cli` **no** viene vendorizado en el repo. Configuralo con
   `npx ctx7 setup --cli` (modo "CLI + Skills"; sucesor de `ctx7 skills install`, que deja de funcionar en la próxima
   major). Pi autodetecta el skill desde el scope global (`~/.agents/skills/` o `~/.pi/agent/skills/`) en cualquier
@@ -148,18 +224,23 @@ en tu shell o usá `direnv`/`dotenvx`.
 
 ## Distribución: canales y regla de identidad única
 
-La suite se distribuye por tres canales; **elegí uno por máquina o alcance** — Pi deduplica paquetes por identidad
-(nombre npm / URL git / ruta local resuelta), así que dos canales conviviendo cargan todo dos veces (`npm run doctor` lo
-detecta y avisa):
+En un perfil vanilla Pi, **elegí un solo canal por máquina o alcance**. Pi deduplica packages por identidad (nombre npm,
+URL git o ruta local resuelta), no por los comandos que registran; dos canales distintos pueden cargar los mismos
+recursos dos veces. `npm run doctor` lo detecta y avisa.
 
 | Canal                                     | Cómo                                                                                                | Cuándo                                                                                                                                                                                                             |
 | ----------------------------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Bundle git fijado**                     | `pi install git:github.com/andrestobelem/pandi-extensions@v0.3.13`                                   | Consumo de toda la suite, con versión estable.                                                                                                                                                                     |
-| **Working tree (rutas locales)**          | clone + `pi install ./` (o las rutas por extensión)                                                 | Desarrollo/dogfooding: los cambios se aplican con `/reload`.                                                                                                                                                       |
-| **npm con scope `@pandi-coding-agent/*`** | `pi install npm:@pandi-coding-agent/pandi-<ext>`                                                    | A la carta por extensión — los paquetes publican bajo la identidad `pandi-*`. Con `min-release-age`, las versiones recién publicadas recién se pueden instalar después de esa ventana.                             |
+| **Bundle git fijado**                     | `pi install git:github.com/andrestobelem/pandi-extensions@v0.3.13`                                  | Consumo user-wide de toda la suite, con versión estable.                                                                                                                                                           |
+| **Working tree con Picante**              | clone sibling + `npm run dev:picante`                                                               | Desarrollo normal: perfil descartable, bundle deshabilitado y checkout local como fuente única.                                                                                                                    |
+| **Working tree con Pi vanilla**           | clone + `pi install -l ./` en un proyecto scratch                                                   | Smoke específico de compatibilidad con instalación local; no es el loop normal de contribución.                                                                                                                    |
+| **npm con scope `@pandi-coding-agent/*`** | `pi install npm:@pandi-coding-agent/pandi-<ext>`                                                    | A la carta y user-wide — los paquetes publican bajo la identidad `pandi-*`. Con `min-release-age`, las versiones recién publicadas recién se pueden instalar después de esa ventana.                               |
 | **Host Cursor local**                     | `npm install -D @pandi-coding-agent/pandi-ultracode-cursor` + symlink de plugin                     | El host autónomo no se instala con `pi install`; seguí el [README del paquete](https://github.com/andrestobelem/pandi-extensions/tree/main/extensions/pandi-ultracode-cursor) para activar `/ultracode` en Cursor. |
 | **Host Claude externo**                   | `npm install -D @pandi-coding-agent/pandi-ultracode-claude` + `claude --plugin-dir …/claude-plugin` | Carga `/ultracode-run` solo para la sesión actual; el runner exige `--trust-workspace` y no reemplaza `/ultracode` nativo.                                                                                         |
 | **Host Codex local**                      | `npm install -D @pandi-coding-agent/pandi-ultracode-codex`                                          | Host de terminal; no instala plugins ni modifica `~/.codex`.                                                                                                                                                       |
+
+Picante registra la ruta local como package user-scope dentro de `.pandi-dev/agent` y fuerza `PI_BUNDLED_PACKAGES=0`,
+por lo que la suite bundled no compite con el checkout. Ese alcance de usuario termina en el perfil descartable: los
+packages configurados en `~/.pi` no entran en esa sesión.
 
 Cada `extensions/pandi-<ext>/package.json` lleva su identidad pública `@pandi-coding-agent/pandi-<ext>` (npm workspaces;
 `npm pack -w @pandi-coding-agent/pandi-<ext>` para probar el tarball). El manifiesto raíz de `pi` se **genera** desde
@@ -183,8 +264,8 @@ read-only y muestra el comando de arreglo cuando detecta drift.
 | Personas README                   | `.pi/personas/*.json`                                           | `.pi/personas/README.md` y HTML                  | `npm run sync:personas:check`         | `npm run sync:personas`         |
 | Personas empaquetadas             | `.pi/personas/*.json`                                           | `extensions/pandi-personas/personas/*.json`      | `npm run sync:personas:package:check` | `npm run sync:personas:package` |
 
-En los aliases generados, el cuerpo puede ser byte-idéntico y el frontmatter variar por modo de invocación:
-`ultracode` queda model-invoked y `dynamic-workflows`, manual. Entre los skills Pi, `default` también es manual.
+En los aliases generados, el cuerpo puede ser byte-idéntico y el frontmatter variar por modo de invocación: `ultracode`
+queda model-invoked y `dynamic-workflows`, manual. Entre los skills Pi, `default` también es manual.
 
 Los fixes de la tabla son locales, idempotentes y commiteables. Estado global del usuario (por ejemplo `~/.claude` o
 instalaciones Pi globales) se reporta como diagnóstico/propose-only: `doctor` te dice qué correr, pero no lo muta por
@@ -212,14 +293,21 @@ con el paquete; el contenido de memoria queda privado y gitignored.
 
 ## Troubleshooting
 
-- **Un comando no aparece después de instalar** — abrí Pi en el proyecto objetivo, ejecutá `/trust` y después `/reload`
-  (o reiniciá). Los workflows con alcance de proyecto están protegidos por trust.
-- **`pi` no se encuentra** — la instalación global (ver Requisitos) no terminó, o el binario global de npm no está en
-  `PATH`.
+- **Un comando no aparece en el perfil Picante** — corré `npm run dev:picante -- status` y después
+  `npm run smoke:picante`; ambos deben señalar este checkout como fuente única. Los workflows con alcance de proyecto
+  están protegidos por trust, pero `.pandi-dev/project` se aprueba automáticamente para los smokes.
+- **No se encuentra `../pi-cante`** — clonalo como sibling o ejecutá con
+  `PI_CANTE_ROOT=/ruta/a/pi-cante npm run dev:picante`.
+- **`tmux` no se encuentra** — solo bloquea `npm run smoke:picante:tui`; instalalo y verificá `tmux -V`. El smoke RPC y
+  la TUI interactiva no dependen de tmux.
+- **`pi` no se encuentra en el camino vanilla** — la instalación global (ver Requisitos) no terminó, o el binario global
+  de npm no está en `PATH`. El desarrollo con Picante no usa ese binario.
 - **Node demasiado viejo** — corré `nvm use` (necesitás ≥ 22.19.0; Gondolin necesita ≥ 23.6.0). `npm run doctor` sale
   con código distinto de cero en un Node viejo, pero el repo no declara campo `engines`, así que un `npm install` normal
   no te bloquea.
 - **Parece que el mismo recurso se carga dos veces** — probablemente mezclaste dos canales de distribución (ver
-  "Distribución" arriba); `npm run doctor` lo detecta y avisa. Elegí un canal por máquina o alcance.
-- **Cualquier otra cosa** — `npm run doctor` es de solo lectura y lista todos los prerrequisitos obligatorios/opcionales
-  con lo que falta; tomalo como autoridad por encima de esta página.
+  "Distribución" arriba); `npm run doctor` lo detecta y avisa en un perfil vanilla. El perfil `.pandi-dev` deshabilita
+  el bundle y excluye packages globales por diseño.
+- **Cualquier otra cosa** — `npm run doctor` es de solo lectura y diagnostica el host vanilla. Dentro del flujo Picante,
+  usá `npm run dev:picante -- status`, `npm run smoke:picante` y `/doctor`: esos comandos reciben las rutas efectivas
+  del perfil aislado.

@@ -42,13 +42,22 @@ const VENDORED_REL = path.join("extensions", "pandi-doctor", "scripts", "doctor.
 async function buildBundle() {
 	// `index.ts` usa el SDK solo por tipos (se borran); stubbealo para que esbuild no
 	// traiga el runtime real de `@earendil-works/pi-coding-agent`.
-	return await buildExtension({
+	const extension = await buildExtension({
 		name: "pi-doctor-build",
 		src: path.join(REPO_ROOT, "extensions", "pandi-doctor", "index.ts"),
 		outName: "doctor.mjs",
-		stubs: { sdk: 'export const CONFIG_DIR_NAME = ".pi";\n' },
+		stubs: {
+			sdk: 'export const CONFIG_DIR_NAME = ".pi";\nexport const getAgentDir = () => process.env.PI_DOCTOR_TEST_AGENT_DIR;\nexport const getPackageDir = () => process.env.PI_DOCTOR_TEST_PACKAGE_DIR;\n',
+		},
 		npx: "--no-install",
 	});
+	const helpers = await buildExtension({
+		name: "pi-doctor-helpers-build",
+		src: path.join(REPO_ROOT, "extensions", "pandi-doctor", "doctor.ts"),
+		outName: "doctor-helpers.mjs",
+		npx: "--no-install",
+	});
+	return { url: extension.url, helpersUrl: helpers.url };
 }
 
 function makePi() {
@@ -153,10 +162,25 @@ async function scenarioCheckLogic(url) {
 	{
 		const nestedCwd = path.join(REPO_ROOT, "extensions");
 		const run = fakeRunner([{ ok: true, stdout: "ok", stderr: "", exitCode: 0 }]);
-		await mod.runDoctorCheck(run, { cwd: nestedCwd, extDir: EXT_DIR });
+		await mod.runDoctorCheck(run, {
+			cwd: nestedCwd,
+			extDir: EXT_DIR,
+			agentDir: "/tmp/picante-agent",
+			configDir: ".pi-cante",
+			piCommand: "/tmp/picante",
+			piCommandArgs: ["/tmp/dist/cli.js"],
+		});
 		check(
 			"runDoctorCheck: hace spawn con el cwd de la sesión",
 			run.opts[0]?.cwd === nestedCwd,
+			JSON.stringify(run.opts[0]),
+		);
+		check(
+			"runDoctorCheck: propaga perfil y comando efectivos al proceso hijo",
+			run.opts[0]?.agentDir === "/tmp/picante-agent" &&
+				run.opts[0]?.configDir === ".pi-cante" &&
+				run.opts[0]?.piCommand === "/tmp/picante" &&
+				run.opts[0]?.piCommandArgs?.[0] === "/tmp/dist/cli.js",
 			JSON.stringify(run.opts[0]),
 		);
 	}
@@ -209,6 +233,51 @@ async function scenarioConfigurableTimeout(url) {
 		run.opts[0]?.timeoutMs === 4321,
 		JSON.stringify(run.opts[0]),
 	);
+}
+
+async function scenarioHostPiCommandResolution(helpersUrl) {
+	const mod = await loadModule(helpersUrl);
+	const hostPackageDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-doctor-host-command-"));
+	try {
+		fs.writeFileSync(
+			path.join(hostPackageDir, "package.json"),
+			JSON.stringify({
+				name: "@pandi-coding-agent/pi-cante",
+				bin: { picante: "dist/cli.js" },
+				piConfig: { name: "pi-cante" },
+			}),
+		);
+
+		const posix = mod.resolveHostPiCommand(hostPackageDir, {}, "linux", "/usr/bin/node");
+		check(
+			"binario host: POSIX conserva el nombre nominal",
+			posix?.command === "picante" && Array.isArray(posix.args) && posix.args.length === 0,
+			JSON.stringify(posix),
+		);
+
+		const windows = mod.resolveHostPiCommand(hostPackageDir, {}, "win32", "C:\\nodejs\\node.exe");
+		check(
+			"binario host: Windows ejecuta package.json#bin mediante node.exe",
+			windows?.command === "C:\\nodejs\\node.exe" &&
+				windows.args?.length === 1 &&
+				windows.args[0] === path.resolve(hostPackageDir, "dist/cli.js"),
+			JSON.stringify(windows),
+		);
+
+		const override = mod.resolveHostPiCommand(
+			hostPackageDir,
+			{ PI_DYNAMIC_WORKFLOWS_PI_COMMAND: "C:\\dev\\pi-wrapper.exe" },
+			"win32",
+			"C:\\nodejs\\node.exe",
+		);
+		check(
+			"binario host: PI_DYNAMIC_WORKFLOWS_PI_COMMAND conserva precedencia sin prefix args",
+			override?.command === "C:\\dev\\pi-wrapper.exe" && override.args?.length === 0,
+			JSON.stringify(override),
+		);
+	} finally {
+		fs.rmSync(hostPackageDir, { recursive: true, force: true });
+	}
 }
 
 async function scenarioRealSpawnMissingBin(url) {
@@ -273,6 +342,138 @@ function findDoctorLine(output, label) {
 	return output.split("\n").find((line) => line.includes(label)) ?? "";
 }
 
+function createAgentResources(agentDir) {
+	fs.mkdirSync(path.join(agentDir, "npm", "node_modules", "pi-codex-web-search"), { recursive: true });
+	fs.mkdirSync(path.join(agentDir, "skills", "context7-cli"), { recursive: true });
+	fs.mkdirSync(path.join(agentDir, "skills", "karpathy-guidelines"), { recursive: true });
+}
+
+function scenarioEffectiveAgentDir() {
+	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "pi-doctor-agent-dir-"));
+	try {
+		const extDir = path.join(tmp, "ext");
+		const script = path.join(extDir, "scripts", "doctor.mjs");
+		const home = path.join(tmp, "home");
+		const vanillaAgentDir = path.join(home, ".pi", "agent");
+		const picanteAgentDir = path.join(tmp, "picante-agent");
+		const officialAgentDir = path.join(tmp, "official-agent");
+		const pandiAgentDir = path.join(tmp, "pandi-agent");
+		fs.mkdirSync(path.dirname(script), { recursive: true });
+		fs.copyFileSync(path.join(EXT_DIR, "scripts", "doctor.mjs"), script);
+		createAgentResources(vanillaAgentDir);
+		createAgentResources(officialAgentDir);
+		createAgentResources(pandiAgentDir);
+		fs.writeFileSync(
+			path.join(vanillaAgentDir, "settings.json"),
+			JSON.stringify({ packages: ["npm:@pandi-coding-agent/pandi-goal"] }),
+		);
+
+		const run = (overrides, unset = []) => {
+			const env = {
+				...process.env,
+				HOME: home,
+				USERPROFILE: home,
+				NO_COLOR: "1",
+				PI_DYNAMIC_WORKFLOWS_PI_COMMAND: process.execPath,
+				...overrides,
+			};
+			for (const name of [
+				"PI_DOCTOR_AGENT_DIR",
+				"PI_DOCTOR_PI_COMMAND",
+				"PI_CANTE_CODING_AGENT_DIR",
+				"PANDI_CODING_AGENT_DIR",
+				...unset,
+			]) {
+				if (overrides[name] === undefined) delete env[name];
+			}
+			return spawnSync(process.execPath, [script], {
+				cwd: tmp,
+				encoding: "utf8",
+				timeout: 60000,
+				env,
+			});
+		};
+		const assertResources = (label, result, expected) => {
+			const out = `${result.stdout || ""}${result.stderr || ""}`;
+			for (const resource of ["pi-codex-web-search", "skill context7-cli", "skill karpathy-guidelines"]) {
+				const line = findDoctorLine(out, resource);
+				check(`${label}: ${resource} usa el perfil efectivo`, line.includes(expected), line || out.slice(0, 800));
+			}
+			return out;
+		};
+
+		const picante = run({
+			PI_CANTE_CODING_AGENT_DIR: picanteAgentDir,
+			PI_CODING_AGENT_DIR: officialAgentDir,
+			PI_DOCTOR_PI_COMMAND: path.join(tmp, "missing-picante"),
+			PI_DOCTOR_PI_COMMAND_ARGS: JSON.stringify([path.join(tmp, "missing-entrypoint.js")]),
+		});
+		const picanteOut = assertResources("Picante", picante, "⚠");
+		check(
+			"Picante: el probe usa el comando hijo efectivo",
+			findDoctorLine(picanteOut, "Pi CLI").includes(process.versions.node),
+			findDoctorLine(picanteOut, "Pi CLI"),
+		);
+		check(
+			"Picante: la detección de doble copia ignora settings de vanilla",
+			findDoctorLine(picanteOut, "instalación sin doble copia").includes("una sola identidad"),
+			findDoctorLine(picanteOut, "instalación sin doble copia"),
+		);
+
+		const official = run({ PI_CODING_AGENT_DIR: officialAgentDir }, [
+			"PI_CANTE_CODING_AGENT_DIR",
+			"PANDI_CODING_AGENT_DIR",
+		]);
+		assertResources("override oficial", official, "✓");
+
+		const pandi = run({ PANDI_CODING_AGENT_DIR: pandiAgentDir, PI_CODING_AGENT_DIR: picanteAgentDir }, [
+			"PI_CANTE_CODING_AGENT_DIR",
+		]);
+		assertResources("Pandi", pandi, "✓");
+
+		const vanilla = run({}, ["PI_CANTE_CODING_AGENT_DIR", "PANDI_CODING_AGENT_DIR", "PI_CODING_AGENT_DIR"]);
+		assertResources("vanilla", vanilla, "✓");
+	} finally {
+		fs.rmSync(tmp, { recursive: true, force: true });
+	}
+}
+
+function scenarioSessionProjectResources() {
+	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "pi-doctor-session-project-"));
+	try {
+		const agentDir = path.join(tmp, "agent");
+		fs.mkdirSync(path.join(tmp, ".pi-cante", "npm", "node_modules", "pi-codex-web-search"), {
+			recursive: true,
+		});
+		fs.mkdirSync(path.join(tmp, ".pi-cante", "skills", "context7-cli"), { recursive: true });
+		const r = spawnSync(process.execPath, [path.join(EXT_DIR, "scripts", "doctor.mjs")], {
+			cwd: tmp,
+			encoding: "utf8",
+			timeout: 60000,
+			env: {
+				...process.env,
+				NO_COLOR: "1",
+				PI_DOCTOR_AGENT_DIR: agentDir,
+				PI_DOCTOR_CONFIG_DIR: ".pi-cante",
+				PI_DYNAMIC_WORKFLOWS_PI_COMMAND: process.execPath,
+			},
+		});
+		const out = `${r.stdout || ""}${r.stderr || ""}`;
+		check(
+			"proyecto de sesión: detecta web-search desde cwd/<config>/npm/node_modules",
+			findDoctorLine(out, "pi-codex-web-search").includes("✓"),
+			findDoctorLine(out, "pi-codex-web-search"),
+		);
+		check(
+			"proyecto de sesión: detecta Context7 desde cwd/<config>/skills",
+			findDoctorLine(out, "skill context7-cli").includes("✓"),
+			findDoctorLine(out, "skill context7-cli"),
+		);
+	} finally {
+		fs.rmSync(tmp, { recursive: true, force: true });
+	}
+}
+
 function scenarioCanonicalSyncChecks() {
 	// Doctor debe delegar en los checks canónicos repo-locales y hacer que cada drift sea accionable:
 	// qué dominio falló y qué comando seguro/idempotente lo arregla. Estos son opcionales: no deben
@@ -296,6 +497,7 @@ function scenarioCanonicalSyncChecks() {
 		);
 		writeFakeSyncScript(path.join(tmp, "scripts", "sync-docs-html.mjs"), "sync-docs-html");
 		writeFakeSyncScript(path.join(tmp, "scripts", "sync-personas-readme.mjs"), "sync-personas-readme");
+		writeFakeSyncScript(path.join(tmp, "scripts", "sync-claude-global.mjs"), "sync-claude-global");
 
 		const r = spawnSync(process.execPath, [path.join(extDir, "scripts", "doctor.mjs")], {
 			cwd: tmp,
@@ -331,6 +533,12 @@ function scenarioCanonicalSyncChecks() {
 				line || out,
 			);
 		}
+		const claudeGlobalLine = findDoctorLine(out, "sincronización global de Claude");
+		check(
+			"sincronización global de Claude: un error sin conteo se reporta como no verificado",
+			claudeGlobalLine.includes("no se pudo verificar") && !claudeGlobalLine.includes(":install"),
+			claudeGlobalLine || out,
+		);
 	} finally {
 		fs.rmSync(tmp, { recursive: true, force: true });
 	}
@@ -428,6 +636,12 @@ async function scenarioHandlerEndToEnd(url) {
 	extension(pi);
 	const notifications = [];
 	const processCwd = fs.mkdtempSync(path.join(os.tmpdir(), "pi-doctor-handler-cwd-"));
+	const hostPackageDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-doctor-host-package-"));
+	const agentDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-doctor-handler-agent-"));
+	fs.writeFileSync(
+		path.join(hostPackageDir, "package.json"),
+		JSON.stringify({ bin: { [process.execPath]: "dist/cli.js" }, piConfig: { name: "pi-cante" } }),
+	);
 	const ctx = {
 		mode: "interactive",
 		hasUI: true,
@@ -435,7 +649,13 @@ async function scenarioHandlerEndToEnd(url) {
 		ui: { notify: (message, type) => notifications.push({ message, type }) },
 	};
 	const originalCwd = process.cwd();
+	const originalPackageDir = process.env.PI_DOCTOR_TEST_PACKAGE_DIR;
+	const originalAgentDir = process.env.PI_DOCTOR_TEST_AGENT_DIR;
+	const originalPiCommand = process.env.PI_DYNAMIC_WORKFLOWS_PI_COMMAND;
 	try {
+		process.env.PI_DOCTOR_TEST_PACKAGE_DIR = hostPackageDir;
+		process.env.PI_DOCTOR_TEST_AGENT_DIR = agentDir;
+		delete process.env.PI_DYNAMIC_WORKFLOWS_PI_COMMAND;
 		process.chdir(processCwd);
 		check("handler: process.cwd difiere de ctx.cwd", process.cwd() !== ctx.cwd);
 		// Corre el `scripts/doctor.mjs` REAL contra ctx.cwd, no contra el cwd del proceso host.
@@ -443,6 +663,14 @@ async function scenarioHandlerEndToEnd(url) {
 	} finally {
 		process.chdir(originalCwd);
 		fs.rmSync(processCwd, { recursive: true, force: true });
+		fs.rmSync(hostPackageDir, { recursive: true, force: true });
+		fs.rmSync(agentDir, { recursive: true, force: true });
+		if (originalPackageDir === undefined) delete process.env.PI_DOCTOR_TEST_PACKAGE_DIR;
+		else process.env.PI_DOCTOR_TEST_PACKAGE_DIR = originalPackageDir;
+		if (originalAgentDir === undefined) delete process.env.PI_DOCTOR_TEST_AGENT_DIR;
+		else process.env.PI_DOCTOR_TEST_AGENT_DIR = originalAgentDir;
+		if (originalPiCommand === undefined) delete process.env.PI_DYNAMIC_WORKFLOWS_PI_COMMAND;
+		else process.env.PI_DYNAMIC_WORKFLOWS_PI_COMMAND = originalPiCommand;
 	}
 	check("handler: notifica exactamente una vez", notifications.length === 1, `count=${notifications.length}`);
 	check(
@@ -458,16 +686,24 @@ async function scenarioHandlerEndToEnd(url) {
 			["info", "warning", "error"].includes(notifications[0]?.type),
 		JSON.stringify(notifications[0]),
 	);
+	check(
+		"handler: el doctor hijo prueba el binario efectivo del host",
+		findDoctorLine(notifications[0]?.message ?? "", "Pi CLI").includes(process.versions.node),
+		findDoctorLine(notifications[0]?.message ?? "", "Pi CLI"),
+	);
 }
 
 async function main() {
-	const { url } = await buildBundle();
+	const { url, helpersUrl } = await buildBundle();
 	await scenarioRegistration(url);
 	await scenarioResolver(url);
 	await scenarioCheckLogic(url);
 	await scenarioConfigurableTimeout(url);
+	await scenarioHostPiCommandResolution(helpersUrl);
 	await scenarioRealSpawnMissingBin(url);
 	scenarioStandaloneDoctor();
+	scenarioEffectiveAgentDir();
+	scenarioSessionProjectResources();
 	scenarioCanonicalSyncChecks();
 	scenarioSyncTimeoutOverride();
 	scenarioPreCommitHookCheck();

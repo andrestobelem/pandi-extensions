@@ -96,9 +96,15 @@ function main() {
 			);
 		});
 
+		const tmpClaude = fs.mkdtempSync(path.join(os.tmpdir(), "claude-global-"));
+		const claudeSync = runNode(CLAUDE, ["install", "--dest", tmpClaude], env);
+		check(
+			"sync-claude-global can seed a clean destination before the discovery check",
+			claudeSync.status === 0,
+			`exit=${claudeSync.status} out=${JSON.stringify(`${claudeSync.stdout}${claudeSync.stderr}`)}`,
+		);
 		const unclassifiedDir = fs.mkdtempSync(path.join(skillsRoot, "__unclassified-skill-"));
 		const skillName = path.basename(unclassifiedDir);
-		const tmpClaude = fs.mkdtempSync(path.join(os.tmpdir(), "claude-global-"));
 		try {
 			fs.writeFileSync(path.join(unclassifiedDir, "SKILL.md"), "# temp unclassified skill\n");
 
@@ -114,13 +120,6 @@ function main() {
 				"vendor-extension-skills --check fails on an unclassified discovered skill",
 				vendorCheck.status === 1 && hasUnclassifiedDiagnostic(vendorCheck, skillName),
 				`exit=${vendorCheck.status} out=${JSON.stringify(`${vendorCheck.stdout}${vendorCheck.stderr}`)}`,
-			);
-
-			const claudeSync = runNode(CLAUDE, ["--dest", tmpClaude], env);
-			check(
-				"sync-claude-global can seed a clean destination before the discovery check",
-				claudeSync.status === 0,
-				`exit=${claudeSync.status} out=${JSON.stringify(`${claudeSync.stdout}${claudeSync.stderr}`)}`,
 			);
 
 			const claudeCheck = runNode(CLAUDE, ["--dest", tmpClaude, "--check"], env);

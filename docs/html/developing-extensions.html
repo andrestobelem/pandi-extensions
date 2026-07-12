@@ -153,15 +153,16 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 	<header>
 		<div class="kicker">docs</div>
 		<h1>Desarrollar y probar extensiones en pi</h1>
-		<p class="lede">Fecha: 2026-07-04</p>
+		<p class="lede">Fecha: 2026-07-12</p>
 	</header>
 	<main>
 <nav class="toc">
 	<p class="toc-title">Contenido</p>
 	<ol>
 		<li><a href="#en-30-segundos">En 30 segundos</a></li>
+		<li><a href="#anatomía-mínima-de-una-extensión">Anatomía mínima de una extensión</a></li>
 		<li><a href="#comando-tool-o-event-handler">¿Comando, tool o event handler?</a></li>
-		<li><a href="#probarla-sin-romper-tu-sesión">Probarla sin romper tu sesión</a></li>
+		<li><a href="#topología-aislada-de-picante">Topología aislada de Picante</a></li>
 		<li><a href="#checklist-de-referencia">Checklist de referencia</a></li>
 		<li><a href="#ver-también">Ver también</a></li>
 	</ol>
@@ -170,8 +171,23 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 explica cómo escribir una extensión de este repo y probarla sin romper la sesión activa. Usala cuando quieras crear una
 extensión nueva, modificar una existente o decidir entre un comando, un tool o un event handler.</p>
 <h2 id="en-30-segundos">En 30 segundos</h2>
-<p>Una extensión exporta una función default que recibe <code>pi: ExtensionAPI</code>. Podés probarla sin instalarla, apuntando
-<code>pi -e</code> al archivo:</p>
+<p>El loop recomendado usa un checkout sibling de <code>pi-cante</code>. Desde este repo:</p>
+<pre><code class="hljs language-bash"><span class="hljs-comment"># feedback primario</span>
+node --<span class="hljs-built_in">test</span> extensions/pandi-&lt;ext&gt;/tests/integration/&lt;algo&gt;.test.mjs
+
+<span class="hljs-comment"># inspección y smokes aislados, sin instalar la suite globalmente</span>
+npm run dev:picante -- status
+npm run smoke:picante
+npm run smoke:picante:tui
+
+<span class="hljs-comment"># TUI interactiva contra los edits actuales</span>
+npm run dev:picante</code></pre>
+<p>El wrapper registra este checkout como package user-scope dentro del agent descartable <code>pi-cante/.pandi-dev/</code> y abre la
+TUI en este repo como workspace real. Los smokes fuerzan un proyecto scratch separado. Deshabilita las copias bundled de
+Pandi, no usa ni modifica perfiles reales y no carga sus packages; <code>/doctor</code> sí puede inspeccionarlos en modo read-only.
+Si los repos no son siblings, definí <code>PI_CANTE_ROOT=/ruta/a/pi-cante</code>.</p>
+<h2 id="anatomía-mínima-de-una-extensión">Anatomía mínima de una extensión</h2>
+<p>Una extensión exporta una función default que recibe <code>pi: ExtensionAPI</code>:</p>
 <pre><code class="hljs language-typescript"><span class="hljs-comment">// extensions/pandi-hello/index.ts</span>
 <span class="hljs-keyword">import</span> <span class="hljs-keyword">type</span> { <span class="hljs-title class_">ExtensionAPI</span> } <span class="hljs-keyword">from</span> <span class="hljs-string">&quot;@earendil-works/pi-coding-agent&quot;</span>;
 
@@ -185,7 +201,6 @@ extensión nueva, modificar una existente o decidir entre un comando, un tool o 
     <span class="hljs-attr">handler</span>: <span class="hljs-title function_">async</span> (args, ctx) =&gt; ctx.<span class="hljs-property">ui</span>.<span class="hljs-title function_">notify</span>(<span class="hljs-string">`Hola <span class="hljs-subst">${args || <span class="hljs-string">&quot;mundo&quot;</span>}</span>!`</span>, <span class="hljs-string">&quot;info&quot;</span>),
   });
 }</code></pre>
-<pre><code class="hljs language-bash">pi -e ./extensions/pandi-hello/index.ts</code></pre>
 <p>Cada extensión de este repo vive en su propio <code>extensions/pandi-&lt;nombre&gt;/index.ts</code> (o un único <code>.ts</code>) y es
 <strong>self-contained</strong>: nada de imports runtime cruzados a otra extensión (<code>../shared/</code> solo existe para el harness de
 tests, nunca para código que corre en producción — ver <code>AGENTS.md</code>). Si dos extensiones necesitan la misma utilidad
@@ -224,13 +239,32 @@ chica (un <code>notify.ts</code>, un parser de flags), se duplica a propósito: 
 <p>Ver la referencia completa de eventos y <code>ExtensionAPI</code> en el
 <a href="https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/extensions.md"><code>extensions.md</code></a> de pi
 upstream (o <code>docs/extensions.md</code> de tu instalación local del paquete).</p>
-<h2 id="probarla-sin-romper-tu-sesión">Probarla sin romper tu sesión</h2>
-<p>Una vez que la extensión existe, queda el problema puntual de este repo: es <strong>auto-hospedado</strong>. La suite está instalada
-globalmente apuntando al propio checkout (<code>packages: [&quot;../../ws/at/pandi-extensions&quot;]</code> en <code>~/.pi/agent/settings.json</code>),
-y <strong>pi carga el TypeScript de las extensiones desde disco</strong> (no bundlea). Entonces un <code>/reload</code> en tu sesión de trabajo
-ejecuta tus edits <strong>sin commitear</strong> al instante — y un error de sintaxis o de carga puede tumbar esa sesión.</p>
-<p>La clave para no sufrirlo es separar <strong>tres ejes ortogonales</strong> que se confunden entre sí. Cada uno se resuelve con una
-herramienta distinta.</p>
+<h2 id="topología-aislada-de-picante">Topología aislada de Picante</h2>
+<p>Este repo sigue siendo auto-hospedado — Picante ejecuta el TypeScript actual desde disco — pero el proceso de prueba ya
+no comparte perfil con la sesión de autoría:</p>
+<pre class="mermaid">flowchart LR
+    E["pandi-extensions checkout"] --&gt; W["wrapper npm"]
+    W --&gt; C["pi-cante desde source"]
+    C --&gt; D[".pandi-dev"]
+    D --&gt; A["agent + sessions"]
+    A --&gt;|"package user-scope aislado"| E
+    W --&gt;|"TUI: workspace real"| E
+    D --&gt; P["scratch project solo para smokes"]</pre>
+<p>Al ejecutar <code>npm run dev:picante</code>, el wrapper:</p>
+<ol>
+<li>encuentra <code>../pi-cante</code> o la ruta indicada por <code>PI_CANTE_ROOT</code>;</li>
+<li>crea o reutiliza <code>pi-cante/.pandi-dev/</code>;</li>
+<li>instala este checkout por ruta local con alcance de usuario dentro del agent descartable, nunca en un home real;</li>
+<li>abre la TUI interactiva en este repo, donde el estado Picante vive en <code>.pi-cante/</code> (gitignored);</li>
+<li>reserva el proyecto scratch para los smokes RPC y TUI;</li>
+<li>fuerza los directorios de agent y sesiones de todas las distros y deshabilita el bundle duplicado;</li>
+<li>hace que Dynamic Workflows, Goal y Rename ejecuten el <code>pi-test.sh</code> de ese mismo checkout.</li>
+</ol>
+<p>Por eso un edit aparece en el siguiente arranque sin publicar ni hacer <code>pi install ./</code> global. También evita que una
+copia instalada en <code>~/.pi</code> se mezcle con la local. El aislamiento cubre configuración, estado y selección de packages;
+<strong>no es un sandbox del sistema operativo</strong>: las extensiones conservan acceso al filesystem, procesos, red y credenciales
+del usuario que lanzó Picante.</p>
+<p>Para razonar sobre las pruebas conviene separar <strong>tres ejes ortogonales</strong>. Cada uno tiene una herramienta distinta.</p>
 <h3>Eje 1 — Corrección: ¿mi edit funciona?</h3>
 <p><strong>Loop primario. Sin riesgo para tu sesión. Es TDD (la vía Farley).</strong></p>
 <p>Los tests de integración <strong>no cargan la extensión en tu sesión</strong>: el harness compartido
@@ -249,42 +283,51 @@ ver en vivo&quot;, suele faltar cubrirlo con un test aislado.</li>
 </ul>
 <p>Este eje debería ser ~90% de tu dev-test. Los ejes 2 y 3 son complementos, no sustitutos.</p>
 <h3>Eje 2 — Seguridad de sesión: ¿un edit roto me tumba la sesión?</h3>
-<p>Este es el problema puntual del repo auto-hospedado. El mecanismo in-place es <code>/reload</code> (comando) o <code>ctx.reload()</code> desde
-un handler; recarga extensiones, skills, prompts y themes leyendo el source <strong>actual de disco</strong>. Ver el ejemplo upstream
-<code>packages/coding-agent/examples/extensions/reload-runtime.ts</code> para el patrón de reload seguro (un tool no puede llamar
-<code>ctx.reload()</code> directo: encola un follow-up <code>/reload</code>).</p>
-<p>El riesgo no es de sandbox — es de <strong>topología de instalación</strong>: dónde apunta el <code>packages[]</code> global y cuándo hacés
-<code>/reload</code>. Estrategias, de más a menos segura:</p>
+<p>Picante convierte la segunda instancia aislada en un comando repetible. Usá cada entrada según el riesgo que querés
+cubrir:</p>
 <div class="table-scroll"><table>
 <thead>
 <tr>
-<th>Estrategia</th>
-<th>Cómo</th>
-<th>Aislamiento</th>
+<th>Comando</th>
+<th>Qué comprueba</th>
+<th>Modelo</th>
 </tr>
 </thead>
 <tbody><tr>
-<td><strong>A. Worktree + segunda instancia pi</strong></td>
-<td><code>git_worktree open &lt;name&gt;</code> → nueva sesión pi ahí; <code>pi install -l ./</code> en el worktree</td>
-<td>Un edit roto solo afecta esa sesión throwaway; tu sesión de trabajo queda intacta</td>
+<td><code>npm run dev:picante -- status</code></td>
+<td>Rutas efectivas, perfil aislado, bundle deshabilitado y única fuente local.</td>
+<td>No</td>
 </tr>
 <tr>
-<td><strong>B. Install project-local en un scratch</strong></td>
-<td><code>pi install -l ./</code> en un dir de prueba; tu global sigue en la versión estable</td>
-<td>La sesión de autoría no depende de tus edits en vuelo</td>
+<td><code>npm run smoke:picante</code></td>
+<td>Carga RPC, cero errores de extensión e inventario exacto del manifiesto resuelto en este checkout.</td>
+<td>No</td>
 </tr>
 <tr>
-<td><strong>C. <code>/reload</code> in-place</strong></td>
-<td>editás + <code>/reload</code> en la misma sesión</td>
-<td><strong>Ninguno.</strong> Rápido pero podés cortar tu loop de trabajo. Solo tras <code>npm test</code> verde</td>
+<td><code>npm run smoke:picante:tui</code></td>
+<td>Startup real en tmux, dashboard <code>/workflows</code> y reporte <code>/doctor</code>; siempre elimina la sesión temporal.</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>npm run dev:picante</code></td>
+<td>TUI interactiva para una exploración manual después de los checks.</td>
+<td>Solo si enviás un prompt</td>
 </tr>
 </tbody></table></div>
-<p><strong>Recomendación:</strong> eje 1 como feedback principal; para smoke en vivo, <strong>estrategia A</strong> — &quot;desarrollar&quot; y &quot;probar&quot; nunca
-comparten proceso.</p>
+<p>El mecanismo in-place sigue siendo <code>/reload</code> (comando) o <code>ctx.reload()</code> desde un handler: recarga extensions, skills,
+prompts y themes leyendo el source actual. Dentro del perfil <code>.pandi-dev</code> es útil; en una sesión estable vuelve a tener
+el riesgo de cargar edits sin commitear. Para el patrón de reload seguro, ver el ejemplo upstream
+<code>packages/coding-agent/examples/extensions/reload-runtime.ts</code>.</p>
 <blockquote>
 <p>Regla relacionada: <strong>no hagas busy-poll de un run en background</strong> — el harness lo trackea y avisa al terminar. (Ver la
 guía del tool <code>dynamic_workflow</code> y el skill <code>ultracode</code>.)</p>
 </blockquote>
+<h3>Compatibilidad opcional con Pi vanilla</h3>
+<p>Solo cuando necesites validar el host vanilla, podés cargar un entry point explícito sin instalarlo:</p>
+<pre><code class="hljs language-bash">pi --no-extensions -e ./extensions/pandi-&lt;ext&gt;/index.ts</code></pre>
+<p>Ese comando requiere el Pi CLI global y queda fuera del loop normal de contribución. Para probar específicamente la
+semántica de instalación, usá <code>pi install -l ./</code> dentro de un proyecto scratch; no apuntes el perfil global al checkout
+de trabajo.</p>
 <h3>Eje 3 — Aislamiento de ejecución: ¿el código bajo prueba puede dañar el host?</h3>
 <p>Eje aparte, <strong>opt-in</strong>. Nada que ver con <code>/reload</code>: acá aislás la <em>ejecución</em> de tools/<code>!</code>-commands, no el ciclo de
 recarga.</p>
@@ -301,13 +344,15 @@ recargás.</p>
 <ol>
 <li>Escribí/actualizá el test aislado primero (eje 1, Red).</li>
 <li>Implementá hasta verde: <code>node --test &lt;suite&gt;</code>; refactor con la red de tests.</li>
-<li><code>npm test</code> completo antes de commitear (gate del repo).</li>
-<li>Smoke en vivo solo si hace falta, en un worktree aparte (eje 2, estrategia A).</li>
-<li>Commit atómico con Conventional Commits + scope (ej. <code>feat(pandi-goal): …</code>).</li>
+<li>Corré <code>npm run dev:picante -- status</code> y <code>npm run smoke:picante</code> para validar la topología y el runtime local.</li>
+<li>Si tocaste startup o TUI, corré <code>npm run smoke:picante:tui</code>.</li>
+<li>Corré <code>npm test</code> completo antes de commitear (gate del repo).</li>
+<li>Hacé un commit atómico con Conventional Commits + scope (ej. <code>feat(pandi-goal): …</code>).</li>
 </ol>
 <h2 id="ver-también">Ver también</h2>
 <ul>
-<li><a href="index.html"><code>README.md</code></a> — instalación / dogfooding (<code>pi install ./</code>, <code>/reload</code>).</li>
+<li><a href="index.html"><code>README.md</code></a> — consumo estable y desarrollo aislado con Picante.</li>
+<li><a href="setup.html"><code>setup.md</code></a> — requisitos y topología de los dos caminos.</li>
 <li>Skill <code>init-pandi-extensions</code> — onboarding desde un clon fresco.</li>
 <li><a href="index.html#verificaci%C3%B3n"><code>README.md#verificación</code></a> — cómo correr <code>npm test</code> (harness de tests, lint, typecheck).</li>
 <li><a href="gondolin-isolation.html"><code>gondolin-isolation.md</code></a> — aislamiento por micro-VM (eje 3).</li>
@@ -315,5 +360,14 @@ recargás.</p>
 	</main>
 	<footer>Generado con el skill pandi-artifact-style · paleta: panda-syntax dark/light</footer>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const pandiMermaidThemes = {"dark":{"background":"#242526","mainBkg":"#292A2B","primaryColor":"#31353A","primaryTextColor":"#E6E6E6","primaryBorderColor":"#676B79","lineColor":"#757575","secondaryColor":"#2E2A33","tertiaryColor":"#31353A","textColor":"#BBBBBB","titleColor":"#FF75B5","nodeTextColor":"#E6E6E6","edgeLabelBackground":"#242526","clusterBkg":"#2E2A33","clusterBorder":"#3E4250","fontFamily":"-apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,sans-serif"},"light":{"background":"#ECECEC","mainBkg":"#F2F1F1","primaryColor":"#E6DBCB","primaryTextColor":"#222223","primaryBorderColor":"#676B79","lineColor":"#8D8D8D","secondaryColor":"#EDE4F8","tertiaryColor":"#E6DBCB","textColor":"#676B79","titleColor":"#FF0077","nodeTextColor":"#222223","edgeLabelBackground":"#ECECEC","clusterBkg":"#EDE4F8","clusterBorder":"#C9C9C9","fontFamily":"-apple-system,BlinkMacSystemFont,\"Segoe UI\",Helvetica,sans-serif"}};
+mermaid.initialize({
+	startOnLoad: true,
+	theme: "base",
+	themeVariables: pandiMermaidThemes[matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"],
+});
+</script>
 </body>
 </html>

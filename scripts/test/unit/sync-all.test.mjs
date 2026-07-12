@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { planSyncScripts, REPO_LOCAL_SYNC_STEPS, runSyncScripts } from "../../sync-all.mjs";
+import { parseArgs, planSyncScripts, REPO_LOCAL_SYNC_STEPS, runSyncScripts } from "../../sync-all.mjs";
 
 const writeScripts = [
 	"format:claude",
@@ -47,7 +47,7 @@ test("planSyncScripts derives write, check, and global plans from one table", ()
 	assert.deepEqual(planSyncScripts({ checkOnly: true }), checkScripts);
 	assert.deepEqual(planSyncScripts({ includeGlobal: true }), [
 		...writeScripts,
-		"sync:claude:global",
+		"sync:claude:global:install",
 		...checkScripts,
 		"sync:claude:global:check",
 	]);
@@ -73,4 +73,9 @@ test("runSyncScripts stops at the first failing npm script", () => {
 		["npm", ["run", "-s", "one"]],
 		["npm", ["run", "-s", "two"]],
 	]);
+});
+
+test("parseArgs rejects destination flags that sync-all cannot forward safely", () => {
+	assert.deepEqual(parseArgs(["--global"]), { checkOnly: false, includeGlobal: true });
+	assert.throws(() => parseArgs(["--global", "--dest", "/tmp/claude"]), /CLAUDE_GLOBAL_DIR.*sync:all:global/);
 });

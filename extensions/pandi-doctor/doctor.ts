@@ -16,8 +16,8 @@
  *     notify.
  */
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 
 export interface DoctorResult {
 	ok: boolean;
@@ -34,8 +34,21 @@ export interface RunDoctorOptions {
 	cwd?: string;
 	signal?: AbortSignal;
 	timeoutMs?: number;
+	/** perfil efectivo de la distribución host, pasado al proceso hijo. */
+	agentDir?: string;
+	/** directorio de configuración por proyecto de la distribución host. */
+	configDir?: string;
+	/** binario efectivo que usan los subagentes de la distribución host. */
+	piCommand?: string;
+	/** argumentos prefijo necesarios para ejecutar el binario efectivo sin shell. */
+	piCommandArgs?: string[];
 	/** binario a ejecutar; se puede sobrescribir para que los tests apunten a un nombre garantizadamente ausente. */
 	bin?: string;
+}
+
+export interface HostPiCommand {
+	command: string;
+	args: string[];
 }
 
 export const DEFAULT_DOCTOR_TIMEOUT_MS = 120_000;
@@ -47,6 +60,41 @@ export function parseTimeoutMs(raw: string | undefined, fallback = DEFAULT_DOCTO
 	return Math.max(MIN_DOCTOR_TIMEOUT_MS, Math.floor(n));
 }
 
+/** Resuelve cómo probar el binario hijo del host sin pasar por una shell. */
+export function resolveHostPiCommand(
+	packageDir: string,
+	env: NodeJS.ProcessEnv = process.env,
+	platform: NodeJS.Platform = process.platform,
+	nodeExecPath = process.execPath,
+): HostPiCommand {
+	if (env.PI_DYNAMIC_WORKFLOWS_PI_COMMAND) {
+		return { command: env.PI_DYNAMIC_WORKFLOWS_PI_COMMAND, args: [] };
+	}
+	try {
+		const pkg = JSON.parse(readFileSync(join(packageDir, "package.json"), "utf8")) as {
+			name?: string;
+			bin?: string | Record<string, string>;
+			piConfig?: { name?: string };
+		};
+		let command: string | undefined;
+		let entrypoint: string | undefined;
+		if (pkg.bin && typeof pkg.bin === "object") {
+			const first = Object.entries(pkg.bin)[0];
+			command = first?.[0];
+			entrypoint = first?.[1];
+		} else if (typeof pkg.bin === "string") {
+			command = pkg.name?.split("/").pop();
+			entrypoint = pkg.bin;
+		}
+		if (platform === "win32" && entrypoint) {
+			return { command: nodeExecPath, args: [resolve(packageDir, entrypoint)] };
+		}
+		return { command: command || pkg.piConfig?.name || "pi", args: [] };
+	} catch {
+		return { command: "pi", args: [] };
+	}
+}
+
 /** Firma compartida por `runDoctor` y el runner falso inyectado en tests. */
 export type RunDoctor = (scriptPath: string, options?: RunDoctorOptions) => Promise<DoctorResult>;
 
@@ -55,7 +103,16 @@ export type RunDoctor = (scriptPath: string, options?: RunDoctorOptions) => Prom
  * salida no cero, timeout o abort siempre resuelven a un DoctorResult (nunca lanza).
  */
 export function runDoctor(scriptPath: string, options: RunDoctorOptions = {}): Promise<DoctorResult> {
-	const { cwd, signal, timeoutMs = DEFAULT_DOCTOR_TIMEOUT_MS, bin = "node" } = options;
+	const {
+		cwd,
+		signal,
+		timeoutMs = DEFAULT_DOCTOR_TIMEOUT_MS,
+		agentDir,
+		configDir,
+		piCommand,
+		piCommandArgs,
+		bin = "node",
+	} = options;
 	return new Promise((resolve) => {
 		let stdout = "";
 		let stderr = "";
@@ -66,7 +123,18 @@ export function runDoctor(scriptPath: string, options: RunDoctorOptions = {}): P
 		const child = spawn(bin, [scriptPath], {
 			cwd,
 			windowsHide: true,
-			env: { ...process.env, NO_COLOR: "1" },
+			env: {
+				...process.env,
+				NO_COLOR: "1",
+				...(agentDir ? { PI_DOCTOR_AGENT_DIR: agentDir } : {}),
+				...(configDir ? { PI_DOCTOR_CONFIG_DIR: configDir } : {}),
+				...(piCommand
+					? {
+							PI_DOCTOR_PI_COMMAND: piCommand,
+							PI_DOCTOR_PI_COMMAND_ARGS: JSON.stringify(piCommandArgs ?? []),
+						}
+					: {}),
+			},
 		});
 
 		const finish = (result: DoctorResult) => {
@@ -162,12 +230,29 @@ export function formatDoctorOutput(result: DoctorResult): { text: string; type: 
  */
 export async function runDoctorCheck(
 	run: RunDoctor,
-	opts: { cwd: string; extDir: string; signal?: AbortSignal; timeoutMs?: number },
+	opts: {
+		cwd: string;
+		extDir: string;
+		signal?: AbortSignal;
+		timeoutMs?: number;
+		agentDir?: string;
+		configDir?: string;
+		piCommand?: string;
+		piCommandArgs?: string[];
+	},
 ): Promise<{ ok: boolean; text: string; type: "info" | "warning" | "error" }> {
 	const script = resolveDoctorScript(opts.cwd, opts.extDir);
 	if (!script) return { ok: false, text: NOT_IN_REPO_HINT, type: "warning" };
 	// Hace spawn con el cwd de la sesión: `doctor.mjs` descubre la raíz de la suite desde ahí.
-	const result = await run(script, { cwd: opts.cwd, signal: opts.signal, timeoutMs: opts.timeoutMs });
+	const result = await run(script, {
+		cwd: opts.cwd,
+		signal: opts.signal,
+		timeoutMs: opts.timeoutMs,
+		agentDir: opts.agentDir,
+		configDir: opts.configDir,
+		piCommand: opts.piCommand,
+		piCommandArgs: opts.piCommandArgs,
+	});
 	const { text, type } = formatDoctorOutput(result);
 	return { ok: result.ok, text, type };
 }

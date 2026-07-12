@@ -23,10 +23,18 @@ independientes: podés instalarlas una por una o todas juntas, según lo que nec
 </div>
 
 - **Licencia:** MIT · **Repo:** <https://github.com/andrestobelem/pandi-extensions>
-- **Requisitos mínimos:** Node.js ≥ 22.19.0 + el CLI de Pi + git. Requisitos completos y capacidades opcionales:
+- **Requisitos base:** Node.js ≥ 22.19.0 + npm + git. El CLI global de Pi solo hace falta para el consumo vanilla; el
+  desarrollo con Picante usa el checkout sibling de `pi-cante`. Requisitos completos y capacidades opcionales:
   [`docs/setup.md`](docs/setup.md).
 
 ## Inicio rápido
+
+Elegí el camino según lo que querés hacer. El consumo estable usa un perfil normal de Pi; el desarrollo usa Picante
+desde source con un perfil descartable y aislado.
+
+### Usar la suite estable desde Pi
+
+Este camino es para **consumir** Pandi con el CLI vanilla de Pi:
 
 ```bash
 # 0. Node >= 22.19.0 (se recomienda nvm; el repo trae .nvmrc)
@@ -36,24 +44,48 @@ nvm install && nvm use
 npm install -g --ignore-scripts @earendil-works/pi-coding-agent
 pi --version
 
-# 2. Cloná el repo e instalá el toolchain de desarrollo
-git clone https://github.com/andrestobelem/pandi-extensions.git
-cd pandi-extensions
-npm install
+# 2. Instalá una release fijada de la suite para tu usuario
+pi install git:github.com/andrestobelem/pandi-extensions@v0.3.13
 
-# 3. Verificá el entorno y luego corré el gate completo
-npm run doctor
-npm test
-
-# 4. Instalá TODAS las extensiones + skills en Pi (global para tu usuario)
-pi install ./                       # local al proyecto: pi install -l ./
-
-# 5. Abrí Pi en tu proyecto, confiá en él y hacé un smoke test
+# 3. Abrí Pi en tu proyecto, confiá en él y hacé un smoke test
 cd /your/project && pi
 #   dentro de Pi:  /trust  y luego  /reload
 #   /effort status      (router de ultracode)
 #   /workflows          (dashboard TUI)  o  /workflow patterns
 ```
+
+### Desarrollar extensiones con Picante
+
+Para contribuir, cloná `pi-cante` y `pandi-extensions` como siblings. No instales el checkout de extensiones en el
+perfil global de Pi:
+
+```bash
+mkdir pandi-dev && cd pandi-dev
+git clone https://github.com/andrestobelem/pi-cante.git
+git clone https://github.com/andrestobelem/pandi-extensions.git
+
+(cd pi-cante && npm install --ignore-scripts)
+(cd pandi-extensions && npm install)
+
+cd pandi-extensions
+npm test
+npm run dev:picante
+```
+
+El wrapper encuentra `../pi-cante`, registra este checkout como package user-scope solo dentro del agent descartable
+`pi-cante/.pandi-dev/` y deshabilita las copias bundled de Pandi. La TUI interactiva abre este repo como workspace real;
+los smokes usan el proyecto scratch. No usa ni modifica perfiles reales (`~/.pi`, `~/.pi-cante`, `~/.pandi`) ni necesita
+la suite o el CLI instalados globalmente. `/doctor` puede inspeccionar rutas globales en modo read-only. Verificá el
+mismo entorno sin llamar a un modelo:
+
+```bash
+npm run dev:picante -- status # perfil, bundle y fuentes efectivas
+npm run smoke:picante         # inventario runtime exacto del manifiesto
+npm run smoke:picante:tui     # startup + /workflows + /doctor mediante tmux
+```
+
+Si los repos no son siblings, definí `PI_CANTE_ROOT=/ruta/a/pi-cante`. El flujo completo está en
+[`docs/developing-extensions.md`](docs/developing-extensions.md).
 
 Los extras opcionales (web search para subagentes, docs de Context7, gráficos PNG, sandboxes Apple `container` y Podman,
 micro-VMs de Gondolin) y la skill externa `karpathy-guidelines` están cubiertos en [`docs/setup.md`](docs/setup.md).
@@ -164,8 +196,8 @@ Usalos como patterns, no como ceremonia: cada rama necesita una razón, un contr
 ## Catálogo de extensiones
 
 Las 28 extensiones del repo se listan abajo: 25 se cargan por defecto desde el campo `pi.extensions` de `package.json`
-cuando corrés `pi install ./`, y las 3 `pandi-ultracode-*` son hosts portables de Ultracode (CLI y plugin del host, sin
-Pi); `pandi-theme` se registra a través de `pi.themes`. Cada extensión también se puede instalar por separado con
+cuando corrés `pi install ./`, y las 3 `pandi-ultracode-*` son hosts portables de Ultracode (CLI y plugin del host,
+sin Pi); `pandi-theme` se registra a través de `pi.themes`. Cada extensión también se puede instalar por separado con
 `pi install ./extensions/<name>`.
 
 | Extensión                          | Surface (human · model)                                                                                                                       | Qué hace                                                                                                                                                                         | Requisitos extra                                |
@@ -201,8 +233,8 @@ Pi); `pandi-theme` se registra a través de `pi.themes`. Cada extensión tambié
 
 > `extensions/shared/` no es una extensión: es código de test harness; nunca se publica ni se carga.
 > `extensions/pandi-theme/` tampoco envía código: es un package solo de temas (`pi.themes`) con las variantes
-> `panda-syntax-dark`/`panda-syntax-light`, el compañero visual de **pandi**; se carga con `pi install ./` y se habilita
-> vía `/settings` o `"theme"`.
+> `panda-syntax-dark`/`panda-syntax-light`, el compañero visual de **pandi**; se carga con `pi install ./` y se
+> habilita vía `/settings` o `"theme"`.
 
 ## Comandos de todos los días
 
@@ -254,7 +286,9 @@ npm test
 
 El gate corre, en este orden: `tsc` (typecheck de todas las extensiones), `biome check .` (lint + format de JS/TS/JSON),
 `markdownlint-cli2` (Markdown), checks de mirrors HTML y personas, tests unitarios y las suites de integración
-colocalizadas vía `scripts/test/run-all.mjs`. Verificá primero tu entorno con `npm run doctor`.
+colocalizadas vía `scripts/test/run-all.mjs`. Para desarrollo aislado, verificá el host efectivo con
+`npm run dev:picante -- status` y `npm run smoke:picante`. `npm run doctor` diagnostica el camino vanilla y puede exigir
+un Pi global cuando se ejecuta fuera del wrapper.
 
 ## Seguimiento de issues
 

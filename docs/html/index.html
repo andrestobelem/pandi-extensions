@@ -190,10 +190,15 @@ independientes: podés instalarlas una por una o todas juntas, según lo que nec
   >
 </div><ul>
 <li><strong>Licencia:</strong> MIT · <strong>Repo:</strong> <a href="https://github.com/andrestobelem/pandi-extensions">https://github.com/andrestobelem/pandi-extensions</a></li>
-<li><strong>Requisitos mínimos:</strong> Node.js ≥ 22.19.0 + el CLI de Pi + git. Requisitos completos y capacidades opcionales:
+<li><strong>Requisitos base:</strong> Node.js ≥ 22.19.0 + npm + git. El CLI global de Pi solo hace falta para el consumo vanilla; el
+desarrollo con Picante usa el checkout sibling de <code>pi-cante</code>. Requisitos completos y capacidades opcionales:
 <a href="setup.html"><code>docs/setup.md</code></a>.</li>
 </ul>
 <h2 id="inicio-rápido">Inicio rápido</h2>
+<p>Elegí el camino según lo que querés hacer. El consumo estable usa un perfil normal de Pi; el desarrollo usa Picante
+desde source con un perfil descartable y aislado.</p>
+<h3>Usar la suite estable desde Pi</h3>
+<p>Este camino es para <strong>consumir</strong> Pandi con el CLI vanilla de Pi:</p>
 <pre><code class="hljs language-bash"><span class="hljs-comment"># 0. Node &gt;= 22.19.0 (se recomienda nvm; el repo trae .nvmrc)</span>
 nvm install &amp;&amp; nvm use
 
@@ -201,23 +206,37 @@ nvm install &amp;&amp; nvm use
 npm install -g --ignore-scripts @earendil-works/pi-coding-agent
 pi --version
 
-<span class="hljs-comment"># 2. Cloná el repo e instalá el toolchain de desarrollo</span>
-git <span class="hljs-built_in">clone</span> https://github.com/andrestobelem/pandi-extensions.git
-<span class="hljs-built_in">cd</span> pandi-extensions
-npm install
+<span class="hljs-comment"># 2. Instalá una release fijada de la suite para tu usuario</span>
+pi install git:github.com/andrestobelem/pandi-extensions@v0.3.13
 
-<span class="hljs-comment"># 3. Verificá el entorno y luego corré el gate completo</span>
-npm run doctor
-npm <span class="hljs-built_in">test</span>
-
-<span class="hljs-comment"># 4. Instalá TODAS las extensiones + skills en Pi (global para tu usuario)</span>
-pi install ./                       <span class="hljs-comment"># local al proyecto: pi install -l ./</span>
-
-<span class="hljs-comment"># 5. Abrí Pi en tu proyecto, confiá en él y hacé un smoke test</span>
+<span class="hljs-comment"># 3. Abrí Pi en tu proyecto, confiá en él y hacé un smoke test</span>
 <span class="hljs-built_in">cd</span> /your/project &amp;&amp; pi
 <span class="hljs-comment">#   dentro de Pi:  /trust  y luego  /reload</span>
 <span class="hljs-comment">#   /effort status      (router de ultracode)</span>
 <span class="hljs-comment">#   /workflows          (dashboard TUI)  o  /workflow patterns</span></code></pre>
+<h3>Desarrollar extensiones con Picante</h3>
+<p>Para contribuir, cloná <code>pi-cante</code> y <code>pandi-extensions</code> como siblings. No instales el checkout de extensiones en el
+perfil global de Pi:</p>
+<pre><code class="hljs language-bash"><span class="hljs-built_in">mkdir</span> pandi-dev &amp;&amp; <span class="hljs-built_in">cd</span> pandi-dev
+git <span class="hljs-built_in">clone</span> https://github.com/andrestobelem/pi-cante.git
+git <span class="hljs-built_in">clone</span> https://github.com/andrestobelem/pandi-extensions.git
+
+(<span class="hljs-built_in">cd</span> pi-cante &amp;&amp; npm install --ignore-scripts)
+(<span class="hljs-built_in">cd</span> pandi-extensions &amp;&amp; npm install)
+
+<span class="hljs-built_in">cd</span> pandi-extensions
+npm <span class="hljs-built_in">test</span>
+npm run dev:picante</code></pre>
+<p>El wrapper encuentra <code>../pi-cante</code>, registra este checkout como package user-scope solo dentro del agent descartable
+<code>pi-cante/.pandi-dev/</code> y deshabilita las copias bundled de Pandi. La TUI interactiva abre este repo como workspace real;
+los smokes usan el proyecto scratch. No usa ni modifica perfiles reales (<code>~/.pi</code>, <code>~/.pi-cante</code>, <code>~/.pandi</code>) ni necesita
+la suite o el CLI instalados globalmente. <code>/doctor</code> puede inspeccionar rutas globales en modo read-only. Verificá el
+mismo entorno sin llamar a un modelo:</p>
+<pre><code class="hljs language-bash">npm run dev:picante -- status <span class="hljs-comment"># perfil, bundle y fuentes efectivas</span>
+npm run smoke:picante         <span class="hljs-comment"># inventario runtime exacto del manifiesto</span>
+npm run smoke:picante:tui     <span class="hljs-comment"># startup + /workflows + /doctor mediante tmux</span></code></pre>
+<p>Si los repos no son siblings, definí <code>PI_CANTE_ROOT=/ruta/a/pi-cante</code>. El flujo completo está en
+<a href="developing-extensions.html"><code>docs/developing-extensions.md</code></a>.</p>
 <p>Los extras opcionales (web search para subagentes, docs de Context7, gráficos PNG, sandboxes Apple <code>container</code> y Podman,
 micro-VMs de Gondolin) y la skill externa <code>karpathy-guidelines</code> están cubiertos en <a href="setup.html"><code>docs/setup.md</code></a>.</p>
 <h2 id="cómo-leer-este-repo">Cómo leer este repo</h2>
@@ -364,8 +383,8 @@ reproducibles.</li>
 <p>Usalos como patterns, no como ceremonia: cada rama necesita una razón, un contrato y una condición de parada.</p>
 <h2 id="catálogo-de-extensiones">Catálogo de extensiones</h2>
 <p>Las 28 extensiones del repo se listan abajo: 25 se cargan por defecto desde el campo <code>pi.extensions</code> de <code>package.json</code>
-cuando corrés <code>pi install ./</code>, y las 3 <code>pandi-ultracode-*</code> son hosts portables de Ultracode (CLI y plugin del host, sin
-Pi); <code>pandi-theme</code> se registra a través de <code>pi.themes</code>. Cada extensión también se puede instalar por separado con
+cuando corrés <code>pi install ./</code>, y las 3 <code>pandi-ultracode-*</code> son hosts portables de Ultracode (CLI y plugin del host,
+sin Pi); <code>pandi-theme</code> se registra a través de <code>pi.themes</code>. Cada extensión también se puede instalar por separado con
 <code>pi install ./extensions/&lt;name&gt;</code>.</p>
 <div class="table-scroll"><table>
 <thead>
@@ -548,8 +567,8 @@ Pi); <code>pandi-theme</code> se registra a través de <code>pi.themes</code>. C
 <blockquote>
 <p><code>extensions/shared/</code> no es una extensión: es código de test harness; nunca se publica ni se carga.
 <code>extensions/pandi-theme/</code> tampoco envía código: es un package solo de temas (<code>pi.themes</code>) con las variantes
-<code>panda-syntax-dark</code>/<code>panda-syntax-light</code>, el compañero visual de <strong>pandi</strong>; se carga con <code>pi install ./</code> y se habilita
-vía <code>/settings</code> o <code>&quot;theme&quot;</code>.</p>
+<code>panda-syntax-dark</code>/<code>panda-syntax-light</code>, el compañero visual de <strong>pandi</strong>; se carga con <code>pi install ./</code> y se
+habilita vía <code>/settings</code> o <code>&quot;theme&quot;</code>.</p>
 </blockquote>
 <h2 id="comandos-de-todos-los-días">Comandos de todos los días</h2>
 <pre><code class="hljs language-text">/workflows                              # dashboard TUI (Monitor/Agents/Sessions/Runs/Workflows/Patterns/Activity)
@@ -591,7 +610,9 @@ self-hosted sin romper tu sesión.</li>
 <pre><code class="hljs language-bash">npm <span class="hljs-built_in">test</span></code></pre>
 <p>El gate corre, en este orden: <code>tsc</code> (typecheck de todas las extensiones), <code>biome check .</code> (lint + format de JS/TS/JSON),
 <code>markdownlint-cli2</code> (Markdown), checks de mirrors HTML y personas, tests unitarios y las suites de integración
-colocalizadas vía <code>scripts/test/run-all.mjs</code>. Verificá primero tu entorno con <code>npm run doctor</code>.</p>
+colocalizadas vía <code>scripts/test/run-all.mjs</code>. Para desarrollo aislado, verificá el host efectivo con
+<code>npm run dev:picante -- status</code> y <code>npm run smoke:picante</code>. <code>npm run doctor</code> diagnostica el camino vanilla y puede exigir
+un Pi global cuando se ejecuta fuera del wrapper.</p>
 <h2 id="seguimiento-de-issues">Seguimiento de issues</h2>
 <p>El trabajo se sigue en el GitHub Project <strong><a href="https://github.com/users/andrestobelem/projects/4">pandi</a></strong> (board v2).</p>
 <ul>

@@ -34,7 +34,12 @@ export function planSyncScripts({ checkOnly = false, includeGlobal = false } = {
 	}
 
 	if (includeGlobal) {
-		return [...repoLocalScripts(false), "sync:claude:global", ...repoLocalScripts(true), "sync:claude:global:check"];
+		return [
+			...repoLocalScripts(false),
+			"sync:claude:global:install",
+			...repoLocalScripts(true),
+			"sync:claude:global:check",
+		];
 	}
 
 	return repoLocalScripts(false);
@@ -50,6 +55,12 @@ export function runSyncScripts(scripts, { cwd = REPO, spawn = spawnSync } = {}) 
 }
 
 export function parseArgs(args = process.argv.slice(2)) {
+	const unsupported = args.filter((arg) => arg !== "--check" && arg !== "--global");
+	if (unsupported.length > 0) {
+		throw new Error(
+			`unsupported sync-all argument '${unsupported[0]}'; set CLAUDE_GLOBAL_DIR when running sync:all:global`,
+		);
+	}
 	return {
 		checkOnly: parseCheckOnly(args),
 		includeGlobal: args.includes("--global"),
@@ -57,11 +68,16 @@ export function parseArgs(args = process.argv.slice(2)) {
 }
 
 function main(args = process.argv.slice(2)) {
-	const plan = planSyncScripts(parseArgs(args));
-	const result = runSyncScripts(plan);
-	if (!result.ok) {
-		console.error(`[sync-all] failed at ${result.failedScript}`);
-		process.exit(result.status);
+	try {
+		const plan = planSyncScripts(parseArgs(args));
+		const result = runSyncScripts(plan);
+		if (!result.ok) {
+			console.error(`[sync-all] failed at ${result.failedScript}`);
+			process.exitCode = result.status;
+		}
+	} catch (error) {
+		console.error(`[sync-all] ${error instanceof Error ? error.message : String(error)}`);
+		process.exitCode = 1;
 	}
 }
 

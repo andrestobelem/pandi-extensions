@@ -45,7 +45,7 @@ function runDoctor(globalDir) {
 }
 
 function runSync(dest) {
-	return spawnSync(process.execPath, [SYNC, "--dest", dest], { cwd: REPO_ROOT, encoding: "utf8" });
+	return spawnSync(process.execPath, [SYNC, "install", "--dest", dest], { cwd: REPO_ROOT, encoding: "utf8" });
 }
 
 // The line doctor prints for this capability. Matched loosely (label text may evolve) but must

@@ -7,7 +7,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const SCRIPT = path.join(REPO, "scripts", "sync-claude-global.mjs");
-const { parseArgs, planPairs, walk } = await import(pathToFileURL(SCRIPT).href);
+const { MANIFEST_NAME, parseArgs, planPairs, walk } = await import(pathToFileURL(SCRIPT).href);
 
 function writeFile(file, content = "x") {
 	fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -20,20 +20,31 @@ function relativePairs(root, pairs) {
 		.sort((a, b) => `${a.src}->${a.dst}`.localeCompare(`${b.src}->${b.dst}`));
 }
 
-test("parseArgs resolves check and destination from flags, env, or home", () => {
+test("parseArgs defaults to read-only status and resolves explicit actions and destination", () => {
 	const home = path.join(os.tmpdir(), "claude-home");
 	assert.deepEqual(parseArgs(["--check", "--dest", "./out"], {}, home), {
-		checkOnly: true,
+		action: "status",
 		dest: path.resolve("./out"),
 	});
 	assert.deepEqual(parseArgs([], { CLAUDE_GLOBAL_DIR: "./env-out" }, home), {
-		checkOnly: false,
+		action: "status",
 		dest: path.resolve("./env-out"),
 	});
-	assert.deepEqual(parseArgs([], {}, home), {
-		checkOnly: false,
+	assert.deepEqual(parseArgs(["install"], {}, home), {
+		action: "install",
 		dest: path.resolve(home, ".claude"),
 	});
+	assert.deepEqual(parseArgs(["remove"], {}, home), {
+		action: "remove",
+		dest: path.resolve(home, ".claude"),
+	});
+	assert.throws(() => parseArgs(["install", "--dest", "--check"], {}, home), /--dest requires a directory/);
+	assert.throws(() => parseArgs(["install", "--dest", "remove"], {}, home), /--dest requires a directory/);
+	assert.throws(() => parseArgs(["prune"], {}, home), /expected status, install, or remove/);
+});
+
+test("ownership manifest has a stable reserved filename", () => {
+	assert.equal(MANIFEST_NAME, ".pandi-extensions-managed.json");
 });
 
 test("walk returns recursive relative files and tolerates missing roots", () => {
@@ -58,18 +69,23 @@ test("planPairs expands workflows, runtime helpers, project skills, and primitiv
 		writeFile(path.join(repoRoot, ".claude", "scripts", "build-workflow-artifact.mjs"));
 		writeFile(path.join(repoRoot, ".claude", "scripts", "lib", "artifact.mjs"));
 		writeFile(path.join(repoRoot, ".claude", "skills", "skill-a", "SKILL.md"));
+		writeFile(path.join(repoRoot, ".claude", "skills", "ultracode", "SKILL.md"));
+		writeFile(path.join(repoRoot, ".claude", "skills", "ultracode", "reference", "primitives", "agent.md"), "mirror");
 		writeFile(path.join(skillsRoot, "ultracode", "reference", "primitives", "agent.md"));
 
-		assert.deepEqual(relativePairs(root, planPairs(dest, { repoRoot, skillsRoot, projectSkills: ["skill-a"] })), [
+		const pairs = planPairs(dest, { repoRoot, skillsRoot, projectSkills: ["skill-a", "ultracode"] });
+		assert.deepEqual(relativePairs(root, pairs), [
 			{ src: "repo/.claude/scripts/build-workflow-artifact.mjs", dst: "dest/scripts/build-workflow-artifact.mjs" },
 			{ src: "repo/.claude/scripts/lib/artifact.mjs", dst: "dest/scripts/lib/artifact.mjs" },
 			{ src: "repo/.claude/skills/skill-a/SKILL.md", dst: "dest/skills/skill-a/SKILL.md" },
+			{ src: "repo/.claude/skills/ultracode/SKILL.md", dst: "dest/skills/ultracode/SKILL.md" },
 			{ src: "repo/.claude/workflows/w.js", dst: "dest/workflows/w.js" },
 			{
 				src: "repo/.pi/skills/ultracode/reference/primitives/agent.md",
 				dst: "dest/skills/ultracode/reference/primitives/agent.md",
 			},
 		]);
+		assert.equal(new Set(pairs.map(({ dst }) => dst)).size, pairs.length);
 	} finally {
 		fs.rmSync(root, { recursive: true, force: true });
 	}

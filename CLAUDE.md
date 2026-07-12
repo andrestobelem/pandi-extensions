@@ -103,18 +103,21 @@ guías derivan de notas de Andrej Karpathy sobre errores comunes de LLMs al code
 
 ## Verificación y repo auto-hospedado
 
-Este repo puede estar instalado globalmente apuntando al mismo checkout de trabajo: `/reload` puede cargar TypeScript
-sin commitear y un error de carga puede tumbar la sesión. Loop seguro:
+Este repo puede seguir instalado en un perfil vanilla, pero el loop normal de desarrollo usa el checkout sibling de
+`pi-cante`: registra el source local dentro del agent descartable `pi-cante/.pandi-dev/`, abre la TUI en este checkout,
+deshabilita el bundle y no comparte el perfil de la sesión de autoría. Loop seguro:
 
 1. **Primero tests aislados.** Usá suites de integración con el harness (`node --test ...` o `npm test`) antes de smoke
    tests en vivo.
-2. **Smoke en vivo en worktree aparte.** Si necesitás probar comandos Pi reales, abrí una segunda sesión en un worktree
-   (`git_worktree open ...`) y hacé `pi install ./ -l` ahí.
-3. **TypeScript con tool dedicado.** Para archivos TypeScript tocados, preferí `typescript_diagnostics` sobre invocar
+2. **Smoke con Picante aislado.** Corré `npm run dev:picante -- status` y `npm run smoke:picante`; si tocaste startup o
+   TUI, sumá `npm run smoke:picante:tui`. No instales el checkout en el perfil global de Pi.
+3. **Compatibilidad vanilla, solo cuando aplica.** Si necesitás probar semántica específica de Pi vanilla, usá un
+   worktree o proyecto scratch separado y `pi install -l ./`; no conviertas ese camino en el loop por defecto.
+4. **TypeScript con tool dedicado.** Para archivos TypeScript tocados, preferí `typescript_diagnostics` sobre invocar
    `tsc` a mano.
-4. **Markdown tocado.** Para Markdown, corré `npx markdownlint-cli2 ":ruta.md"` o `npm run lint:md` cuando el alcance
+5. **Markdown tocado.** Para Markdown, corré `npx markdownlint-cli2 ":ruta.md"` o `npm run lint:md` cuando el alcance
    sea repo-wide.
-5. **Gate completo.** `npm test` corre `typecheck`, `biome check .`, `markdownlint-cli2`, checks de sync/docs/personas,
+6. **Gate completo.** `npm test` corre `typecheck`, `biome check .`, `markdownlint-cli2`, checks de sync/docs/personas,
    unit tests e integración. Usalo antes de cerrar trabajo amplio o cuando el árbol esté bajo control.
 
 ## Docs y prosa

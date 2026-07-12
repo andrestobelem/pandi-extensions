@@ -78,7 +78,12 @@ check(
 check(
 	"sync runner global mode writes global mirror and verifies after writing",
 	JSON.stringify(planSyncScripts({ includeGlobal: true })) ===
-		JSON.stringify([...repoLocalSyncSteps, "sync:claude:global", ...repoLocalCheckSteps, "sync:claude:global:check"]),
+		JSON.stringify([
+			...repoLocalSyncSteps,
+			"sync:claude:global:install",
+			...repoLocalCheckSteps,
+			"sync:claude:global:check",
+		]),
 );
 check(
 	"pre-commit reaches sync:check:all via the fast gate",
