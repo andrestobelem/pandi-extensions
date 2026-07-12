@@ -1,14 +1,11 @@
 // plan.mjs — renderer puro de la pestaña Plan del workflow artifact.
 // Convierte el modelo estático ya extraído (meta/fases/nodos/composición/procedencia)
 // en una lectura humana de “qué se va a ejecutar” antes de lanzar el run.
-const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;").replace(/'/g, "&#39;");
+import { empty, emptyPhase, escapeHtml, monoHtml, uniqueBy } from "./util.mjs";
 
-const empty = (value) => value === undefined || value === null || value === "" || value === "—";
-const emptyPhase = (value) => value === undefined || value === null || value === "";
-const uniqueBy = (items, isEmpty) => [...new Set(items.filter((x) => !isEmpty(x)).map(String))];
-const unique = (items) => uniqueBy(items, empty);
+const esc = escapeHtml;
 const uniquePhases = (items) => uniqueBy(items, emptyPhase);
-const mono = (value) => `<code>${esc(value)}</code>`;
+const mono = monoHtml;
 
 function phaseOrder(phases, nodes) {
   const declared = uniquePhases(phases);

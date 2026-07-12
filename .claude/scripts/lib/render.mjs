@@ -2,7 +2,7 @@
 // y produce el string HTML autocontenido. Puro: sin file IO, sin estado de proceso.
 import { renderWorkflowMonitor } from "./monitor.mjs";
 import { renderWorkflowPlan } from "./plan.mjs";
-import { phaseTitleOf } from "./util.mjs";
+import { escapeHtml, phaseTitleOf, plural, shortModel } from "./util.mjs";
 
 // Detecta un resultado de Contract Gate para mostrarlo en una tab Contract dedicada: el valor de retorno
 // del run (o un artifact contract.json) que trae la forma del contrato. Los nombres de campos toleran tanto
@@ -18,10 +18,8 @@ function detectContract(runData) {
 }
 const mmId = (s) => "P" + String(s).replace(/[^A-Za-z0-9]/g, "_");
 const mmLabel = (s) => String(s).replace(/["\[\]{}|<>`$]/g, " ").replace(/\s+/g, " ").trim();
-const shortModel = (m) => (m && m !== "inherited" ? String(m).split("/").pop() : null);
-const nodeME = (n) => [shortModel(n.model), n.effort && n.effort !== "inherited" ? n.effort : null].filter(Boolean).join("/");
-const escHtml = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;").replace(/'/g, "&#39;");
-const plural = (count, singular, pluralForm = `${singular}s`) => (count === 1 ? singular : pluralForm);
+const nodeME = (n) => [shortModel(n.model, null), n.effort && n.effort !== "inherited" ? n.effort : null].filter(Boolean).join("/");
+const escHtml = escapeHtml;
 
 function artifactKicker(runData, previewMode) {
   if (!runData) return previewMode === "evaluated" ? "Workflow dinámico · preview evaluado" : "Workflow dinámico · preview estático";

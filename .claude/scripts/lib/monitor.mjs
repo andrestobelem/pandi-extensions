@@ -1,16 +1,8 @@
 // monitor.mjs — renderer puro de la pestaña Monitor del workflow artifact.
 // Replica la lectura del monitor TUI: estado, progreso, agentes, actividad y evidencia cruda.
-const esc = (s) =>
-  String(s ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+import { escapeHtml, plural, shortModel, empty } from "./util.mjs";
 
-const empty = (value) => value === undefined || value === null || value === "" || value === "—";
-const shortModel = (value) => (value && value !== "inherited" ? String(value).split("/").pop() : "inherited");
-const plural = (count, singular, pluralForm = `${singular}s`) => (count === 1 ? singular : pluralForm);
+const esc = escapeHtml;
 
 function meter(fraction, kind = "ok") {
   const pct = Math.max(0, Math.min(1, Number.isFinite(fraction) ? fraction : 0));

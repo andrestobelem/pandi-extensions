@@ -1,6 +1,8 @@
 // Extracción conservadora para previews parse-only. Solo interpreta literales
 // JSON-like y llamadas conocidas; nunca evalúa ni importa el workflow.
 
+import { fallbackMeta } from "./util.mjs";
+
 const CALL_NAMES = new Set(["agent", "agents", "parallel", "phase", "workflow"]);
 
 function skipSpaceAndComments(source, start) {
@@ -356,14 +358,6 @@ function dynamicRole(value) {
 	if (!value?.includes("‹runtime value›")) return value;
 	const stable = value.replace(/[-_.:/\s]*‹runtime value›.*$/, "").trim();
 	return stable || undefined;
-}
-
-function fallbackMeta(scriptPath) {
-	return {
-		name: scriptPath.split("/").pop().replace(/\.(?:m?js|cjs)$/, ""),
-		description: "",
-		phases: [],
-	};
 }
 
 function scanMeta(source, scriptPath) {

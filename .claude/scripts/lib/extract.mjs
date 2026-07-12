@@ -4,15 +4,7 @@ import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { scanPreviewSource } from "./source-scan.mjs";
-import { norm, phaseTitleOf } from "./util.mjs";
-
-function fallbackMeta(scriptPath) {
-	return {
-		name: scriptPath.split("/").pop().replace(/\.(?:m?js|cjs)$/, ""),
-		description: "",
-		phases: [],
-	};
-}
+import { norm, phaseTitleOf, fallbackMeta } from "./util.mjs";
 
 async function evaluatePreviewSource({ scriptPath, raw, argsObj }) {
   const transformed = raw
