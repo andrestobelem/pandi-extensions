@@ -1,6 +1,6 @@
 {
 	"name": "pandi-extensions",
-	"version": "0.3.14",
+	"version": "0.3.15",
 	"private": true,
 	"workspaces": [
 		"extensions/pandi",
