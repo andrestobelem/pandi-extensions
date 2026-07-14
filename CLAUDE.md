@@ -75,6 +75,20 @@ Usá estos skills cuando el trabajo toque su dominio:
 | `empirical-software-design`   | Micro-ritmo de TDD, tamaño de paso, fake/triangulate, tidy first/after/later/never y reversibilidad.                                             |
 | `clean-craftsmanship`         | Legibilidad, SOLID/componentes, Clean Architecture, dependencia y disciplina profesional.                                                        |
 
+## Agent skills
+
+### Issue tracker
+
+El trabajo se sigue en GitHub Issues del repositorio. Ver `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Se usan las cinco etiquetas canónicas de triage. Ver `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+El repo usa layout single-context; la documentación de dominio se crea de forma perezosa. Ver `docs/agents/domain.md`.
+
 Aplicá cada lente donde aporta: `ai-assisted-engineering` para el orquestador; `karpathy-guidelines` +
 `modern-software-engineering` para workers que escriben/verifican código; `empirical-software-design` para el ritmo
 fino; `clean-craftsmanship` para oficio y límites de diseño. Deferencia TDD: `modern-software-engineering` gobierna el
