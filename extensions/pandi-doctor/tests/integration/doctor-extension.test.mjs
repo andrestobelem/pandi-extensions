@@ -166,7 +166,7 @@ async function scenarioCheckLogic(url) {
 			cwd: nestedCwd,
 			extDir: EXT_DIR,
 			agentDir: "/tmp/picante-agent",
-			configDir: ".pi-cante",
+			configDir: ".picante",
 			piCommand: "/tmp/picante",
 			piCommandArgs: ["/tmp/dist/cli.js"],
 		});
@@ -178,7 +178,7 @@ async function scenarioCheckLogic(url) {
 		check(
 			"runDoctorCheck: propaga perfil y comando efectivos al proceso hijo",
 			run.opts[0]?.agentDir === "/tmp/picante-agent" &&
-				run.opts[0]?.configDir === ".pi-cante" &&
+				run.opts[0]?.configDir === ".picante" &&
 				run.opts[0]?.piCommand === "/tmp/picante" &&
 				run.opts[0]?.piCommandArgs?.[0] === "/tmp/dist/cli.js",
 			JSON.stringify(run.opts[0]),
@@ -448,11 +448,11 @@ function scenarioSessionProjectResources() {
 	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "pi-doctor-session-project-"));
 	try {
 		const agentDir = path.join(tmp, "agent");
-		fs.mkdirSync(path.join(tmp, ".pi-cante", "npm", "node_modules", "pi-codex-web-search"), {
+		fs.mkdirSync(path.join(tmp, ".picante", "npm", "node_modules", "pi-codex-web-search"), {
 			recursive: true,
 		});
-		fs.mkdirSync(path.join(tmp, ".pi-cante", "npm", "node_modules", "pi-mcp-adapter"), { recursive: true });
-		fs.mkdirSync(path.join(tmp, ".pi-cante", "skills", "context7-cli"), { recursive: true });
+		fs.mkdirSync(path.join(tmp, ".picante", "npm", "node_modules", "pi-mcp-adapter"), { recursive: true });
+		fs.mkdirSync(path.join(tmp, ".picante", "skills", "context7-cli"), { recursive: true });
 		const r = spawnSync(process.execPath, [path.join(EXT_DIR, "scripts", "doctor.mjs")], {
 			cwd: tmp,
 			encoding: "utf8",
@@ -461,7 +461,7 @@ function scenarioSessionProjectResources() {
 				...process.env,
 				NO_COLOR: "1",
 				PI_DOCTOR_AGENT_DIR: agentDir,
-				PI_DOCTOR_CONFIG_DIR: ".pi-cante",
+				PI_DOCTOR_CONFIG_DIR: ".picante",
 				PI_DYNAMIC_WORKFLOWS_PI_COMMAND: process.execPath,
 			},
 		});

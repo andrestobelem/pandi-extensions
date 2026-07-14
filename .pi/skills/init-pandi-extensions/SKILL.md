@@ -60,7 +60,7 @@ npm run dev:picante
 ```
 
 Si los repos no son siblings, definí `PI_CANTE_ROOT=/ruta/a/pi-cante`. Picante registra la suite con alcance de usuario
-solo dentro de `pi-cante/.pandi-dev/agent`; el workspace real usa `.pi-cante/` project-local. No ejecutes `pi install
+solo dentro de `pi-cante/.pandi-dev/agent`; el workspace real usa `.picante/` project-local. No ejecutes `pi install
 ./` ni instales Pi globalmente para esta rama.
 
 **Cierre Picante:** `status` muestra el agent descartable y una sola fuente local; ambos smokes y `npm test` terminan
@@ -151,7 +151,7 @@ npm run dev:picante
 
 Picante registra este checkout con alcance de usuario solo dentro de `.pandi-dev/agent`, abre la TUI con este repo como
 cwd real y reserva el proyecto scratch para los smokes. No toca perfiles reales; el estado del workspace vive en
-`.pi-cante/` (gitignored).
+`.picante/` (gitignored).
 
 Como validación separada y opt-in de compatibilidad, este checkout también cablea cada extensión para Pi vanilla
 mediante `.pi/settings.json` (`packages: [...]`). Solo si elegiste esa rama, corré `pi` en el repo root y hacé `/trust`.

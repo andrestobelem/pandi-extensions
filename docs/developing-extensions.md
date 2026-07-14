@@ -89,7 +89,7 @@ Al ejecutar `npm run dev:picante`, el wrapper:
 1. encuentra `../pi-cante` o la ruta indicada por `PI_CANTE_ROOT`;
 2. crea o reutiliza `pi-cante/.pandi-dev/`;
 3. instala este checkout por ruta local con alcance de usuario dentro del agent descartable, nunca en un home real;
-4. abre la TUI interactiva en este repo, donde el estado Picante vive en `.pi-cante/` (gitignored);
+4. abre la TUI interactiva en este repo, donde el estado Picante vive en `.picante/` (gitignored);
 5. reserva el proyecto scratch para los smokes RPC y TUI;
 6. fuerza los directorios de agent y sesiones de todas las distros y deshabilita el bundle duplicado;
 7. hace que Dynamic Workflows, Goal y Rename ejecuten el `pi-test.sh` de ese mismo checkout.

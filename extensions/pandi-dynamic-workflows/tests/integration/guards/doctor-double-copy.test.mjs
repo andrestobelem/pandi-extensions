@@ -45,7 +45,7 @@ function runDoctor(agentDir) {
 	return spawnSync(process.execPath, [DOCTOR], {
 		cwd: REPO_ROOT,
 		encoding: "utf8",
-		env: { ...process.env, PI_DOCTOR_AGENT_DIR: agentDir, NO_COLOR: "1" },
+		env: { ...process.env, PI_DOCTOR_AGENT_DIR: agentDir, PI_DOCTOR_CONFIG_DIR: ".pi", NO_COLOR: "1" },
 	});
 }
 

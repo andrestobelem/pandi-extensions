@@ -74,7 +74,7 @@ npm run dev:picante
 
 El wrapper encuentra `../pi-cante`, registra este checkout como package user-scope solo dentro del agent descartable
 `pi-cante/.pandi-dev/` y deshabilita las copias bundled de Pandi. La TUI interactiva abre este repo como workspace real;
-los smokes usan el proyecto scratch. No usa ni modifica perfiles reales (`~/.pi`, `~/.pi-cante`, `~/.pandi`) ni necesita
+los smokes usan el proyecto scratch. No usa ni modifica perfiles reales (`~/.pi`, `~/.picante`, `~/.pandi`) ni necesita
 la suite o el CLI instalados globalmente. `/doctor` puede inspeccionar rutas globales en modo read-only. Verificá el
 mismo entorno sin llamar a un modelo:
 

@@ -7,6 +7,8 @@
 examples/.pi/
 
 # Picante project state when the isolated dev TUI opens this checkout as its real workspace.
+.picante/
+# Legacy Picante project state from before the .picante migration.
 .pi-cante/
 
 # Claude Code project-local state (workflows/skills/scripts it creates); not tracked or linted.

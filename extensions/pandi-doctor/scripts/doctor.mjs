@@ -64,7 +64,7 @@ const agentDir =
 	path.join(home, ".pi", "agent");
 const projectConfigDir =
 	process.env.PI_DOCTOR_CONFIG_DIR ||
-	(process.env.PI_CANTE_CODING_AGENT_DIR ? ".pi-cante" : process.env.PANDI_CODING_AGENT_DIR ? ".pandi" : ".pi");
+	(process.env.PI_CANTE_CODING_AGENT_DIR ? ".picante" : process.env.PANDI_CODING_AGENT_DIR ? ".pandi" : ".pi");
 const dynamicPiCommand = process.env.PI_DYNAMIC_WORKFLOWS_PI_COMMAND;
 const piCommand = dynamicPiCommand || process.env.PI_DOCTOR_PI_COMMAND || "pi";
 const piCommandArgs = (() => {

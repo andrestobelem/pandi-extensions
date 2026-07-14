@@ -361,7 +361,7 @@ este repo como <code>PANDI_EXTENSIONS_ROOT</code> y <code>PI_CANTE_DEV_WORKSPACE
     W --&gt;|"TUI: workspace real"| E
     D --&gt; P["scratch project solo para smokes"]</pre>
 <p>El perfil <code>.pandi-dev/</code> registra este checkout con alcance de usuario <strong>solo dentro de su agent descartable</strong>; no es una
-instalación user-wide real. La TUI usa este repo como cwd y guarda su estado Picante en <code>.pi-cante/</code> (gitignored). Los
+instalación user-wide real. La TUI usa este repo como cwd y guarda su estado Picante en <code>.picante/</code> (gitignored). Los
 smokes fuerzan el proyecto scratch, el bundle queda deshabilitado y ningún package de <code>~/.pi</code> entra en la sesión.
 <code>/doctor</code> sí puede inspeccionar rutas globales en modo read-only. Es aislamiento de <strong>configuración</strong>, no un sandbox del
 sistema operativo; las extensiones conservan los permisos del proceso que lanzó Picante.</p>

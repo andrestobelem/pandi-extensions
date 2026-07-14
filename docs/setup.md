@@ -115,7 +115,7 @@ flowchart LR
 ```
 
 El perfil `.pandi-dev/` registra este checkout con alcance de usuario **solo dentro de su agent descartable**; no es una
-instalación user-wide real. La TUI usa este repo como cwd y guarda su estado Picante en `.pi-cante/` (gitignored). Los
+instalación user-wide real. La TUI usa este repo como cwd y guarda su estado Picante en `.picante/` (gitignored). Los
 smokes fuerzan el proyecto scratch, el bundle queda deshabilitado y ningún package de `~/.pi` entra en la sesión.
 `/doctor` sí puede inspeccionar rutas globales en modo read-only. Es aislamiento de **configuración**, no un sandbox del
 sistema operativo; las extensiones conservan los permisos del proceso que lanzó Picante.

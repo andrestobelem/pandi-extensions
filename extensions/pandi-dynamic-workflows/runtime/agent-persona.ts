@@ -238,7 +238,7 @@ function resolveDefaultContext7Skill(ctx: ExtensionContext): string | undefined 
 				]
 			: []),
 		// getAgentDir() ya resuelve el global skills root de la distribución host
-		// (~/.pi/agent bajo vanilla pi, ~/.pi-cante/agent bajo pi-cante), así no
+		// (~/.pi/agent bajo vanilla pi, ~/.picante/agent bajo picante), así no
 		// se necesita hardcoded ~/.pi fallback aquí.
 		path.join(getAgentDir(), "skills", DEFAULT_CONTEXT7_SKILL_NAME),
 		path.join(os.homedir(), ".agents", "skills", DEFAULT_CONTEXT7_SKILL_NAME),

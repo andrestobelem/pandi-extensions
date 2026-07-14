@@ -3,23 +3,23 @@ Desarrollar pi-cante con Picante
 Desde este repo, no abras `pi` a secas:
 
   cd /Users/andrestobelem/ws/at/pi-cante
-  npm run dev:picante -- status
+  ./picante status
   npm run smoke:picante
   npm run smoke:picante:tui
-  npm run dev:picante
+  ./picante
 
-El wrapper abre Picante desde source sobre este checkout y usa un perfil
+El wrapper `./picante` abre Picante desde source sobre este checkout y usa un perfil
 descartable en .pandi-dev. Carga el checkout sibling de pandi-extensions sin
-modificar ~/.pi, ~/.pi-cante ni ~/.pandi.
+modificar ~/.pi, ~/.picante ni ~/.pandi.
 
 Después de cambiar código de Picante (CLI, TUI, RPC o scripts), cerrá y volvé a
-ejecutar `npm run dev:picante`. Antes de terminar un cambio de código, corré:
+ejecutar `./picante`. Antes de terminar un cambio de código, corré:
 
   npm run check
 
 Si pandi-extensions no está como sibling:
 
-  PANDI_EXTENSIONS_ROOT=/ruta/a/pandi-extensions npm run dev:picante
+  PANDI_EXTENSIONS_ROOT=/ruta/a/pandi-extensions ./picante
 
 Desarrollar pandi-extensions con Picante
 
@@ -35,7 +35,7 @@ Desde el repo de extensiones:
 
 El wrapper abre Picante desde este checkout de pi-cante, usa pandi-extensions
 como workspace real y guarda el perfil de desarrollo aislado en .pandi-dev.
-No modifica ~/.pi, ~/.pi-cante ni ~/.pandi.
+No modifica ~/.pi, ~/.picante ni ~/.pandi.
 
 Después de editar una extensión, usá /reload o cerrá y volvé a ejecutar:
 

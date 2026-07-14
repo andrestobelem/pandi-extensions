@@ -28,7 +28,7 @@ node scripts/release-distros-flow.mjs --prepare --commit --publish --push
 
   | key                             | npm                                                                                                    | bin        | configDir   |
   | ------------------------------- | ------------------------------------------------------------------------------------------------------ | ---------- | ----------- |
-  | `pi-cante` (default commiteado) | `@pandi-coding-agent/pi-cante`                                                                         | `picante`  | `.pi-cante` |
+  | `pi-cante` (default commiteado) | `@pandi-coding-agent/pi-cante`                                                                         | `picante`  | `.picante` |
   | `pandi`                         | `pandi-coding-agent` (sin scope — `@pandi-coding-agent/pandi` ya está tomado por la extensión _pandi_) | `pandi`    | `.pandi`    |
 
 - **Versiones**: `<upstream base>-<distro>.<n>` (por ejemplo `0.80.3-cante.1`). Los prereleases de npm DEBEN publicarse
