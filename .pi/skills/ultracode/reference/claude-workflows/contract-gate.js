@@ -64,7 +64,7 @@
  * Input : { request (raw user ask, REQUIRED; aliases task|text|question), context?,
  *           reviewers?=3 (independent contract reviewers + synthesis for robustness),
  *           improvePrompt?=true (rewrite into a clean prompt; false forwards raw
- *           request+contract), generate?=false, maxQuestions?=4 (clamped to 1..3),
+ *           request+contract), generate?=false, maxQuestions?=3 (clamped to 1..3),
  *           name?, write?=true }
  * Return: { status, verdict, contract, rewrittenPrompt, questions?, routing, generated? }
  */
@@ -170,9 +170,8 @@ if (requestedReviewers !== reviewers) {
 const planResources = input?.planResources !== false;
 
 // No silent caps: derive maxQuestions defensively, clamp to the gate-rule band
-// (~1..3 blocking questions), and LOG when the band trims the caller's intent
-// (incl. the default of 4, which the band caps to 3).
-const requestedMaxQuestions = Number.isFinite(+input?.maxQuestions) ? Math.floor(+input.maxQuestions) : 4;
+// (~1..3 blocking questions), and LOG when the band trims the caller's intent.
+const requestedMaxQuestions = Number.isFinite(+input?.maxQuestions) ? Math.floor(+input.maxQuestions) : 3;
 const maxQuestions = Math.max(1, Math.min(3, requestedMaxQuestions));
 if (requestedMaxQuestions !== maxQuestions) {
 	log(

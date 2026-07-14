@@ -70,7 +70,7 @@ y ese documento es la receta operativa canónica, incluida la variante orquestad
    Equivalente en un solo paso cuando el árbol ya está listo:
 
    ```bash
-   node scripts/release-distros-flow.mjs --prepare --commit --publish --push
+   node scripts/release-distros-flow.mjs --prepare --commit --publish --push --confirm '<token>'
    ```
 
    Por distro: `set-distro` → build → subset de tests de branding → publish. Saltea versiones ya publicadas en npm y

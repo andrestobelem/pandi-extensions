@@ -34,10 +34,11 @@ el detalle completo por workflow.
 Para casi todo, una sola llamada a un agente le gana a un workflow. Recorré estos gates en orden; la mayoría de las
 tareas terminan temprano.
 
-0. **Contract Gate.** Ejecutá [PHASE 0](#phase-0--contract-gate-siempre-para-corridas-sustantivas) y routeá desde su
-   contrato inspeccionable, no desde el pedido original.
-1. **Trivial.** Si es conversacional, de un paso o de apenas unas tool calls → hacelo directo. Un workflow consume
+0. **Trivial.** Si es conversacional, de un paso o de apenas unas tool calls → hacelo directo. Un workflow consume
    muchas model calls; no pagues ese costo por una edición rápida, un lookup o un cambio en un solo archivo.
+1. **Contract Gate.** Para toda corrida sustantiva que sobreviva el gate trivial, ejecutá
+   [PHASE 0](#phase-0--contract-gate-para-corridas-sustantivas-tras-el-gate-trivial) y routeá desde su contrato
+   inspeccionable, no desde el pedido original.
 2. **Scout inline primero.** Si una tarea _podría_ ser grande, sondéala barato en el turno actual (`git ls-files`, leer
    el diff, grep/glob, listar candidatos). Eso revela la work-list real y su tamaño. Necesitás entender la forma antes
    del _orchestration step_, no antes de la _task_.
@@ -122,7 +123,7 @@ synthesis-as-judge y prefijos estables para prompt-cache. Detalle: [notas operat
 [`reference/scaffold-catalog.md`](reference/scaffold-catalog.md) y
 [`docs/handbooks/workflow-catalog.md`](../../../docs/handbooks/workflow-catalog.md).
 
-## PHASE 0 — contract-gate (siempre, para corridas sustantivas)
+## PHASE 0 — contract-gate (para corridas sustantivas tras el gate trivial)
 
 1. En Pi, corré el scaffold canónico `contract-gate` sobre el pedido bruto; la extensión lo usa como workflow read-only.
    Resolvélo con `scope: "auto"` (u omití `scope`): primero busca el workflow del proyecto y solo después el scaffold
@@ -162,7 +163,7 @@ Detalle: [notas operativas · plataforma](reference/operational-notes.md#referen
 por llamada + personas `agentType`; depth 2 (→3); resume journaled. Invoke mínimo:
 
 ```js
-dynamic_workflow({ action: 'start', name: 'task-slug', input: {…}, concurrency: 8, maxAgents: 40 })
+dynamic_workflow({ action: "start", name: "task-slug", input: { request: "…" }, concurrency: 8, maxAgents: 40 })
 ```
 
 Monitor sin polling (completion notice del harness); reporte final con `/workflow report` o

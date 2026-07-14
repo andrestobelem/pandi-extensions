@@ -83,6 +83,12 @@ try {
 	const ctx = makeCtx(project);
 
 	const source = await fs.readFile(CANONICAL_CONTRACT_GATE, "utf8");
+	check(
+		"contract-gate default maxQuestions is within its effective 1..3 band",
+		/const requestedMaxQuestions = Number\.isFinite\(\+input\?\.maxQuestions\) \? Math\.floor\(\+input\.maxQuestions\) : 3;/.test(
+			source,
+		),
+	);
 	const listed = await execute(tool, ctx, { action: "list" });
 	const builtin = listed.details.workflows.find((workflow) => workflow.name === "contract-gate");
 	check(

@@ -137,9 +137,10 @@ Empezá arriba y tomá la primera fila que aplique.
 
 ```mermaid
 flowchart TD
-  A[Pedido crudo] --> B{¿Es ambiguo o de alto riesgo?}
-  B -- sí --> CG[contract-gate]
-  B -- no --> C{¿Sabés qué workflow usar?}
+  A[Pedido crudo] --> B{¿Es trivial?}
+  B -- sí --> IN[Resolver inline]
+  B -- no --> CG[contract-gate]
+  CG --> C{¿Sabés qué workflow usar?}
   C -- no --> RT[router]
   C -- sí --> D{¿Cuál es el trabajo?}
   D -- cubrir un repo/corpus --> E[fan-out / scout-fanout / repo-bug-hunt / map-reduce]
@@ -154,10 +155,10 @@ flowchart TD
 
 ## 4. Fase 0 — `contract-gate`
 
-> **Cuándo/por qué.** Corré esto **primero**, antes de rutear o construir, siempre que el pedido sea vago, de alto
-> riesgo o pueda significar dos cosas distintas. Convierte “hacé X” en un **contrato** inspeccionable y decide la única
-> pregunta humana que importa: **¿preguntar ahora o seguir con una suposición registrada?** Una spec limpia es la
-> palanca más grande sobre la calidad aguas abajo.
+> **Cuándo/por qué.** Para todo pedido sustantivo que sobreviva el gate trivial, corré esto antes de rutear o construir.
+> Es especialmente valioso cuando el pedido es vago, de alto riesgo o puede significar dos cosas distintas. Convierte
+> “hacé X” en un **contrato** inspeccionable y decide la única pregunta humana que importa: **¿preguntar ahora o seguir
+> con una suposición registrada?** Una spec limpia es la palanca más grande sobre la calidad aguas abajo.
 
 ```mermaid
 flowchart TD
@@ -179,7 +180,7 @@ flowchart TD
 | `improvePrompt` | `true`                   | Reescribe el contrato como un `rewrittenPrompt` limpio y autocontenido; `false` reenvía el pedido crudo + el contrato |
 | `generate`      | `false`                  | En PROCEED **y** con `routing=dynamic-workflow`, deriva a `workflow-factory`                                          |
 | `planResources` | `true`                   | Emite `resourcePlan` (sugerencia de model·effort por nodo para el workflow recomendado, escalada según el riesgo)     |
-| `maxQuestions`  | `4` → clamped a **1..3** | Tope de preguntas bloqueantes                                                                                         |
+| `maxQuestions`  | `3` → clamped a **1..3** | Tope de preguntas bloqueantes                                                                                         |
 | `context`       | `""`                     | Contexto extra opcional que se adjunta al análisis + rewrite                                                          |
 | `name`, `write` | — / `true`               | Se pasan a `workflow-factory` en el handoff                                                                           |
 
@@ -308,8 +309,8 @@ Cada entrada incluye: **propósito** · **usar cuando** · **parámetros clave (
 
 **`contract-gate`** — gate de contrato de Fase 0 (detalle completo en §4).
 
-- _Usar cuando:_ el pedido es vago o de alto riesgo y querés decidir primero preguntar-vs-seguir.
-- _Parámetros:_ `request` (req) · `reviewers=3` · `improvePrompt=true` · `generate=false` · `maxQuestions=4→1..3`.
+- _Usar cuando:_ el pedido es sustantivo y ya sobrevivió el gate trivial; decidí primero preguntar-vs-seguir.
+- _Parámetros:_ `request` (req) · `reviewers=3` · `improvePrompt=true` · `generate=false` · `maxQuestions=3→1..3`.
 - _Casos de uso:_ acotar un ticket borroso; poner un gate antes de una corrida multiagente costosa.
 
 **`guardrails`** — tripwire barato de input/output que **se detiene** ante una violación clara.
