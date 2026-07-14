@@ -192,19 +192,30 @@ report(
 	codex.found ? `web_search disponible` : "ausente — brew install codex (o npm i -g @openai/codex)",
 );
 
-// pi-codex-web-search: la extensión que expone web_search.
-const webSearchPaths = [
-	path.join(agentDir, "npm", "node_modules", "pi-codex-web-search"),
-	path.join(process.cwd(), projectConfigDir, "npm", "node_modules", "pi-codex-web-search"),
-	path.join(process.cwd(), "node_modules", "pi-codex-web-search"),
-	path.join(PROJECT_DIR, "node_modules", "pi-codex-web-search"),
-];
-const webSearch = webSearchPaths.some(existsSync);
+// Recursos Pi incluidos en el bundle o registrados en el perfil efectivo.
+function hasPiPackage(packageName) {
+	return [
+		path.join(agentDir, "npm", "node_modules", packageName),
+		path.join(process.cwd(), projectConfigDir, "npm", "node_modules", packageName),
+		path.join(process.cwd(), "node_modules", packageName),
+		path.join(PROJECT_DIR, "node_modules", packageName),
+	].some(existsSync);
+}
+
+const webSearch = hasPiPackage("pi-codex-web-search");
 report(
 	"optional",
 	webSearch ? OK : WARN,
 	"pi-codex-web-search",
-	webSearch ? "instalada" : "ausente — pi install npm:pi-codex-web-search",
+	webSearch ? "instalada" : "ausente — el bundle completo la instala con `npm install`",
+);
+
+const mcpAdapter = hasPiPackage("pi-mcp-adapter");
+report(
+	"optional",
+	mcpAdapter ? OK : WARN,
+	"pi-mcp-adapter",
+	mcpAdapter ? "instalada" : "ausente — el bundle completo la instala con `npm install`",
 );
 
 // ctx7 + skill context7-cli. Preferimos el binario local (devDependency, corre con npx).

@@ -344,6 +344,7 @@ function findDoctorLine(output, label) {
 
 function createAgentResources(agentDir) {
 	fs.mkdirSync(path.join(agentDir, "npm", "node_modules", "pi-codex-web-search"), { recursive: true });
+	fs.mkdirSync(path.join(agentDir, "npm", "node_modules", "pi-mcp-adapter"), { recursive: true });
 	fs.mkdirSync(path.join(agentDir, "skills", "context7-cli"), { recursive: true });
 	fs.mkdirSync(path.join(agentDir, "skills", "karpathy-guidelines"), { recursive: true });
 }
@@ -395,7 +396,12 @@ function scenarioEffectiveAgentDir() {
 		};
 		const assertResources = (label, result, expected) => {
 			const out = `${result.stdout || ""}${result.stderr || ""}`;
-			for (const resource of ["pi-codex-web-search", "skill context7-cli", "skill karpathy-guidelines"]) {
+			for (const resource of [
+				"pi-codex-web-search",
+				"pi-mcp-adapter",
+				"skill context7-cli",
+				"skill karpathy-guidelines",
+			]) {
 				const line = findDoctorLine(out, resource);
 				check(`${label}: ${resource} usa el perfil efectivo`, line.includes(expected), line || out.slice(0, 800));
 			}
@@ -445,6 +451,7 @@ function scenarioSessionProjectResources() {
 		fs.mkdirSync(path.join(tmp, ".pi-cante", "npm", "node_modules", "pi-codex-web-search"), {
 			recursive: true,
 		});
+		fs.mkdirSync(path.join(tmp, ".pi-cante", "npm", "node_modules", "pi-mcp-adapter"), { recursive: true });
 		fs.mkdirSync(path.join(tmp, ".pi-cante", "skills", "context7-cli"), { recursive: true });
 		const r = spawnSync(process.execPath, [path.join(EXT_DIR, "scripts", "doctor.mjs")], {
 			cwd: tmp,
@@ -463,6 +470,11 @@ function scenarioSessionProjectResources() {
 			"proyecto de sesión: detecta web-search desde cwd/<config>/npm/node_modules",
 			findDoctorLine(out, "pi-codex-web-search").includes("✓"),
 			findDoctorLine(out, "pi-codex-web-search"),
+		);
+		check(
+			"proyecto de sesión: detecta mcp-adapter desde cwd/<config>/npm/node_modules",
+			findDoctorLine(out, "pi-mcp-adapter").includes("✓"),
+			findDoctorLine(out, "pi-mcp-adapter"),
 		);
 		check(
 			"proyecto de sesión: detecta Context7 desde cwd/<config>/skills",

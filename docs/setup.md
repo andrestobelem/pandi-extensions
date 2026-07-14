@@ -56,7 +56,8 @@ Cada opción habilita una capacidad; sin ella, esa capacidad simplemente no exis
 
 | Capacidad                                             | Requisito                                                                          | Instalación                                                                                                                                                                                                                     |
 | ----------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Búsqueda web para subagentes (`web_search`)           | Extensión `pi-codex-web-search` + CLI `codex`                                      | Vanilla: `pi install npm:pi-codex-web-search`; Picante: `npm run dev:picante -- install -l npm:pi-codex-web-search`. Además instalá `codex`.                                                                                    |
+| Búsqueda web para subagentes (`web_search`)           | `pi-codex-web-search` incluido en el bundle + CLI `codex`                          | El bundle lo instala; agregá `codex` al sistema para ejecutar búsquedas.                                                                                |
+| MCP (`/mcp` y tool `mcp`)                             | `pi-mcp-adapter` incluido en el bundle                                              | El bundle lo instala; configurá servidores en `.mcp.json` o `~/.config/mcp/mcp.json` cuando los necesites.                                             |
 | Docs de librerías bajo demanda (Context7)             | Skill `context7-cli` (opcional) + CLI `ctx7`                                       | Configurá Context7 con `npx ctx7 setup --cli` (modo "CLI + Skills"; sucesor de `ctx7 skills install`). `ctx7` es un devDependency: ejecutalo con `npx ctx7` después de `npm install` (o globalmente con `npm i -g ctx7@latest`) |
 | Gráficos PNG para `/workflow graph`                   | `@mermaid-js/mermaid-cli` (`mmdc`) + Chrome de Puppeteer                           | Se instala automáticamente con `npm install`; si falla el render: `npx puppeteer browsers install chrome-headless-shell`                                                                                                        |
 | Sandboxes Linux (`pandi-container`)                   | Apple `container` (macOS Apple Silicon)                                            | `brew install container && container system kernel set --recommended && container system start`                                                                                                                                 |
@@ -166,19 +167,14 @@ directorio de JSONs para que `pandi-dynamic-workflows` los resuelva con `agentTy
 
 ## Capacidades opcionales en detalle
 
-- **Búsqueda web (`web_search`) para subagentes** — el paquete separado es `pi-codex-web-search` (repo
-  `github.com/ayagmar/pi-codex-web-search`) y además requiere el CLI `codex` (`brew install codex` o
-  `npm install -g @openai/codex`). En un perfil vanilla, instalalo con `pi install npm:pi-codex-web-search`. Para el
-  workspace real de desarrollo, registralo project-local mediante el wrapper:
+- **Búsqueda web (`web_search`) para subagentes** — `pi-codex-web-search` viaja dentro del bundle completo y de
+  Picante. Solo falta el CLI `codex` del sistema (`brew install codex` o `npm install -g @openai/codex`). Si no está en
+  `PATH`, apuntalo con `CODEX_PATH`. Exclusión por subagente: `excludeTools: ["web_search"]` o
+  `includeExtensions: false`. Si instalás únicamente `pandi-dynamic-workflows`, agregá el paquete externo por separado.
 
-  ```bash
-  npm run dev:picante -- install -l npm:pi-codex-web-search
-  npm run dev:picante -- remove -l npm:pi-codex-web-search
-  ```
-
-  Eso escribe solo `.pi-cante/` (gitignored) en este repo; no contamina el agent descartable ni el scratch de smokes.
-  Dynamic Workflows descubre el paquete desde el proyecto trusted. Si `codex` no está en el `PATH`, apuntalo con
-  `CODEX_PATH`. Exclusión por subagente: `excludeTools: ["web_search"]` o `includeExtensions: false`.
+- **MCP (`/mcp` y tool `mcp`)** — `pi-mcp-adapter` también viaja en el bundle completo y Picante. Configurá servidores
+  solo cuando los necesites en `.mcp.json` para el proyecto o `~/.config/mcp/mcp.json` para compartirlos; el adaptador
+  los conecta de forma lazy. Si instalás una extensión Pandi individual, instalá `pi-mcp-adapter` explícitamente.
 
 - **Context7 (docs de librerías)** — el skill `context7-cli` **no** viene vendorizado en el repo. Configuralo con
   `npx ctx7 setup --cli` (modo "CLI + Skills"; sucesor de `ctx7 skills install`, que deja de funcionar en la próxima

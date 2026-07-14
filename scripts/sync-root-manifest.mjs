@@ -27,6 +27,12 @@ import { readJsonFile, writeJsonFile } from "./lib/json-io.mjs";
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const ROOT_PKG = join(REPO, "package.json");
 
+// Pi requiere que los paquetes Pi transitivos se expongan desde node_modules del bundle.
+export const BUNDLED_EXTENSION_ENTRIES = [
+	"./node_modules/pi-codex-web-search/src/index.ts",
+	"./node_modules/pi-mcp-adapter/index.ts",
+];
+
 // Orden de carga curado (nombres de dir). Mantené el core primero y los aliases de UX al final.
 const LOAD_ORDER = [
 	"pandi-dynamic-workflows",
@@ -88,6 +94,7 @@ export function deriveRootManifest(repoRoot, loadOrder = LOAD_ORDER) {
 			derived.themes.push(`./extensions/${dir}/${entry.replace(/^\.\//, "")}`);
 		}
 	}
+	derived.extensions.push(...BUNDLED_EXTENSION_ENTRIES);
 	return { derived, unknown };
 }
 

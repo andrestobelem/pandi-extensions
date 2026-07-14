@@ -253,8 +253,13 @@ cada dependencia opcional o cómo se distribuye el paquete.</p>
 </thead>
 <tbody><tr>
 <td>Búsqueda web para subagentes (<code>web_search</code>)</td>
-<td>Extensión <code>pi-codex-web-search</code> + CLI <code>codex</code></td>
-<td>Vanilla: <code>pi install npm:pi-codex-web-search</code>; Picante: <code>npm run dev:picante -- install -l npm:pi-codex-web-search</code>. Además instalá <code>codex</code>.</td>
+<td><code>pi-codex-web-search</code> incluido en el bundle + CLI <code>codex</code></td>
+<td>El bundle lo instala; agregá <code>codex</code> al sistema para ejecutar búsquedas.</td>
+</tr>
+<tr>
+<td>MCP (<code>/mcp</code> y tool <code>mcp</code>)</td>
+<td><code>pi-mcp-adapter</code> incluido en el bundle</td>
+<td>El bundle lo instala; configurá servidores en <code>.mcp.json</code> o <code>~/.config/mcp/mcp.json</code> cuando los necesites.</td>
 </tr>
 <tr>
 <td>Docs de librerías bajo demanda (Context7)</td>
@@ -391,15 +396,14 @@ directorio de JSONs para que <code>pandi-dynamic-workflows</code> los resuelva c
 <code>.pi/personas/&lt;name&gt;.json</code> del proyecto trusted &gt; persona empaquetada &gt; built-in de <code>pandi-dynamic-workflows</code>.</p>
 <h2 id="capacidades-opcionales-en-detalle">Capacidades opcionales en detalle</h2>
 <ul>
-<li><p><strong>Búsqueda web (<code>web_search</code>) para subagentes</strong> — el paquete separado es <code>pi-codex-web-search</code> (repo
-<code>github.com/ayagmar/pi-codex-web-search</code>) y además requiere el CLI <code>codex</code> (<code>brew install codex</code> o
-<code>npm install -g @openai/codex</code>). En un perfil vanilla, instalalo con <code>pi install npm:pi-codex-web-search</code>. Para el
-workspace real de desarrollo, registralo project-local mediante el wrapper:</p>
-<pre><code class="hljs language-bash">npm run dev:picante -- install -l npm:pi-codex-web-search
-npm run dev:picante -- remove -l npm:pi-codex-web-search</code></pre>
-<p>Eso escribe solo <code>.pi-cante/</code> (gitignored) en este repo; no contamina el agent descartable ni el scratch de smokes.
-Dynamic Workflows descubre el paquete desde el proyecto trusted. Si <code>codex</code> no está en el <code>PATH</code>, apuntalo con
-<code>CODEX_PATH</code>. Exclusión por subagente: <code>excludeTools: [&quot;web_search&quot;]</code> o <code>includeExtensions: false</code>.</p>
+<li><p><strong>Búsqueda web (<code>web_search</code>) para subagentes</strong> — <code>pi-codex-web-search</code> viaja dentro del bundle completo y de
+Picante. Solo falta el CLI <code>codex</code> del sistema (<code>brew install codex</code> o <code>npm install -g @openai/codex</code>). Si no está en
+<code>PATH</code>, apuntalo con <code>CODEX_PATH</code>. Exclusión por subagente: <code>excludeTools: [&quot;web_search&quot;]</code> o
+<code>includeExtensions: false</code>. Si instalás únicamente <code>pandi-dynamic-workflows</code>, agregá el paquete externo por separado.</p>
+</li>
+<li><p><strong>MCP (<code>/mcp</code> y tool <code>mcp</code>)</strong> — <code>pi-mcp-adapter</code> también viaja en el bundle completo y Picante. Configurá servidores
+solo cuando los necesites en <code>.mcp.json</code> para el proyecto o <code>~/.config/mcp/mcp.json</code> para compartirlos; el adaptador
+los conecta de forma lazy. Si instalás una extensión Pandi individual, instalá <code>pi-mcp-adapter</code> explícitamente.</p>
 </li>
 <li><p><strong>Context7 (docs de librerías)</strong> — el skill <code>context7-cli</code> <strong>no</strong> viene vendorizado en el repo. Configuralo con
 <code>npx ctx7 setup --cli</code> (modo &quot;CLI + Skills&quot;; sucesor de <code>ctx7 skills install</code>, que deja de funcionar en la próxima

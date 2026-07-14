@@ -120,7 +120,9 @@
 			"./extensions/pandi-exit/index.ts",
 			"./extensions/pandi-clear/index.ts",
 			"./extensions/pandi-ask/index.ts",
-			"./extensions/pandi-doctor/index.ts"
+			"./extensions/pandi-doctor/index.ts",
+			"./node_modules/pi-codex-web-search/src/index.ts",
+			"./node_modules/pi-mcp-adapter/index.ts"
 		],
 		"skills": [
 			"./.pi/skills"
@@ -150,5 +152,13 @@
 	"allowScripts": {
 		"esbuild@0.25.12": true,
 		"puppeteer@24.43.1": true
-	}
+	},
+	"dependencies": {
+		"pi-codex-web-search": "0.1.9",
+		"pi-mcp-adapter": "2.11.0"
+	},
+	"bundledDependencies": [
+		"pi-codex-web-search",
+		"pi-mcp-adapter"
+	]
 }

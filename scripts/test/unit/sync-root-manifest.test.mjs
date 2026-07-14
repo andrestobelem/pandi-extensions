@@ -7,7 +7,9 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const SCRIPT = path.join(REPO, "scripts", "sync-root-manifest.mjs");
-const { deriveRootManifest, orderedExtensionDirs, sameList } = await import(pathToFileURL(SCRIPT).href);
+const { BUNDLED_EXTENSION_ENTRIES, deriveRootManifest, orderedExtensionDirs, sameList } = await import(
+	pathToFileURL(SCRIPT).href
+);
 
 function writePackage(root, dir, pkg) {
 	const file = path.join(root, "extensions", dir, "package.json");
@@ -27,9 +29,30 @@ test("deriveRootManifest orders known dirs first and appends unknown dirs alphab
 			unknown: ["pandi-alpha"],
 		});
 		assert.deepEqual(deriveRootManifest(root, ["pandi-zed"]).derived, {
-			extensions: ["./extensions/pandi-zed/zed.ts", "./extensions/pandi-alpha/alpha.ts"],
+			extensions: [
+				"./extensions/pandi-zed/zed.ts",
+				"./extensions/pandi-alpha/alpha.ts",
+				...BUNDLED_EXTENSION_ENTRIES,
+			],
 			themes: ["./extensions/pandi-alpha/theme.json"],
 		});
+	} finally {
+		fs.rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("deriveRootManifest appends explicit bundled external extension entrypoints", () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "root-manifest-bundled-"));
+	try {
+		writePackage(root, "pandi-core", { pi: { extensions: ["./index.ts"] } });
+		assert.deepEqual(BUNDLED_EXTENSION_ENTRIES, [
+			"./node_modules/pi-codex-web-search/src/index.ts",
+			"./node_modules/pi-mcp-adapter/index.ts",
+		]);
+		assert.deepEqual(deriveRootManifest(root, ["pandi-core"]).derived.extensions, [
+			"./extensions/pandi-core/index.ts",
+			...BUNDLED_EXTENSION_ENTRIES,
+		]);
 	} finally {
 		fs.rmSync(root, { recursive: true, force: true });
 	}

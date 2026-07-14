@@ -215,14 +215,9 @@ luego `/plugin install andrej-karpathy-skills`. `npm run doctor` reporta si la s
 
 Mirá `npm run doctor`, verificá qué falta y luego:
 
+`pi-codex-web-search` y `pi-mcp-adapter` ya viajan en el bundle completo y en Picante; no los instales globalmente.
+
 ```bash
-# web_search project-local para el workspace Picante actual
-npm run dev:picante -- install -l npm:pi-codex-web-search
-# para sacarla: npm run dev:picante -- remove -l npm:pi-codex-web-search
-
-# alternativa user-wide, solo para la rama Pi vanilla
-pi install npm:pi-codex-web-search
-
 # CLI externa requerida por web_search (instalación de sistema opt-in)
 brew install codex               # o: npm install -g @openai/codex
 
