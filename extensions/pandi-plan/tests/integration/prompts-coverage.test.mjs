@@ -8,8 +8,8 @@
  * "ULTRACODE:", "Implement now" appear). It never pins the EXACT structure of the
  * canonical wording that prompts.ts owns:
  *
- *   1. makePlanningPrompt: the literal "TASK (verbatim):" header followed by the task
- *      injected VERBATIM (no escaping/truncation, multi-line preserved), the planId in
+ *   1. makePlanningPrompt: the literal "TAREA (textual):" header followed by the task
+ *      injected textually (no escaping/truncation, multi-line preserved), the planId in
  *      the opening line, and the conditional NON-INTERACTIVE / ULTRACODE / ULTRACODE
  *      STEPS / AUTO-SUBMIT / AskUserQuestion blocks that the posture flags toggle.
  *   2. makeImplementPrompt: the "Plan approved. Implement now:\n\n<plan>" base and the
@@ -51,7 +51,7 @@ function planningPromptTests(mod) {
 	const { makePlanningPrompt } = mod;
 	check("makePlanningPrompt is exported", typeof makePlanningPrompt === "function");
 
-	// --- The flagged gap: task injected VERBATIM under "TASK (verbatim):" ---
+	// --- La tarea se inyecta textualmente bajo "TAREA (textual):" ---
 	{
 		const task = "Migrate DB & drop *old* tables\nline2";
 		const out = makePlanningPrompt({ planId: "abc12345", task });
@@ -98,10 +98,13 @@ function planningPromptTests(mod) {
 			"planning(nonInteractive): includes SESIÓN NO INTERACTIVA block",
 			/SESIÓN NO INTERACTIVA \(solo plan\):/.test(out),
 		);
-		check("planning(nonInteractive): says no hay aprobación humana", /no hay aprobación humana/.test(out));
+		check(
+			"planning(nonInteractive): says no approval or implementation",
+			/No hay aprobación ni implementación/.test(out),
+		);
 		check("planning(nonInteractive): drops AskUserQuestion", !/AskUserQuestion/.test(out));
 		check("planning(nonInteractive): drops ask_choice/ask_confirm", !/ask_choice/.test(out));
-		check("planning(nonInteractive): step3 says el plan ES el resultado", /El plan ES el resultado/.test(out));
+		check("planning(nonInteractive): says el plan ES el resultado", /el PLAN es el único entregable/.test(out));
 	}
 
 	// --- ultracode flag ---
@@ -152,13 +155,14 @@ function implementPromptTests(mod) {
 		const planText = "# Plan\n1. do X & verify *carefully*";
 		const out = makeImplementPrompt(planText);
 		check(
-			"implement(base): starts with 'Plan aprobado. Implementá ahora:'",
-			out.startsWith("Plan aprobado. Implementá ahora:"),
+			"implement(base): starts with the approved-plan framing",
+			out.startsWith("Plan aprobado. Implementá ahora."),
 		);
-		check(
-			"implement(base): plan text follows a blank line, verbatim",
-			out === `Plan aprobado. Implementá ahora:\n\n${planText}`,
-		);
+		check("implement(base): keeps execution within approved scope", /alcance y los non-goals aprobados/.test(out));
+		check("implement(base): preserves unrelated work", /Preservá cambios ajenos/.test(out));
+		check("implement(base): requires observable verification", /evidencia observable/.test(out));
+		check("implement(base): labels the plan as approved", /PLAN APROBADO:/.test(out));
+		check("implement(base): plan text remains textual", out.endsWith(planText));
 		check("implement(base): no ultracode suffix by default", !/dynamic_workflow/.test(out));
 	}
 
@@ -166,7 +170,7 @@ function implementPromptTests(mod) {
 	{
 		const planText = "# Plan\nstep";
 		const out = makeImplementPrompt(planText, { ultracodeSteps: false });
-		check("implement(steps=false): equals the base form", out === `Plan aprobado. Implementá ahora:\n\n${planText}`);
+		check("implement(steps=false): equals the base form", out === makeImplementPrompt(planText));
 	}
 
 	// --- opts.ultracodeSteps = true appends the dynamic_workflow suffix ---
@@ -175,7 +179,7 @@ function implementPromptTests(mod) {
 		const out = makeImplementPrompt(planText, { ultracodeSteps: true });
 		check(
 			"implement(steps=true): keeps the base prefix",
-			out.startsWith(`Plan aprobado. Implementá ahora:\n\n${planText}`),
+			out.startsWith(`Plan aprobado. Implementá ahora.\n\nContrato de ejecución:`),
 		);
 		check(
 			"implement(steps=true): appends dynamic_workflow guidance",

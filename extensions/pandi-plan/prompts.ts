@@ -30,22 +30,16 @@ export function makePlanningPrompt(plan: { planId: string; task: string } & Plan
 	lines.push("");
 	if (plan.nonInteractive) {
 		lines.push("SESIÓN NO INTERACTIVA (solo plan):");
-		lines.push("- Acá no hay aprobación humana ni implementación. Tu único entregable es el PLAN en sí.");
 		lines.push(
-			"- El gate de solo lectura queda armado durante TODA la sesión; write/edit y el shell mutante siguen bloqueados.",
-		);
-		lines.push(
-			"- Cuando el plan esté listo, llamá a submit_plan({ plan }) para registrarlo, y después DEVOLVÉ EL PLAN COMPLETO como tu respuesta final. NO intentes implementar.",
+			"- No hay aprobación ni implementación: el gate read-only sigue activo toda la sesión y el PLAN es el único entregable.",
 		);
 		lines.push("");
 	}
-	lines.push("REGLAS mientras estás en modo plan (un gate las HACE CUMPLIR, no son solo una guía):");
+	lines.push("REGLAS (el gate las hace cumplir):");
+	lines.push("- Investigá solo con herramientas y comandos read-only; las mutaciones están bloqueadas.");
+	lines.push("- No implementes hasta que el usuario apruebe explícitamente el plan.");
 	lines.push(
-		"- SOLO podés usar acciones de solo lectura: read, grep, find, ls, y comandos de shell de solo lectura (p. ej. git ls-files, git status, cat, head, sed -n para ver contenido). Las tools mutantes (write, edit) y los comandos de shell mutantes (rm, mv, git commit/add/push/reset, redirecciones >/>>, instalación de paquetes, etc.) están BLOQUEADOS DE FORMA DURA y van a fallar. dynamic_workflow solo se permite para acciones de solo lectura (list/scaffold/read/graph/runs/view); write/run/start quedan bloqueados mientras planificás.",
-	);
-	lines.push("- NO empieces a implementar. La implementación ocurre solo DESPUÉS de que el usuario apruebe tu plan.");
-	lines.push(
-		"- Tu plan PUEDE incluir correr dynamic workflows (dynamic_workflow action=run/start) como pasos de implementación — esos se ejecutan solo DESPUÉS de la aprobación, así que proponelos para trabajo amplio, paralelo o de alta confianza (auditorías grandes, migraciones, barridos exhaustivos, verificación independiente, investigación profunda). Mientras planificás podés inspeccionar el catálogo en solo lectura (dynamic_workflow action=list/scaffold/read) para elegir o diseñar el workflow correcto, y después describirlo en el plan.",
+		"- El plan puede proponer dynamic workflows (dynamic_workflow action=run/start) para pasos posteriores a la aprobación. Durante planificación, inspeccioná el catálogo solo en modo read-only (list/scaffold/read/graph) y nombrá el workflow cuando aporte exhaustividad, confianza o escala.",
 	);
 	if (plan.ultracode) {
 		lines.push(
@@ -73,11 +67,9 @@ export function makePlanningPrompt(plan: { planId: string; task: string } & Plan
 	lines.push("2. DISEÑÁ un enfoque de implementación.");
 	if (plan.nonInteractive) {
 		lines.push(
-			"3. Cuando el plan esté completo y autocontenido, llamá a submit_plan({ plan }) para registrarlo, y después mostrá el PLAN COMPLETO en Markdown como tu respuesta final.",
+			"3. Cuando el plan esté completo y autocontenido, llamá a submit_plan({ plan }) para registrarlo y mostrá el PLAN COMPLETO en Markdown como respuesta final.",
 		);
-		lines.push(
-			"Esta es una sesión no interactiva: no hay paso de aprobación ni de implementación. El plan ES el resultado.",
-		);
+		lines.push("Esta es una sesión no interactiva: el plan ES el resultado.");
 	} else {
 		lines.push(
 			"3. Cuando el plan esté completo y autocontenido, llamá a submit_plan({ plan }) con el plan de implementación COMPLETO en Markdown. Esto se lo presenta al usuario para su aprobación.",
@@ -91,7 +83,18 @@ export function makePlanningPrompt(plan: { planId: string; task: string } & Plan
 
 /** El mensaje de implementación reinyectado después de que el usuario aprueba el plan. */
 export function makeImplementPrompt(planText: string, opts: { ultracodeSteps?: boolean } = {}): string {
-	const base = `Plan aprobado. Implementá ahora:\n\n${planText}`;
+	const base = [
+		"Plan aprobado. Implementá ahora.",
+		"",
+		"Contrato de ejecución:",
+		"- Respetá el alcance y los non-goals aprobados; no agregues trabajo no acordado.",
+		"- Preservá cambios ajenos: no limpies, resetees, formatees ni commitees archivos fuera de la tarea.",
+		"- Verificá cada criterio de éxito con evidencia observable antes de declarar terminado.",
+		"",
+		"PLAN APROBADO:",
+		"",
+		planText,
+	].join("\n");
 	if (!opts.ultracodeSteps) return base;
 	return `${base}\n\nEjecutá los pasos marcados para ultracode vía dynamic_workflow (action=run/start) con concurrency/maxAgents explícitos; mantené el resto inline.`;
 }

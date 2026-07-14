@@ -197,8 +197,8 @@ async function approveLiftsGate(url) {
 	// is read-only while planning).
 	check(
 		"approve: planning prompt advertises dynamic workflows in the plan",
-		/tu plan puede incluir correr dynamic workflows/i.test(sentMessages[0].content) &&
-			/después de la aprobación/i.test(sentMessages[0].content),
+		/El plan puede proponer dynamic workflows/i.test(sentMessages[0].content) &&
+			/pasos posteriores a la aprobación/i.test(sentMessages[0].content),
 	);
 
 	const planText = "# Plan\n1. Do the thing\n2. Verify it";
