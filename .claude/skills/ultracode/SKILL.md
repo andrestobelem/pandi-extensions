@@ -126,6 +126,8 @@ synthesis-as-judge y prefijos estables para prompt-cache. Detalle: [notas operat
 ## PHASE 0 — contract-gate (siempre, para corridas sustantivas)
 
 1. En Pi, corré el scaffold canónico `contract-gate` sobre el pedido bruto; la extensión lo usa como workflow read-only.
+   Resolvélo con `scope: "auto"` (u omití `scope`): primero busca el workflow del proyecto y solo después el scaffold
+   global. Usá `scope: "project"` únicamente si querés rechazar ese fallback de forma explícita.
 
    **Cierre:** el scaffold devolvió un contrato con tarea, success criteria, supuestos, non-goals, verificación y
    blockers explícitos.
