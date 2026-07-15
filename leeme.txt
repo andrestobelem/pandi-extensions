@@ -1,6 +1,8 @@
 Desarrollar pi-cante con Picante
 
-Desde este repo, no abras `pi` a secas:
+Este archivo vive en `pandi-extensions`, pero esta sección corresponde al
+checkout sibling `pi-cante`. `./picante` no existe dentro de
+`pandi-extensions`: antes de usarlo, cambiá de directorio a `pi-cante`.
 
   cd /Users/andrestobelem/ws/at/pi-cante
   ./picante status
@@ -8,9 +10,9 @@ Desde este repo, no abras `pi` a secas:
   npm run smoke:picante:tui
   ./picante
 
-El wrapper `./picante` abre Picante desde source sobre este checkout y usa un perfil
-descartable en .pandi-dev. Carga el checkout sibling de pandi-extensions sin
-modificar ~/.pi, ~/.picante ni ~/.pandi.
+El wrapper `./picante` abre Picante desde source sobre el checkout de
+`pi-cante`, carga el sibling `pandi-extensions` y usa el perfil descartable
+`pi-cante/.pandi-dev/agent`. No modifica ~/.pi, ~/.picante ni ~/.pandi.
 
 Después de cambiar código de Picante (CLI, TUI, RPC o scripts), cerrá y volvé a
 ejecutar `./picante`. Antes de terminar un cambio de código, corré:
@@ -23,9 +25,9 @@ Si pandi-extensions no está como sibling:
 
 Desarrollar pandi-extensions con Picante
 
-No abras `pi` a secas para el loop normal de desarrollo.
-
-Desde el repo de extensiones:
+Esta sección sí se ejecuta desde `pandi-extensions`. No uses `./picante` aquí:
+el wrapper disponible en este checkout es `npm run dev:picante`. Tampoco abras
+`pi` a secas para el loop normal de desarrollo.
 
   cd /Users/andrestobelem/ws/at/pandi-extensions
   npm run dev:picante -- status
@@ -33,9 +35,14 @@ Desde el repo de extensiones:
   npm run smoke:picante:tui
   npm run dev:picante
 
-El wrapper abre Picante desde este checkout de pi-cante, usa pandi-extensions
-como workspace real y guarda el perfil de desarrollo aislado en .pandi-dev.
-No modifica ~/.pi, ~/.picante ni ~/.pandi.
+Este wrapper localiza el checkout sibling de `pi-cante`, abre Picante desde
+ese source y usa `pandi-extensions` como workspace real. El perfil aislado se
+guarda en `pi-cante/.pandi-dev/agent`; no modifica ~/.pi, ~/.picante ni
+~/.pandi.
+
+Si pi-cante no está como sibling:
+
+  PI_CANTE_ROOT=/ruta/a/pi-cante npm run dev:picante -- status
 
 Después de editar una extensión, usá /reload o cerrá y volvé a ejecutar:
 
