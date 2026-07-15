@@ -1,6 +1,7 @@
 {
-	"$comment": "Plantilla de settings de Pi para este repo. Copiá a .pi/settings.json si el tuyo no existe o querés resetearlo. NO pongas secretos ni rutas absolutas con tu usuario acá: los secretos van por entorno (ver .env.example) y este archivo se commitea. Los paths de packages son relativos a .pi/, por eso apuntan a ../extensions/*. El campo theme usa el formato light/dark; los temas panda-syntax los provee el paquete pi-pandi-theme.",
+	"$comment": "Plantilla de settings de Pi para este repo. Copiá a .pi/settings.json si el tuyo no existe o querés resetearlo. NO pongas secretos ni rutas absolutas con tu usuario acá: los secretos van por entorno (ver .env.example) y este archivo se commitea. Los paths de packages son relativos a .pi/, por eso apuntan a ../extensions/*. El campo theme usa el formato light/dark; los temas panda-syntax los provee el paquete pi-pandi-theme. quietStartup silencia el header y el listado de contexto al arrancar; Picante/pandi lo activan por defecto cuando no está en settings.json.",
 	"theme": "panda-syntax-light/panda-syntax-dark",
+	"quietStartup": true,
 	"packages": [
 		{
 			"source": "../extensions/pandi-dynamic-workflows",
