@@ -57,6 +57,7 @@ Cada opción habilita una capacidad; sin ella, esa capacidad simplemente no exis
 | Capacidad                                             | Requisito                                                                          | Instalación                                                                                                                                                                                                                     |
 | ----------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Búsqueda web para subagentes (`web_search`)           | `pi-codex-web-search` incluido en el bundle + CLI `codex`                          | El bundle lo instala; agregá `codex` al sistema para ejecutar búsquedas.                                                                                |
+| Búsqueda web nativa de Anthropic                       | `pandi-anthropic-web-search` + modelo `anthropic-messages` compatible              | Viene en el bundle; requiere que tu proveedor Anthropic habilite la búsqueda nativa.                                                                     |
 | MCP (`/mcp` y tool `mcp`)                             | `pi-mcp-adapter` incluido en el bundle                                              | El bundle lo instala; configurá servidores en `.mcp.json` o `~/.config/mcp/mcp.json` cuando los necesites.                                             |
 | Docs de librerías bajo demanda (Context7)             | Skill `context7-cli` (opcional) + CLI `ctx7`                                       | Configurá Context7 con `npx ctx7 setup --cli` (modo "CLI + Skills"; sucesor de `ctx7 skills install`). `ctx7` es un devDependency: ejecutalo con `npx ctx7` después de `npm install` (o globalmente con `npm i -g ctx7@latest`) |
 | Gráficos PNG para `/workflow graph`                   | `@mermaid-js/mermaid-cli` (`mmdc`) + Chrome de Puppeteer                           | Se instala automáticamente con `npm install`; si falla el render: `npx puppeteer browsers install chrome-headless-shell`                                                                                                        |
@@ -171,6 +172,12 @@ directorio de JSONs para que `pandi-dynamic-workflows` los resuelva con `agentTy
   Picante. Solo falta el CLI `codex` del sistema (`brew install codex` o `npm install -g @openai/codex`). Si no está en
   `PATH`, apuntalo con `CODEX_PATH`. Exclusión por subagente: `excludeTools: ["web_search"]` o
   `includeExtensions: false`. Si instalás únicamente `pandi-dynamic-workflows`, agregá el paquete externo por separado.
+
+- **Búsqueda web nativa de Anthropic** — `pandi-anthropic-web-search` viaja con el bundle completo. Para requests
+  `anthropic-messages`, inyecta el tool nativo `web_search` y reemplaza la variante de función del mismo nombre, incluso
+  si `pi-codex-web-search` está cargado. No necesita el CLI `codex`; depende de que el proveedor Anthropic habilite el
+  feature. Podés desactivarla con `PI_ANTHROPIC_WEB_SEARCH=off` y acotar dominios con
+  `PI_ANTHROPIC_WEB_SEARCH_ALLOWED_DOMAINS` o `PI_ANTHROPIC_WEB_SEARCH_BLOCKED_DOMAINS` (listas separadas por comas).
 
 - **MCP (`/mcp` y tool `mcp`)** — `pi-mcp-adapter` también viaja en el bundle completo y Picante. Configurá servidores
   solo cuando los necesites en `.mcp.json` para el proyecto o `~/.config/mcp/mcp.json` para compartirlos; el adaptador

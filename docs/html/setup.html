@@ -257,6 +257,11 @@ cada dependencia opcional o cómo se distribuye el paquete.</p>
 <td>El bundle lo instala; agregá <code>codex</code> al sistema para ejecutar búsquedas.</td>
 </tr>
 <tr>
+<td>Búsqueda web nativa de Anthropic</td>
+<td><code>pandi-anthropic-web-search</code> + modelo <code>anthropic-messages</code> compatible</td>
+<td>Viene en el bundle; requiere que tu proveedor Anthropic habilite la búsqueda nativa.</td>
+</tr>
+<tr>
 <td>MCP (<code>/mcp</code> y tool <code>mcp</code>)</td>
 <td><code>pi-mcp-adapter</code> incluido en el bundle</td>
 <td>El bundle lo instala; configurá servidores en <code>.mcp.json</code> o <code>~/.config/mcp/mcp.json</code> cuando los necesites.</td>
@@ -400,6 +405,12 @@ directorio de JSONs para que <code>pandi-dynamic-workflows</code> los resuelva c
 Picante. Solo falta el CLI <code>codex</code> del sistema (<code>brew install codex</code> o <code>npm install -g @openai/codex</code>). Si no está en
 <code>PATH</code>, apuntalo con <code>CODEX_PATH</code>. Exclusión por subagente: <code>excludeTools: [&quot;web_search&quot;]</code> o
 <code>includeExtensions: false</code>. Si instalás únicamente <code>pandi-dynamic-workflows</code>, agregá el paquete externo por separado.</p>
+</li>
+<li><p><strong>Búsqueda web nativa de Anthropic</strong> — <code>pandi-anthropic-web-search</code> viaja con el bundle completo. Para requests
+<code>anthropic-messages</code>, inyecta el tool nativo <code>web_search</code> y reemplaza la variante de función del mismo nombre, incluso
+si <code>pi-codex-web-search</code> está cargado. No necesita el CLI <code>codex</code>; depende de que el proveedor Anthropic habilite el
+feature. Podés desactivarla con <code>PI_ANTHROPIC_WEB_SEARCH=off</code> y acotar dominios con
+<code>PI_ANTHROPIC_WEB_SEARCH_ALLOWED_DOMAINS</code> o <code>PI_ANTHROPIC_WEB_SEARCH_BLOCKED_DOMAINS</code> (listas separadas por comas).</p>
 </li>
 <li><p><strong>MCP (<code>/mcp</code> y tool <code>mcp</code>)</strong> — <code>pi-mcp-adapter</code> también viaja en el bundle completo y Picante. Configurá servidores
 solo cuando los necesites en <code>.mcp.json</code> para el proyecto o <code>~/.config/mcp/mcp.json</code> para compartirlos; el adaptador

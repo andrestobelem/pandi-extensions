@@ -121,6 +121,7 @@
 			"./extensions/pandi-clear/index.ts",
 			"./extensions/pandi-ask/index.ts",
 			"./extensions/pandi-doctor/index.ts",
+			"./extensions/pandi-anthropic-web-search/index.ts",
 			"./node_modules/pi-codex-web-search/src/index.ts",
 			"./node_modules/pi-mcp-adapter/index.ts",
 			"./node_modules/pi-cursor-sdk/src/index.ts"

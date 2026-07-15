@@ -34,7 +34,8 @@
 		"../extensions/pandi-clear",
 		"../extensions/pandi-ask",
 		"../extensions/pandi-doctor",
-		"../extensions/pandi-theme"
+		"../extensions/pandi-theme",
+		"../extensions/pandi-anthropic-web-search"
 	],
 	"extensions": []
 }

@@ -154,7 +154,7 @@ footer { margin-top:40px; color:var(--muted); font-size:15px; }
 		<div class="kicker">pandi-extensions</div>
 		<h1>pandi-extensions</h1>
 		<p class="lede"><strong>Un libro de patrones agénticos que se ejecuta.</strong> Este repo destila los patrones multi-agente de la literatura (Tree of
-Thoughts, Reflexion, orchestrator-workers…) en <strong>25 scaffolds corribles de JavaScript</strong>. <strong>Una suite de 28 extensiones
+Thoughts, Reflexion, orchestrator-workers…) en <strong>25 scaffolds corribles de JavaScript</strong>. <strong>Una suite de 29 extensiones
 más un tema para <a href="https://www.npmjs.com/package/@earendil-works/pi-coding-agent">Pi</a></strong> — el CLI de coding agent
 <code>@earendil-works/pi-coding-agent</code> — convierte a Pi en el laboratorio donde correrlos: graficarlos antes, inspeccionar
 journal y artifacts después, y verificar con evidencia en vez de fe.</p>
@@ -237,8 +237,9 @@ npm run smoke:picante         <span class="hljs-comment"># inventario runtime ex
 npm run smoke:picante:tui     <span class="hljs-comment"># startup + /workflows + /doctor mediante tmux</span></code></pre>
 <p>Si los repos no son siblings, definí <code>PI_CANTE_ROOT=/ruta/a/pi-cante</code>. El flujo completo está en
 <a href="developing-extensions.html"><code>docs/developing-extensions.md</code></a>.</p>
-<p>Los extras opcionales (web search para subagentes, docs de Context7, gráficos PNG, sandboxes Apple <code>container</code> y Podman,
-micro-VMs de Gondolin) y la skill externa <code>karpathy-guidelines</code> están cubiertos en <a href="setup.html"><code>docs/setup.md</code></a>.</p>
+<p>Los extras opcionales (web search para subagentes y nativo de Anthropic, docs de Context7, gráficos PNG, sandboxes Apple
+<code>container</code> y Podman, micro-VMs de Gondolin) y la skill externa <code>karpathy-guidelines</code> están cubiertos en
+<a href="setup.html"><code>docs/setup.md</code></a>.</p>
 <h2 id="cómo-leer-este-repo">Cómo leer este repo</h2>
 <p>Este repo funciona como <strong>paquete instalable</strong> y como <strong>libro práctico</strong>. Elegí la ruta más chica que te lleve al
 próximo experimento verificable:</p>
@@ -382,7 +383,7 @@ reproducibles.</li>
 </ul>
 <p>Usalos como patterns, no como ceremonia: cada rama necesita una razón, un contrato y una condición de parada.</p>
 <h2 id="catálogo-de-extensiones">Catálogo de extensiones</h2>
-<p>Las 28 extensiones del repo se listan abajo: 25 se cargan por defecto desde el campo <code>pi.extensions</code> de <code>package.json</code>
+<p>Las 29 extensiones del repo se listan abajo: 26 se cargan por defecto desde el campo <code>pi.extensions</code> de <code>package.json</code>
 cuando corrés <code>pi install ./</code>, y las 3 <code>pandi-ultracode-*</code> son hosts portables de Ultracode (CLI y plugin del host,
 sin Pi); <code>pandi-theme</code> se registra a través de <code>pi.themes</code>. Cada extensión también se puede instalar por separado con
 <code>pi install ./extensions/&lt;name&gt;</code>.</p>
@@ -502,6 +503,12 @@ sin Pi); <code>pandi-theme</code> se registra a través de <code>pi.themes</code
 <td><code>/btw</code></td>
 <td>Pregunta lateral rápida sobre la conversación actual, sin tools, en un overlay; no se guarda en el historial.</td>
 <td>—</td>
+</tr>
+<tr>
+<td><strong>pandi-anthropic-web-search</strong></td>
+<td><code>web_search</code> nativo</td>
+<td>Inyecta la búsqueda web nativa en requests <code>anthropic-messages</code>; reemplaza la variante de función homónima para evitar colisiones.</td>
+<td>modelo Anthropic compatible</td>
 </tr>
 <tr>
 <td><strong>pandi-improve-prompt</strong></td>

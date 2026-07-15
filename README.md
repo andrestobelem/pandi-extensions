@@ -1,7 +1,7 @@
 # pandi-extensions
 
 **Un libro de patrones agénticos que se ejecuta.** Este repo destila los patrones multi-agente de la literatura (Tree of
-Thoughts, Reflexion, orchestrator-workers…) en **25 scaffolds corribles de JavaScript**. **Una suite de 28 extensiones
+Thoughts, Reflexion, orchestrator-workers…) en **25 scaffolds corribles de JavaScript**. **Una suite de 29 extensiones
 más un tema para [Pi](https://www.npmjs.com/package/@earendil-works/pi-coding-agent)** — el CLI de coding agent
 `@earendil-works/pi-coding-agent` — convierte a Pi en el laboratorio donde correrlos: graficarlos antes, inspeccionar
 journal y artifacts después, y verificar con evidencia en vez de fe.
@@ -87,8 +87,9 @@ npm run smoke:picante:tui     # startup + /workflows + /doctor mediante tmux
 Si los repos no son siblings, definí `PI_CANTE_ROOT=/ruta/a/pi-cante`. El flujo completo está en
 [`docs/developing-extensions.md`](docs/developing-extensions.md).
 
-Los extras opcionales (web search para subagentes, docs de Context7, gráficos PNG, sandboxes Apple `container` y Podman,
-micro-VMs de Gondolin) y la skill externa `karpathy-guidelines` están cubiertos en [`docs/setup.md`](docs/setup.md).
+Los extras opcionales (web search para subagentes y nativo de Anthropic, docs de Context7, gráficos PNG, sandboxes Apple
+`container` y Podman, micro-VMs de Gondolin) y la skill externa `karpathy-guidelines` están cubiertos en
+[`docs/setup.md`](docs/setup.md).
 
 ## Cómo leer este repo
 
@@ -195,7 +196,7 @@ Usalos como patterns, no como ceremonia: cada rama necesita una razón, un contr
 
 ## Catálogo de extensiones
 
-Las 28 extensiones del repo se listan abajo: 25 se cargan por defecto desde el campo `pi.extensions` de `package.json`
+Las 29 extensiones del repo se listan abajo: 26 se cargan por defecto desde el campo `pi.extensions` de `package.json`
 cuando corrés `pi install ./`, y las 3 `pandi-ultracode-*` son hosts portables de Ultracode (CLI y plugin del host,
 sin Pi); `pandi-theme` se registra a través de `pi.themes`. Cada extensión también se puede instalar por separado con
 `pi install ./extensions/<name>`.
@@ -220,6 +221,7 @@ sin Pi); `pandi-theme` se registra a través de `pi.themes`. Cada extensión tam
 | **pandi-mdview**                   | `/mdview` · `view_markdown`                                                                                                                   | Abre un archivo Markdown en el viewer TUI con scroll de Pi.                                                                                                                      | —                                               |
 | **pandi-docs**                     | `/docs` · `markdown_to_html`                                                                                                                  | Convierte Markdown en artifacts HTML autocontenidos con estilo pandi (light + dark).                                                                                             | —                                               |
 | **pandi-btw**                      | `/btw`                                                                                                                                        | Pregunta lateral rápida sobre la conversación actual, sin tools, en un overlay; no se guarda en el historial.                                                                    | —                                               |
+| **pandi-anthropic-web-search**     | `web_search` nativo                                                                                                                           | Inyecta la búsqueda web nativa en requests `anthropic-messages`; reemplaza la variante de función homónima para evitar colisiones.                                                | modelo Anthropic compatible                      |
 | **pandi-improve-prompt**           | `/improve-prompt`                                                                                                                             | Reescribe un prompt borrador para que sea más claro y accionable, y ofrece enviarlo como tu próximo mensaje.                                                                     | TUI/RPC para confirmar el envío                 |
 | **pandi-rename**                   | `/rename`                                                                                                                                     | Renombra la sesión o genera el nombre automáticamente desde el historial (estilo Claude).                                                                                        | opcional: `PI_RENAME_*`                         |
 | **pandi**                          | `/pandi [art\|face\|off\|on]`                                                                                                                 | Personaje panda: splash animado, indicador, verbos y mood.                                                                                                                       | TUI para el efecto completo                     |
