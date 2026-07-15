@@ -6,6 +6,7 @@
 // verdad: index.ts (predeterminado en runtime + descripción del comando) y command-menu.ts (presets,
 // marcador "(predeterminado)") derivan de acá. Se puede sobreescribir al iniciar con PI_AUTO_COMPACT_PERCENT.
 export const DEFAULT_THRESHOLD_PERCENT = 35;
+export const CODEX_DEFAULT_THRESHOLD_PERCENT = 50;
 
 export interface ThresholdModelLike {
 	provider?: string;
@@ -20,8 +21,8 @@ export const isCodexModel = (model: ThresholdModelLike | undefined): boolean => 
 	return provider === "openai-codex" || api === "openai-codex" || id?.includes("codex") === true;
 };
 
-export const resolveDefaultThresholdPercent = (_model: ThresholdModelLike | undefined): number =>
-	DEFAULT_THRESHOLD_PERCENT;
+export const resolveDefaultThresholdPercent = (model: ThresholdModelLike | undefined): number =>
+	isCodexModel(model) ? CODEX_DEFAULT_THRESHOLD_PERCENT : DEFAULT_THRESHOLD_PERCENT;
 
 export const parseThreshold = (value: string | undefined): number | undefined => {
 	if (!value) return undefined;
