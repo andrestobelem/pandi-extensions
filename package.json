@@ -122,7 +122,8 @@
 			"./extensions/pandi-ask/index.ts",
 			"./extensions/pandi-doctor/index.ts",
 			"./node_modules/pi-codex-web-search/src/index.ts",
-			"./node_modules/pi-mcp-adapter/index.ts"
+			"./node_modules/pi-mcp-adapter/index.ts",
+			"./node_modules/pi-cursor-sdk/src/index.ts"
 		],
 		"skills": [
 			"./.pi/skills"
@@ -155,10 +156,12 @@
 	},
 	"dependencies": {
 		"pi-codex-web-search": "0.1.9",
+		"pi-cursor-sdk": "0.1.57",
 		"pi-mcp-adapter": "2.11.0"
 	},
 	"bundledDependencies": [
 		"pi-codex-web-search",
-		"pi-mcp-adapter"
+		"pi-mcp-adapter",
+		"pi-cursor-sdk"
 	]
 }

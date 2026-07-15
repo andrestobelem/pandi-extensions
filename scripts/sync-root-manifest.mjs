@@ -31,6 +31,7 @@ const ROOT_PKG = join(REPO, "package.json");
 export const BUNDLED_EXTENSION_ENTRIES = [
 	"./node_modules/pi-codex-web-search/src/index.ts",
 	"./node_modules/pi-mcp-adapter/index.ts",
+	"./node_modules/pi-cursor-sdk/src/index.ts",
 ];
 
 // Orden de carga curado (nombres de dir). Mantené el core primero y los aliases de UX al final.

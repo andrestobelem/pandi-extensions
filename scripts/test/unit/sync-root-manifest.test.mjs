@@ -48,6 +48,7 @@ test("deriveRootManifest appends explicit bundled external extension entrypoints
 		assert.deepEqual(BUNDLED_EXTENSION_ENTRIES, [
 			"./node_modules/pi-codex-web-search/src/index.ts",
 			"./node_modules/pi-mcp-adapter/index.ts",
+			"./node_modules/pi-cursor-sdk/src/index.ts",
 		]);
 		assert.deepEqual(deriveRootManifest(root, ["pandi-core"]).derived.extensions, [
 			"./extensions/pandi-core/index.ts",
