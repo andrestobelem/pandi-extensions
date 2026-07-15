@@ -2,3 +2,8 @@ pandi-anthropic-web-search
 
 This package vendors code from code-yeongyu/pi-anthropic-web-search at commit
 366396e13abb05a2955d1f66ab703afa1fddee67, under the MIT License.
+
+Deliberate deviation from upstream: this fork removes the before_agent_start hook and the
+ANTHROPIC_WEB_SEARCH_SECTION system-prompt injection. It only mutates the anthropic-messages
+tool payload; it never appends guidance to the system prompt. Reapply this removal by hand if
+the vendored commit is ever refreshed.

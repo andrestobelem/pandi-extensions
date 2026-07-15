@@ -79,14 +79,6 @@ export function addAnthropicWebSearchToPayload(api: string | undefined, payload:
 	return { ...payload, tools: sanitizedTools };
 }
 
-export const ANTHROPIC_WEB_SEARCH_SECTION = `
-## Web Search
-
-The native web_search tool is available in this session.
-Use web_search when the user asks for current or online information.
-Prefer web_search over guessing when freshness matters.
-`;
-
 function clearUi(ctx: ExtensionContext): void {
 	if (!ctx.hasUI) return;
 	ctx.ui.setStatus("pandi-anthropic-web-search", undefined);
@@ -95,11 +87,6 @@ function clearUi(ctx: ExtensionContext): void {
 
 export default function anthropicWebSearchExtension(pi: ExtensionAPI): void {
 	pi.on("before_provider_request", (event, ctx) => addAnthropicWebSearchToPayload(ctx.model?.api, event.payload));
-
-	pi.on("before_agent_start", (event, ctx) => {
-		if (ctx.model?.api !== "anthropic-messages" || !isAnthropicWebSearchEnabled()) return undefined;
-		return { systemPrompt: `${event.systemPrompt}\n${ANTHROPIC_WEB_SEARCH_SECTION}` };
-	});
 
 	pi.on("session_start", (_event, ctx) => clearUi(ctx));
 	pi.on("model_select", (_event, ctx) => clearUi(ctx));

@@ -88,7 +88,7 @@ async function testLifecycleContract(mod) {
 	const { pi, handlers } = makePi();
 	mod.default(pi);
 	check("registra before_provider_request", typeof handlers.get("before_provider_request") === "function");
-	check("registra before_agent_start", typeof handlers.get("before_agent_start") === "function");
+	check("no registra before_agent_start", !handlers.has("before_agent_start"));
 
 	const payloadHandler = handlers.get("before_provider_request");
 	const payloadResult = await payloadHandler(
@@ -100,16 +100,6 @@ async function testLifecycleContract(mod) {
 		payloadResult.tools.some((tool) => tool.type === "web_search_20250305"),
 		JSON.stringify(payloadResult),
 	);
-
-	const promptHandler = handlers.get("before_agent_start");
-	const guided = await promptHandler({ systemPrompt: "base" }, { model: { api: "anthropic-messages" } });
-	check(
-		"agrega guía al system prompt de Anthropic",
-		typeof guided?.systemPrompt === "string" && guided.systemPrompt.includes("native web_search"),
-		JSON.stringify(guided),
-	);
-	const untouched = await promptHandler({ systemPrompt: "base" }, { model: { api: "openai-responses" } });
-	check("no agrega guía a otros proveedores", untouched === undefined);
 }
 
 async function main() {

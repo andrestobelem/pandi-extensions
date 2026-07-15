@@ -30,6 +30,9 @@ Reiniciá Pi o ejecutá `/reload`. Con un modelo Anthropic, la extensión inyect
 Si ya existe una variante nativa `web_search_*`, la conserva. Si existe un tool de función llamado `web_search` —por ejemplo,
 el provisto por `pi-codex-web-search`— lo reemplaza para evitar la colisión de nombres.
 
+A diferencia del proyecto upstream, esta versión **no** agrega ninguna sección al system prompt: solo toca el payload
+serializado. El modelo se entera del tool nativo por la lista de `tools` del request, no por una instrucción extra.
+
 ## Configuración
 
 | Variable | Efecto |
