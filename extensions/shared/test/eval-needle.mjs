@@ -73,6 +73,14 @@ const STOPWORDS = new Set([
 	"two",
 ]);
 
+function strings(value) {
+	return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
+}
+
+function nonEmptyStrings(value) {
+	return strings(value).filter(Boolean);
+}
+
 /** Lowercase, split on non-word chars, drop short tokens and trivial stopwords. */
 export function tokenize(text) {
 	if (typeof text !== "string" || text.length === 0) return [];
@@ -111,10 +119,10 @@ export function buildNeedleEval(spec = {}) {
 	const query = typeof spec.query === "string" ? spec.query : "";
 	const needleSentence = typeof spec.needleSentence === "string" ? spec.needleSentence : "";
 	const needleAnswer = typeof spec.needleAnswer === "string" && spec.needleAnswer ? spec.needleAnswer : needleSentence;
-	const distractors = Array.isArray(spec.distractors) ? spec.distractors.filter((s) => typeof s === "string") : [];
-	const filler = Array.isArray(spec.filler) ? spec.filler.filter((s) => typeof s === "string") : [];
-	const accept = Array.isArray(spec.accept) ? spec.accept.filter((s) => typeof s === "string" && s) : [];
-	const reject = Array.isArray(spec.reject) ? spec.reject.filter((s) => typeof s === "string" && s) : [];
+	const distractors = strings(spec.distractors);
+	const filler = strings(spec.filler);
+	const accept = nonEmptyStrings(spec.accept);
+	const reject = nonEmptyStrings(spec.reject);
 
 	// Interleave distractors among filler, then insert the needle at the requested position.
 	const body = [];
@@ -157,9 +165,7 @@ export function assertNonLexicalDesign(evalCase = {}) {
 		problems.push("no distractor overlaps the query (add a lexical-lure distractor)");
 	}
 
-	const accept = Array.isArray(evalCase.accept)
-		? evalCase.accept.filter((s) => typeof s === "string" && s.length > 0)
-		: [];
+	const accept = nonEmptyStrings(evalCase.accept);
 	if (accept.length === 0) {
 		problems.push("no `accept` paraphrase keys (grading would fall back to literal matching)");
 	}
@@ -186,8 +192,8 @@ export function literalGrade(answer, needleSentence) {
  */
 export function gradeNonLexical(answer, opts = {}) {
 	const text = typeof answer === "string" ? answer.toLowerCase() : "";
-	const accept = Array.isArray(opts.accept) ? opts.accept.filter((s) => typeof s === "string" && s) : [];
-	const reject = Array.isArray(opts.reject) ? opts.reject.filter((s) => typeof s === "string" && s) : [];
+	const accept = nonEmptyStrings(opts.accept);
+	const reject = nonEmptyStrings(opts.reject);
 	const matchedAccept = accept.filter((key) => text.includes(key.toLowerCase()));
 	const matchedReject = reject.filter((key) => text.includes(key.toLowerCase()));
 	// Pass only when a correct paraphrase is present and no distractor lure is matched.
