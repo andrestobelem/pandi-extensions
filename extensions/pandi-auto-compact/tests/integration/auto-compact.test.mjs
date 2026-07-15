@@ -335,19 +335,19 @@ async function belowThresholdNeverCompacts(url) {
 	);
 }
 
-async function codexDefaultThresholdIsFifty(url) {
+async function codexUsesDefaultThirtyFive(url) {
 	const { handlers } = await loadExtension(url);
 	const env = makeEnv({ model: { provider: "openai-codex", id: "gpt-5.6-sol" } });
-	env.state.percent = 40; // por encima del 35% de Claude, por debajo del 50% de Codex
+	env.state.percent = 34;
 	await fireAgentEnd(handlers, env.ctx);
 	check(
-		"default: Codex does not compact below 50%",
+		"default: Codex does not compact below 35%",
 		env.state.compactCount === 0,
 		`compactCount=${env.state.compactCount}`,
 	);
-	env.state.percent = 50;
+	env.state.percent = 35;
 	await fireAgentEnd(handlers, env.ctx);
-	check("default: Codex compacts at 50%", env.state.compactCount === 1, `compactCount=${env.state.compactCount}`);
+	check("default: Codex compacts at 35%", env.state.compactCount === 1, `compactCount=${env.state.compactCount}`);
 }
 
 async function claudeDefaultThresholdRemainsThirtyFive(url) {
@@ -535,11 +535,6 @@ async function defaultThresholdContract(url) {
 		"default: DEFAULT_THRESHOLD_PERCENT is 35",
 		mod.DEFAULT_THRESHOLD_PERCENT === 35,
 		`got ${mod.DEFAULT_THRESHOLD_PERCENT}`,
-	);
-	check(
-		"default: CODEX_DEFAULT_THRESHOLD_PERCENT is 50",
-		mod.CODEX_DEFAULT_THRESHOLD_PERCENT === 50,
-		`got ${mod.CODEX_DEFAULT_THRESHOLD_PERCENT}`,
 	);
 	check(
 		"default: THRESHOLD_OPTIONS includes the default preset",
@@ -1226,7 +1221,7 @@ async function main() {
 	await failedCompactionReArmsAndRetriggers(url);
 	await genuineRecrossRetriggers(url);
 	await belowThresholdNeverCompacts(url);
-	await codexDefaultThresholdIsFifty(url);
+	await codexUsesDefaultThirtyFive(url);
 	await claudeDefaultThresholdRemainsThirtyFive(url);
 	await parseThresholdEdgeCases(url);
 	await renderContextBarCases(url);

@@ -18,7 +18,6 @@ export {
 	extractFastSummaryText,
 } from "./fast-summary.js";
 export {
-	CODEX_DEFAULT_THRESHOLD_PERCENT,
 	DEFAULT_THRESHOLD_PERCENT,
 	parseBarSetting,
 	parseClearSetting,

@@ -9,7 +9,6 @@ import { ARG_COMPLETIONS, resolveCommandValue } from "./command-menu.js";
 import { CODEX_FAST_SUMMARY_MODEL, DEFAULT_FAST_SUMMARY_MODEL } from "./fast-summary.js";
 import type { AutoCompactRuntime } from "./runtime.js";
 import {
-	CODEX_DEFAULT_THRESHOLD_PERCENT,
 	DEFAULT_THRESHOLD_PERCENT,
 	isCodexModel,
 	parseBarSetting,
@@ -23,7 +22,7 @@ import { snapshotDirFor, sortedSnapshotNames } from "./snapshots.js";
 
 export function registerAutoCompactCommand(pi: ExtensionAPI, runtime: AutoCompactRuntime): void {
 	pi.registerCommand("auto-compact", {
-		description: `Configurá la auto-compactación relativa de contexto (habilitada por defecto al ${DEFAULT_THRESHOLD_PERCENT}% para Claude/otros modelos, ${CODEX_DEFAULT_THRESHOLD_PERCENT}% para Codex). Corré el comando sin argumentos para elegir una configuración desde un menú, o pasá status|on|off|run|bar [on|off]|summary [on|off]|<1-99 percent>.`,
+		description: `Configurá la auto-compactación relativa de contexto (habilitada por defecto al ${DEFAULT_THRESHOLD_PERCENT}%). Corré el comando sin argumentos para elegir una configuración desde un menú, o pasá status|on|off|run|bar [on|off]|summary [on|off]|<1-99 percent>.`,
 		getArgumentCompletions: (prefix: string) => {
 			const needle = prefix.trim().toLowerCase();
 			const items = needle

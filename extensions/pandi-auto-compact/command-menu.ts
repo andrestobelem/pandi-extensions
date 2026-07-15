@@ -1,5 +1,5 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { CODEX_DEFAULT_THRESHOLD_PERCENT, DEFAULT_THRESHOLD_PERCENT } from "./settings.js";
+import { DEFAULT_THRESHOLD_PERCENT } from "./settings.js";
 
 type CommandAction = {
 	value: string;
@@ -99,15 +99,11 @@ export const MENU_OPTIONS = COMMAND_ACTIONS.flatMap(({ value, menuDescription })
 
 // Valores predefinidos de threshold ofrecidos después de elegir "threshold"; se derivan para que el
 // predeterminado actual siempre esté presente (y marcado abajo). La última entrada abre un campo de texto.
-const THRESHOLD_PRESETS = [
-	...new Set([20, 30, 40, 50, 60, 70, 80, DEFAULT_THRESHOLD_PERCENT, CODEX_DEFAULT_THRESHOLD_PERCENT]),
-].sort((a, b) => a - b);
+const THRESHOLD_PRESETS = [...new Set([20, 30, 40, 50, 60, 70, 80, DEFAULT_THRESHOLD_PERCENT])].sort((a, b) => a - b);
 export const THRESHOLD_OPTIONS = [...THRESHOLD_PRESETS.map(String), "personalizado\u2026"];
 
 function describeThresholdPreset(percent: number): string {
 	if (percent === DEFAULT_THRESHOLD_PERCENT) return `Configurar el umbral al ${percent}% (predeterminado)`;
-	if (percent === CODEX_DEFAULT_THRESHOLD_PERCENT)
-		return `Configurar el umbral al ${percent}% (predeterminado de Codex)`;
 	return `Configurar el umbral al ${percent}%`;
 }
 
