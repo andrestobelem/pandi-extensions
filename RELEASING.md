@@ -13,7 +13,7 @@ cambió.
 ```bash
 npm run release:flow
 npm run release:go
-npm run release:ship -- --confirm v0.3.19
+npm run release:ship -- --confirm v0.3.20
 ```
 
 `release:ship` es el camino normal: corre el preflight completo, crea un commit seguro, etiqueta y pushea. GitHub
@@ -39,7 +39,7 @@ metadatos y tarballs; un plan stale falla cerrado en vez de publicar una versió
 
 `--all` regenera el publish plan justo antes de publicar (no reutiliza un `.release-plan.json` viejo) y commitea con
 `commit-tree` para evitar trailers `Co-authored-by` que algunos hosts inyectan en `git commit`. Para un preflight más
-rápido en iteración: `node scripts/release-flow.mjs --all --fast --confirm v0.3.19` (`test:fast` en vez de `npm test`).
+rápido en iteración: `node scripts/release-flow.mjs --all --fast --confirm v0.3.20` (`test:fast` en vez de `npm test`).
 
 ## Política de versiones
 
@@ -63,7 +63,7 @@ Los peers se mantienen pinneados al piso soportado por el repo:
 ```bash
 npm run release:prepare
 npm run release:prepare:write -- --until-clean
-node scripts/release-contract.mjs --expect-tag v0.3.19
+node scripts/release-contract.mjs --expect-tag v0.3.20
 node scripts/publish-npm.mjs --plan-file .release-plan.json
 ```
 

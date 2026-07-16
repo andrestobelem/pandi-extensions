@@ -1,6 +1,6 @@
 {
 	"name": "@pandi-coding-agent/pandi-ultracode-claude",
-	"version": "0.1.8",
+	"version": "0.1.9",
 	"description": "Runner trusted-workspace de Ultracode que orquesta workflows portables mediante Claude Code CLI.",
 	"license": "MIT",
 	"repository": {
@@ -27,7 +27,7 @@
 		"README.md"
 	],
 	"dependencies": {
-		"@pandi-coding-agent/pandi-dynamic-workflows": "0.4.12",
+		"@pandi-coding-agent/pandi-dynamic-workflows": "0.4.13",
 		"ajv": "^8.18.0"
 	}
 }
