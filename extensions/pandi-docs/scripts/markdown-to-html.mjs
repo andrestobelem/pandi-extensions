@@ -394,6 +394,7 @@ function main() {
 		const md = fs.readFileSync(input, "utf8");
 		const outPath = parsed.out ?? `${input.replace(/\.md$/i, "")}.html`;
 		const html = renderMarkdownToHtml(md, { title: path.basename(input), kicker: parsed.kicker, tokensCss, css });
+		fs.mkdirSync(path.dirname(outPath), { recursive: true });
 		fs.writeFileSync(outPath, html);
 		console.log(`Se escribió ${outPath} desde ${input}`);
 	}

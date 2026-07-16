@@ -219,6 +219,20 @@ test("CLI converts a .md file to a sibling .html", () => {
 	}
 });
 
+test("CLI creates a missing parent directory for --out", () => {
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pandi-md2html-out-"));
+	try {
+		const mdPath = path.join(dir, "informe.md");
+		const outPath = path.join(dir, "artifacts", "nested", "informe.html");
+		fs.writeFileSync(mdPath, "# CLI nested output\n\nBody here.\n");
+		execFileSync(process.execPath, [SCRIPT, mdPath, "--out", outPath], { encoding: "utf8" });
+		const html = fs.readFileSync(outPath, "utf8");
+		assert.match(html, /<title>CLI nested output<\/title>/);
+	} finally {
+		fs.rmSync(dir, { recursive: true, force: true });
+	}
+});
+
 test("CLI rejects consuming flags without a value or with another flag as their value", () => {
 	for (const flag of ["-o", "--out", "--kicker", "--tokens", "--css"]) {
 		assert.throws(
