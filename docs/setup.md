@@ -214,7 +214,7 @@ comportamiento, exportá variables de entorno. Una referencia versionada con los
 | --------------------------------- | -------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------- |
 | `PI_DYNAMIC_WORKFLOWS_MAX_DEPTH`  | core           | `2`                                                | Profundidad máxima de anidamiento de workflows; `0` = kill-switch total.                     |
 | `PI_DYNAMIC_WORKFLOWS_PI_COMMAND` | core, goal     | binario de la distribución host (`pi` normalmente) | Binario de Pi usado para spawnear subagentes; la variable permite sobrescribirlo.            |
-| `PI_AUTO_COMPACT_PERCENT`         | auto-compact   | `35` (`50` en Codex)                               | Porcentaje de contexto que dispara la compactación.                                          |
+| `PI_AUTO_COMPACT_PERCENT`         | auto-compact   | `50`                                               | Porcentaje de contexto que dispara la compactación.                                          |
 | `PI_AUTO_COMPACT_FAST_SUMMARY`    | auto-compact   | `on`                                               | Usa un resumen rápido/acotado en `session_before_compact`; cae al compactor nativo si falla. |
 | `PI_AUTO_COMPACT_SUMMARY_MODEL`   | auto-compact   | Sonnet 5 (`gpt-5.6-sol` en Codex)                  | Override del modelo de resumen como `provider/model`.                                        |
 | `PI_TS_LSP` / `PI_TS_LSP_MODE`    | typescript-lsp | `on` / `advisory`                                  | Habilita feedback de `tsc` y su modo (`advisory`/`autofix`).                                 |

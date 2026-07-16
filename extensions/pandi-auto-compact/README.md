@@ -1,8 +1,8 @@
 # @pandi-coding-agent/pandi-auto-compact
 
 Las sesiones largas de Pi se quedan sin contexto, y un `/compact` manual puede perder silenciosamente datos que todavía
-necesitabas. Esta extensión vigila el uso de contexto y compacta sola cuando cruza un umbral (por defecto `35%` para
-Claude/otros modelos y `50%` para Codex), con una barra en el footer para anticiparlo, un hook de resumen rápido y
+necesitabas. Esta extensión vigila el uso de contexto y compacta sola cuando cruza un umbral (por defecto `50%`),
+con una barra en el footer para anticiparlo, un hook de resumen rápido y
 acotado (Sonnet 5 por defecto, `openai-codex/gpt-5.6-sol` en sesiones Codex) y una instantánea en disco para que un
 resumen con pérdida nunca quede irrecuperable.
 
@@ -33,7 +33,7 @@ de un agente cuando el uso supera el umbral.
 | `/auto-compact on\|off`               | Activa o desactiva la auto-compactación (`enable`/`disable` también funcionan).                   |
 | `/auto-compact run`                   | Compacta el contexto ahora (`compact` también funciona).                                          |
 | `/auto-compact <1-99>`                | Define el porcentaje de umbral de compactación.                                                   |
-| `/auto-compact bar [on\|off]`         | Muestra, oculta o alterna la barra de progreso del footer; por ejemplo `compact ▰▰▱▱▱▱▱▱ 9%/35%`. |
+| `/auto-compact bar [on\|off]`         | Muestra, oculta o alterna la barra de progreso del footer; por ejemplo `compact ▰▰▱▱▱▱▱▱ 9%/50%`. |
 | `/auto-compact summary [on\|off]`     | Alterna el hook de resumen rápido y acotado de compactación.                                      |
 | `/auto-compact snapshot [on\|off]`    | Alterna las instantáneas recuperables antes de compactar.                                         |
 | `/auto-compact snapshots`             | Lista las rutas de instantáneas recientes de la sesión actual.                                    |
@@ -64,7 +64,7 @@ Valores iniciales, sobrescribibles mediante variables de entorno:
 
 | Variable                                  | Predeterminado                                                                       | Significado                                                                |
 | ----------------------------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
-| `PI_AUTO_COMPACT_PERCENT`                 | sensible al modelo (`35` normalmente, `50` para Codex)                               | Porcentaje de umbral de compactación.                                      |
+| `PI_AUTO_COMPACT_PERCENT`                 | `50`                                                                                 | Porcentaje de umbral de compactación.                                      |
 | `PI_AUTO_COMPACT_BAR`                     | `on`                                                                                 | Visibilidad de la barra de progreso del footer.                            |
 | `PI_AUTO_COMPACT_FAST_SUMMARY`            | `on`                                                                                 | Usa el resumen personalizado rápido y acotado de compactación.             |
 | `PI_AUTO_COMPACT_SUMMARY_MODEL`           | sensible al modelo (`anthropic/claude-sonnet-5`, Codex → `openai-codex/gpt-5.6-sol`) | Sobrescribe el modelo de resumen como `provider/model`.                    |

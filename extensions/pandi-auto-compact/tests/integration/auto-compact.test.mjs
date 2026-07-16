@@ -267,7 +267,7 @@ async function fireTurnEnd(handlers, ctx) {
 async function stuckAboveThresholdDoesNotLoop(url) {
 	const { handlers } = await loadExtension(url);
 	const env = makeEnv();
-	// La compactación nunca baja el usage por debajo del umbral predeterminado de 35%.
+	// La compactación nunca baja el usage por debajo del umbral predeterminado de 50%.
 	env.state.percent = 60;
 	env.state.reduceTo = 60;
 
@@ -290,7 +290,7 @@ async function stuckAboveThresholdDoesNotLoop(url) {
 async function failedCompactionReArmsAndRetriggers(url) {
 	const { handlers } = await loadExtension(url);
 	const env = makeEnv();
-	env.state.percent = 60; // por encima del umbral predeterminado de 35%
+	env.state.percent = 60; // por encima del umbral predeterminado de 50%
 	env.state.failCompaction = true;
 
 	await fireAgentEnd(handlers, env.ctx); // cruce -> se intenta la compactación #1, falla
@@ -310,7 +310,7 @@ async function genuineRecrossRetriggers(url) {
 	env.state.reduceTo = 20;
 
 	await fireAgentEnd(handlers, env.ctx); // cruce -> compactación #1, ahora en 20%
-	await fireAgentEnd(handlers, env.ctx); // 20% < 35% -> sin compactación
+	await fireAgentEnd(handlers, env.ctx); // 20% < 50% -> sin compactación
 	env.state.percent = 60; // nuevo aumento genuino por encima del umbral
 	env.state.reduceTo = 20;
 	await fireAgentEnd(handlers, env.ctx); // vuelve a cruzar -> compactación #2
@@ -325,7 +325,7 @@ async function genuineRecrossRetriggers(url) {
 async function belowThresholdNeverCompacts(url) {
 	const { handlers } = await loadExtension(url);
 	const env = makeEnv();
-	env.state.percent = 20; // nunca cruza 35%
+	env.state.percent = 20; // nunca cruza 50%
 	await fireAgentEnd(handlers, env.ctx);
 	await fireAgentEnd(handlers, env.ctx);
 	check(
@@ -338,7 +338,7 @@ async function belowThresholdNeverCompacts(url) {
 async function codexDefaultThresholdIsFifty(url) {
 	const { handlers } = await loadExtension(url);
 	const env = makeEnv({ model: { provider: "openai-codex", id: "gpt-5.6-sol" } });
-	env.state.percent = 40; // por encima del 35% de Claude, por debajo del 50% de Codex
+	env.state.percent = 40; // por debajo del 50% predeterminado
 	await fireAgentEnd(handlers, env.ctx);
 	check(
 		"default: Codex does not compact below 50%",
@@ -350,16 +350,19 @@ async function codexDefaultThresholdIsFifty(url) {
 	check("default: Codex compacts at 50%", env.state.compactCount === 1, `compactCount=${env.state.compactCount}`);
 }
 
-async function claudeDefaultThresholdRemainsThirtyFive(url) {
+async function claudeDefaultThresholdIsFifty(url) {
 	const { handlers } = await loadExtension(url);
 	const env = makeEnv({ model: { provider: "anthropic", id: "claude-sonnet-4-5" } });
-	env.state.percent = 40; // por encima del predeterminado de 35% de Claude
+	env.state.percent = 40; // por debajo del 50% predeterminado
 	await fireAgentEnd(handlers, env.ctx);
 	check(
-		"default: Claude still compacts at 35%",
-		env.state.compactCount === 1,
+		"default: Claude does not compact below 50%",
+		env.state.compactCount === 0,
 		`compactCount=${env.state.compactCount}`,
 	);
+	env.state.percent = 50;
+	await fireAgentEnd(handlers, env.ctx);
+	check("default: Claude compacts at 50%", env.state.compactCount === 1, `compactCount=${env.state.compactCount}`);
 }
 
 // Cobertura pura a nivel unitario para parseThreshold (export nombrado). Importa el
@@ -456,12 +459,12 @@ async function parseBarSettingCases(url) {
 async function barReflectsUsageBelowThreshold(url) {
 	const { handlers } = await loadExtension(url);
 	const env = makeEnv();
-	env.state.percent = 15; // por debajo del umbral predeterminado de 35%
+	env.state.percent = 15; // por debajo del umbral predeterminado de 50%
 	await fireTurnEnd(handlers, env.ctx);
 	const text = lastStatus(env);
 	check(
 		"bar: shows usage/threshold label on a normal turn",
-		typeof text === "string" && text.includes("15%/35%"),
+		typeof text === "string" && text.includes("15%/50%"),
 		`got ${JSON.stringify(text)}`,
 	);
 	check(
@@ -505,7 +508,7 @@ async function barToggleClearsAndRestores(url) {
 	await run("bar on");
 	check(
 		"bar toggle: restored when turned on",
-		typeof lastStatus(env) === "string" && lastStatus(env).includes("15%/35%"),
+		typeof lastStatus(env) === "string" && lastStatus(env).includes("15%/50%"),
 		`got ${JSON.stringify(lastStatus(env))}`,
 	);
 }
@@ -532,8 +535,8 @@ async function barClearedWhenDisabled(url) {
 async function defaultThresholdContract(url) {
 	const mod = await loadModule(url);
 	check(
-		"default: DEFAULT_THRESHOLD_PERCENT is 35",
-		mod.DEFAULT_THRESHOLD_PERCENT === 35,
+		"default: DEFAULT_THRESHOLD_PERCENT is 50",
+		mod.DEFAULT_THRESHOLD_PERCENT === 50,
 		`got ${mod.DEFAULT_THRESHOLD_PERCENT}`,
 	);
 	check(
@@ -543,7 +546,7 @@ async function defaultThresholdContract(url) {
 	);
 	check(
 		"default: THRESHOLD_OPTIONS includes the default preset",
-		Array.isArray(mod.THRESHOLD_OPTIONS) && mod.THRESHOLD_OPTIONS.includes("35"),
+		Array.isArray(mod.THRESHOLD_OPTIONS) && mod.THRESHOLD_OPTIONS.includes("50"),
 		`got ${JSON.stringify(mod.THRESHOLD_OPTIONS)}`,
 	);
 	const markers = (mod.ARG_COMPLETIONS ?? []).filter(
@@ -551,7 +554,7 @@ async function defaultThresholdContract(url) {
 	);
 	check(
 		"default: exactly the default preset is marked (default)",
-		markers.length === 1 && markers[0]?.value === "35",
+		markers.length === 1 && markers[0]?.value === "50",
 		`got ${JSON.stringify(markers)}`,
 	);
 }
@@ -1227,7 +1230,7 @@ async function main() {
 	await genuineRecrossRetriggers(url);
 	await belowThresholdNeverCompacts(url);
 	await codexDefaultThresholdIsFifty(url);
-	await claudeDefaultThresholdRemainsThirtyFive(url);
+	await claudeDefaultThresholdIsFifty(url);
 	await parseThresholdEdgeCases(url);
 	await renderContextBarCases(url);
 	await barLevelColorCases(url);

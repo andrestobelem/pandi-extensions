@@ -5,7 +5,7 @@
 // La compactación se dispara cuando el uso relativo de contexto llega a este porcentaje. Fuente única de
 // verdad: index.ts (predeterminado en runtime + descripción del comando) y command-menu.ts (presets,
 // marcador "(predeterminado)") derivan de acá. Se puede sobreescribir al iniciar con PI_AUTO_COMPACT_PERCENT.
-export const DEFAULT_THRESHOLD_PERCENT = 35;
+export const DEFAULT_THRESHOLD_PERCENT = 50;
 export const CODEX_DEFAULT_THRESHOLD_PERCENT = 50;
 
 export interface ThresholdModelLike {
