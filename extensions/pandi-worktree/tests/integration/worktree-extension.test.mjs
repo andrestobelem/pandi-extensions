@@ -817,22 +817,22 @@ async function scenarioInteractiveAdd(url) {
 async function scenarioCopyFilters(url) {
 	const mod = await loadModule(url);
 	check(
-		"buildListIgnoredArgs: ls-files --others --ignored --exclude-standard --directory",
+		"buildListIgnoredArgs: ls-files -z --others --ignored --exclude-standard --directory",
 		JSON.stringify(mod.buildListIgnoredArgs()) ===
-			JSON.stringify(["ls-files", "--others", "--ignored", "--exclude-standard", "--directory"]),
+			JSON.stringify(["ls-files", "-z", "--others", "--ignored", "--exclude-standard", "--directory"]),
 		JSON.stringify(mod.buildListIgnoredArgs()),
 	);
 	check(
-		"buildListUntrackedArgs: ls-files --others --exclude-standard --directory",
+		"buildListUntrackedArgs: ls-files -z --others --exclude-standard --directory",
 		JSON.stringify(mod.buildListUntrackedArgs()) ===
-			JSON.stringify(["ls-files", "--others", "--exclude-standard", "--directory"]),
+			JSON.stringify(["ls-files", "-z", "--others", "--exclude-standard", "--directory"]),
 		JSON.stringify(mod.buildListUntrackedArgs()),
 	);
 	check(
-		"parseLsFilesEntries: splits NUL/newline, trims, drops empties",
-		JSON.stringify(mod.parseLsFilesEntries("node_modules/\n\n.env\0dist/\n")) ===
-			JSON.stringify(["node_modules/", ".env", "dist/"]),
-		JSON.stringify(mod.parseLsFilesEntries("node_modules/\n\n.env\0dist/\n")),
+		"parseLsFilesEntries: splits NUL and preserves literal path characters",
+		JSON.stringify(mod.parseLsFilesEntries(" node_modules/\0name with trailing space \0line\nbreak\0tab\tname\0")) ===
+			JSON.stringify([" node_modules/", "name with trailing space ", "line\nbreak", "tab\tname"]),
+		JSON.stringify(mod.parseLsFilesEntries(" node_modules/\0name with trailing space \0line\nbreak\0tab\tname\0")),
 	);
 	const filtered = mod.filterCopyableEntries(
 		["node_modules/", ".env", ".pi/worktrees/", ".pi/worktrees/other/", ".pi/", ".git", "a/.git", "dist/"],

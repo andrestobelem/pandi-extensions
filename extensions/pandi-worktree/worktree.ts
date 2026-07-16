@@ -391,19 +391,18 @@ export function buildListArgs(): string[] {
  * `node_modules/`) para copiar un directorio en vez de miles de archivos.
  */
 export function buildListIgnoredArgs(): string[] {
-	return ["ls-files", "--others", "--ignored", "--exclude-standard", "--directory"];
+	return ["ls-files", "-z", "--others", "--ignored", "--exclude-standard", "--directory"];
 }
 
 /** Construye argv para enumerar paths UNTRACKED (no ignorados), con dirs sin seguimiento colapsados. */
 export function buildListUntrackedArgs(): string[] {
-	return ["ls-files", "--others", "--exclude-standard", "--directory"];
+	return ["ls-files", "-z", "--others", "--exclude-standard", "--directory"];
 }
 
-/** Divide `git ls-files` stdout en entradas relativas recortadas (separadas por NUL o salto de línea). */
+/** Divide la salida NUL-delimitada de `git ls-files -z` sin alterar rutas válidas. */
 export function parseLsFilesEntries(stdout: string): string[] {
 	return String(stdout)
-		.split(/\0|\n/)
-		.map((s) => s.trim())
+		.split("\0")
 		.filter((s) => s.length > 0);
 }
 
