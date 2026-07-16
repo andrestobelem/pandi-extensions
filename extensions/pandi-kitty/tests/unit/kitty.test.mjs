@@ -4,6 +4,8 @@
  * manejadores de alto nivel con un runner inyectado). No arranca kitty real.
  */
 import assert from "node:assert/strict";
+import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildExtension, createChecker, loadModule } from "../../../shared/test/harness.mjs";
@@ -72,6 +74,23 @@ async function main() {
 	check("describeError: spawn ENOENT -> hint de instalación", () => {
 		const text = mod.describeError({ ok: false, stdout: "", stderr: "", spawnError: "spawn kitty ENOENT" }, "launch");
 		assert.match(text, /no se encontró el binario/i);
+	});
+
+	check("runKitty: timeout escalates SIGTERM to SIGKILL", async () => {
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pandi-kitty-timeout-"));
+		try {
+			fs.writeFileSync(
+				path.join(dir, "@"),
+				'process.on("SIGTERM", () => {}); setInterval(() => {}, 1_000); setTimeout(() => process.exit(23), 3_000);',
+			);
+			const startedAt = Date.now();
+			const result = await mod.runKitty(["ignored"], { bin: process.execPath, cwd: dir, timeoutMs: 1_000 });
+			assert.equal(result.ok, false);
+			assert.equal(result.timedOut, true);
+			assert.ok(Date.now() - startedAt < 2_000, `elapsed=${Date.now() - startedAt}`);
+		} finally {
+			fs.rmSync(dir, { recursive: true, force: true });
+		}
 	});
 
 	check("runGotoLayout: sin layout -> error", async () => {

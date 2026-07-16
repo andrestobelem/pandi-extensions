@@ -36,6 +36,7 @@ export interface RunKittyOptions {
 
 export const DEFAULT_KITTY_TIMEOUT_MS = 15_000;
 export const MIN_KITTY_TIMEOUT_MS = 1_000;
+const KITTY_TERMINATION_GRACE_MS = 250;
 
 export function parseTimeoutMs(raw: string | undefined, fallback = DEFAULT_KITTY_TIMEOUT_MS): number {
 	const n = Number(raw);
@@ -57,30 +58,49 @@ export function runKitty(args: string[], options: RunKittyOptions = {}): Promise
 		let stderr = "";
 		let settled = false;
 		let timedOut = false;
+		let terminating = false;
+		let timer: NodeJS.Timeout | undefined;
+		let killTimer: NodeJS.Timeout | undefined;
 
 		const child = spawn(bin, ["@", ...args], { cwd, windowsHide: true });
 
 		const finish = (result: KittyResult) => {
 			if (settled) return;
 			settled = true;
-			clearTimeout(timer);
+			if (timer) clearTimeout(timer);
+			if (killTimer) clearTimeout(killTimer);
 			if (signal) signal.removeEventListener("abort", onAbort);
 			resolve(result);
 		};
 
-		const onAbort = () => {
+		const terminate = () => {
+			if (settled || terminating) return;
+			terminating = true;
 			timedOut = true;
-			child.kill("SIGTERM");
+			try {
+				child.kill("SIGTERM");
+			} catch {
+				/* el proceso ya cerró */
+			}
+			killTimer = setTimeout(() => {
+				if (settled) return;
+				try {
+					child.kill("SIGKILL");
+				} catch {
+					/* el proceso ya cerró */
+				}
+			}, KITTY_TERMINATION_GRACE_MS);
+			killTimer.unref?.();
 		};
+
+		const onAbort = () => terminate();
 		if (signal) {
 			if (signal.aborted) onAbort();
 			else signal.addEventListener("abort", onAbort, { once: true });
 		}
 
-		const timer = setTimeout(() => {
-			timedOut = true;
-			child.kill("SIGTERM");
-		}, timeoutMs);
+		timer = setTimeout(terminate, timeoutMs);
+		timer.unref?.();
 
 		child.stdout?.on("data", (chunk) => {
 			stdout += chunk.toString();
