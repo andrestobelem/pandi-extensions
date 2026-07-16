@@ -22,6 +22,9 @@ export function openingText(model: RunReportModel, summary: ProgressSummary): st
 	if (model.state === "completed") {
 		return `${totalAgents} ${agentLabel} completaron el run sin fallas registradas. Empezá por el output final si existe; los detalles crudos quedan debajo para depurar.`;
 	}
+	if (model.state === "planned") {
+		return `Vista previa pre-launch: ${totalAgents} ${agentLabel} planificados; nada corrió todavía. Revisá prompts, schemas y el script completo abajo — al terminar el run, el reporte real reemplaza esta vista.`;
+	}
 	return `Estado del run: ${model.state}. Hay ${totalAgents} ${agentLabel} registrados; revisá primero los callouts y después las tarjetas de agentes.`;
 }
 

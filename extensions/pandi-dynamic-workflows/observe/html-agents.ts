@@ -9,7 +9,8 @@ export function pillClass(state: string, ok?: boolean): string {
 	if (state === "running") return "run";
 	if (state === "cached") return "ok";
 	if (state === "interrupted") return "fail";
-	if (state === "stale" || state === "cancelled" || state === "unknown") return "warn";
+	// "planned" es la vista pre-launch (nada corrió todavía) — advertencia neutral, nunca "fail".
+	if (state === "stale" || state === "cancelled" || state === "unknown" || state === "planned") return "warn";
 	return "fail";
 }
 
@@ -42,7 +43,7 @@ function agentSucceeded(agent: RunReportAgent): boolean {
 }
 
 function agentDone(agent: RunReportAgent): boolean {
-	return agent.state !== "running";
+	return agent.state !== "running" && agent.state !== "planned";
 }
 
 export interface ProgressSummary {
@@ -89,7 +90,11 @@ export function summarizeProgress(model: RunReportModel): ProgressSummary {
 			? "fail"
 			: model.state === "running" || running > 0 || openEnded
 				? "run"
-				: unknown > 0 || model.state === "cancelled" || model.state === "stale" || model.state === "unknown"
+				: unknown > 0 ||
+						model.state === "cancelled" ||
+						model.state === "stale" ||
+						model.state === "unknown" ||
+						model.state === "planned"
 					? "warn"
 					: "ok";
 	return { observed, total, done, running, failed, unknown, fraction, tone, openEnded };
@@ -110,6 +115,7 @@ function agentStateText(agent: RunReportAgent): string {
 	if (agent.state === "completed") return "✓ done";
 	if (agent.state === "running") return "▶ running";
 	if (agent.state === "cached") return "♻ cached";
+	if (agent.state === "planned") return "◦ planned";
 	return "? unknown";
 }
 

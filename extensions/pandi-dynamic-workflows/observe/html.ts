@@ -34,6 +34,7 @@ import {
 	renderMermaidSection,
 	renderMetricsSection,
 	renderPhaseSection,
+	renderSchemasSection,
 } from "./html-report-sections.js";
 import { openingText, renderAgent } from "./html-sections.js";
 import { escapeHtml } from "./safe-html.js";
@@ -134,6 +135,12 @@ export interface RunReportModel {
 	output?: RunReportText;
 	outputFormat?: "pre" | "markdown";
 	basedOn?: RunReportBasedOn[];
+	/** Cómo se extrajo la estructura del preview ("estático (parse-only)" | "evaluado"); chip opcional. */
+	previewMode?: string;
+	/** Structured-output schemas del workflow (vista pre-launch de Claude Code; opcional en runs). */
+	schemas?: { name: string; json: string }[];
+	/** Texto completo del script del workflow, para la sección colapsable "Script". */
+	script?: RunReportText;
 	logs: { time: string; message: string; details?: string }[];
 	phases: { label: string; time: string; source?: "event" | "log" }[];
 	agents: RunReportAgent[];
@@ -199,6 +206,8 @@ ${model.output ? `<h2>Final output</h2>${textBlock("Output", model.output, true,
 ${renderIntegritySection(model.integrity)}
 ${renderMetricsSection(model.metricsTotals)}
 ${renderBasedOnSection(model.basedOn)}
+${renderSchemasSection(model.schemas)}
+${model.script ? `<h2>Script</h2>${textBlock("Script", model.script)}` : ""}
 ${renderPhaseSection(model)}
 ${renderMermaidSection(model)}
 <h2>Agents (${model.agents.length})</h2>

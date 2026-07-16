@@ -52,12 +52,27 @@ export function renderCallouts(model: RunReportModel, autoRefreshSeconds: number
 	return callouts.join("\n");
 }
 
+export function renderSchemasSection(schemas?: { name: string; json: string }[]): string {
+	if (!schemas || schemas.length === 0) return "";
+	return (
+		`<h2>Schemas (${schemas.length})</h2>` +
+		schemas
+			.map(
+				(schema) =>
+					`<details><summary>${escapeHtml(schema.name)}</summary>` +
+					`<div class="body"><pre class="json-output">${escapeHtml(schema.json)}</pre></div></details>`,
+			)
+			.join("\n")
+	);
+}
+
 export function renderHeaderChips(model: RunReportModel, summary: ProgressSummary): string {
 	const failedAgents = summary.failed;
 	return [
 		chip("run", model.runId),
 		chip("scope", model.scope),
 		chip("agents", model.agents.length),
+		chip("preview", model.previewMode),
 		model.basedOn?.length ? chip("based on", model.basedOn.length) : "",
 		failedAgents ? chip("failed", failedAgents) : "",
 		model.integrity?.emptyOutputAgents ? chip("empty-output", model.integrity.emptyOutputAgents) : "",
