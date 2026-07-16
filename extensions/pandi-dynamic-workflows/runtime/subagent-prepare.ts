@@ -14,6 +14,7 @@ import {
 	normalizeAgentEnvAccess,
 } from "./agent-env-persona.js";
 import { resolveHostThinkingLevel, sanitizeAgentOpts } from "./agent-process.js";
+import { applyProviderExtensionAccess } from "./agent-provider-extensions.js";
 import { computeCallKey, lookupJournalRecord } from "./journal.js";
 import { appendSystemPromptOption, makeStructuredOutputSystemPrompt } from "./structured-output.js";
 import { makeModelArg, TIER_ALIASES, tierModelTable } from "./tier-models.js";
@@ -281,6 +282,7 @@ export async function prepareSubagentInvocation(
 	const prologue = await occAssignMutex.runExclusive(async () => {
 		let resolved = (await applyPersonaOptions(ctx, normalized)) as InternalAgentOptions;
 		resolved = await applyDefaultAgentAccess(ctx, resolved);
+		resolved = await applyProviderExtensionAccess(ctx, resolved);
 		if (resolved.schema !== undefined) {
 			resolved = appendSystemPromptOption(resolved, makeStructuredOutputSystemPrompt(resolved.schema));
 		}

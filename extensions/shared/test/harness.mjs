@@ -78,7 +78,9 @@ export const STUB_SOURCES = {
 		"export const Type = { Object: id, Number: id, String: id, Boolean: id, Array: id, Optional: id, Union: id, Literal: id, Any: id, Integer: id };\n" +
 		"export default { Type };\n",
 	typeboxValue: "export const Value = { Check: () => true, Errors: function* () {} };\nexport default { Value };\n",
-	ai: "export function StringEnum(values, opts = {}) { return { ...opts, enum: values }; }\n",
+	ai:
+		"export function StringEnum(values, opts = {}) { return { ...opts, enum: values }; }\n" +
+		'export function getBuiltinProviders() { return ["anthropic","openai","google","amazon-bedrock"]; }\n',
 	tui:
 		"export class Image { constructor() {} input() {} render() { return []; } }\n" +
 		'export const Key = { escape: "escape", enter: "enter", up: "up", down: "down", pageUp: "pageUp", pageDown: "pageDown", home: "home", end: "end", delete: "delete", backspace: "backspace", tab: "tab", left: "left", right: "right", ctrlAlt: (key) => "ctrlAlt:" + key };\n' +
@@ -156,6 +158,10 @@ export async function writeStubs(outDir, spec = {}) {
 		const file = path.join(outDir, `stub-${key}.mjs`);
 		await fs.writeFile(file, source);
 		aliases[specifier] = file;
+		if (key === "ai") {
+			aliases["@earendil-works/pi-ai/providers/all"] = file;
+			aliases["@earendil-works/pi-ai/compat"] = file;
+		}
 	}
 	return aliases;
 }
@@ -206,7 +212,8 @@ export async function bundle({ src, outDir, outName, aliases = {}, external = []
 	if (!existsSync(src)) throw new Error(`bundle: missing source: ${src}`);
 	const out = path.join(outDir, outName);
 	const args = [npx, "esbuild", src, "--bundle", "--platform=node", "--format=esm"];
-	for (const [specifier, file] of Object.entries(aliases)) args.push(`--alias:${specifier}=${file}`);
+	const sortedAliases = Object.entries(aliases).sort(([a], [b]) => b.length - a.length);
+	for (const [specifier, file] of sortedAliases) args.push(`--alias:${specifier}=${file}`);
 	for (const specifier of external) args.push(`--external:${specifier}`);
 	args.push(`--outfile=${out}`);
 	const r = spawnSync("npx", args, { cwd: REPO_ROOT, encoding: "utf8" });

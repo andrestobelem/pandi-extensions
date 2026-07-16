@@ -99,6 +99,8 @@ export function buildAgentArgs(input: BuildAgentArgsInput): string[] {
 	const { attemptPrompt, effectiveOptions, resolvedProvider, resolvedModel, resolvedThinking, defaultApprove } = input;
 	const args = ["-p", "--no-session", "--mode", "json"];
 	const explicitExtensions = effectiveOptions.extensions ?? [];
+	// --no-extensions mantiene el worker aislado; extensiones explícitas (web_search,
+	// providers custom vía applyProviderExtensionAccess) se pasan con --extension.
 	if (effectiveOptions.includeExtensions !== true) args.push("--no-extensions");
 	for (const extensionPath of explicitExtensions) args.push("--extension", extensionPath);
 	const explicitSkills = effectiveOptions.skills ?? [];

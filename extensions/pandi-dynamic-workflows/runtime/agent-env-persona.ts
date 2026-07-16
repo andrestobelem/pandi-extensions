@@ -22,3 +22,9 @@ export {
 	registeredPersonaDirectories,
 	registerPersonaDirectory,
 } from "./agent-persona.js";
+export {
+	applyProviderExtensionAccess,
+	isBuiltinProvider,
+	resolveProviderExtensionPaths,
+	resolveSpawnProvider,
+} from "./agent-provider-extensions.js";
