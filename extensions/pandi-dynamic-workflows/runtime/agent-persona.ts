@@ -9,6 +9,7 @@ import * as path from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
 import type { AgentOptions } from "../types.js";
+import { resolvePackageExtensionPaths } from "./package-extension-paths.js";
 
 export const DEFAULT_AGENT_WEB_SEARCH_TOOL = "web_search";
 export const DEFAULT_WEB_SEARCH_EXTENSION_PACKAGE = "pi-codex-web-search";
@@ -185,28 +186,6 @@ function existingRealPath(candidate: string): string | undefined {
 	}
 }
 
-async function resolvePiPackageExtensionPaths(packageRoot: string): Promise<string[]> {
-	try {
-		const manifest = JSON.parse(await fs.readFile(path.join(packageRoot, "package.json"), "utf8")) as {
-			pi?: { extensions?: unknown };
-		};
-		const extensions = manifest.pi?.extensions;
-		if (Array.isArray(extensions)) {
-			const resolved = extensions
-				.filter((entry): entry is string => typeof entry === "string")
-				.map((entry) => existingRealPath(path.resolve(packageRoot, entry)))
-				.filter((entry): entry is string => !!entry);
-			if (resolved.length) return resolved;
-		}
-	} catch {
-		// Fall back to conventional entrypoints below.
-	}
-	const fallback =
-		existingRealPath(path.join(packageRoot, "src", "index.ts")) ??
-		existingRealPath(path.join(packageRoot, "index.ts"));
-	return fallback ? [fallback] : [];
-}
-
 async function resolveDefaultWebSearchExtensions(ctx: ExtensionContext): Promise<string[]> {
 	const packageRoots = appendUniqueValues(undefined, [
 		path.join(getAgentDir(), "npm", "node_modules", DEFAULT_WEB_SEARCH_EXTENSION_PACKAGE),
@@ -219,7 +198,7 @@ async function resolveDefaultWebSearchExtensions(ctx: ExtensionContext): Promise
 	const extensions: string[] = [];
 	for (const packageRoot of packageRoots) {
 		if (!existsSync(packageRoot)) continue;
-		extensions.push(...(await resolvePiPackageExtensionPaths(packageRoot)));
+		extensions.push(...(await resolvePackageExtensionPaths(packageRoot)));
 	}
 	return appendUniqueValues(undefined, extensions);
 }
