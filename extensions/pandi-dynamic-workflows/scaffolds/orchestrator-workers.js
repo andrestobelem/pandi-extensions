@@ -113,6 +113,7 @@ export default async function main() {
 	// Values are cross-provider tier aliases (pi maps haiku/sonnet/opus per session provider).
 	// Override per run WITHOUT editing code: input.models[role] / input.efforts[role].
 	const TIERS = { cheap: "haiku", balanced: "sonnet", deep: "opus" };
+	const VALID_EFFORTS = new Set(["low", "medium", "high", "xhigh", "max"]);
 	const node = (role, extra = {}) => {
 		const { tier, ...rest } = extra;
 		if (tier != null && !(tier in TIERS))
@@ -120,6 +121,8 @@ export default async function main() {
 		const o = { label: role, ...rest };
 		const m = models[role] ?? input?.model ?? (tier != null ? TIERS[tier] : undefined);
 		const e = efforts[role] ?? input?.effort;
+		if (e != null && !VALID_EFFORTS.has(e))
+			log(`unknown effort "${e}" for role ${role}; passing through as-is (valid: ${[...VALID_EFFORTS].join("|")})`);
 		if (m != null) o.model = m;
 		if (e != null) o.effort = e;
 		const t = toolsByRole[role] ?? input?.tools;
