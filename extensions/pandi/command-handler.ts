@@ -38,10 +38,15 @@ export async function handlePandiCommand(args: string, ctx: ExtensionContext, ru
 	if (cmd === "face") {
 		if (!runtime.enabled) return notifyAsleep();
 		runtime.faceStyle = nextFaceStyle(runtime.faceStyle);
-		saveFaceStyle(runtime.faceStyle);
+		const saved = saveFaceStyle(runtime.faceStyle);
 		const frames = pandaFrames(ctx.ui.theme, runtime.faceStyle);
 		ctx.ui.setWorkingIndicator(frames);
-		ctx.ui.notify(`${frames.frames?.[0] ?? ""} Estilo ${runtime.faceStyle} (guardado).`, "info");
+		ctx.ui.notify(
+			saved
+				? `${frames.frames?.[0] ?? ""} Estilo ${runtime.faceStyle} (guardado).`
+				: `${frames.frames?.[0] ?? ""} Estilo ${runtime.faceStyle} activo, pero no se pudo guardar.`,
+			saved ? "info" : "warning",
+		);
 		return;
 	}
 

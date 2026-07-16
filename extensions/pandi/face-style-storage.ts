@@ -15,10 +15,11 @@ export function loadFaceStyle(): FaceStyle {
 	}
 }
 
-export function saveFaceStyle(face: FaceStyle): void {
+export function saveFaceStyle(face: FaceStyle): boolean {
 	try {
 		writeFileSync(styleFile(), JSON.stringify({ face }));
+		return true;
 	} catch {
-		/* mejor esfuerzo */
+		return false;
 	}
 }
