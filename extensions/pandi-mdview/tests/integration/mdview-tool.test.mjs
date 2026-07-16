@@ -207,6 +207,23 @@ async function scenarioOversized(url) {
 	);
 }
 
+async function scenarioExactSizeLimit(url) {
+	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-mdview-tool-limit-"));
+	const content = "x".repeat(2_000_000);
+	await fs.writeFile(path.join(cwd, "limit.md"), content, "utf8");
+	const tool = await loadTool(url);
+	const ctx = makeCtx({ cwd, mode: "print" });
+
+	const result = await tool.execute("call-limit", { path: "limit.md" }, undefined, undefined, ctx);
+	check("límite exacto: devuelve el documento", result?.content?.[0]?.text === content);
+	check(
+		"límite exacto: informa los bytes leídos",
+		result?.details?.bytes === 2_000_000,
+		JSON.stringify(result?.details),
+	);
+	check("límite exacto: no es un error", !result?.details?.isError, JSON.stringify(result?.details));
+}
+
 async function scenarioEmptyPath(url) {
 	const cwd = await fs.mkdtemp(path.join(os.tmpdir(), "pi-mdview-tool-empty-"));
 	const tool = await loadTool(url);
@@ -226,6 +243,7 @@ async function main() {
 		await scenarioMissingFile(url);
 		await scenarioRejectsNonMarkdownExtension(url);
 		await scenarioOversized(url);
+		await scenarioExactSizeLimit(url);
 		await scenarioEmptyPath(url);
 	} finally {
 		await fs.rm(outDir, { recursive: true, force: true });

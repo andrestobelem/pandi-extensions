@@ -44,25 +44,29 @@ function hasMarkdownExtension(filePath: string): boolean {
 	return lower.endsWith(".md") || lower.endsWith(".markdown");
 }
 
-type MarkdownFileValidation = { ok: true; bytes: number } | { ok: false; message: string; level: "warning" };
+function oversizedMarkdownFile(bytes: number): MarkdownLoad {
+	return {
+		ok: false,
+		message: `El archivo Markdown es demasiado grande para verlo (${bytes} bytes; límite ${MAX_MDVIEW_BYTES} bytes) — abrilo en un editor externo.`,
+		level: "warning",
+	};
+}
 
-async function validateMarkdownFile(filePath: string): Promise<MarkdownFileValidation> {
-	if (!hasMarkdownExtension(filePath)) {
-		return {
-			ok: false,
-			message: "El visor Markdown solo abre archivos .md o .markdown.",
-			level: "warning",
-		};
+async function readMarkdownFile(filePath: string): Promise<MarkdownLoad> {
+	const file = await fs.open(filePath, "r");
+	try {
+		const buffer = Buffer.allocUnsafe(MAX_MDVIEW_BYTES + 1);
+		let bytes = 0;
+		while (bytes < buffer.length) {
+			const { bytesRead } = await file.read(buffer, bytes, buffer.length - bytes, null);
+			if (bytesRead === 0) break;
+			bytes += bytesRead;
+		}
+		if (bytes > MAX_MDVIEW_BYTES) return oversizedMarkdownFile(bytes);
+		return { ok: true, filePath, content: buffer.subarray(0, bytes).toString("utf8"), bytes };
+	} finally {
+		await file.close();
 	}
-	const stat = await fs.stat(filePath);
-	if (stat.size > MAX_MDVIEW_BYTES) {
-		return {
-			ok: false,
-			message: `El archivo Markdown es demasiado grande para verlo (${stat.size} bytes; límite ${MAX_MDVIEW_BYTES} bytes) — abrilo en un editor externo.`,
-			level: "warning",
-		};
-	}
-	return { ok: true, bytes: stat.size };
 }
 
 /**
@@ -73,11 +77,15 @@ async function validateMarkdownFile(filePath: string): Promise<MarkdownFileValid
 export async function loadMarkdownDocument(pathArg: string, cwd: string): Promise<MarkdownLoad> {
 	const filePath = resolveMarkdownPath(pathArg, cwd);
 	if (!filePath) return missingMarkdownPath();
+	if (!hasMarkdownExtension(filePath)) {
+		return {
+			ok: false,
+			message: "El visor Markdown solo abre archivos .md o .markdown.",
+			level: "warning",
+		};
+	}
 	try {
-		const validation = await validateMarkdownFile(filePath);
-		if (!validation.ok) return validation;
-		const content = await fs.readFile(filePath, "utf8");
-		return { ok: true, filePath, content, bytes: validation.bytes };
+		return await readMarkdownFile(filePath);
 	} catch (error) {
 		return { ok: false, message: formatReadMarkdownFailure(error), level: "error" };
 	}
