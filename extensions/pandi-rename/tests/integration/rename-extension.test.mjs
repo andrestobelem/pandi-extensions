@@ -363,6 +363,40 @@ async function scenarioSpawnArgsUnit(url) {
 	);
 }
 
+async function scenarioSpawnTimeoutEscalates(url) {
+	const { runPiSummary } = await loadModule(url);
+	const outDir = path.dirname(fileURLToPath(url));
+	const fakePi = path.join(outDir, "fake-pi-ignores-sigterm.mjs");
+	await fs.writeFile(
+		fakePi,
+		"#!/usr/bin/env node\nprocess.on('SIGTERM', () => process.stderr.write('ignored SIGTERM\\n'));\nsetInterval(() => {}, 1_000);\n",
+		{ mode: 0o755 },
+	);
+	const previousCommand = process.env.PI_RENAME_PI_COMMAND;
+	try {
+		process.env.PI_RENAME_PI_COMMAND = fakePi;
+		const startedAt = Date.now();
+		let failureMessage = "";
+		try {
+			await runPiSummary("timeout test", { timeoutMs: 1_000 });
+		} catch (error) {
+			failureMessage = error instanceof Error ? error.message : String(error);
+		}
+		const elapsedMs = Date.now() - startedAt;
+		check("runPiSummary rejects when the child exceeds its timeout", failureMessage.length > 0);
+		check("runPiSummary sends SIGTERM before escalating", failureMessage.includes("ignored SIGTERM"), failureMessage);
+		check(
+			"runPiSummary escalates SIGTERM to SIGKILL for an uncooperative child",
+			elapsedMs < 5_000,
+			`${elapsedMs}ms`,
+		);
+	} finally {
+		if (previousCommand === undefined) delete process.env.PI_RENAME_PI_COMMAND;
+		else process.env.PI_RENAME_PI_COMMAND = previousCommand;
+		await fs.rm(fakePi, { force: true });
+	}
+}
+
 async function scenarioNoArgSummary(url) {
 	const renameExtension = await loadDefault(url);
 	const outDir = path.dirname(fileURLToPath(url));
@@ -681,6 +715,7 @@ async function main() {
 	const spawnMod = await buildPureModule("spawn-summary.ts", "spawn-summary.mjs", "pi-rename-spawn");
 	try {
 		await scenarioSpawnArgsUnit(spawnMod.url);
+		await scenarioSpawnTimeoutEscalates(spawnMod.url);
 	} finally {
 		await fs.rm(spawnMod.outDir, { recursive: true, force: true });
 	}
