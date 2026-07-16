@@ -37,7 +37,7 @@ function makePi() {
 	return { pi, commands, handlers };
 }
 
-function makeCtx(cwd, { mode = "tui", withSelect = false, selectResult, withConfirm = true } = {}) {
+function makeCtx(cwd, { mode = "tui", withSelect = false, selectResult, withConfirm = true, onRender } = {}) {
 	const notes = [];
 	const selectCalls = [];
 	let customCalls = 0;
@@ -46,7 +46,7 @@ function makeCtx(cwd, { mode = "tui", withSelect = false, selectResult, withConf
 		notify: (msg, type) => notes.push({ msg, type }),
 		custom: async (factory) => {
 			customCalls += 1;
-			const tui = { terminal: { rows: 30, columns: 100 }, requestRender: () => {} };
+			const tui = { terminal: { rows: 30, columns: 100 }, requestRender: () => onRender?.() };
 			factory(tui, { fg: (_c, value) => value, bg: (_c, value) => value, bold: (value) => value }, {}, () => {});
 			return null;
 		},
@@ -82,6 +82,42 @@ function makeCtx(cwd, { mode = "tui", withSelect = false, selectResult, withConf
 	};
 }
 
+async function dashboardDoesNotRenderAfterClose(url, check) {
+	const originalSetInterval = globalThis.setInterval;
+	const originalClearInterval = globalThis.clearInterval;
+	let refresh;
+	let cleared = 0;
+	let renders = 0;
+	globalThis.setInterval = (callback) => {
+		refresh = callback;
+		return {};
+	};
+	globalThis.clearInterval = () => {
+		cleared += 1;
+	};
+	try {
+		const ext = await loadDefault(url);
+		const { pi, commands } = makePi();
+		ext(pi);
+		const project = await fs.mkdtemp(path.join(os.tmpdir(), "pandi-session-dashboard-close-"));
+		try {
+			await commands.get("sessions").handler("", makeCtx(project, { onRender: () => renders++ }));
+			await refresh();
+			await new Promise((resolve) => setTimeout(resolve, 20));
+			check(
+				"el refresh en vuelo no renderiza después de cerrar el dashboard",
+				cleared === 1 && renders === 0,
+				JSON.stringify({ cleared, renders }),
+			);
+		} finally {
+			await fs.rm(project, { recursive: true, force: true });
+		}
+	} finally {
+		globalThis.setInterval = originalSetInterval;
+		globalThis.clearInterval = originalClearInterval;
+	}
+}
+
 async function writeJson(file, value) {
 	await fs.mkdir(path.dirname(file), { recursive: true });
 	await fs.writeFile(file, JSON.stringify(value), "utf8");
@@ -107,6 +143,8 @@ async function main() {
 	const { outDir, url } = await buildPandiSession();
 	const project = await fs.mkdtemp(path.join(os.tmpdir(), "pandi-session-extension-"));
 	try {
+		await dashboardDoesNotRenderAfterClose(url, check);
+
 		const source = await fs.readFile(path.join(REPO_ROOT, "extensions", "pandi-session", "index.ts"), "utf8");
 		const forbiddenRuntimeImport =
 			source.includes("../pandi-" + "dynamic-" + "workflows") || source.includes("dynamic_" + "workflow");

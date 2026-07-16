@@ -177,18 +177,22 @@ export async function openPandiSessionDashboard(ctx: ExtensionCommandContext): P
 	let dashboard: PandiSessionDashboard | undefined;
 	let refreshTimer: NodeJS.Timeout | undefined;
 	let refreshing = false;
+	let closed = false;
 	const initialSessions = await collectPandiSessions(ctx as ExtensionContext);
 	try {
 		const result = await ctx.ui.custom<PandiSessionDashboardResult>((tui, theme, _keybindings, done) => {
 			dashboard = new PandiSessionDashboard(initialSessions, theme, () => tui.requestRender(), done);
 			const refresh = async () => {
-				if (refreshing || !dashboard) return;
+				if (closed || refreshing || !dashboard) return;
 				refreshing = true;
 				try {
-					dashboard.setSessions(await collectPandiSessions(ctx as ExtensionContext));
+					const sessions = await collectPandiSessions(ctx as ExtensionContext);
+					if (closed) return;
+					dashboard.setSessions(sessions);
 					dashboard.markRefreshOk();
 					tui.requestRender();
 				} catch (err) {
+					if (closed) return;
 					dashboard.markRefreshError(err instanceof Error ? err.message : String(err));
 					tui.requestRender();
 				} finally {
@@ -201,6 +205,7 @@ export async function openPandiSessionDashboard(ctx: ExtensionCommandContext): P
 		});
 		await handleDashboardResult(ctx, result ?? null);
 	} finally {
+		closed = true;
 		if (refreshTimer) clearInterval(refreshTimer);
 	}
 }
