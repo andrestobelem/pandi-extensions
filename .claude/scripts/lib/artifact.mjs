@@ -1,11 +1,17 @@
-// artifact.mjs — orquestador. buildArtifact() une extract -> run-merge -> render en UNA llamada
-// reutilizable e importable que devuelve { html, data } (sin file IO), para que cualquier código — no solo
-// el CLI — pueda producir un workflow artifact. json-to-markdown + el script cliente se leen de disco
-// (relativos a lib) y se inlinean en el HTML para que "what is tested is what ships".
+// artifact.mjs — orquestador. buildArtifact() une extract -> run-merge -> report-model ->
+// observe-core en UNA llamada reutilizable e importable que devuelve { html, ... } (sin file IO
+// más allá de leer el script), para que cualquier código — no solo el CLI — pueda producir un
+// workflow artifact.
+//
+// Desde la unificación pi/Claude, el HTML lo genera el renderer CANÓNICO de pi
+// (observe-core.mjs, bundle generado de observe/html.ts — ver scripts/generate-claude-observe-core.mjs):
+// misma feature, mismo código, en ambas plataformas. Acá solo quedan los lectores locales
+// (extract.mjs, run-merge.mjs) y el adapter de modelo (report-model.mjs).
 import { readFileSync } from "node:fs";
 import { extractPreviewModel } from "./extract.mjs";
-import { resolveRunDir, readRunData, mergeNodes } from "./run-merge.mjs";
-import { assembleArtifact } from "./render.mjs";
+import { resolveRunDir, readRunData } from "./run-merge.mjs";
+import { buildReportModel } from "./report-model.mjs";
+import { buildRunReportHtml } from "./observe-core.mjs";
 
 export { resolveRunDir, readRunData } from "./run-merge.mjs";
 
@@ -19,44 +25,29 @@ const KITCHEN_SINK = () => ({
   maxTrials: 1, depth: 1, branching: 2, beam: 1, maxClaims: 1, maxSubtasks: 2, generate: false,
 });
 
-// Renderizador reutilizable de JSON->Markdown, inlineado en el script cliente (se quita export para que quede
-// como función común; se interpola vía \${...} para que su contenido nunca rompa el template literal externo).
-const jsonToMarkdownSource = (() => {
-  try { return readFileSync(new URL("./json-to-markdown.mjs", import.meta.url), "utf8").replace(/\bexport\s+/g, ""); }
-  catch { return 'function jsonToMarkdown(v){return typeof v==="string"?v:JSON.stringify(v,null,2);}'; }
-})();
-const clientJsSource = (() => {
-  try { return readFileSync(new URL("./artifact-client.js", import.meta.url), "utf8"); }
-  catch { return 'document.body.innerHTML="<p>artifact-client.js missing</p>";'; }
-})();
-const pandiTokensCss = (() => {
-  try { return readFileSync(new URL("./pandi-tokens.css", import.meta.url), "utf8"); }
-  catch { return ":root{--bg:#242526;--paper:#292A2B;--info-bg:#2E2A33;--raised:#31353A;--ink:#E6E6E6;--ink2:#BBBBBB;--muted:#757575;--line:#3E4250;--line-strong:#676B79;--accent:#FF75B5;--link:#6FC1FF;--info:#45A9F9;--success:#19F9D8;--warning:#FFCC95;--error:#FF4B82;--code:#19F9D8;--purple:#BCAAFE;--success-bg:#1E2E2B;--error-bg:#2E1E24;--warning-bg:#2E2A33;}"; }
-})();
-// Código cliente de contract-view, inyectado en el HTML SOLO cuando hay un contrato (mantiene byte-idénticos
-// los artifacts sin contrato). Se lee con pereza-eager acá junto al cliente base.
-const contractViewSource = (() => {
-  try { return readFileSync(new URL("./contract-view.js", import.meta.url), "utf8"); }
-  catch { return ''; }
-})();
-
-// buildArtifact({ scriptPath, raw?, argsObj?, argsJson?, runDir?, match?, evalPreview? }) -> { html, data, runData,
-// nodeCount, composes, runErr, resolvedRunDir }. runDir acepta un path concreto O "latest"/true
-// (resuelto con `match`); evalPreview habilita explícitamente el recorrido evaluado con stubs.
-export async function buildArtifact({ scriptPath, raw, argsObj, argsJson, runDir, match, evalPreview = false } = {}) {
+// buildArtifact({ scriptPath, raw?, argsObj?, argsJson?, runDir?, match?, evalPreview?, generatedAt? })
+// -> { html, model, runData, nodeCount, composes, runErr, resolvedRunDir }. runDir acepta un path
+// concreto O "latest"/true (resuelto con `match`); evalPreview habilita explícitamente el recorrido
+// evaluado con stubs. generatedAt (ISO) permite renders byte-estables en tests.
+export async function buildArtifact({ scriptPath, raw, argsObj, argsJson, runDir, match, evalPreview = false, generatedAt } = {}) {
   if (!scriptPath) throw new Error("buildArtifact: scriptPath is required");
   if (raw == null) raw = readFileSync(scriptPath, "utf8");
   if (argsObj == null) argsObj = argsJson ? JSON.parse(argsJson) : KITCHEN_SINK();
-  const model = await extractPreviewModel({ scriptPath, raw, argsObj, evalPreview });
+  const previewModel = await extractPreviewModel({ scriptPath, raw, argsObj, evalPreview });
   const resolvedRunDir = runDir ? resolveRunDir(runDir, match) : null;
   const runData = resolvedRunDir ? readRunData(resolvedRunDir) : null;
-  const merged = mergeNodes(runData, model.baseNodes, model.declared);
-  const { html, data, nodeCount } = assembleArtifact({
-    merged, basePhases: model.basePhases, composes: model.composes, meta: model.meta,
-    provenance: model.provenance, scaffolds: model.scaffolds, scriptPath, argsJson,
-    schemas: model.schemas, skillRefs: model.skillRefs, raw, runData,
-    previewMode: evalPreview ? "evaluated" : "parse-only",
-    staticFidelity: model.staticFidelity, jsonToMarkdownSource, clientJsSource, contractViewSource, tokensCss: pandiTokensCss,
+  const model = buildReportModel({
+    meta: previewModel.meta, baseNodes: previewModel.baseNodes, schemas: previewModel.schemas,
+    scriptPath, raw, argsJson, runData,
+    generatedAt: generatedAt ?? new Date().toISOString(),
+    // Cómo se extrajo la ESTRUCTURA solo importa en el preview pre-launch; en un reporte
+    // post-run el chip sería ruido (los agentes mostrados son los reales, no los extraídos).
+    previewMode: runData ? undefined : evalPreview ? "evaluado" : "estático (parse-only)",
   });
-  return { html, data, runData, nodeCount, composes: model.composes, runErr: model.runErr, resolvedRunDir };
+  const html = buildRunReportHtml(model);
+  return {
+    html, model, runData,
+    nodeCount: previewModel.baseNodes.length, composes: previewModel.composes,
+    runErr: previewModel.runErr, resolvedRunDir,
+  };
 }

@@ -68,12 +68,15 @@ for (const builder of BUILDERS) {
 	check(`${builder.label} includes agent prompt content`, /agent|prompt/i.test(html));
 	check(`${builder.label} embeds pandi dark accent token`, /--accent:\s*#FF75B5/.test(html));
 	check(`${builder.label} embeds pandi light color-scheme override`, /prefers-color-scheme:\s*light/.test(html));
+	// Skin unificado: el HTML sale del renderer canónico de pi (observe-core), cuyo contrato de
+	// seguridad exige mermaid con CDN pineada + SRI y securityLevel sandbox.
+	check(`${builder.label} uses the canonical run-report kicker`, html.includes("Pandi artifact"));
+	check(`${builder.label} renders the pre-launch planned state`, html.includes("planned"));
 	check(`${builder.label} uses mermaid base theme`, /theme:\s*"base"/.test(html));
 	check(`${builder.label} wires mermaid theme variables`, /themeVariables/.test(html));
-	check(`${builder.label} no longer uses the legacy neutral mermaid theme`, !/theme:\s*"neutral"/.test(html));
-	check(`${builder.label} uses pandi themed highlight.js CSS`, /\.hljs-keyword[^}]*var\(--accent\)/.test(html));
-	check(`${builder.label} uses auto themed code comments`, /\.hljs-comment[^}]*var\(--line-strong\)/.test(html));
-	check(`${builder.label} does not force atom-one-light for Full script`, !/atom-one-light/.test(html));
+	check(`${builder.label} pins the mermaid CDN with SRI`, /integrity="sha384-/.test(html));
+	check(`${builder.label} sandboxes mermaid rendering`, /securityLevel:\s*"sandbox"/.test(html));
+	check(`${builder.label} no longer ships the legacy hljs skin`, !/\.hljs-keyword/.test(html));
 }
 
 await fsp.rm(tmp, { recursive: true, force: true });

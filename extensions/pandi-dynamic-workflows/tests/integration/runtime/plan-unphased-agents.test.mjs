@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 /**
- * workflow-plan-unphased-agents — regression for #64.
+ * workflow-plan-unphased-agents — regression for #64, migrada al reporte unificado.
  *
- * The static Plan tab must not hide agents declared without an explicit phase.
- * `extract.mjs` stamps those nodes with the sentinel "—"; the phase renderer must
- * keep that bucket instead of treating it as empty.
+ * El preview pre-launch no debe esconder agentes declarados sin fase explícita.
+ * `extract.mjs` los estampa con el centinela "—"; el modelo del reporte (report-model.mjs →
+ * observe-core) debe listarlos como agentes planned con ese phaseLabel, no filtrarlos.
  */
 
+import * as fsp from "node:fs/promises";
+import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -14,75 +16,49 @@ import { createChecker } from "../../../../shared/test/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
-const PLAN_LIB = path.join(REPO_ROOT, ".claude", "scripts", "lib", "plan.mjs");
+const ARTIFACT_LIB = path.join(REPO_ROOT, ".claude", "scripts", "lib", "artifact.mjs");
 
-const { renderWorkflowPlan } = await import(pathToFileURL(PLAN_LIB).href);
+const { buildArtifact } = await import(pathToFileURL(ARTIFACT_LIB).href);
 const { check, counts } = createChecker();
 
-function sectionBetween(html, startNeedle, endNeedle) {
-	const start = html.indexOf(startNeedle);
-	if (start < 0) return "";
-	const end = html.indexOf(endNeedle, start + startNeedle.length);
-	return end < 0 ? html.slice(start) : html.slice(start, end);
+const tmp = await fsp.mkdtemp(path.join(os.tmpdir(), "plan-unphased-"));
+const workflowPath = path.join(tmp, "mixed-probe.js");
+await fsp.writeFile(
+	workflowPath,
+	`
+export const meta = { name: "mixed-probe", description: "Probe unphased agents", phases: [{ title: "Scout" }] };
+export default async function main() {
+	await agent("judge the findings", { label: "judge" });
+	phase("Scout");
+	await agent("scout the repo", { label: "scout", phase: "Scout" });
 }
-
-const unphasedHtml = renderWorkflowPlan({
-	meta: { name: "unphased-probe", description: "Probe unphased agents" },
-	phases: [],
-	nodes: [
-		{
-			id: "reviewer",
-			role: "reviewer",
-			phase: "—",
-			schema: "object schema",
-			model: "sonnet",
-			effort: "medium",
-		},
-	],
-});
-const unphasedSection = sectionBetween(
-	unphasedHtml,
-	'<div class="subh">Fases</div>',
-	'<div class="subh">Agentes y contratos</div>',
+`,
 );
 
-check(
-	"unphased Plan tab renders a phase card for the sentinel bucket",
-	unphasedSection.includes('<span class="nid">—</span>'),
-	unphasedSection,
-);
-check(
-	"unphased Plan tab lists the unphased agent in that phase",
-	unphasedSection.includes("reviewer"),
-	unphasedSection,
-);
-check(
-	"unphased Plan tab does not claim there are no phases",
-	!unphasedSection.includes("Sin fases detectadas"),
-	unphasedSection,
-);
-
-const mixedHtml = renderWorkflowPlan({
-	meta: { name: "mixed-probe" },
-	phases: ["Scout"],
-	nodes: [
-		{ id: "scout", role: "scout", phase: "Scout" },
-		{ id: "judge", role: "judge", phase: "—" },
-	],
-});
-const mixedSection = sectionBetween(
-	mixedHtml,
-	'<div class="subh">Fases</div>',
-	'<div class="subh">Agentes y contratos</div>',
-);
-
-check("mixed Plan tab keeps declared phases", mixedSection.includes('<span class="nid">Scout</span>'), mixedSection);
-check(
-	"mixed Plan tab also keeps unphased sentinel bucket",
-	mixedSection.includes('<span class="nid">—</span>'),
-	mixedSection,
-);
-check("mixed Plan tab lists the unphased agent", mixedSection.includes("judge"), mixedSection);
+try {
+	const artifact = await buildArtifact({ scriptPath: workflowPath, argsObj: {} });
+	const judge = artifact.model.agents.find((agent) => agent.name === "judge");
+	const scout = artifact.model.agents.find((agent) => agent.name === "scout");
+	check("el agente con fase declarada conserva su phaseLabel", scout?.phaseLabel === "Scout", JSON.stringify(scout));
+	check(
+		"el agente sin fase queda en el modelo (no se filtra)",
+		!!judge,
+		artifact.model.agents.map((a) => a.name).join(","),
+	);
+	check(
+		"el agente sin fase conserva el bucket centinela del extractor",
+		judge?.phaseLabel === "—",
+		JSON.stringify(judge),
+	);
+	check(
+		"ambos agentes aparecen en el HTML renderizado",
+		artifact.html.includes("scout") && artifact.html.includes("judge"),
+		"",
+	);
+	check("el conteo de agentes del header incluye al unphased", artifact.html.includes("Agents (2)"), "");
+} finally {
+	await fsp.rm(tmp, { recursive: true, force: true });
+}
 
 if (counts.failed > 0) {
 	console.error("\nFailures:");

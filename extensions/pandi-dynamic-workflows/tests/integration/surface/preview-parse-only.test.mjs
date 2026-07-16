@@ -69,8 +69,9 @@ try {
 	});
 	check("API evalPreview recorre el workflow con stubs", process.env[PROCESS_MARKER] === "executed");
 	check("API evalPreview conserva los agent calls", evaluated.html.includes("safe-worker"));
-	check("API evalPreview se etiqueta como evaluado", evaluated.html.includes("preview evaluado"));
-	check("API evalPreview no se presenta como estático", !evaluated.html.includes("preview estático"));
+	check("API evalPreview se etiqueta como evaluado", evaluated.html.includes("preview: evaluado"));
+	check("API evalPreview no se presenta como estático", !evaluated.html.includes("preview: estático"));
+	check("API parse-only se etiqueta como estático", parsed.html.includes("preview: estático (parse-only)"));
 	delete process.env[PROCESS_MARKER];
 
 	for (const builder of BUILDERS) {

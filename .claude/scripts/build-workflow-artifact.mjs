@@ -4,17 +4,17 @@
 //                                       [--eval-preview] [--run <dir|latest>] [--match <s>]
 //                                       [--watch] [--open] [--interval <ms>]
 //
-// Renderiza un preview HTML autocontenido, con estilo Claude y tabs, de CUALQUIER script dynamic-workflow
-// (Diagram · Agents & prompts · Schemas · Based on · Full script · Results) — ANTES de lanzarlo,
-// y (con --run) después o mientras corre, superponiendo los resultados por rol del run real. El build
-// real lo hace buildArtifact() en ./lib/artifact.mjs (importable desde otro código); este archivo
-// solo resuelve el parseo de args de CLI, el loop de --watch, la escritura del archivo y --open. La
-// visualización se separa por responsabilidad en lib/: extract.mjs (parse-only o evaluación con opt-in),
-// run-merge.mjs (ingesta y overlay del run), render.mjs (data -> HTML), artifact.mjs (orquestador),
-// más los ya modulares json-to-markdown.mjs y artifact-client.js inlineados en el HTML.
+// Renderiza el run report/preview HTML autocontenido de CUALQUIER script dynamic-workflow —
+// ANTES de lanzarlo (vista "planned": agentes, schemas, script) y (con --run) durante o después
+// del run. Desde la unificación pi/Claude el HTML lo genera el renderer CANÓNICO de pi
+// (lib/observe-core.mjs, bundle generado de observe/html.ts): misma feature, mismo código, en
+// ambas plataformas. El build real lo hace buildArtifact() en ./lib/artifact.mjs (importable);
+// este archivo solo resuelve el parseo de args de CLI, el loop de --watch, la escritura y --open.
+// La lib se separa por responsabilidad: extract.mjs (parse-only o evaluación con opt-in),
+// run-merge.mjs (ingesta pi/Claude/live-journal), report-model.mjs (adapter al RunReportModel).
 import { writeFileSync, statSync } from "node:fs";
 import { execFile } from "node:child_process";
-import { join } from "node:path";
+import { join, basename } from "node:path";
 import { buildArtifact, resolveRunDir } from "./lib/artifact.mjs";
 
 // ── CLI: <workflow.js> <out.html> [argsJson] más flags opcionales ─────────────────────────
@@ -55,8 +55,22 @@ if (flags.watch && runDir) {
   const interval = Math.max(300, parseInt(flags.interval, 10) || 1500);
   let lastMtime = -1;
   let opened = false;
+  // Señal de cambio: el máximo mtime entre status.json (runs pi), journal.jsonl (runs de Claude
+  // Code en vivo) y el propio dir (aparición del record/archivos nuevos). Solo status.json dejaba
+  // los runs de Claude congelados en el primer render.
+  // El record de completion vive en el sessionDir hermano (subagents/workflows/wf_x -> workflows/
+  // wf_x.json) y se escribe DESPUÉS del último write del journal — sin mirarlo, el watch se
+  // quedaría con la vista live para siempre.
+  const recordPath = join(runDir, "..", "..", "..", "workflows", basename(runDir) + ".json");
+  const changeSignal = () => {
+    let max = 0;
+    for (const p of [join(runDir, "status.json"), join(runDir, "journal.jsonl"), recordPath, runDir]) {
+      try { max = Math.max(max, statSync(p).mtimeMs); } catch {}
+    }
+    return max;
+  };
   const tick = async () => {
-    let m = 0; try { m = statSync(join(runDir, "status.json")).mtimeMs; } catch {}
+    const m = changeSignal();
     if (m !== lastMtime) {
       lastMtime = m;
       const r = await render();
