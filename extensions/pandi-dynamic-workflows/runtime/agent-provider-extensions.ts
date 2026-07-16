@@ -5,7 +5,7 @@
 import { existsSync, realpathSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { getBuiltinProviders } from "@earendil-works/pi-ai/providers/all";
+import { getProviders as getBuiltinProviders } from "@earendil-works/pi-ai/compat";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import type { AgentOptions } from "../types.js";

@@ -80,7 +80,8 @@ export const STUB_SOURCES = {
 	typeboxValue: "export const Value = { Check: () => true, Errors: function* () {} };\nexport default { Value };\n",
 	ai:
 		"export function StringEnum(values, opts = {}) { return { ...opts, enum: values }; }\n" +
-		'export function getBuiltinProviders() { return ["anthropic","openai","google","amazon-bedrock"]; }\n',
+		'export function getBuiltinProviders() { return ["anthropic","openai","google","amazon-bedrock"]; }\n' +
+		"export const getProviders = getBuiltinProviders;\n",
 	tui:
 		"export class Image { constructor() {} input() {} render() { return []; } }\n" +
 		'export const Key = { escape: "escape", enter: "enter", up: "up", down: "down", pageUp: "pageUp", pageDown: "pageDown", home: "home", end: "end", delete: "delete", backspace: "backspace", tab: "tab", left: "left", right: "right", ctrlAlt: (key) => "ctrlAlt:" + key };\n' +

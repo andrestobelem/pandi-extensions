@@ -176,7 +176,7 @@ variable, una capacidad opcional o qué canal de distribución conviene.</p>
 <p>Hay dos caminos distintos. Para consumir una release estable con Pi vanilla:</p>
 <pre><code class="hljs language-bash">nvm install &amp;&amp; nvm use                                             <span class="hljs-comment"># Node &gt;= 22.19.0</span>
 npm install -g --ignore-scripts @earendil-works/pi-coding-agent    <span class="hljs-comment"># Pi CLI</span>
-pi install git:github.com/andrestobelem/pandi-extensions@v0.3.17   <span class="hljs-comment"># suite fijada para tu usuario</span></code></pre>
+pi install git:github.com/andrestobelem/pandi-extensions@v0.3.18   <span class="hljs-comment"># suite fijada para tu usuario</span></code></pre>
 <p>Para desarrollar las extensiones, usá checkouts siblings y no instales la suite en tu perfil global:</p>
 <pre><code class="hljs language-bash">git <span class="hljs-built_in">clone</span> https://github.com/andrestobelem/pi-cante.git
 git <span class="hljs-built_in">clone</span> https://github.com/andrestobelem/pandi-extensions.git
@@ -328,12 +328,12 @@ conserva los chequeos del host vanilla.</p>
 </thead>
 <tbody><tr>
 <td>Suite fijada para tu usuario</td>
-<td><code>pi install git:github.com/andrestobelem/pandi-extensions@v0.3.17</code></td>
+<td><code>pi install git:github.com/andrestobelem/pandi-extensions@v0.3.18</code></td>
 <td>Usá la suite estable completa en todos tus proyectos.</td>
 </tr>
 <tr>
 <td>Suite fijada para un proyecto</td>
-<td><code>pi install -l git:github.com/andrestobelem/pandi-extensions@v0.3.17</code></td>
+<td><code>pi install -l git:github.com/andrestobelem/pandi-extensions@v0.3.18</code></td>
 <td>Solo ese proyecto debe cargar la suite estable completa.</td>
 </tr>
 <tr>
@@ -526,7 +526,7 @@ recursos dos veces. <code>npm run doctor</code> lo detecta y avisa.</p>
 </thead>
 <tbody><tr>
 <td><strong>Bundle git fijado</strong></td>
-<td><code>pi install git:github.com/andrestobelem/pandi-extensions@v0.3.17</code></td>
+<td><code>pi install git:github.com/andrestobelem/pandi-extensions@v0.3.18</code></td>
 <td>Consumo user-wide de toda la suite, con versión estable.</td>
 </tr>
 <tr>
