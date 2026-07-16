@@ -184,6 +184,13 @@ Monitor sin polling (completion notice del harness); reporte final con `/workflo
 | Depth             | 1                                                                                      | 2 (→3)                                                                                  |
 | Preview / results | HTML pre-launch + `open`, luego re-render con `--run` al terminar (ambos obligatorios) | `/workflow graph`, dashboard `/workflows`, HTML final `--run latest`                    |
 
+`max` en la fila de effort no es un nivel garantizado en todo host: cae a `xhigh` en instalaciones de pi
+anteriores a 0.80.6 — ver el caveat completo en
+[notas operativas · model/effort](reference/operational-notes.md#model-y-effort-por-llamada-detalle). El
+segundo límite de profundidad de pi (más allá del depth-1 composicional que comparten ambas plataformas) existe
+solo porque un subagente de pi puede lanzar una corrida top-level nueva y esquivar el budget del padre — Claude
+Code no tiene ese vector, así que ahí el depth-1 ya es completo, no una limitación pendiente.
+
 ## Crear un workflow nuevo
 
 **Basá todo workflow nuevo en el scaffold existente más cercano; nunca reinventes.** Preferí **`workflow-factory`**
