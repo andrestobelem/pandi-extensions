@@ -5,7 +5,8 @@
 import * as crypto from "node:crypto";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { parsePlanCommandIntent } from "./command-intent.js";
-import { buildPlanDashboardMarkdown, renderPlanDashboardOverlay } from "./dashboard.js";
+import { buildPlanDashboardMarkdown } from "./dashboard.js";
+import { renderPlanDashboardOverlay } from "./dashboard-view.js";
 import {
 	getSessionFlagDefault,
 	parsePlanCommandFlags,
