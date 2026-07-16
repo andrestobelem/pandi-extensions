@@ -381,6 +381,20 @@ async function scenarioUltracodeToolProbeDegradation(url) {
 		JSON.stringify(ctx._notes),
 	);
 
+	const activationThrows = makePi({ allTools: ["dynamic_workflow"], activeTools: [] });
+	activationThrows.pi.setActiveTools = () => {
+		throw new Error("tools cannot be activated");
+	};
+	effortExtension(activationThrows.pi);
+	const ctxActivation = makeCtx();
+	await activationThrows.commands.get("effort").handler("ultracode", ctxActivation);
+	check("tool activation throw: still sets xhigh", activationThrows.level === "xhigh", activationThrows.level);
+	check(
+		"tool activation throw: warns router not available",
+		ctxActivation._notes.some((n) => n.type === "warning" && /no está disponible en esta sesión/i.test(n.msg)),
+		JSON.stringify(ctxActivation._notes),
+	);
+
 	const alreadyActive = makePi({ allTools: ["dynamic_workflow"], activeTools: ["dynamic_workflow"] });
 	let setCalls = 0;
 	const origSet = alreadyActive.pi.setActiveTools;
