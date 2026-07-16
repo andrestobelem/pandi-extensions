@@ -17,13 +17,15 @@ Pi llama a `remember` por su cuenta cuando vale la pena guardar algo:
 Eso agrega una viñeta fechada dentro de un bloque gestionado de `.pi/memory/MEMORY.md`:
 
 ```md
-<!-- pi:remember:begin -->
+<!-- pandi:remember:begin -->
 
-## Memoria del agente (gestionada automáticamente por la tool remember)
+## Memoria de Pandi (gestionada automáticamente por la tool remember)
 
 - 2026-07-04: Este repo usa pnpm, no npm.
-<!-- pi:remember:end -->
+<!-- pandi:remember:end -->
 ```
+
+Los bloques históricos `pi:remember` se migran a esta marca Pandi cuando `remember` vuelve a escribirlos.
 
 En la próxima sesión, ese archivo se inyecta automáticamente en el system prompt — sin pasos extra.
 
@@ -63,8 +65,8 @@ pi --no-extensions -e ./extensions/pandi-local-memory   # prueba puntual, sin ca
 
 ## Cómo funciona
 
-- `remember` agrega solo dentro de un bloque gestionado (`<!-- pi:remember:begin -->` … `<!-- pi:remember:end -->`), así
-  que las notas curadas por humanos nunca se tocan.
+- `remember` agrega solo dentro de un bloque gestionado (`<!-- pandi:remember:begin -->` …
+  `<!-- pandi:remember:end -->`), así que las notas curadas por humanos nunca se tocan.
 - Volver a guardar la misma nota es un no-op, y los errores de lectura/escritura fallan en forma segura: nada se pisa si
   el destino no pudo leerse.
 - La primera escritura del índice se inicializa desde cualquier `.pi/MEMORY.md` legado sin borrarlo; la nota vuelve al

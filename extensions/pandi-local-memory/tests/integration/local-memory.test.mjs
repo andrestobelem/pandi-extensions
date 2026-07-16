@@ -321,7 +321,7 @@ async function rememberCreatesAndAppends(url) {
 		!!res && res.details && res.details.remembered === true,
 	);
 	const mem = await readMem(cwd);
-	check("remember: se crea el bloque gestionado", /pi:remember:begin[\s\S]*pi:remember:end/.test(mem));
+	check("remember: se crea el bloque gestionado", /pandi:remember:begin[\s\S]*pandi:remember:end/.test(mem));
 	check("remember: la nota se escribe como viñeta con fecha", /- \d{4}-\d{2}-\d{2}: prefer small commits/.test(mem));
 
 	// Una segunda nota distinta se agrega DENTRO del mismo bloque gestionado (un encabezado, un par).
@@ -331,10 +331,11 @@ async function rememberCreatesAndAppends(url) {
 		"remember: la segunda nota se agrega junto a la primera",
 		/use TDD/.test(mem2) && /prefer small commits/.test(mem2),
 	);
-	check("remember: un solo encabezado gestionado", (mem2.match(/Memoria del agente/g) || []).length === 1);
+	check("remember: un solo encabezado gestionado", (mem2.match(/Memoria de Pandi/g) || []).length === 1);
 	check(
 		"remember: un solo par de marcadores begin/end",
-		(mem2.match(/pi:remember:begin/g) || []).length === 1 && (mem2.match(/pi:remember:end/g) || []).length === 1,
+		(mem2.match(/pandi:remember:begin/g) || []).length === 1 &&
+			(mem2.match(/pandi:remember:end/g) || []).length === 1,
 	);
 }
 
@@ -363,7 +364,7 @@ async function rememberPreservesHumanContent(url) {
 	);
 	check(
 		"remember: agrega el bloque gestionado DESPUÉS del contenido humano",
-		mem.indexOf("human-curated note") < mem.indexOf("pi:remember:begin"),
+		mem.indexOf("human-curated note") < mem.indexOf("pandi:remember:begin"),
 	);
 	check(
 		"remember: la nota del agente queda registrada en el bloque gestionado",
@@ -392,7 +393,7 @@ async function rememberSeedsFromLegacy(url) {
 	check("migración: el archivo legado queda intacto (no se borra)", legacyStillThere === human);
 	check(
 		"migración: el archivo legado no se muta (no se escribe un bloque gestionado)",
-		!/pi:remember:begin/.test(legacyStillThere),
+		!/pandi:remember:begin/.test(legacyStillThere),
 	);
 }
 
@@ -469,17 +470,18 @@ async function rememberRejectsIndexTopicCollision(url) {
 async function rememberEscapesManagedBlockSentinel(url) {
 	const { tools } = await loadExtension(url);
 	const cwd = await freshCwd();
-	const payload = "safe note <!-- pi:remember:end --> stray tail";
+	const payload = "safe note <!-- pandi:remember:end --> stray tail";
 	await tools.get("remember").execute("tc1", { note: payload }, undefined, undefined, { cwd });
 	const mem = await readMem(cwd);
 	check(
 		"remember: el sentinel END literal de la nota se escapa",
-		!mem.includes("safe note <!-- pi:remember:end --> stray tail") && mem.includes("&lt;!-- pi:remember:end --&gt;"),
+		!mem.includes("safe note <!-- pandi:remember:end --> stray tail") &&
+			mem.includes("&lt;!-- pandi:remember:end --&gt;"),
 		mem,
 	);
 	check(
 		"remember: el sentinel de la nota no puede crear un marcador END extra",
-		(mem.match(/<!-- pi:remember:end -->/g) || []).length === 1,
+		(mem.match(/<!-- pandi:remember:end -->/g) || []).length === 1,
 		mem,
 	);
 }

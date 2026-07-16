@@ -18,17 +18,19 @@
  */
 
 /** Marcador que abre el bloque gestionado por el agente. */
-export const REMEMBER_BEGIN = "<!-- pi:remember:begin -->";
+export const REMEMBER_BEGIN = "<!-- pandi:remember:begin -->";
 /** Marcador que cierra el bloque gestionado por el agente. */
-export const REMEMBER_END = "<!-- pi:remember:end -->";
+export const REMEMBER_END = "<!-- pandi:remember:end -->";
+const LEGACY_REMEMBER_BEGIN = "<!-- pi:remember:begin -->";
+const LEGACY_REMEMBER_END = "<!-- pi:remember:end -->";
 /** Encabezado visible para quien lea MEMORY.md, para que el bloque gestionado sea obvio. */
-export const MANAGED_HEADING = "## Memoria del agente (gestionada automáticamente por la tool remember)";
+export const MANAGED_HEADING = "## Memoria de Pandi (gestionada automáticamente por la tool remember)";
 
 /** Límite superior para una sola nota (se recorta dentro de execute; nunca confíes en el modelo). */
 export const MAX_NOTE_LENGTH = 1000;
 
 function escapeRememberSentinels(note: string): string {
-	return note.replace(/<!--\s*pi:remember:(begin|end)\s*-->/gi, (match) =>
+	return note.replace(/<!--\s*(?:pi|pandi):remember:(begin|end)\s*-->/gi, (match) =>
 		match.replace(/</g, "&lt;").replace(/>/g, "&gt;"),
 	);
 }
@@ -72,19 +74,34 @@ function insertManagedMemoryBullet(existing: string, end: number, bullet: string
  */
 export function upsertMemoryNote(existing: string, note: string, date: string): { content: string; added: boolean } {
 	const bullet = `- ${date}: ${note}`;
-	const begin = existing.indexOf(REMEMBER_BEGIN);
-	const end = existing.indexOf(REMEMBER_END);
+	const currentBegin = existing.indexOf(REMEMBER_BEGIN);
+	const currentEnd = existing.indexOf(REMEMBER_END);
+	const legacyBegin = existing.indexOf(LEGACY_REMEMBER_BEGIN);
+	const legacyEnd = existing.indexOf(LEGACY_REMEMBER_END);
+	const usesLegacy = currentBegin === -1 && legacyBegin !== -1 && legacyEnd > legacyBegin;
+	const begin = usesLegacy ? legacyBegin : currentBegin;
+	const end = usesLegacy ? legacyEnd : currentEnd;
 	const hasBlock = begin !== -1 && end !== -1 && end > begin;
 
 	if (!hasBlock) return { content: createManagedMemoryBlock(existing, bullet), added: true };
+	const migrated = usesLegacy
+		? existing.slice(0, begin) +
+			REMEMBER_BEGIN +
+			existing
+				.slice(begin + LEGACY_REMEMBER_BEGIN.length, end)
+				.replace(/^## Memoria del agente \(gestionada automáticamente por la tool remember\)/m, MANAGED_HEADING) +
+			REMEMBER_END +
+			existing.slice(end + LEGACY_REMEMBER_END.length)
+		: existing;
+	const migratedEnd = usesLegacy ? migrated.indexOf(REMEMBER_END, begin) : end;
 
 	// Deduplica dentro del bloque gestionado (marcadores + encabezado + viñetas), comparando por el texto de la nota.
-	const block = existing.slice(begin, end);
+	const block = migrated.slice(begin, migratedEnd);
 	const already = block.split("\n").some((line) => bulletNoteText(line) === note);
-	if (already) return { content: existing, added: false };
+	if (already) return { content: migrated, added: false };
 
 	// Inserta la nueva viñeta justo antes del marcador END, conservando un solo salto de línea limpio.
-	return { content: insertManagedMemoryBullet(existing, end, bullet), added: true };
+	return { content: insertManagedMemoryBullet(migrated, migratedEnd, bullet), added: true };
 }
 
 // ===========================================================================
