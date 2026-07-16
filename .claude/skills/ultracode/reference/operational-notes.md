@@ -332,10 +332,11 @@ Workflow({
   [`reference/catalog-prose.es.md`](catalog-prose.es.md) (snapshots: `reference/scaffold-catalog.md`,
   `npm run sync:scaffold-catalog`). **Depth:** 1 (si un hijo llama `workflow()`, arroja; solo el tope compone).
   **Concurrency:** auto, ~`min(16, cores-2)`.
-- **SHOW, THEN LAUNCH (required):** siempre renderizá un script creado/especializado a HTML autocontenido y hacé `open`
-  para que la landing tab **Monitor** y la tab **Plan** sean inspeccionables (derivadas de las fases del workflow,
-  agentes, contratos, composición y progreso estilo monitor). Después **lanzalo directo, sin pedir aprobación** (la
-  persona usuaria mira el artifact abierto y la corrida en vivo, e interrumpe si hace falta):
+- **SHOW, THEN LAUNCH (required):** siempre renderizá un script creado/especializado a HTML autocontenido y hacé `open`.
+  El reporte es el MISMO renderer canónico de pi (bundle `observe-core.mjs`): en pre-launch muestra el estado
+  `planned` — Workflow monitor, agentes planificados con prompts, schemas y script completo como secciones apiladas.
+  Después **lanzalo directo, sin pedir aprobación** (la persona usuaria mira el artifact abierto y la corrida en vivo,
+  e interrumpe si hace falta):
 
 ```sh
 node ~/.claude/scripts/build-workflow-artifact.mjs <script.js> <out.html> '<argsJson>'
@@ -345,23 +346,25 @@ open <out.html>
 Pasá el mismo `argsJson` que usará la corrida; usá la ruta absoluta (`cwd` se resetea). Renderizá y abrí; luego llamá a
 `Workflow` enseguida con el mismo `name`/`scriptPath` y `args`; no frenes por una pregunta.
 
-- **RE-RENDER WHEN THE RUN ENDS (required):** el render pre-launch es solo la _plan/monitor preview_: Monitor resume la
-  estructura planeada, Plan es estático, Results está vacío y las salidas de los agentes están stubbed porque todavía no
-  existen datos de corrida. Cuando la corrida termina (o si querés seguirla en vivo), reconstruí el MISMO HTML con la
-  corrida real superpuesta (`status.json`
-  - `events.jsonl` + `result.json` + artifacts del run-root) y volvé a abrirlo. Nunca presentes el HTML pre-launch como
-    resultado de la corrida:
+- **RE-RENDER WHEN THE RUN ENDS (required):** el render pre-launch es solo la vista `planned`: agentes y prompts
+  extraídos del script, sin datos de corrida. Cuando la corrida termina (o si querés seguirla en vivo), reconstruí el
+  MISMO HTML con `--run` y volvé a abrirlo. Nunca presentes el HTML pre-launch como resultado de la corrida:
 
 ```sh
-# render final, una vez terminada la corrida — Results tab poblada desde el run dir:
+# render final, una vez terminada la corrida — output final + agentes reales desde el run dir:
 node ~/.claude/scripts/build-workflow-artifact.mjs <script.js> <out.html> '<argsJson>' --run <runDir>
 open <out.html>
-# o seguí la corrida en vivo: re-renderiza ante cambios en status.json, reabre en el estado terminal:
+# o seguí la corrida en vivo: re-renderiza ante cambios (status.json, journal.jsonl o el record) y
+# reabre en el estado terminal:
 node ~/.claude/scripts/build-workflow-artifact.mjs <script.js> <out.html> '<argsJson>' --run <runDir> --watch --open
 ```
 
-`--run latest` resuelve el `.pi/workflows/runs/<id>` más nuevo bajo el cwd (sumá `--match <substr>` para fijar uno); si
-no, pasá el directorio de corrida explícito.
+`--run` acepta ambos formatos de corrida. Para runs del tool `Workflow` de Claude Code, pasá el transcript dir que
+imprime el tool result (`<sessionDir>/subagents/workflows/wf_<id>/`): mientras corre se renderiza una vista live
+parcial desde `journal.jsonl` (progreso, outputs completos, tokens/tool-calls; los labels exactos no están en disco
+mid-run — nombres derivados del prompt, declarado como clamp) y al completar gana automáticamente el record
+`wf_<id>.json` con labels, fases y timing exactos. Para runs de pi, `--run latest` resuelve el
+`.pi/workflows/runs/<id>` más nuevo bajo el cwd (sumá `--match <substr>` para fijar uno).
 
 ### pi
 
