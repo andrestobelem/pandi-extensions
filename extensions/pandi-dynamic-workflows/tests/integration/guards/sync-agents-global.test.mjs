@@ -5,7 +5,7 @@ import * as path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
+const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "..", "..");
 const SCRIPT = path.join(REPO, "scripts", "sync-agents-global.mjs");
 const { MANIFEST_NAME, parseArgs, planPairs, walk } = await import(pathToFileURL(SCRIPT).href);
 

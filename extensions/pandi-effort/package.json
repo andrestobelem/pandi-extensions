@@ -1,6 +1,6 @@
 {
 	"name": "@pandi-coding-agent/pandi-effort",
-	"version": "0.1.7",
+	"version": "0.1.8",
 	"description": "Extensión de Pi que agrega el comando /effort al estilo Claude para controlar el esfuerzo de pensamiento y el modo Ultracode.",
 	"license": "MIT",
 	"repository": {
