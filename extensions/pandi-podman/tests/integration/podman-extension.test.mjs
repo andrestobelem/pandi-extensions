@@ -294,6 +294,30 @@ async function scenarioHandlers(url) {
 		);
 	}
 	{
+		const run = fakeRunner([
+			{ ok: false, stdout: "", stderr: "cannot connect", exitCode: 125 },
+			{ ok: false, stdout: "", stderr: "machine list unavailable", exitCode: 125 },
+		]);
+		const result = await mod.runStatus(run, { platform: "darwin" });
+		check(
+			"runStatus: unavailable machine list reports its own diagnostic",
+			!result.ok && /machine list.*machine list unavailable/.test(result.text),
+			result.text,
+		);
+	}
+	{
+		const run = fakeRunner([
+			okResult(INFO_JSON),
+			{ ok: false, stdout: "", stderr: "machine list unavailable", exitCode: 125 },
+		]);
+		const result = await mod.runStatus(run, { platform: "darwin" });
+		check(
+			"runStatus: failed machine list is not hidden after successful info",
+			!result.ok && /machine list.*machine list unavailable/.test(result.text),
+			result.text,
+		);
+	}
+	{
 		const run = fakeRunner([okResult(REAL_PS_JSON)]);
 		const result = await mod.runList(run, {});
 		check("runList: returns parsed containers", result.ok && result.details.count === 1, result.text);

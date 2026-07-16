@@ -492,7 +492,11 @@ export async function runStatus(run: RunPodman, opts: HandlerOpts): Promise<Hand
 				outputTruncationDetails(machinesResult),
 			);
 		if (!machinesResult.ok)
-			return handlerError("status", describePodmanError(infoResult, "info"), outputTruncationDetails(infoResult));
+			return handlerError(
+				"status",
+				describePodmanError(machinesResult, "machine list"),
+				outputTruncationDetails(machinesResult),
+			);
 		const machines = parseMachineList(machinesResult.stdout);
 		return handlerError(
 			"status",
@@ -512,7 +516,13 @@ export async function runStatus(run: RunPodman, opts: HandlerOpts): Promise<Hand
 				machinesResult.ok ? machinesTruncation : describePodmanError(machinesResult, "machine list"),
 				outputTruncationDetails(machinesResult),
 			);
-		if (machinesResult.ok) machines = parseMachineList(machinesResult.stdout);
+		if (!machinesResult.ok)
+			return handlerError(
+				"status",
+				describePodmanError(machinesResult, "machine list"),
+				outputTruncationDetails(machinesResult),
+			);
+		machines = parseMachineList(machinesResult.stdout);
 	}
 	const summary = [
 		`Podman ${info.version ?? "(versión desconocida)"}${info.rootless === true ? " · rootless" : ""}`,
