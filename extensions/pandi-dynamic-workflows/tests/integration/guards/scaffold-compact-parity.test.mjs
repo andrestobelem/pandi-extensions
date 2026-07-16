@@ -45,7 +45,12 @@ function extractCompact(source) {
 	if (start < 0) return null;
 	// La copia termina en la primera línea "};" con la misma indentación del arranque.
 	const end = source.indexOf("\n\t};", start);
-	return end < 0 ? null : source.slice(start, end + "\n\t};".length).replace(/\n\t/g, "\n\t").trim();
+	return end < 0
+		? null
+		: source
+				.slice(start, end + "\n\t};".length)
+				.replace(/\n\t/g, "\n\t")
+				.trim();
 }
 
 const files = fs
