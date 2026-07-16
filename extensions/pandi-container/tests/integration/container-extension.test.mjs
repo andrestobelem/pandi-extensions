@@ -17,7 +17,7 @@
  * las referencias de imagen, los nombres de máquina y los comandos no pueden inyectar shell.
  *
  * Agregados de P4 (issue #3, mutation-verified non-vacuous): ramas de runStatus not-booted /
- * running / degraded-ls, validación de create/stop/exec + normalización de describeError
+ * running / error de machine-ls, validación de create/stop/exec + normalización de describeError
  * (detalle de stderr, fallback de exit-code, timed-out), parseContainerCommand,
  * timeout + abort REALES de runContainer, y rutas de afuera hacia adentro de comando/tool — cada plataforma
  * pinea su rama real (linux CI: la guarda de plataforma; macOS/arm64: compuertas help/unknown/remove,
@@ -415,8 +415,8 @@ async function scenarioRealSpawnMissingCli(url) {
 }
 
 // ramas de runStatus (issue #3 "not booted"): un `system status` fallido debe exponer
-// el detalle de la CLI; un subsistema en ejecución lista máquinas; un machine-ls fallido degrada
-// a una lista vacía en vez de fallar todo el status.
+// el detalle de la CLI; un subsistema en ejecución lista máquinas; un machine-ls fallido debe
+// seguir siendo diagnosticable, sin confundirse con una lista vacía.
 async function scenarioStatusHandler(url) {
 	const mod = await loadModule(url);
 
@@ -469,9 +469,9 @@ async function scenarioStatusHandler(url) {
 		]);
 		const res = await mod.runStatus(run, {});
 		check(
-			"runStatus with failing ls: still ok, empty machine list",
-			res.ok === true && /No hay máquinas de contenedor/.test(res.text),
-			res.text,
+			"runStatus with failing ls: returns the machine-ls diagnostic",
+			res.ok === false && res.details?.isError === true && /container machine ls.*boom/.test(res.text),
+			JSON.stringify(res),
 		);
 	}
 }

@@ -499,11 +499,14 @@ export async function runStatus(run: RunContainer, opts: HandlerOpts): Promise<H
 		return handlerError("status", statusTruncation, outputTruncationDetails(status));
 	}
 	const list = await run(buildMachineListArgs(), opts);
+	if (!list.ok) {
+		return handlerError("status", describeError(list, "machine ls"), outputTruncationDetails(list));
+	}
 	const listTruncation = describeOutputTruncation(list);
 	if (listTruncation) {
 		return handlerError("status", listTruncation, outputTruncationDetails(list));
 	}
-	const machines = list.ok ? parseMachineList(list.stdout) : [];
+	const machines = parseMachineList(list.stdout);
 	const text = `Subsistema: en ejecución\n\nMáquinas:\n${formatMachineList(machines)}`;
 	return { ok: true, text, details: { action: "status", running: true, machines } };
 }
