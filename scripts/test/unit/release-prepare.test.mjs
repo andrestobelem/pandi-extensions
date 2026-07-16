@@ -59,10 +59,13 @@ PUBLISH  @pandi-coding-agent/new-one@0.1.0 (version not on npm)
 
 test("release-prepare: converts JSON publish plan into legacy bump list", () => {
 	const legacy = publishPlanToLegacyShape(
-		buildPublishPlanDocument([
-			{ name: "@pandi-coding-agent/pandi-bg", version: "0.1.5", action: "bump" },
-			{ name: "@pandi-coding-agent/pandi-plan", version: "0.1.4", action: "publish" },
-		]),
+		buildPublishPlanDocument(
+			[
+				{ name: "@pandi-coding-agent/pandi-bg", version: "0.1.5", action: "bump" },
+				{ name: "@pandi-coding-agent/pandi-plan", version: "0.1.4", action: "publish" },
+			],
+			{ suiteVersion: "0.3.19", gitHead: "test-head" },
+		),
 	);
 	assert.deepEqual(legacy.bumps, [{ name: "@pandi-coding-agent/pandi-bg", version: "0.1.5" }]);
 	assert.deepEqual(legacy.publishes, [{ name: "@pandi-coding-agent/pandi-plan", version: "0.1.4" }]);

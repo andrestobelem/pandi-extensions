@@ -33,9 +33,9 @@ publish npm local con un plan fresco.
 node scripts/release-flow.mjs --go --allow-dirty
 ```
 
-El plan `.release-plan.json` se regenera después del último bump y contiene el shasum de cada tarball. Antes de
-publicar desde un plan, `publish-npm` verifica que el checkout siga produciendo esos mismos tarballs; un plan stale falla
-cerrado en vez de publicar una versión incorrecta.
+El plan `.release-plan.json` se regenera después del último bump y guarda versión de suite, SHA de Git y el shasum de
+cada tarball. Antes de publicar desde un plan, `publish-npm` verifica que el checkout siga produciendo esos mismos
+metadatos y tarballs; un plan stale falla cerrado en vez de publicar una versión incorrecta.
 
 `--all` regenera el publish plan justo antes de publicar (no reutiliza un `.release-plan.json` viejo) y commitea con
 `commit-tree` para evitar trailers `Co-authored-by` que algunos hosts inyectan en `git commit`. Para un preflight más

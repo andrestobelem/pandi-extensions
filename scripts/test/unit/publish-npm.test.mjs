@@ -4,6 +4,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { test } from "node:test";
 import {
+	assertPublishPlanMatchesCheckout,
 	assertPublishPlanMatchesWorkspace,
 	buildPublishArgs,
 	buildPublishPlanDocument,
@@ -55,6 +56,15 @@ test("publish plan accepts its matching local package", () => {
 			{ pkg: { name: "@scope/package", version: "1.0.0" }, localShasum: "same" },
 		),
 	);
+});
+
+test("publish plan rejects incompatible checkout metadata", () => {
+	const plan = { integrity: { suiteVersion: "0.3.19", gitHead: "expected" } };
+	assert.throws(
+		() => assertPublishPlanMatchesCheckout(plan, { suiteVersion: "0.3.19", gitHead: "different" }),
+		/stale publish plan/,
+	);
+	assert.doesNotThrow(() => assertPublishPlanMatchesCheckout(plan, { suiteVersion: "0.3.19", gitHead: "expected" }));
 });
 
 test("withSafeNpmConfig: registry commands ignore local min-release-age", () => {
@@ -128,10 +138,13 @@ test("parsePublishOptions: plan cache and concurrency flags", () => {
 });
 
 test("publish plan document round-trips and renders legacy text", () => {
-	const document = buildPublishPlanDocument([
-		{ dir: "/a", relDir: "extensions/pandi-a", name: "@pandi/a", version: "1.0.0", action: "publish" },
-		{ dir: "/b", relDir: "extensions/pandi-b", name: "@pandi/b", version: "1.0.0", action: "bump" },
-	]);
+	const document = buildPublishPlanDocument(
+		[
+			{ dir: "/a", relDir: "extensions/pandi-a", name: "@pandi/a", version: "1.0.0", action: "publish" },
+			{ dir: "/b", relDir: "extensions/pandi-b", name: "@pandi/b", version: "1.0.0", action: "bump" },
+		],
+		{ suiteVersion: "0.3.19", gitHead: "test-head" },
+	);
 	assert.deepEqual(summarizePublishPlan(document.packages), { total: 2, publish: 1, unchanged: 0, bump: 1 });
 	const roundTrip = parsePublishPlanDocument(JSON.stringify(document));
 	assert.deepEqual(roundTrip.summary, document.summary);

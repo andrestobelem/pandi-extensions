@@ -20,6 +20,7 @@
  */
 import { execFile, execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { parsePositiveInt, valueAfter } from "./lib/cli-args.mjs";
@@ -27,7 +28,7 @@ import { mapPool } from "./lib/pool.mjs";
 import { loadPublicWorkspaces } from "./lib/release-workspaces.mjs";
 
 const execFileAsync = promisify(execFile);
-export const PUBLISH_PLAN_VERSION = 1;
+export const PUBLISH_PLAN_VERSION = 2;
 
 /** Decide la acción para un package: "publish" | "unchanged" | "bump". */
 export function classify(remoteShasum, localShasum) {
@@ -128,10 +129,11 @@ export function summarizePublishPlan(packages) {
 	return summary;
 }
 
-export function buildPublishPlanDocument(packages) {
+export function buildPublishPlanDocument(packages, integrity) {
 	return {
 		version: PUBLISH_PLAN_VERSION,
 		generatedAt: new Date().toISOString(),
+		integrity,
 		summary: summarizePublishPlan(packages),
 		packages,
 	};
@@ -139,7 +141,13 @@ export function buildPublishPlanDocument(packages) {
 
 export function parsePublishPlanDocument(raw) {
 	const plan = typeof raw === "string" ? JSON.parse(raw) : raw;
-	if (!plan || plan.version !== PUBLISH_PLAN_VERSION || !Array.isArray(plan.packages)) {
+	if (
+		!plan ||
+		plan.version !== PUBLISH_PLAN_VERSION ||
+		!Array.isArray(plan.packages) ||
+		typeof plan.integrity?.suiteVersion !== "string" ||
+		typeof plan.integrity?.gitHead !== "string"
+	) {
 		throw new Error("invalid publish plan document");
 	}
 	return plan;
@@ -207,10 +215,22 @@ export async function assertPublishPlanMatchesLocalWorkspaces(
 	}
 }
 
+function readCheckoutIntegrity(root) {
+	const suiteVersion = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).version;
+	const result = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
+	return { suiteVersion, gitHead: result };
+}
+
+export function assertPublishPlanMatchesCheckout(plan, integrity) {
+	if (plan.integrity?.suiteVersion !== integrity.suiteVersion || plan.integrity?.gitHead !== integrity.gitHead) {
+		throw new Error("stale publish plan — checkout metadata changed; regenerate the plan from the current checkout");
+	}
+}
+
 export async function buildPublishPlan(root, options = {}) {
 	const workspaces = loadPublicWorkspaces(root);
 	const packages = await classifyWorkspaces(workspaces, options);
-	return buildPublishPlanDocument(packages);
+	return buildPublishPlanDocument(packages, readCheckoutIntegrity(root));
 }
 
 function readPublishPlan(fromPlan) {
@@ -247,6 +267,7 @@ async function main() {
 		: await buildPublishPlan(root, { concurrency: opts.concurrency });
 
 	if (opts.fromPlan) {
+		assertPublishPlanMatchesCheckout(plan, readCheckoutIntegrity(root));
 		await assertPublishPlanMatchesLocalWorkspaces(plan, loadPublicWorkspaces(root), {
 			concurrency: opts.concurrency,
 		});
