@@ -173,8 +173,38 @@ export async function classifyWorkspaces(workspaces, { concurrency = 8, npm = np
 		relDir,
 		name: pkg.name,
 		version: pkg.version,
+		localShasum: localShasums[index],
 		action: classify(remoteShasums[index], localShasums[index]),
 	}));
+}
+
+/** Falla cerrado si el checkout ya no coincide con el plan que se quiere publicar. */
+export function assertPublishPlanMatchesWorkspace(planned, current) {
+	if (
+		planned.name !== current.pkg.name ||
+		planned.version !== current.pkg.version ||
+		planned.localShasum !== current.localShasum
+	) {
+		throw new Error(
+			`stale publish plan for ${planned.name}@${planned.version} — regenerate the plan from the current checkout`,
+		);
+	}
+}
+
+export async function assertPublishPlanMatchesLocalWorkspaces(
+	plan,
+	workspaces,
+	{ concurrency = 8, npm = npmAsync } = {},
+) {
+	if (plan.packages.length !== workspaces.length) {
+		throw new Error(
+			"stale publish plan — workspace inventory changed; regenerate the plan from the current checkout",
+		);
+	}
+	const localShasums = await mapPool(workspaces, concurrency, async ({ dir }) => localShasum(dir, { npm }));
+	for (const [index, workspace] of workspaces.entries()) {
+		assertPublishPlanMatchesWorkspace(plan.packages[index], { pkg: workspace.pkg, localShasum: localShasums[index] });
+	}
 }
 
 export async function buildPublishPlan(root, options = {}) {
@@ -216,6 +246,11 @@ async function main() {
 		? readPublishPlan(opts.fromPlan)
 		: await buildPublishPlan(root, { concurrency: opts.concurrency });
 
+	if (opts.fromPlan) {
+		await assertPublishPlanMatchesLocalWorkspaces(plan, loadPublicWorkspaces(root), {
+			concurrency: opts.concurrency,
+		});
+	}
 	if (opts.planFile && !opts.fromPlan) writePublishPlan(opts.planFile, plan);
 
 	const text = renderPublishPlanText(plan);

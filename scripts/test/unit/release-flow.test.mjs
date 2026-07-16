@@ -27,6 +27,7 @@ test("release-flow: dry-run is the default", () => {
 
 test("release-flow: --go enables the full preflight bundle", () => {
 	const opts = parseReleaseFlowOptions(["--go"]);
+	assert.equal(opts.all, false);
 	assert.equal(opts.go, true);
 	assert.equal(opts.prepare, true);
 	assert.equal(opts.write, true);
@@ -37,8 +38,28 @@ test("release-flow: --go enables the full preflight bundle", () => {
 	assert.equal(opts.commit, false);
 });
 
-test("release-flow: --ship maps commit, tag and push", () => {
+test("release-flow: --ship includes the full release pipeline", () => {
 	const opts = parseReleaseFlowOptions(["--ship", "--confirm", "v0.3.11"]);
+	assert.equal(opts.all, false);
+	assert.equal(opts.go, true);
+	assert.equal(opts.prepare, true);
+	assert.equal(opts.write, true);
+	assert.equal(opts.untilClean, true);
+	assert.equal(opts.syncDocs, true);
+	assert.equal(opts.runTest, true);
+	assert.equal(opts.contract, true);
+	assert.equal(opts.publish, false);
+	assert.equal(opts.commit, true);
+	assert.equal(opts.tag, true);
+	assert.equal(opts.push, true);
+	assert.equal(opts.confirm, "v0.3.11");
+});
+
+test("release-flow: --all enables go, ship and publish", () => {
+	const opts = parseReleaseFlowOptions(["--all", "--confirm", "v0.3.11"]);
+	assert.equal(opts.all, true);
+	assert.equal(opts.go, true);
+	assert.equal(opts.publish, true);
 	assert.equal(opts.commit, true);
 	assert.equal(opts.tag, true);
 	assert.equal(opts.push, true);
@@ -48,6 +69,7 @@ test("release-flow: --ship maps commit, tag and push", () => {
 test("release-flow: maps ship flags and confirmation", () => {
 	const opts = parseReleaseFlowOptions(["--go", "--fast", "--publish-plan", "tmp/plan.json", "--allow-dirty"]);
 	assert.deepEqual(opts, {
+		all: false,
 		go: true,
 		printConfirmation: false,
 		allowDirty: true,
@@ -69,9 +91,9 @@ test("release-flow: maps ship flags and confirmation", () => {
 	});
 });
 
-test("release-flow: plans ordered steps for --go", () => {
+test("release-flow: plans ordered steps for --all", () => {
 	const expectedTag = readExpectedTag(REPO);
-	const plan = planReleaseFlow(REPO, parseReleaseFlowOptions(["--go"]));
+	const plan = planReleaseFlow(REPO, parseReleaseFlowOptions(["--all"]));
 	assert.equal(plan.dryRun, false);
 	assert.equal(plan.expectedTag, expectedTag);
 	assert.deepEqual(plan.steps, [
@@ -80,6 +102,24 @@ test("release-flow: plans ordered steps for --go", () => {
 		"npm test",
 		"release-contract",
 		"publish-npm verify plan",
+		"git commit (verified)",
+		"git tag",
+		"publish-npm --plan-file --publish (fresh plan)",
+		"git push main + tag",
+	]);
+});
+
+test("release-flow: plans the full pipeline before push for --ship", () => {
+	const plan = planReleaseFlow(REPO, parseReleaseFlowOptions(["--ship", "--confirm", "v0.3.19"]));
+	assert.deepEqual(plan.steps, [
+		"release-prepare --write --until-clean",
+		"sync:docs:html",
+		"npm test",
+		"release-contract",
+		"publish-npm verify plan",
+		"git commit (verified)",
+		"git tag",
+		"git push main + tag",
 	]);
 });
 
@@ -102,6 +142,7 @@ test("release-flow: print-confirmation advertises the ship command", () => {
 		console.log = original;
 	}
 	assert.match(lines.join("\n"), /Release confirmation token: v0\.3\.10/);
+	assert.match(lines.join("\n"), /--all --confirm v0\.3\.10/);
 	assert.match(lines.join("\n"), /--ship --confirm v0\.3\.10/);
 });
 

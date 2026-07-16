@@ -7,12 +7,13 @@
  *   node scripts/release-flow.mjs --go
  *   node scripts/release-flow.mjs --print-confirmation
  *   node scripts/release-flow.mjs --commit --tag --push --confirm v0.3.11
+ *   node scripts/release-flow.mjs --all --confirm v0.3.11
  */
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { valueAfter } from "./lib/cli-args.mjs";
+import { createVerifiedCommit, updateGitRef } from "./lib/git-commit-safe.mjs";
 import { readJsonFile } from "./lib/json-io.mjs";
 import { expectedSuiteTag } from "./release-contract.mjs";
 
@@ -28,9 +29,11 @@ export const RELEASE_STAGE_PATHS = [
 ];
 
 export function parseReleaseFlowOptions(args) {
-	const go = args.includes("--go");
-	const ship = args.includes("--ship");
+	const all = args.includes("--all");
+	const ship = args.includes("--ship") || all;
+	const go = args.includes("--go") || ship;
 	return {
+		all,
 		go,
 		printConfirmation: args.includes("--print-confirmation"),
 		allowDirty: args.includes("--allow-dirty"),
@@ -41,7 +44,7 @@ export function parseReleaseFlowOptions(args) {
 		runTest: go || args.includes("--test"),
 		fastTest: args.includes("--fast"),
 		contract: go || args.includes("--contract"),
-		publish: args.includes("--publish"),
+		publish: all || args.includes("--publish"),
 		provenance: args.includes("--provenance"),
 		commit: ship || args.includes("--commit"),
 		tag: ship || args.includes("--tag"),
@@ -80,7 +83,12 @@ export function assertCleanWorkingTree(root) {
 
 export function printConfirmation(expectedTag) {
 	console.log(`Release confirmation token: ${expectedTag}`);
-	console.log(`Ship with:\n  node scripts/release-flow.mjs --ship --confirm ${expectedTag}`);
+	console.log(
+		`One-shot (preflight + commit + publish + push):\n  node scripts/release-flow.mjs --all --confirm ${expectedTag}`,
+	);
+	console.log(
+		`Git-only ship (npm publish via tag push / Actions):\n  node scripts/release-flow.mjs --ship --confirm ${expectedTag}`,
+	);
 }
 
 export function runStep(label, command, args, { cwd = ROOT, allowFailure = false, spawn = spawnSync } = {}) {
@@ -116,9 +124,9 @@ export function planReleaseFlow(root, opts) {
 	if (opts.runTest) steps.push(opts.fastTest ? "test:fast" : "npm test");
 	if (opts.contract) steps.push("release-contract");
 	if (!opts.skipPublishPlan) steps.push("publish-npm verify plan");
-	if (opts.publish) steps.push("publish-npm --publish");
-	if (opts.commit) steps.push("git commit");
+	if (opts.commit) steps.push("git commit (verified)");
 	if (opts.tag) steps.push("git tag");
+	if (opts.publish) steps.push("publish-npm --plan-file --publish (fresh plan)");
 	if (opts.push) steps.push("git push main + tag");
 	return { dryRun, steps, expectedTag: readExpectedTag(root) };
 }
@@ -131,7 +139,7 @@ function printDryRunGuide(plan) {
 	console.log("\nSuggested commands:");
 	console.log("  npm run release:go");
 	console.log("  node scripts/release-flow.mjs --print-confirmation");
-	console.log(`  node scripts/release-flow.mjs --ship --confirm ${plan.expectedTag}`);
+	console.log(`  node scripts/release-flow.mjs --all --confirm ${plan.expectedTag}`);
 }
 
 function classifyPublishPlan(opts) {
@@ -158,13 +166,15 @@ function verifyPublishPlan(opts) {
 	return assertVerifiedPublishPlan(classifyPublishPlan(opts));
 }
 
-function stageReleaseFiles() {
-	runStep("stage release files", "git", ["add", ...RELEASE_STAGE_PATHS, "-u", "extensions"]);
+function stageReleaseFiles(root) {
+	runStep("stage release files", "git", ["add", ...RELEASE_STAGE_PATHS, "-u", "extensions"], { cwd: root });
 }
 
-function commitRelease(expectedTag) {
-	stageReleaseFiles();
-	runStep("git commit", "git", ["commit", "-m", releaseCommitMessage(expectedTag)]);
+export function commitReleaseVerified(root, expectedTag) {
+	stageReleaseFiles(root);
+	const commitSha = createVerifiedCommit({ root, message: releaseCommitMessage(expectedTag) });
+	updateGitRef(root, "refs/heads/main", commitSha);
+	return commitSha;
 }
 
 function createReleaseTag(expectedTag) {
@@ -194,13 +204,10 @@ function main() {
 
 	if ((opts.go || opts.write) && !opts.allowDirty) assertCleanWorkingTree(ROOT);
 
-	if (!opts.skipPublishPlan && (opts.prepare || opts.write)) classifyPublishPlan(opts);
-
 	if (opts.prepare || opts.write) {
 		const prepareArgs = [join(ROOT, "scripts", "release-prepare.mjs")];
 		if (opts.write) prepareArgs.push("--write");
 		if (opts.untilClean) prepareArgs.push("--until-clean");
-		if (existsSync(join(ROOT, opts.planFile))) prepareArgs.push("--publish-plan", opts.planFile);
 		runStep("release prepare", process.execPath, prepareArgs);
 	}
 
@@ -222,10 +229,18 @@ function main() {
 
 	if (!opts.skipPublishPlan) verifyPublishPlan(opts);
 
+	if (opts.push || opts.commit || opts.tag) requirePushConfirmation(expectedTag, opts.confirm);
+	if (opts.commit) {
+		console.log("\n→ git commit (verified)");
+		const commitSha = commitReleaseVerified(ROOT, expectedTag);
+		console.log(commitSha);
+	}
+	if (opts.tag) createReleaseTag(expectedTag);
+
 	if (opts.publish) {
 		const publishArgs = [
 			join(ROOT, "scripts", "publish-npm.mjs"),
-			"--from-plan",
+			"--plan-file",
 			join(ROOT, opts.planFile),
 			"--publish",
 		];
@@ -233,9 +248,6 @@ function main() {
 		runStep("publish npm", process.execPath, publishArgs);
 	}
 
-	if (opts.push) requirePushConfirmation(expectedTag, opts.confirm);
-	if (opts.commit) commitRelease(expectedTag);
-	if (opts.tag) createReleaseTag(expectedTag);
 	if (opts.push) pushRelease(expectedTag);
 
 	console.log(`\nRelease flow finished for ${expectedTag}.`);

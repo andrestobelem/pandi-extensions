@@ -252,9 +252,7 @@ function main() {
 
 	const finalTag = `v${readJsonFile(join(root, "package.json")).version}`;
 	console.log("\nUpdated release prep files.");
-	console.log(
-		`Next checks:\n  npm run release:go\n  node scripts/release-flow.mjs --print-confirmation\n  node scripts/release-flow.mjs --ship --confirm ${finalTag}`,
-	);
+	console.log(`Next checks:\n  npm run release:go\n  npm run release:ship -- --confirm ${finalTag}`);
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {

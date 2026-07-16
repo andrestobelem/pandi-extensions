@@ -13,18 +13,33 @@ cambió.
 ```bash
 npm run release:flow
 npm run release:go
-node scripts/release-flow.mjs --print-confirmation
-node scripts/release-flow.mjs --ship --confirm v0.3.19
+npm run release:ship -- --confirm v0.3.19
 ```
+
+`release:ship` es el camino normal: corre el preflight completo, crea un commit seguro, etiqueta y pushea. GitHub
+Actions publica el tag con provenance. Para recuperar un fallo de CI, `npm run release:all -- --confirm vX.Y.Z` suma un
+publish npm local con un plan fresco.
 
 | Paso | Qué hace |
 | ---- | -------- |
-| `release:flow` | Dry-run: clasifica los 29 workspaces y muestra el tag suite actual. |
-| `release:go` | Preflight completo: bumps en loop (`--until-clean`), sync docs, `npm test`, contrato y verify plan. |
-| `--print-confirmation` | Muestra el token de ship (tag suite post-bump). Corrélo después de un `--go` verde. |
-| `--ship --confirm` | Commit, tag y push; dispara publish en GitHub Actions. |
+| `release:flow` | Dry-run: clasifica los workspaces y muestra el tag suite actual. |
+| `release:go` | Preflight completo: bumps en loop (`--until-clean`), sync docs, `npm test`, contrato y plan final. |
+| `release:ship -- --confirm vX.Y.Z` | Preflight completo, commit verificado (sin trailers `Co-authored-by`), tag y push. |
+| `release:all -- --confirm vX.Y.Z` | Variante de recuperación que agrega el publish npm local con un plan recién generado. |
 
-`release:go` exige árbol limpio. Para inspeccionar con cambios locales: `node scripts/release-flow.mjs --go --allow-dirty`.
+`release:go` y `release:ship` exigen árbol limpio. Para inspeccionar con cambios locales, corré:
+
+```bash
+node scripts/release-flow.mjs --go --allow-dirty
+```
+
+El plan `.release-plan.json` se regenera después del último bump y contiene el shasum de cada tarball. Antes de
+publicar desde un plan, `publish-npm` verifica que el checkout siga produciendo esos mismos tarballs; un plan stale falla
+cerrado en vez de publicar una versión incorrecta.
+
+`--all` regenera el publish plan justo antes de publicar (no reutiliza un `.release-plan.json` viejo) y commitea con
+`commit-tree` para evitar trailers `Co-authored-by` que algunos hosts inyectan en `git commit`. Para un preflight más
+rápido en iteración: `node scripts/release-flow.mjs --all --fast --confirm v0.3.19` (`test:fast` en vez de `npm test`).
 
 ## Política de versiones
 

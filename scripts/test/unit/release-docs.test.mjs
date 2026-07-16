@@ -35,15 +35,14 @@ test("release playbook documents the executable release path", () => {
 	assert.match(md, /^# Release de pandi-extensions$/m);
 	assert.match(md, /root `package\.json`/);
 	assert.match(md, /`v\$\{root\.version\}`/);
-	assert.deepEqual(commands.slice(0, 4), [
+	assert.deepEqual(commands.slice(0, 3), [
 		"npm run release:flow",
 		"npm run release:go",
-		"node scripts/release-flow.mjs --print-confirmation",
-		`node scripts/release-flow.mjs --ship --confirm ${CURRENT_TAG}`,
+		`npm run release:ship -- --confirm ${CURRENT_TAG}`,
 	]);
 	assert.ok(commands.includes("npm run release:prepare:write -- --until-clean"));
 	assert.match(md, /--until-clean/);
-	assert.match(md, /`node scripts\/publish-npm\.mjs --from-plan \.release-plan\.json --publish --provenance`/);
+	assert.match(md, /plan stale falla\s+cerrado/);
 	assert.match(md, /`NPM_TOKEN`/);
 	assert.match(md, /pi-cante/);
 });

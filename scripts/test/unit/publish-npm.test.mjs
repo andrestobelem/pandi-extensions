@@ -4,6 +4,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { test } from "node:test";
 import {
+	assertPublishPlanMatchesWorkspace,
 	buildPublishArgs,
 	buildPublishPlanDocument,
 	classify,
@@ -34,6 +35,26 @@ test("classify: remote shasum matches local -> unchanged", () => {
 
 test("classify: remote shasum differs from local -> bump", () => {
 	assert.equal(classify("abc123", "def456"), "bump");
+});
+
+test("publish plan rejects a stale local package", () => {
+	assert.throws(
+		() =>
+			assertPublishPlanMatchesWorkspace(
+				{ name: "@scope/package", version: "1.0.0", localShasum: "planned" },
+				{ pkg: { name: "@scope/package", version: "1.0.0" }, localShasum: "current" },
+			),
+		/stale publish plan/,
+	);
+});
+
+test("publish plan accepts its matching local package", () => {
+	assert.doesNotThrow(() =>
+		assertPublishPlanMatchesWorkspace(
+			{ name: "@scope/package", version: "1.0.0", localShasum: "same" },
+			{ pkg: { name: "@scope/package", version: "1.0.0" }, localShasum: "same" },
+		),
+	);
 });
 
 test("withSafeNpmConfig: registry commands ignore local min-release-age", () => {
