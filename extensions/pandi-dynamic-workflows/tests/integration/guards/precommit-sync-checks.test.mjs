@@ -80,8 +80,10 @@ check(
 	JSON.stringify(planSyncScripts({ includeGlobal: true })) ===
 		JSON.stringify([
 			...repoLocalSyncSteps,
+			"sync:agents:global:install",
 			"sync:claude:global:install",
 			...repoLocalCheckSteps,
+			"sync:agents:global:check",
 			"sync:claude:global:check",
 		]),
 );

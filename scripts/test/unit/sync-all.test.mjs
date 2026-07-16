@@ -47,12 +47,15 @@ test("planSyncScripts derives write, check, and global plans from one table", ()
 	assert.deepEqual(planSyncScripts({ checkOnly: true }), checkScripts);
 	assert.deepEqual(planSyncScripts({ includeGlobal: true }), [
 		...writeScripts,
+		"sync:agents:global:install",
 		"sync:claude:global:install",
 		...checkScripts,
+		"sync:agents:global:check",
 		"sync:claude:global:check",
 	]);
 	assert.deepEqual(planSyncScripts({ checkOnly: true, includeGlobal: true }), [
 		...checkScripts,
+		"sync:agents:global:check",
 		"sync:claude:global:check",
 	]);
 });
@@ -77,5 +80,5 @@ test("runSyncScripts stops at the first failing npm script", () => {
 
 test("parseArgs rejects destination flags that sync-all cannot forward safely", () => {
 	assert.deepEqual(parseArgs(["--global"]), { checkOnly: false, includeGlobal: true });
-	assert.throws(() => parseArgs(["--global", "--dest", "/tmp/claude"]), /CLAUDE_GLOBAL_DIR.*sync:all:global/);
+	assert.throws(() => parseArgs(["--global", "--dest", "/tmp/claude"]), /AGENTS_GLOBAL_DIR.*sync:all:global/);
 });

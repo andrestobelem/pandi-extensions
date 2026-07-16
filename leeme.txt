@@ -54,17 +54,22 @@ puntual, fuera de este loop.
 Workflows globales de Claude
 
 Desde pandi-extensions podés inspeccionar, instalar o quitar el espejo global
-de Claude:
+de Claude o de ~/.agents/skills:
 
   cd /Users/andrestobelem/ws/at/pandi-extensions
   npm run sync:claude:global:status
   npm run sync:claude:global:install
   npm run sync:claude:global:remove
+  npm run sync:agents:global:status
+  npm run sync:agents:global:install
+  npm run sync:agents:global:remove
 
 `status` no escribe. `install` instala o restaura los workflows, scripts y
-skills gestionados en ~/.claude. `remove` quita únicamente archivos que siguen
-idénticos a los que instaló Pandi; conserva archivos ajenos o modificados.
+skills gestionados en ~/.claude, o los skills canónicos en ~/.agents/skills
+(Pi, Codex). `remove` quita únicamente archivos que siguen idénticos a los que
+instaló Pandi; conserva archivos ajenos o modificados.
 
-Para probar otro destino sin tocar ~/.claude:
+Para probar otro destino sin tocar ~/.claude o ~/.agents:
 
   CLAUDE_GLOBAL_DIR=/ruta/de/prueba npm run sync:claude:global:install
+  AGENTS_GLOBAL_DIR=/ruta/de/prueba npm run sync:agents:global:install

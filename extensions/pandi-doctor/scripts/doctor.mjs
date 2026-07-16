@@ -287,34 +287,37 @@ report(
 );
 
 // Sincronización global de Claude: ¿el home global de Claude (default ~/.claude) es un espejo al día del repo?
-// Delegamos en el propio script (fuente de verdad del "qué es drift") vía --check; hereda
-// CLAUDE_GLOBAL_DIR, así que doctor y sync miran exactamente el mismo destino. Opcional a
-// propósito: en un clon fresco sin sync previo esto avisa, no rompe el doctor.
-const globalDir = process.env.CLAUDE_GLOBAL_DIR || path.join(home, ".claude");
-// Sólo colapsá a "~" en el borde de segmento, no por prefijo textual (/Users/foo vs /Users/foobar).
-const shortDir = globalDir === home || globalDir.startsWith(home + path.sep) ? globalDir.replace(home, "~") : globalDir;
-const syncScript = SUITE_ROOT ? path.join(SUITE_ROOT, "scripts", "sync-claude-global.mjs") : null;
-const syncLabel = `sincronización global de Claude (${shortDir})`;
+const globalClaudeDir = process.env.CLAUDE_GLOBAL_DIR || path.join(home, ".claude");
+const shortClaudeDir =
+	globalClaudeDir === home || globalClaudeDir.startsWith(home + path.sep)
+		? globalClaudeDir.replace(home, "~")
+		: globalClaudeDir;
+const syncClaudeScript = SUITE_ROOT ? path.join(SUITE_ROOT, "scripts", "sync-claude-global.mjs") : null;
+const syncClaudeLabel = `sincronización global de Claude (${shortClaudeDir})`;
 if (!SUITE_ROOT) {
-	// Instalación independiente: el espejo es una preocupación de desarrollo del repo de
-	// la suite, no de esta máquina — N/A, no un falso aviso de desincronización.
 	report("optional", dim("·"), "sincronización global de Claude", "N/A (fuera del repo pandi-extensions)");
-} else if (existsSync(syncScript)) {
-	const sync = spawnSync(process.execPath, [syncScript, "--check"], { encoding: "utf8", timeout: SYNC_TIMEOUT_MS });
+} else if (existsSync(syncClaudeScript)) {
+	const sync = spawnSync(process.execPath, [syncClaudeScript, "--check"], {
+		encoding: "utf8",
+		timeout: SYNC_TIMEOUT_MS,
+	});
 	if (sync.error || typeof sync.status !== "number") {
-		// El check no pudo correr (spawn falló / timeout): no afirmes "drift", decí que no se verificó.
-		report("optional", WARN, syncLabel, "no se pudo verificar — corré `npm run sync:claude:global:check`");
+		report("optional", WARN, syncClaudeLabel, "no se pudo verificar — corré `npm run sync:claude:global:check`");
 	} else if (sync.status === 0) {
-		report("optional", OK, syncLabel, "espejo al día del repo");
+		report("optional", OK, syncClaudeLabel, "espejo al día del repo");
 	} else {
-		// --check imprime "N file(s) out of sync" en stderr; mostrá el conteo para que sea accionable.
 		const m = `${sync.stderr || ""}${sync.stdout || ""}`.match(/(\d+) file\(s\) out of sync/);
 		if (m) {
 			const n = Number(m[1]);
 			const count = ` (${n} archivo${n === 1 ? "" : "s"})`;
-			report("optional", WARN, syncLabel, `desincronizado${count} — corré \`npm run sync:claude:global:install\``);
+			report(
+				"optional",
+				WARN,
+				syncClaudeLabel,
+				`desincronizado${count} — corré \`npm run sync:claude:global:install\``,
+			);
 		} else {
-			report("optional", WARN, syncLabel, "no se pudo verificar — revisá `npm run sync:claude:global:status`");
+			report("optional", WARN, syncClaudeLabel, "no se pudo verificar — revisá `npm run sync:claude:global:status`");
 		}
 	}
 } else {
@@ -324,6 +327,44 @@ if (!SUITE_ROOT) {
 		"sincronización global de Claude",
 		"ausente — scripts/sync-claude-global.mjs no encontrado",
 	);
+}
+
+// Sincronización global de ~/.agents/skills (Pi, Codex y otros hosts que lean ~/.agents/skills).
+const globalAgentsDir = process.env.AGENTS_GLOBAL_DIR || path.join(home, ".agents");
+const shortAgentsDir =
+	globalAgentsDir === home || globalAgentsDir.startsWith(home + path.sep)
+		? globalAgentsDir.replace(home, "~")
+		: globalAgentsDir;
+const syncAgentsScript = SUITE_ROOT ? path.join(SUITE_ROOT, "scripts", "sync-agents-global.mjs") : null;
+const syncAgentsLabel = `sincronización global de ~/.agents/skills (${shortAgentsDir})`;
+if (!SUITE_ROOT) {
+	report("optional", dim("·"), syncAgentsLabel, "N/A (fuera del repo pandi-extensions)");
+} else if (existsSync(syncAgentsScript)) {
+	const sync = spawnSync(process.execPath, [syncAgentsScript, "--check"], {
+		encoding: "utf8",
+		timeout: SYNC_TIMEOUT_MS,
+	});
+	if (sync.error || typeof sync.status !== "number") {
+		report("optional", WARN, syncAgentsLabel, "no se pudo verificar — corré `npm run sync:agents:global:check`");
+	} else if (sync.status === 0) {
+		report("optional", OK, syncAgentsLabel, "espejo al día del repo");
+	} else {
+		const m = `${sync.stderr || ""}${sync.stdout || ""}`.match(/(\d+) file\(s\) out of sync/);
+		if (m) {
+			const n = Number(m[1]);
+			const count = ` (${n} archivo${n === 1 ? "" : "s"})`;
+			report(
+				"optional",
+				WARN,
+				syncAgentsLabel,
+				`desincronizado${count} — corré \`npm run sync:agents:global:install\``,
+			);
+		} else {
+			report("optional", WARN, syncAgentsLabel, "no se pudo verificar — revisá `npm run sync:agents:global:status`");
+		}
+	}
+} else {
+	report("optional", WARN, syncAgentsLabel, "ausente — scripts/sync-agents-global.mjs no encontrado");
 }
 
 function checkRepoSync({ label, script, checkCommand, fixCommand, okDetail }) {

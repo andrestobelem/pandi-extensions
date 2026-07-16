@@ -99,6 +99,9 @@ Arreglos de sync comunes:
 npm run sync:claude:global:status # inspección read-only; respeta CLAUDE_GLOBAL_DIR
 npm run sync:claude:global:install # opt-in: instala y registra archivos gestionados en ~/.claude
 npm run sync:claude:global:remove # elimina solo managed sin cambios; conserva ajenos/modificados
+npm run sync:agents:global:status # inspección read-only; respeta AGENTS_GLOBAL_DIR
+npm run sync:agents:global:install # opt-in: instala skills canónicos en ~/.agents/skills (Pi, Codex)
+npm run sync:agents:global:remove # elimina solo managed sin cambios; conserva ajenos/modificados
 npm run sync:manifest             # package.json#pi desde extension manifests
 npm run sync:settings             # .pi/settings*.json desde extension manifests
 npm run sync:skills               # mirror .pi/skills -> .claude/skills

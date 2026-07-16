@@ -30,14 +30,18 @@ function repoLocalScripts(checkOnly) {
 
 export function planSyncScripts({ checkOnly = false, includeGlobal = false } = {}) {
 	if (checkOnly) {
-		return includeGlobal ? [...repoLocalScripts(true), "sync:claude:global:check"] : repoLocalScripts(true);
+		return includeGlobal
+			? [...repoLocalScripts(true), "sync:agents:global:check", "sync:claude:global:check"]
+			: repoLocalScripts(true);
 	}
 
 	if (includeGlobal) {
 		return [
 			...repoLocalScripts(false),
+			"sync:agents:global:install",
 			"sync:claude:global:install",
 			...repoLocalScripts(true),
+			"sync:agents:global:check",
 			"sync:claude:global:check",
 		];
 	}
@@ -58,7 +62,7 @@ export function parseArgs(args = process.argv.slice(2)) {
 	const unsupported = args.filter((arg) => arg !== "--check" && arg !== "--global");
 	if (unsupported.length > 0) {
 		throw new Error(
-			`unsupported sync-all argument '${unsupported[0]}'; set CLAUDE_GLOBAL_DIR when running sync:all:global`,
+			`unsupported sync-all argument '${unsupported[0]}'; set AGENTS_GLOBAL_DIR / CLAUDE_GLOBAL_DIR when running sync:all:global`,
 		);
 	}
 	return {
