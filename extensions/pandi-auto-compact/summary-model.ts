@@ -2,7 +2,7 @@
  * Resolución del modelo rápido para session_before_compact.
  */
 
-import type { Model } from "@earendil-works/pi-ai/compat";
+import type { Api, Model } from "@earendil-works/pi-ai/compat";
 import {
 	convertToLlm,
 	type ExtensionContext,
@@ -15,7 +15,7 @@ import { isCodexModel } from "./settings.js";
 type SummaryAuth = Awaited<ReturnType<ExtensionContext["modelRegistry"]["getApiKeyAndHeaders"]>>;
 
 export interface SummaryModelSelection {
-	model: Model<any>;
+	model: Model<Api>;
 	auth: Extract<SummaryAuth, { ok: true }>;
 	ref: string;
 }
@@ -31,7 +31,7 @@ const candidateModelRefs = (preferred: string | undefined, current: ExtensionCon
 	return [...new Set(refs)];
 };
 
-const findModelByRef = (ctx: ExtensionContext, ref: string): Model<any> | undefined => {
+const findModelByRef = (ctx: ExtensionContext, ref: string): Model<Api> | undefined => {
 	const trimmed = ref.trim();
 	const slash = trimmed.indexOf("/");
 	if (slash > 0) return ctx.modelRegistry?.find?.(trimmed.slice(0, slash), trimmed.slice(slash + 1));

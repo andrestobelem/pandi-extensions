@@ -2,9 +2,10 @@
  * Estado mutable de la sesión y helpers compartidos entre hooks y comando.
  */
 
-import { mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import type { Model, SimpleStreamOptions } from "@earendil-works/pi-ai/compat";
+import { randomUUID } from "node:crypto";
+import { mkdirSync, readdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
+import { basename, dirname, join } from "node:path";
+import type { Api, Model, SimpleStreamOptions } from "@earendil-works/pi-ai/compat";
 import { completeSimple } from "@earendil-works/pi-ai/compat";
 import type { ExtensionContext, SessionBeforeCompactEvent } from "@earendil-works/pi-coding-agent";
 import { clearOldToolResults } from "./clear-tool-results.js";
@@ -84,7 +85,23 @@ export interface AutoCompactRuntime {
 const CLEAR_HEAD_CHARS = 200;
 const CLEAR_TAIL_CHARS = 200;
 
+const writeJsonAtomically = (file: string, data: unknown): void => {
+	const temporaryFile = join(dirname(file), `.${basename(file)}.${process.pid}.${randomUUID()}.tmp`);
+	try {
+		writeFileSync(temporaryFile, JSON.stringify(data, null, 2), "utf8");
+		renameSync(temporaryFile, file);
+	} catch (error) {
+		try {
+			unlinkSync(temporaryFile);
+		} catch {
+			/* la limpieza del temporal no debe ocultar el error original */
+		}
+		throw error;
+	}
+};
+
 export function createAutoCompactRuntime(): AutoCompactRuntime {
+	let snapshotSequence = 0;
 	const runtime: AutoCompactRuntime = {
 		enabled: true,
 		thresholdPercentOverride: parseThreshold(process.env.PI_AUTO_COMPACT_PERCENT),
@@ -197,7 +214,7 @@ export function createAutoCompactRuntime(): AutoCompactRuntime {
 			const createdAt = new Date().toISOString();
 			const reason = event.reason ?? "compact";
 			const dir = snapshotDirFor(ctx.cwd, sessionId);
-			const file = join(dir, snapshotFileName(createdAt, reason));
+			const file = join(dir, snapshotFileName(createdAt, reason, snapshotSequence++));
 			const snapshot = buildSnapshot({
 				sessionId,
 				createdAt,
@@ -206,7 +223,7 @@ export function createAutoCompactRuntime(): AutoCompactRuntime {
 				entries: Array.isArray(event.branchEntries) ? event.branchEntries : [],
 			});
 			mkdirSync(dir, { recursive: true });
-			writeFileSync(file, JSON.stringify(snapshot, null, 2), "utf8");
+			writeJsonAtomically(file, snapshot);
 			runtime.pendingSnapshotPath = file;
 			try {
 				for (const name of selectSnapshotsToPrune(readdirSync(dir), runtime.snapshotKeep)) {
@@ -236,7 +253,7 @@ export function createAutoCompactRuntime(): AutoCompactRuntime {
 		try {
 			const data = JSON.parse(readFileSync(file, "utf8")) as CompactionSnapshot;
 			data.summary = event.compactionEntry?.summary ?? "";
-			writeFileSync(file, JSON.stringify(data, null, 2), "utf8");
+			writeJsonAtomically(file, data);
 			runtime.notify(
 				ctx,
 				`Instantánea de compactación guardada (contexto sin procesar recuperable): ${file}`,
@@ -279,7 +296,7 @@ export function createAutoCompactRuntime(): AutoCompactRuntime {
 			};
 			if (selected.model.reasoning) options.reasoning = FAST_SUMMARY_REASONING as SimpleStreamOptions["reasoning"];
 			const response = await completeSimple(
-				selected.model as Model<any>,
+				selected.model as Model<Api>,
 				{ messages: [{ role: "user", content: prompt.prompt, timestamp: 0 }] },
 				options,
 			);

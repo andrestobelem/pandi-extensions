@@ -23,8 +23,10 @@ export const snapshotDirFor = (cwd: string, sessionId: string): string =>
 	join(cwd, CONFIG_DIR_NAME, SNAPSHOT_DIR, safeSegment(sessionId, "session"));
 
 /** Nombre del archivo de instantánea. Con prefijo de timestamp para que un sort lexicográfico sea cronológico. Puro. */
-export const snapshotFileName = (createdAtIso: string, reason: string): string =>
-	`${safeSegment(createdAtIso, "snapshot")}-${safeSegment(reason, "compact")}.json`;
+export const snapshotFileName = (createdAtIso: string, reason: string, sequence = 0): string => {
+	const suffix = sequence > 0 ? `-${sequence}` : "";
+	return `${safeSegment(createdAtIso, "snapshot")}-${safeSegment(reason, "compact")}${suffix}.json`;
+};
 
 export interface CompactionSnapshot {
 	version: 1;

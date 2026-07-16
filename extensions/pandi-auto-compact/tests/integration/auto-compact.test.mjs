@@ -781,6 +781,10 @@ async function snapshotWritesRawEntries(url) {
 		{ type: "message", id: "b", message: { role: "assistant", content: "world raw" } },
 	];
 	await fireBeforeCompact(handlers, env.ctx, { branchEntries: entries, reason: "threshold" });
+	check(
+		"snapshot: atomic write leaves no temporary files",
+		!readdirSync(snapDir(env)).some((name) => name.endsWith(".tmp")),
+	);
 	const snap = readSingleSnapshot(env, "snapshot: session_before_compact writes raw entries");
 	if (!snap) return;
 	check(
@@ -915,6 +919,10 @@ async function snapshotPureHelpers(url) {
 		"snapshotFileName: timestamp-prefixed, safe, .json",
 		name.endsWith("-threshold.json") && !name.includes(":"),
 		`name=${name}`,
+	);
+	check(
+		"snapshotFileName: sequence disambiguates a same-timestamp snapshot",
+		mod.snapshotFileName("2026-06-28T10:04:04.932Z", "threshold", 1).endsWith("-threshold-1.json"),
 	);
 	const snap = mod.buildSnapshot({
 		sessionId: "s",
