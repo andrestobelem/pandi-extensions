@@ -268,9 +268,9 @@ async function cancelSignalsVerifiedOrphan(url, check) {
 	}
 }
 
-async function cancelVerifiedOrphanKeepsSurvivorNonDeletable(url, check) {
+async function cancelVerifiedOrphanEscalatesToSigkill(url, check) {
 	if (process.platform === "win32") {
-		check("cancel-orphan-survivor: POSIX process-group signaling skipped on win32", true);
+		check("cancel-orphan-sigkill: POSIX process-group signaling skipped on win32", true);
 		return;
 	}
 	const mod = await loadModule(url);
@@ -316,18 +316,30 @@ async function cancelVerifiedOrphanKeepsSurvivorNonDeletable(url, check) {
 		const ctx = makeCtx({ cwd, trusted: true });
 		await commands.get("bg").handler(`cancel ${jobId}`, ctx);
 		const msg = ctx._notes.at(-1)?.msg || "";
-		check("cancel-orphan-survivor: reports that process is still alive", /sigue vivo/.test(msg), msg);
-		check("cancel-orphan-survivor: process is still alive after cancel", process.kill(child.pid, 0) === true);
+		check("cancel-orphan-sigkill: reports SIGKILL escalation", /SIGKILL/.test(msg), msg);
+		const dead = await waitFor(
+			"verified orphan process exits after SIGKILL",
+			async () => {
+				try {
+					process.kill(child.pid, 0);
+					return false;
+				} catch {
+					return true;
+				}
+			},
+			{ timeoutMs: 8000 },
+		);
+		check("cancel-orphan-sigkill: process was killed", dead === true);
 		const status = await readJson(path.join(runDir, "status.json"));
 		check(
-			"cancel-orphan-survivor: status is non-terminal/non-deletable",
-			status.state === "orphaned" && status.cancelRequested === true && !status.completedAt,
+			"cancel-orphan-sigkill: status is cancelled",
+			status.state === "cancelled" && status.cancelRequested === true && status.completedAt,
 			JSON.stringify(status),
 		);
 		const events = await fs.readFile(path.join(runDir, "events.jsonl"), "utf8").catch(() => "");
 		check(
-			"cancel-orphan-survivor: records survived event",
-			/cancel-orphan-survived/.test(events),
+			"cancel-orphan-sigkill: records escalation event",
+			/cancel-orphan-sigkill/.test(events),
 			events.slice(-300),
 		);
 	} finally {
@@ -416,7 +428,7 @@ async function main() {
 			cancelEscalatesToSigkill,
 			cancelReachesGroupSurvivorsAfterShellExit,
 			cancelSignalsVerifiedOrphan,
-			cancelVerifiedOrphanKeepsSurvivorNonDeletable,
+			cancelVerifiedOrphanEscalatesToSigkill,
 			cancelRefusesReusedPid,
 			jobFinishedGuardRejectsCancel,
 		],

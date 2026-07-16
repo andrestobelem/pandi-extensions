@@ -17,7 +17,7 @@ import {
 	signalProcessGroup,
 	writeStatus,
 } from "./job-runtime.js";
-import { readProcessStartId, verifyProcessIdentity } from "./process-liveness.js";
+import { probeProcessAlive, readProcessStartId, verifyProcessIdentity } from "./process-liveness.js";
 import { activeJobs, appendEvent, asNumber, asString, nowIso } from "./runtime-state.js";
 import { atomicWriteJson, createRunDir, generateJobId, readJson, validJobId } from "./storage.js";
 import type { JobStatus, RuntimeJob } from "./types.js";
@@ -175,25 +175,42 @@ async function cancelPersistedJob(ctx: ExtensionContext, jobId: string): Promise
 			error: (err as Error).message,
 		});
 	}
-	const now = nowIso();
+	let escalated = false;
 	if (signaled) {
 		await sleep(CANCEL_GRACE_MS);
 		if (verifyProcessIdentity(pid, asString(status.startId)) === "same") {
-			await appendEvent(runDir, { event: "cancel-orphan-survived", jobId, pid });
-			await atomicWriteJson(path.join(runDir, "status.json"), {
-				...status,
-				state: "orphaned",
-				cancelRequested: true,
-				updatedAt: now,
-				reason: "cancel-signal-sent-process-still-alive",
-			});
-			return response(
-				`Se envió SIGTERM al huérfano verificado ${jobId} (pid ${pid}), pero el proceso sigue vivo; no se lo marcó como cancelado/deletable.`,
-				{ action: "cancel", jobId, active: false, signaled, stillAlive: true, identity: "verified" },
-				"warning",
-			);
+			try {
+				signalProcessGroup(pid!, "SIGKILL");
+				escalated = true;
+				await appendEvent(runDir, { event: "cancel-orphan-sigkill", jobId, pid });
+			} catch (err) {
+				await appendEvent(runDir, {
+					event: "cancel-orphan-sigkill-error",
+					jobId,
+					error: (err as Error).message,
+				});
+			}
+			await sleep(CANCEL_GRACE_MS);
 		}
 	}
+	const identityAfterCancel = verifyProcessIdentity(pid, asString(status.startId));
+	const processTerminated = identityAfterCancel === "different" || probeProcessAlive(pid) === "dead";
+	if (!processTerminated) {
+		await appendEvent(runDir, { event: "cancel-orphan-survived", jobId, pid });
+		await atomicWriteJson(path.join(runDir, "status.json"), {
+			...status,
+			state: "orphaned",
+			cancelRequested: true,
+			updatedAt: nowIso(),
+			reason: "cancel-signal-sent-process-still-alive",
+		});
+		return response(
+			`Se envió ${escalated ? "SIGTERM y SIGKILL" : "SIGTERM"} al huérfano verificado ${jobId} (pid ${pid}), pero el proceso sigue vivo; no se lo marcó como cancelado/deletable.`,
+			{ action: "cancel", jobId, active: false, signaled, escalated, stillAlive: true, identity: "verified" },
+			"warning",
+		);
+	}
+	const now = nowIso();
 	await atomicWriteJson(path.join(runDir, "status.json"), {
 		...status,
 		state: "cancelled",
@@ -204,9 +221,9 @@ async function cancelPersistedJob(ctx: ExtensionContext, jobId: string): Promise
 	});
 	return response(
 		signaled
-			? `Se envió SIGTERM al huérfano verificado ${jobId} (pid ${pid}) y se lo marcó como cancelado.`
+			? `Se envió ${escalated ? "SIGTERM y SIGKILL" : "SIGTERM"} al huérfano verificado ${jobId} (pid ${pid}) y se lo marcó como cancelado.`
 			: `Se marcó el huérfano verificado ${jobId} como cancelado, pero falló el envío de señal al pid ${pid}.`,
-		{ action: "cancel", jobId, active: false, signaled, identity: "verified" },
+		{ action: "cancel", jobId, active: false, signaled, escalated, identity: identityAfterCancel },
 	);
 }
 
