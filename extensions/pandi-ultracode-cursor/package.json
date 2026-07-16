@@ -27,7 +27,7 @@
 		"README.md"
 	],
 	"dependencies": {
-		"@pandi-coding-agent/pandi-dynamic-workflows": "0.4.11",
+		"@pandi-coding-agent/pandi-dynamic-workflows": "0.4.12",
 		"ajv": "^8.18.0"
 	}
 }
