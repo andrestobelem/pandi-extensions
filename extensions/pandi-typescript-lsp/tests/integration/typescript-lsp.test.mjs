@@ -518,6 +518,24 @@ async function scenarioRunTscMechanics(url) {
 		JSON.stringify(lateOk),
 	);
 
+	const ignoresSigterm = [
+		"-e",
+		'process.on("SIGTERM", () => process.stderr.write("ignored SIGTERM\\n")); setInterval(() => {}, 1000)',
+	];
+	const timeoutStartedAt = Date.now();
+	const timedOutUncooperative = await mod.runTsc(process.execPath, ignoresSigterm, {
+		cwd: os.tmpdir(),
+		timeoutMs: 1_000,
+	});
+	check(
+		"runTsc: timeout escalates an uncooperative child to SIGKILL",
+		timedOutUncooperative.timedOut === true &&
+			timedOutUncooperative.signal === "SIGKILL" &&
+			timedOutUncooperative.stderr.includes("ignored SIGTERM") &&
+			Date.now() - timeoutStartedAt < 5_000,
+		JSON.stringify(timedOutUncooperative),
+	);
+
 	const controller = new AbortController();
 	const pending = mod.runTsc(process.execPath, ["-e", "setTimeout(() => {}, 10000)"], {
 		cwd: os.tmpdir(),
@@ -530,6 +548,24 @@ async function scenarioRunTscMechanics(url) {
 		"runTsc: abort → resolves ok=false, SIGTERM",
 		aborted.ok === false && aborted.signal === "SIGTERM",
 		JSON.stringify(aborted),
+	);
+
+	const abortController = new AbortController();
+	const abortStartedAt = Date.now();
+	const abortedUncooperativePending = mod.runTsc(process.execPath, ignoresSigterm, {
+		cwd: os.tmpdir(),
+		signal: abortController.signal,
+		timeoutMs: 30_000,
+	});
+	setTimeout(() => abortController.abort(), 1_000);
+	const abortedUncooperative = await abortedUncooperativePending;
+	check(
+		"runTsc: abort escalates an uncooperative child to SIGKILL",
+		abortedUncooperative.timedOut === false &&
+			abortedUncooperative.signal === "SIGKILL" &&
+			abortedUncooperative.stderr.includes("ignored SIGTERM") &&
+			Date.now() - abortStartedAt < 5_000,
+		JSON.stringify(abortedUncooperative),
 	);
 
 	const missing = await mod.runTsc("tsc-does-not-exist-xyz", ["--version"], { cwd: os.tmpdir(), timeoutMs: 5000 });

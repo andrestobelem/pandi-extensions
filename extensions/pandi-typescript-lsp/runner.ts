@@ -15,6 +15,7 @@ import {
 import { parseMax } from "./settings.js";
 
 export const MAX_TSC_OUTPUT_BYTES = 2_000_000;
+const TSC_TERMINATION_GRACE_MS = 1_000;
 
 export const TIMEOUT_MESSAGE =
 	"El chequeo de TypeScript agotó el tiempo de espera — resultados no concluyentes. Reintentá cuando tsc termine, o aumentá PI_TS_LSP_TIMEOUT_MS.";
@@ -38,6 +39,8 @@ export function runTsc(command: string, args: string[], options: RunTscOptions):
 		let stderrBytes = 0;
 		let settled = false;
 		let timedOut = false;
+		let termination: "timeout" | "abort" | undefined;
+		let killTimer: ReturnType<typeof setTimeout> | undefined;
 
 		const child = spawn(command, args, { cwd, windowsHide: true });
 
@@ -45,27 +48,29 @@ export function runTsc(command: string, args: string[], options: RunTscOptions):
 			if (settled) return;
 			settled = true;
 			clearTimeout(timer);
+			if (killTimer) clearTimeout(killTimer);
 			if (signal) signal.removeEventListener("abort", onAbort);
 			resolve(result);
 		};
 
-		const onAbort = (): void => {
+		const terminate = (reason: "timeout" | "abort"): void => {
+			if (settled || termination) return;
+			termination = reason;
+			if (reason === "timeout") timedOut = true;
 			try {
 				child.kill("SIGTERM");
 			} catch {
 				/* ya no existe */
 			}
-			finish({ ok: false, exitCode: null, stdout, stderr, signal: "SIGTERM", timedOut: false });
+			killTimer = setTimeout(() => {
+				if (!settled) child.kill("SIGKILL");
+			}, TSC_TERMINATION_GRACE_MS);
+			killTimer.unref?.();
 		};
 
-		const timer = setTimeout(() => {
-			timedOut = true;
-			try {
-				child.kill("SIGTERM");
-			} catch {
-				/* ya no existe */
-			}
-		}, timeoutMs);
+		const onAbort = (): void => terminate("abort");
+
+		const timer = setTimeout(() => terminate("timeout"), timeoutMs);
 		if (typeof timer.unref === "function") timer.unref();
 
 		if (signal) {
