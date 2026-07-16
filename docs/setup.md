@@ -12,7 +12,7 @@ Hay dos caminos distintos. Para consumir una release estable con Pi vanilla:
 ```bash
 nvm install && nvm use                                             # Node >= 22.19.0
 npm install -g --ignore-scripts @earendil-works/pi-coding-agent    # Pi CLI
-pi install git:github.com/andrestobelem/pandi-extensions@v0.3.15   # suite fijada para tu usuario
+pi install git:github.com/andrestobelem/pandi-extensions@v0.3.16   # suite fijada para tu usuario
 ```
 
 Para desarrollar las extensiones, usá checkouts siblings y no instales la suite en tu perfil global:
@@ -82,8 +82,8 @@ Cada opción habilita una capacidad; sin ella, esa capacidad simplemente no exis
 
 | Variante                        | Comando                                                               | Cuándo                                                       |
 | ------------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------ |
-| Suite fijada para tu usuario    | `pi install git:github.com/andrestobelem/pandi-extensions@v0.3.15`    | Usá la suite estable completa en todos tus proyectos.        |
-| Suite fijada para un proyecto   | `pi install -l git:github.com/andrestobelem/pandi-extensions@v0.3.15` | Solo ese proyecto debe cargar la suite estable completa.     |
+| Suite fijada para tu usuario    | `pi install git:github.com/andrestobelem/pandi-extensions@v0.3.16`    | Usá la suite estable completa en todos tus proyectos.        |
+| Suite fijada para un proyecto   | `pi install -l git:github.com/andrestobelem/pandi-extensions@v0.3.16` | Solo ese proyecto debe cargar la suite estable completa.     |
 | Extensión npm individual        | `pi install npm:@pandi-coding-agent/pandi-<ext>`                      | Necesitás una capacidad a la carta en tus proyectos.         |
 | Entry point local, sin instalar | `pi --no-extensions -e ./extensions/pandi-dynamic-workflows/index.ts` | Smoke puntual de compatibilidad con un Pi vanilla existente. |
 
@@ -233,7 +233,7 @@ recursos dos veces. `npm run doctor` lo detecta y avisa.
 
 | Canal                                     | Cómo                                                                                                | Cuándo                                                                                                                                                                                                             |
 | ----------------------------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Bundle git fijado**                     | `pi install git:github.com/andrestobelem/pandi-extensions@v0.3.15`                                  | Consumo user-wide de toda la suite, con versión estable.                                                                                                                                                           |
+| **Bundle git fijado**                     | `pi install git:github.com/andrestobelem/pandi-extensions@v0.3.16`                                  | Consumo user-wide de toda la suite, con versión estable.                                                                                                                                                           |
 | **Working tree con Picante**              | clone sibling + `npm run dev:picante`                                                               | Desarrollo normal: perfil descartable, bundle deshabilitado y checkout local como fuente única.                                                                                                                    |
 | **Working tree con Pi vanilla**           | clone + `pi install -l ./` en un proyecto scratch                                                   | Smoke específico de compatibilidad con instalación local; no es el loop normal de contribución.                                                                                                                    |
 | **npm con scope `@pandi-coding-agent/*`** | `pi install npm:@pandi-coding-agent/pandi-<ext>`                                                    | A la carta y user-wide — los paquetes publican bajo la identidad `pandi-*`. Con `min-release-age`, las versiones recién publicadas recién se pueden instalar después de esa ventana.                               |
